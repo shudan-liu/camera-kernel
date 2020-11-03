@@ -5916,31 +5916,26 @@ static int cam_tfe_hw_mgr_debug_register(void)
 	/* Store parent inode for cleanup in caller */
 	g_tfe_hw_mgr.debug_cfg.dentry = dbgfileptr;
 
-	dbgfileptr = debugfs_create_file("tfe_csid_debug", 0644,
+	debugfs_create_file("tfe_csid_debug", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry, NULL, &cam_tfe_csid_debug);
-	dbgfileptr = debugfs_create_u32("enable_recovery", 0644,
+	debugfs_create_u32("enable_recovery", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry,
 		&g_tfe_hw_mgr.debug_cfg.enable_recovery);
-	dbgfileptr = debugfs_create_u32("enable_reg_dump", 0644,
+	debugfs_create_u32("enable_reg_dump", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry,
 		&g_tfe_hw_mgr.debug_cfg.enable_reg_dump);
-	dbgfileptr = debugfs_create_u32("enable_csid_recovery", 0644,
+	debugfs_create_u32("enable_csid_recovery", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry,
 		&g_tfe_hw_mgr.debug_cfg.enable_csid_recovery);
-	dbgfileptr = debugfs_create_u32("set_tpg_pattern", 0644,
+	debugfs_create_u32("set_tpg_pattern", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry,
 		&g_tfe_hw_mgr.debug_cfg.set_tpg_pattern);
-	dbgfileptr = debugfs_create_file("tfe_camif_debug", 0644,
+	debugfs_create_file("tfe_camif_debug", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry, NULL, &cam_tfe_camif_debug);
-	dbgfileptr = debugfs_create_u32("per_req_reg_dump", 0644,
+	debugfs_create_u32("per_req_reg_dump", 0644,
 		g_tfe_hw_mgr.debug_cfg.dentry,
 		&g_tfe_hw_mgr.debug_cfg.per_req_reg_dump);
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_ISP, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
+
 end:
 	g_tfe_hw_mgr.debug_cfg.enable_recovery = 0;
 	return rc;

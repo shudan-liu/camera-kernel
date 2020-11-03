@@ -206,16 +206,11 @@ static int cam_soc_util_create_clk_lvl_debugfs(struct cam_hw_soc_info *soc_info)
 	/* Store parent inode for cleanup in caller */
 	soc_info->dentry = dbgfileptr;
 
-	dbgfileptr = debugfs_create_file("clk_lvl_options", 0444,
+	debugfs_create_file("clk_lvl_options", 0444,
 		soc_info->dentry, soc_info, &cam_soc_util_clk_lvl_options);
-	dbgfileptr = debugfs_create_file("clk_lvl_control", 0644,
+	debugfs_create_file("clk_lvl_control", 0644,
 		soc_info->dentry, soc_info, &cam_soc_util_clk_lvl_control);
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_UTIL, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
+
 end:
 	return rc;
 }

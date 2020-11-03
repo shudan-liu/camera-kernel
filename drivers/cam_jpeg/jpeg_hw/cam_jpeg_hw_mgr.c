@@ -1870,18 +1870,12 @@ static int cam_jpeg_mgr_create_debugfs_entry(void)
 	/* Store parent inode for cleanup in caller */
 	g_jpeg_hw_mgr.dentry = dbgfileptr;
 
-	dbgfileptr = debugfs_create_file("camnoc_misr_test", 0644,
+	debugfs_create_file("camnoc_misr_test", 0644,
 		g_jpeg_hw_mgr.dentry, NULL, &camnoc_misr_test);
 
-	dbgfileptr = debugfs_create_file("bug_on_misr_mismatch", 0644,
+	debugfs_create_file("bug_on_misr_mismatch", 0644,
 		g_jpeg_hw_mgr.dentry, NULL, &bug_on_misr_mismatch);
 
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_JPEG, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
 err:
 	return rc;
 }
