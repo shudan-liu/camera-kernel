@@ -13,6 +13,7 @@
 
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
+#include "cam_smmu_api.h"
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
 
@@ -23,6 +24,7 @@
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 
 #include <linux/msm_ion.h>
+#include <linux/iommu.h>
 #include <linux/ion.h>
 #include <linux/qcom_scm.h>
 
@@ -48,5 +50,7 @@ int camera_component_match_add_drivers(struct device *master_dev,
 	struct component_match **match_list);
 int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 	bool protect, int32_t offset);
+void cam_check_iommu_faults(struct iommu_domain *domain,
+	struct cam_smmu_pf_info *pf_info);
 
 #endif /* _CAM_COMPAT_H_ */
