@@ -21,7 +21,7 @@
 
 #endif
 
-#if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 
 #include <linux/msm_ion.h>
 #include <linux/iommu.h>
@@ -52,5 +52,6 @@ int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 	bool protect, int32_t offset);
 void cam_check_iommu_faults(struct iommu_domain *domain,
 	struct cam_smmu_pf_info *pf_info);
+void cam_free_clear(const void *);
 
 #endif /* _CAM_COMPAT_H_ */
