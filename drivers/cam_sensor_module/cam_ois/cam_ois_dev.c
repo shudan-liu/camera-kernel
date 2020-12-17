@@ -423,7 +423,7 @@ static void __exit cam_ois_driver_exit(void)
 		i2c_del_driver(&cam_ois_i2c_driver);
 }
 
-module_init(cam_ois_driver_init);
+early_module_init(cam_ois_driver_init, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_ois_driver_exit);
 MODULE_DESCRIPTION("CAM OIS driver");
 MODULE_LICENSE("GPL v2");

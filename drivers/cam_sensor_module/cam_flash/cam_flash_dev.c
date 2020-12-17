@@ -647,7 +647,7 @@ static void __exit cam_flash_exit_module(void)
 	i2c_del_driver(&cam_flash_i2c_driver);
 }
 
-module_init(cam_flash_init_module);
+early_module_init(cam_flash_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_flash_exit_module);
 MODULE_DESCRIPTION("CAM FLASH");
 MODULE_LICENSE("GPL v2");

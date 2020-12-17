@@ -740,7 +740,7 @@ static void __exit cam_res_mgr_exit(void)
 	platform_driver_unregister(&cam_res_mgr_driver);
 }
 
-module_init(cam_res_mgr_init);
+early_module_init(cam_res_mgr_init, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_res_mgr_exit);
 MODULE_DESCRIPTION("Camera resource manager driver");
 MODULE_LICENSE("GPL v2");
