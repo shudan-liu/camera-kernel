@@ -37,15 +37,15 @@ LINUXINCLUDE    += \
 		-include $(srctree)/techpack/camera/config/lahainacameraconf.h
 endif
 
-ifeq ($(CONFIG_ARCH_SA8155), y)
+
+ifeq (y, $(findstring y, $(CONFIG_ARCH_SA8155) $(CONFIG_ARCH_SA6155) $(CONFIG_ARCH_SA8195)))
 include $(srctree)/techpack/ais/config/hanacamera.conf
 endif
 
-ifeq ($(CONFIG_ARCH_SA8155), y)
+ifeq (y, $(findstring y, $(CONFIG_ARCH_SA8155) $(CONFIG_ARCH_SA6155) $(CONFIG_ARCH_SA8195)))
 LINUXINCLUDE += \
 		-include $(srctree)/techpack/ais/config/hanacameraconf.h
 endif
-
 
 ifeq ($(CONFIG_MSM_AIS), y)
 # Use USERINCLUDE when you must reference the UAPI directories only.
