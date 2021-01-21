@@ -703,7 +703,8 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 
 	/* create handle and add in the iommu hardware table */
 	for (i = 0; i < iommu_cb_set.cb_num; i++) {
-		if (!strcmp(iommu_cb_set.cb_info[i].name, name)) {
+		if (iommu_cb_set.cb_info[i].name &&
+			!strcmp(iommu_cb_set.cb_info[i].name, name)) {
 			mutex_lock(&iommu_cb_set.cb_info[i].lock);
 			if (iommu_cb_set.cb_info[i].handle != HANDLE_INIT) {
 				if (iommu_cb_set.cb_info[i].is_secure)
@@ -3098,6 +3099,12 @@ int cam_smmu_destroy_handle(int handle)
 		CAM_ERR(CAM_SMMU,
 			"Error: handle or index invalid. idx = %d hdl = %x",
 			idx, handle);
+		return -EINVAL;
+	}
+
+	if (iommu_cb_set.cb_info[idx].name == NULL) {
+		CAM_ERR(CAM_SMMU,
+			"The smmu device is not probed");
 		return -EINVAL;
 	}
 

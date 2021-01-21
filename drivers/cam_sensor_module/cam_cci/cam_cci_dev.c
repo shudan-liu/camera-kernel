@@ -394,7 +394,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	rc = cam_cci_parse_dt_info(pdev, new_cci_dev);
 	if (rc < 0) {
 		CAM_ERR(CAM_CCI, "Resource get Failed: %d", rc);
-		goto cci_no_resource;
+		goto fail;
 	}
 
 	new_cci_dev->v4l2_dev_str.internal_ops =
@@ -415,7 +415,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	rc = cam_register_subdev(&(new_cci_dev->v4l2_dev_str));
 	if (rc < 0) {
 		CAM_ERR(CAM_CCI, "Fail with cam_register_subdev");
-		goto cci_no_resource;
+		goto fail;
 	}
 
 	platform_set_drvdata(pdev, &(new_cci_dev->v4l2_dev_str.sd));
@@ -423,7 +423,7 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	if (soc_info->index >= MAX_CCI) {
 		CAM_ERR(CAM_CCI, "Invalid index: %d max supported:%d",
 			soc_info->index, MAX_CCI-1);
-		goto cci_no_resource;
+		goto fail1;
 	}
 
 	g_cci_subdev[soc_info->index] = &new_cci_dev->v4l2_dev_str.sd;
@@ -446,14 +446,22 @@ static int cam_cci_platform_probe(struct platform_device *pdev)
 	rc = cam_cpas_register_client(&cpas_parms);
 	if (rc) {
 		CAM_ERR(CAM_CCI, "CPAS registration failed");
-		goto cci_no_resource;
+		goto register_client_fail;
 	}
 	CAM_DBG(CAM_CCI, "CPAS registration successful handle=%d",
 		cpas_parms.client_handle);
 	new_cci_dev->cpas_handle = cpas_parms.client_handle;
 
 	return rc;
-cci_no_resource:
+
+register_client_fail:
+	mutex_destroy(&new_cci_dev->init_mutex);
+
+fail1:
+	platform_set_drvdata(pdev, NULL);
+	cam_unregister_subdev(&(new_cci_dev->v4l2_dev_str));
+
+fail:
 	kfree(new_cci_dev);
 	return rc;
 }
