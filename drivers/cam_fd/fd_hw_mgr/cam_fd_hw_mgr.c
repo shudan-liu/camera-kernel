@@ -1884,7 +1884,6 @@ int cam_fd_hw_mgr_deinit(struct device_node *of_node)
 
 	cam_req_mgr_workq_destroy(&g_fd_hw_mgr.work);
 
-	cam_smmu_ops(g_fd_hw_mgr.device_iommu.non_secure, CAM_SMMU_DETACH);
 	cam_smmu_destroy_handle(g_fd_hw_mgr.device_iommu.non_secure);
 	g_fd_hw_mgr.device_iommu.non_secure = -1;
 
@@ -2002,12 +2001,6 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 		goto destroy_mutex;
 	}
 
-	rc = cam_smmu_ops(g_fd_hw_mgr.device_iommu.non_secure, CAM_SMMU_ATTACH);
-	if (rc) {
-		CAM_ERR(CAM_FD, "FD attach iommu handle failed, rc=%d", rc);
-		goto destroy_smmu;
-	}
-
 	rc = cam_cdm_get_iommu_handle("fd", &g_fd_hw_mgr.cdm_iommu);
 	if (rc)
 		CAM_DBG(CAM_FD, "Failed to acquire the CDM iommu handles");
@@ -2046,7 +2039,7 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 		&g_fd_hw_mgr.work, CRM_WORKQ_USAGE_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Unable to create a worker, rc=%d", rc);
-		goto detach_smmu;
+		goto destroy_smmu;
 	}
 
 	for (i = 0; i < CAM_FD_WORKQ_NUM_TASK; i++)
@@ -2086,8 +2079,6 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 
 	return rc;
 
-detach_smmu:
-	cam_smmu_ops(g_fd_hw_mgr.device_iommu.non_secure, CAM_SMMU_DETACH);
 destroy_smmu:
 	cam_smmu_destroy_handle(g_fd_hw_mgr.device_iommu.non_secure);
 	g_fd_hw_mgr.device_iommu.non_secure = -1;

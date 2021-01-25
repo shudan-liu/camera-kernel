@@ -47,7 +47,17 @@ LINUXINCLUDE += \
 		-include $(srctree)/techpack/ais/config/hanacameraconf.h
 endif
 
-ifeq ($(CONFIG_MSM_AIS), y)
+ifeq ($(CONFIG_QTI_QUIN_GVM), y)
+include $(srctree)/techpack/ais/config/hanagvmcamera.conf
+endif
+
+ifeq ($(CONFIG_QTI_QUIN_GVM), y)
+LINUXINCLUDE += \
+		-include $(srctree)/techpack/ais/config/hanagvmcameraconf.h
+endif
+
+
+ifeq (y, $(findstring y, $(CONFIG_MSM_AIS) $(CONFIG_V4L2_LOOPBACK_V2)))
 # Use USERINCLUDE when you must reference the UAPI directories only.
 USERINCLUDE += \
                 -I$(srctree)/techpack/ais/include/uapi

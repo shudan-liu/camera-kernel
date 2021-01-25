@@ -140,7 +140,7 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	rc = cam_csiphy_parse_dt_info(pdev, new_csiphy_dev);
 	if (rc < 0) {
 		CAM_ERR(CAM_CSIPHY, "DT parsing failed: %d", rc);
-		goto csiphy_no_resource;
+		goto fail;
 	}
 
 	new_csiphy_dev->v4l2_dev_str.internal_ops =
@@ -161,7 +161,7 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	rc = cam_register_subdev(&(new_csiphy_dev->v4l2_dev_str));
 	if (rc < 0) {
 		CAM_ERR(CAM_CSIPHY, "cam_register_subdev Failed rc: %d", rc);
-		goto csiphy_no_resource;
+		goto fail;
 	}
 
 	platform_set_drvdata(pdev, &(new_csiphy_dev->v4l2_dev_str.sd));
@@ -188,14 +188,18 @@ static int32_t cam_csiphy_platform_probe(struct platform_device *pdev)
 	rc = cam_cpas_register_client(&cpas_parms);
 	if (rc) {
 		CAM_ERR(CAM_CSIPHY, "CPAS registration failed rc: %d", rc);
-		goto csiphy_no_resource;
+		goto register_client_fail;
 	}
 	CAM_DBG(CAM_CSIPHY, "CPAS registration successful handle=%d",
 		cpas_parms.client_handle);
 	new_csiphy_dev->cpas_handle = cpas_parms.client_handle;
 
 	return rc;
-csiphy_no_resource:
+
+register_client_fail:
+	platform_set_drvdata(pdev, NULL);
+	cam_unregister_subdev(&(new_csiphy_dev->v4l2_dev_str));
+fail:
 	mutex_destroy(&new_csiphy_dev->mutex);
 	kfree(new_csiphy_dev->ctrl_reg);
 	devm_kfree(&pdev->dev, new_csiphy_dev);

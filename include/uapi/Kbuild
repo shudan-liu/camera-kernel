@@ -17,19 +17,11 @@ header-y += media/cam_sync.h
 header-y += media/ais_isp.h
 header-y += media/ais_sensor.h
 
-#header-y += camera/media/msm_vidc.h
-#header-y += camera/media/msm_sde_rotator.h
-#header-y += camera/media/cam_lrme.h
-#header-y += camera/media/cam_hyp_intf.h
+header-$(CONFIG_V4L2_LOOPBACK_V2) += media/ais_v4l2loopback.h
+
 header-y += media/msm_cam_sensor.h
 header-y += media/msm_camera.h
 header-y += media/msm_isp.h
-
-#header-y += camera/media/msmb_camera.h
-#header-y += camera/media/msmb_generic_buf_mgr.h
-#header-y += camera/media/msmb_isp.h
-#header-y += camera/media/msmb_ispif.h
-#header-y += camera/media/msmb_pproc.h
 
 # for compile temp add it
 header-y += media/msm_media_info.h

@@ -9,6 +9,8 @@
 #define CONFIG_SPECTRA_SENSOR 1
 #define CONFIG_SPECTRA_ICP    1
 #define CONFIG_SPECTRA_JPEG   1
+#define CONFIG_SPECTRA_FD     1
+#define CONFIG_SPECTRA_LRME   1
 #define CONFIG_INTERCONNECT_QCOM 1
 /* TODO: delete this related after enough stable*/
 #define AUTO_CAMERA_KERNEL5_4 1

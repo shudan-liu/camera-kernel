@@ -363,6 +363,35 @@ free_s_ctrl:
 	return rc;
 }
 
+static int cam_pm_sensor_suspend(struct platform_device *pdev,
+	pm_message_t state)
+{
+	struct cam_sensor_ctrl_t  *s_ctrl;
+	struct cam_control cam_cmd = {};
+
+	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_DOWN");
+	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_DOWN;
+	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
+	cam_cmd.size        = 0;
+	s_ctrl = platform_get_drvdata(pdev);
+	cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+	return 0;
+}
+
+static int cam_pm_sensor_resume(struct platform_device *pdev)
+{
+	struct cam_sensor_ctrl_t  *s_ctrl;
+	struct cam_control cam_cmd = {};
+
+	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_UP");
+	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_UP;
+	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
+	cam_cmd.size        = 0;
+	s_ctrl = platform_get_drvdata(pdev);
+	cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+	return 0;
+}
+
 MODULE_DEVICE_TABLE(of, cam_sensor_driver_dt_match);
 
 static struct platform_driver cam_sensor_platform_driver = {
@@ -373,6 +402,8 @@ static struct platform_driver cam_sensor_platform_driver = {
 		.of_match_table = cam_sensor_driver_dt_match,
 		.suppress_bind_attrs = true,
 	},
+	.suspend = cam_pm_sensor_suspend,
+	.resume = cam_pm_sensor_resume,
 	.remove = cam_sensor_platform_remove,
 };
 
