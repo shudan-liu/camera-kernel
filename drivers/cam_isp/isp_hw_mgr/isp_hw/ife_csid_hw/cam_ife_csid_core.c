@@ -4274,7 +4274,7 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf  *csid_hw_intf,
 		ife_csid_hw->rdi_path_config[i].measure_enabled = 0;
 
 
-	for (i = 0; i <= CAM_IFE_PIX_PATH_RES_MAX; i++)
+	for (i = 0; i < CAM_IFE_PIX_PATH_RES_MAX; i++)
 		ife_csid_hw->prev_boot_timestamp[i] = 0;
 
 	scnprintf(worker_name, sizeof(worker_name),

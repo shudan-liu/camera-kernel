@@ -2093,7 +2093,7 @@ int32_t cam_cci_core_cam_ctrl(struct v4l2_subdev *sd,
 
 	switch (cmd->op_code) {
 	case CAM_QUERY_CAP: {
-		struct  cam_sensor_query_cap sensor_cap;
+		struct  cam_sensor_query_cap sensor_cap = {};
 
 		sensor_cap.slot_info = cci_dev->soc_info.index;
 		if (copy_to_user(u64_to_user_ptr(cmd->handle),

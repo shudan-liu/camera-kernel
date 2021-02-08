@@ -4674,7 +4674,7 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 
 static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 {
-	struct cam_isp_hw_dump_args isp_hw_dump_args;
+	struct cam_isp_hw_dump_args isp_hw_dump_args = {};
 	struct cam_hw_dump_args *dump_args = (struct cam_hw_dump_args *)args;
 	struct cam_ife_hw_mgr_res            *hw_mgr_res;
 	struct cam_hw_intf                   *hw_intf;
