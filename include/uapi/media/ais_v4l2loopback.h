@@ -2,11 +2,13 @@
 #define _UAPI_AIS_V4L2_H
 
 #define AIS_V4L2_DRV_MAX_VERSION    2
-#define AIS_V4L2_DRV_MIN_VERSION    0
+#define AIS_V4L2_DRV_MIN_VERSION    1
 #define AIS_V4L2_DRV_BUGFIX_VERSION 0
 
 #define MAX_AIS_V4L2_PAYLOAD_SIZE     256
 #define MAX_AIS_V4L2_PARAM_EVNET_SIZE 62
+
+#define MAX_AIS_BUFFERS_NUM	20
 
 enum AIS_V4L2_CLIENT_ID {
 	AIS_V4L2_CLIENT_OUTPUT = 1,
@@ -14,13 +16,15 @@ enum AIS_V4L2_CLIENT_ID {
 };
 
 enum AIS_V4L2_NOTIFY_CMD {
-	AIS_V4L2_OPEN_INPUT   = 0,
-	AIS_V4L2_CLOSE_INPUT,
-	AIS_V4L2_START_INPUT,
-	AIS_V4L2_STOP_INPUT,
-	AIS_V4L2_GET_PARAM,		/* notify get the param */
-	AIS_V4L2_SET_PARAM,		/* notify set the param */
-	AIS_V4L2_PARAM_EVENT,	/* notify the param event */
+	AIS_V4L2_OPEN_INPUT   = 0,	/* notify the output side qcarcam_open */
+	AIS_V4L2_CLOSE_INPUT,       /* notify the output side qcarcam_close */
+	AIS_V4L2_START_INPUT,       /* notify the output side qcarcam_start */
+	AIS_V4L2_STOP_INPUT,        /* notify the output side qcarcam_stop */
+	AIS_V4L2_GET_PARAM,		    /* notify the output side get the param */
+	AIS_V4L2_SET_PARAM,		    /* notify the output side set the param */
+	AIS_V4L2_PARAM_EVENT,	    /* notify the capture side the param event */
+	AIS_V4L2_ALLOC_BUFS,		/* notify the output side alloc the bufs */
+	AIS_V4L2_OUTPUT_BUF_READY,  /* notify the output side buf ready */
 };
 
 enum AIS_V4L2_PARAM_CODE {
@@ -70,6 +74,7 @@ enum AIS_V4L2_OUTPUT_PRIVATE_CMD {
 	AIS_V4L2_OUTPUT_PRIV_CLOSE_RET,
 	AIS_V4L2_OUTPUT_PRIV_START_RET,
 	AIS_V4L2_OUTPUT_PRIV_STOP_RET,
+	AIS_V4L2_OUTPUT_PRIV_SET_BUFS,
 };
 
 enum AIS_V4L2_CAPTURE_PRIVATE_CMD {
@@ -88,6 +93,10 @@ struct ais_v4l2_control_t {
 	};
 };
 
+struct ais_v4l2_buffers_t {
+	__u32 nbufs;
+	__s32 fds[MAX_AIS_BUFFERS_NUM];
+};
 
 #endif /* _UAPI_AIS_V4L2_H */
 
