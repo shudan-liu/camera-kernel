@@ -1911,8 +1911,8 @@ static int vidioc_qbuf(struct file *file,
 			cam_common_util_get_curr_timestamp(&b->buffer.timestamp);
 		else
 			b->buffer.timestamp = buf->timestamp;
-		b->buffer.bytesused = buf->bytesused;
 
+		b->buffer.sequence = buf->sequence;
 		rc = set_bufstate(dev, b, V4L2L_BUF_CAPTURE_QUEUE);
 		if (rc < 0)
 			pr_err("[dev %s] output QBUF index: %d fail\n", dev->vdev->name, b->buffer.index);
@@ -2533,7 +2533,7 @@ static int v4l2_loopback_open(struct file *file)
 				return rc;
 			}
 		} else {
-			pr_err("invalid operation\n");
+			pr_err("invalid operation state %d\n", dev->state);
 			return -EINVAL;
 		}
 	}
