@@ -902,26 +902,29 @@ static int __cam_isp_ctx_reg_upd_in_activated_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-	if (req_isp->num_fence_map_out != 0) {
-		list_add_tail(&req->list, &ctx->active_req_list);
-		ctx_isp->active_req_cnt++;
-		CAM_DBG(CAM_REQ,
-			"move request %lld to active list(cnt = %d), ctx %u",
-			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+	if (req_isp) {
+		if (req_isp->num_fence_map_out != 0) {
+			list_add_tail(&req->list, &ctx->active_req_list);
+			ctx_isp->active_req_cnt++;
+			CAM_DBG(CAM_REQ,
+				"move request %lld to active list(cnt = %d), ctx %u",
+				req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
 
-		__cam_isp_ctx_update_event_record(ctx_isp,
-			CAM_ISP_CTX_EVENT_RUP, req);
+			__cam_isp_ctx_update_event_record(ctx_isp,
+				CAM_ISP_CTX_EVENT_RUP, req);
 
-	} else {
-		/* no io config, so the request is completed. */
-		list_add_tail(&req->list, &ctx->free_req_list);
-		CAM_DBG(CAM_ISP,
-			"move active request %lld to free list(cnt = %d), ctx %u",
-			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+		} else {
+			/* no io config, so the request is completed. */
+			list_add_tail(&req->list, &ctx->free_req_list);
+			CAM_DBG(CAM_ISP,
+				"move active request %lld to free list(cnt = %d), ctx %u",
+				req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+		}
+
+
+		if (req_isp->hw_update_data.fps)
+			ctx_isp->fps = req_isp->hw_update_data.fps;
 	}
-
-	if (req_isp && req_isp->hw_update_data.fps)
-		ctx_isp->fps = req_isp->hw_update_data.fps;
 
 	/*
 	 * This function only called directly from applied and bubble applied
@@ -1821,6 +1824,11 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+	if (!req_isp) {
+		CAM_ERR(CAM_ISP, "Invalid derived request object");
+		goto end;
+	}
+
 	if (req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
@@ -1831,7 +1839,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
 
-	if (req_isp && req_isp->hw_update_data.fps)
+	if (req_isp->hw_update_data.fps)
 		ctx_isp->fps = req_isp->hw_update_data.fps;
 
 	/*
@@ -2222,8 +2230,8 @@ static int __cam_isp_ctx_dump_in_top_state(struct cam_context *ctx,
 	uint64_t diff = 0;
 	struct timeval cur_time;
 	int rc = 0;
-	uintptr_t cpu_addr;
-	size_t buf_len;
+	uintptr_t cpu_addr = 0x0;
+	size_t buf_len = 0;
 	struct cam_isp_context_dump_header *hdr;
 	uint64_t *addr, *start;
 	uint8_t *dst;

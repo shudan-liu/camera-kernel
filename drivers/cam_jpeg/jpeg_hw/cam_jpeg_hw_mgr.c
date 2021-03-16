@@ -1058,7 +1058,7 @@ static int cam_jpeg_mgr_hw_dump(void *hw_mgr_priv, void *dump_hw_args)
 	char *dst;
 	struct cam_jpeg_hw_dump_header *hdr;
 	uint32_t min_len, remain_len;
-	struct cam_jpeg_hw_dump_args jpeg_dump_args;
+	struct cam_jpeg_hw_dump_args jpeg_dump_args = {};
 
 	if (!hw_mgr || !dump_args || !dump_args->ctxt_to_hw_map) {
 		CAM_ERR(CAM_JPEG, "Invalid args");

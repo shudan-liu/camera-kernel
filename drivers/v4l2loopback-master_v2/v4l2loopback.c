@@ -1272,37 +1272,6 @@ static int v4l2_loopback_cropcap(struct v4l2_loopback_device *dev,
 	return 0;
 }
 
-/* wrapper function with the necessary arguments for struct v4l2_ioctl_ops
- */
-static int vidioc_cropcap(struct file *file, void *priv,
-		struct v4l2_cropcap *cropcap)
-{
-	struct v4l2_loopback_device *dev;
-
-	MARK();
-	dev = v4l2loopback_getdevice(file);
-
-	return v4l2_loopback_cropcap(dev, cropcap);
-}
-
-/* return the currently set dimensions for cropping
- */
-static int vidioc_g_crop(struct file *file, void *priv, struct v4l2_crop *crop)
-{
-	struct v4l2_loopback_device *dev;
-	int ret = 0;
-
-	MARK();
-	if (crop != NULL) {
-		dev = v4l2loopback_getdevice(file);
-		crop->c = dev->frame_crop.c;
-		crop->type = dev->frame_crop.type;
-	} else {
-		ret = -EINVAL;
-	}
-	return ret;
-}
-
 /* set new dimensions for cropping and limit them to acceptable values
  */
 static int v4l2_loopback_s_crop(struct v4l2_loopback_device *dev,
@@ -1352,19 +1321,6 @@ static int v4l2_loopback_s_crop(struct v4l2_loopback_device *dev,
 		ret = -EINVAL;
 	}
 	return ret;
-}
-
-/* wrapper function with the necessary arguments for struct v4l2_ioctl_ops
- */
-static int vidioc_s_crop(struct file *file, void *priv,
-		const struct v4l2_crop *crop)
-{
-	struct v4l2_loopback_device *dev;
-
-	MARK();
-	dev = v4l2loopback_getdevice(file);
-
-	return v4l2_loopback_s_crop(dev, crop, true);
 }
 
 /*#define V4L2L_OVERLAY*/
@@ -2156,7 +2112,7 @@ static int process_capture_cmd(struct v4l2_loopback_device *dev,
 	case AIS_V4L2_CAPTURE_PRIV_SET_PARAM: {
 		if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
 			rc = -EINVAL;
-		} else if (kcmd->payload == NULL) {
+		} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
 			rc = -EINVAL;
 			pr_err("payload is NULL on set param\n");
 		} else if (copy_from_user(dev->qcarcam_param,
@@ -2205,7 +2161,7 @@ static int process_capture_cmd(struct v4l2_loopback_device *dev,
 			/* g_param fail */
 			rc = -EINVAL;
 			pr_err("get param size is 0\n");
-		} else if (kcmd->payload == NULL) {
+		} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
 			rc = -EINVAL;
 			pr_err("payload is NULL on get param\n");
 		} else if (copy_to_user(u64_to_user_ptr(kcmd->payload),
@@ -2315,7 +2271,6 @@ static long ais_v4l2loopback_dev_ioctl(struct file *file, void *fh,
 	int32_t rc = 0;
 
 	struct v4l2_loopback_device *dev;
-	struct v4l2_loopback_opener *opener;
 
 	struct ais_v4l2_control_t *kcmd = (struct ais_v4l2_control_t *)arg;
 
@@ -2600,7 +2555,6 @@ static int v4l2_loopback_close(struct file *file)
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
 	int iswriter = 0;
-	int rc;
 
 	MARK();
 	opener = fh_to_opener(file->private_data);
@@ -2772,7 +2726,7 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 		if (dev->dmabufs[i]) {
 			cam_mem_util_unmap_cpu_va(dev->dmabufs[i],
 				dev->buffers[i].kvaddr);
-			dev->buffers[i].kvaddr = NULL;
+			dev->buffers[i].kvaddr = 0;
 			dma_buf_put(dev->dmabufs[i]);
 			dev->dmabufs[i] = NULL;
 		}
