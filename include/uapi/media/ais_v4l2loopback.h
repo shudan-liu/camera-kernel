@@ -8,7 +8,7 @@
 #define MAX_AIS_V4L2_PAYLOAD_SIZE     256
 #define MAX_AIS_V4L2_PARAM_EVNET_SIZE 62
 
-#define MAX_AIS_BUFFERS_NUM	20
+#define MAX_AIS_BUFFERS_NUM  20
 
 enum AIS_V4L2_CLIENT_ID {
 	AIS_V4L2_CLIENT_OUTPUT = 1,
@@ -16,14 +16,14 @@ enum AIS_V4L2_CLIENT_ID {
 };
 
 enum AIS_V4L2_NOTIFY_CMD {
-	AIS_V4L2_OPEN_INPUT   = 0,	/* notify the output side qcarcam_open */
+	AIS_V4L2_OPEN_INPUT   = 0,  /* notify the output side qcarcam_open */
 	AIS_V4L2_CLOSE_INPUT,       /* notify the output side qcarcam_close */
 	AIS_V4L2_START_INPUT,       /* notify the output side qcarcam_start */
 	AIS_V4L2_STOP_INPUT,        /* notify the output side qcarcam_stop */
-	AIS_V4L2_GET_PARAM,		    /* notify the output side get the param */
-	AIS_V4L2_SET_PARAM,		    /* notify the output side set the param */
-	AIS_V4L2_PARAM_EVENT,	    /* notify the capture side the param event */
-	AIS_V4L2_ALLOC_BUFS,		/* notify the output side alloc the bufs */
+	AIS_V4L2_GET_PARAM,         /* notify the output side get the param */
+	AIS_V4L2_SET_PARAM,         /* notify the output side set the param */
+	AIS_V4L2_PARAM_EVENT,       /* notify the capture side the param event */
+	AIS_V4L2_ALLOC_BUFS,        /* notify the output side alloc the bufs */
 	AIS_V4L2_OUTPUT_BUF_READY,  /* notify the output side buf ready */
 };
 
