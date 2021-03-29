@@ -2,7 +2,12 @@
 #define __UAPI_CAM_DEFS_H__
 
 #include <linux/videodev2.h>
+#include <asm-generic/types.h>
+#if defined(__KERNEL__)
 #include <linux/types.h>
+#else
+#include <stdint.h>
+#endif
 #include <linux/ioctl.h>
 
 

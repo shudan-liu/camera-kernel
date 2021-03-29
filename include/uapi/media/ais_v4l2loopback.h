@@ -1,6 +1,8 @@
 #ifndef _UAPI_AIS_V4L2_H
 #define _UAPI_AIS_V4L2_H
 
+#include <linux/types.h>
+
 #define AIS_V4L2_DRV_MAX_VERSION    2
 #define AIS_V4L2_DRV_MIN_VERSION    1
 #define AIS_V4L2_DRV_BUGFIX_VERSION 0

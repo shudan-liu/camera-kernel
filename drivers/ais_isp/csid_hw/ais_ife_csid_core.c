@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -433,13 +433,13 @@ static int ais_ife_csid_enable_csi2(
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 
 	/* rx cfg1*/
-	val = (1 << csid_reg->csi2_reg->csi2_misr_enable_shift_val);
-	/* if VC value is more than 3 than set full width of VC */
-	if (csi_info->vc > 3)
+	/* enable packet ecc correction and misr*/
+	val = 0x1 | (1 << csid_reg->csi2_reg->csi2_misr_enable_shift_val);
+
+	/* enable vcx if required */
+	if (csi_info->vcx_mode)
 		val |= (1 << csid_reg->csi2_reg->csi2_vc_mode_shift_val);
 
-	/* enable packet ecc correction */
-	val |= 1;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
 
@@ -895,6 +895,9 @@ static int ais_ife_csid_disable_rdi_path(
 	val |= stop_cmd;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->rdi_reg[id]->csid_rdi_ctrl_addr);
+
+	cam_io_w_mb(0xFF, soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_rst_strobes_addr);
 
 	path_data->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
 
@@ -1606,7 +1609,7 @@ static int ais_ife_csid_process_cmd(void *hw_priv,
 
 static int ais_csid_event_dispatch_process(void *priv, void *data)
 {
-	struct ais_ife_event_data evt_payload;
+	struct ais_ife_event_data evt_payload = {};
 	struct ais_ife_csid_hw *csid_hw;
 	struct ais_csid_hw_work_data *work_data;
 	int rc = 0;
@@ -1639,6 +1642,8 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 	evt_payload.idx = csid_hw->hw_intf->hw_idx;
 	evt_payload.boot_ts = work_data->timestamp;
 	evt_payload.path = 0xF;
+	evt_payload.u.err_msg.reserved =
+		work_data->irq_status[CSID_IRQ_STATUS_RX];
 
 	switch (work_data->evt_type) {
 	case AIS_IFE_MSG_CSID_ERROR:
