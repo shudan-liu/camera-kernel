@@ -237,17 +237,24 @@ MODULE_PARM_DESC(max_height, "maximum frame height");
 #define CID_CROP_DATASIZE      (V4L2_CTRL_CLASS_USER + 0x1000)
 
 static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl);
-static const struct v4l2_ctrl_ops v4l2loopback_ctrl_ops = {
-	.s_ctrl = v4l2loopback_s_ctrl,
-};
+static int v4l2loopback_g_ctrl(struct v4l2_ctrl *ctrl);
+
 static int v4l2loopback_datasize_g_ctrl(struct v4l2_ctrl *ctrl);
 static int v4l2loopback_datasize_s_ctrl(struct v4l2_ctrl *ctrl);
 static int v4l2loopback_datasize_try_ctrl(struct v4l2_ctrl *ctrl);
+
+static const struct v4l2_ctrl_ops v4l2loopback_ctrl_ops = {
+	.s_ctrl = v4l2loopback_s_ctrl,
+	.try_ctrl = v4l2loopback_datasize_try_ctrl,
+	.g_volatile_ctrl = v4l2loopback_g_ctrl,
+};
+
 static const struct v4l2_ctrl_ops v4l2loopback_datasize_ctrl_ops = {
 	.s_ctrl = v4l2loopback_datasize_s_ctrl,
 	.try_ctrl = v4l2loopback_datasize_try_ctrl,
 	.g_volatile_ctrl = v4l2loopback_datasize_g_ctrl
 };
+
 static const struct v4l2_ctrl_config v4l2loopback_ctrl_keepformat = {
 	.ops = &v4l2loopback_ctrl_ops,
 	.id = CID_KEEP_FORMAT,
@@ -300,6 +307,17 @@ static const struct v4l2_ctrl_config v4l2loopback_ctrl_datasize = {
 			V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT,
 };
 
+static const struct v4l2_ctrl_config v4l2loopback_ctrl_buffernum = {
+	.ops = &v4l2loopback_ctrl_ops,
+	.id = V4L2_CID_MIN_BUFFERS_FOR_CAPTURE,
+	.name = "buffer_num",
+	.type = V4L2_CTRL_TYPE_INTEGER,
+	.min = 4,
+	.max = 20,
+	.step = 1,
+	.def = 4,   // def >= min
+};
+
 enum V4L2_LOOPBACK_IO_MODE {
 	V4L2L_IO_MODE_MMAP   = 0,
 	V4L2L_IO_MODE_USERPTR = 1,
@@ -325,8 +343,8 @@ enum V4L2_LOOPBACK_STATE {
 };
 
 enum V4L2_LOOPBACK_BUF_STATE {
-	V4L2L_BUF_OUTPUT_QUEUE   = 0,
-	V4L2L_BUF_CAPTURE_QUEUE  = 1,
+	V4L2L_BUF_READY_Q   = 0,
+	V4L2L_BUF_DONE_Q    = 1,
 	V4L2L_BUF_USER_ACQUIRED  = 2,
 	V4L2L_BUF_PROXY_ACQUIRED = 3,
 	V4L2L_BUF_PENDING = 4,
@@ -555,9 +573,7 @@ static void send_v4l2_event_ex2(struct video_device *vdev, unsigned int type,
 	} else {
 		v4l2_event_queue(vdev, &event);
 	}
-
 }
-
 
 static const struct v4l2l_format *format_by_fourcc(int fourcc)
 {
@@ -1472,6 +1488,23 @@ static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 	return v4l2loopback_set_ctrl(dev, ctrl->id, ctrl->val);
 }
 
+int v4l2loopback_g_ctrl(struct v4l2_ctrl *ctrl)
+{
+	struct v4l2_loopback_device *dev = container_of(ctrl->handler,
+				struct v4l2_loopback_device, ctrl_handler);
+
+	switch(ctrl->id) {
+	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
+		ctrl->val = 4;
+		pr_info("min_buffers is 4\n");
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	return 0;
+}
+
 static int v4l2loopback_datasize_g_ctrl(struct v4l2_ctrl *ctrl)
 {
 	struct v4l2_loopback_device *dev = container_of(ctrl->handler,
@@ -1728,7 +1761,7 @@ static int vidioc_expbuf(struct file *file, void *fh,
 
 	dev = v4l2loopback_getdevice(file);
 
-	if (e->index == -1U)	{
+	if (e->index == -1U) {
 		pr_info("support DMABUF\n");
 		return 0;
 	}
@@ -1788,13 +1821,6 @@ static int can_read(struct v4l2_loopback_device *dev,
 {
 	int ret;
 
-	/*spin_lock_bh(&dev->lock);
-	check_timers(dev);
-	ret = dev->write_position > opener->read_position
-		|| dev->reread_count > opener->reread_count
-		|| dev->timeout_happened;
-	spin_unlock_bh(&dev->lock);*/
-
 	mutex_lock(&dev->capbufs_mutex);
 	ret = !list_empty(&dev->capbufs_list);
 	mutex_unlock(&dev->capbufs_mutex);
@@ -1813,25 +1839,25 @@ static int set_bufstate(struct v4l2_loopback_device *dev,
 	switch(b->state)
 	{
 	case V4L2L_BUF_PROXY_ACQUIRED:
-		if (state == V4L2L_BUF_CAPTURE_QUEUE)
+		if (state == V4L2L_BUF_DONE_Q)
 			b->state = state;
 		else
 			ret = -1;
 		break;
-	case V4L2L_BUF_CAPTURE_QUEUE:
+	case V4L2L_BUF_DONE_Q:
 		if (state == V4L2L_BUF_USER_ACQUIRED)
 			b->state = state;
 		else
 			ret = -1;
 		break;
-	case V4L2L_BUF_OUTPUT_QUEUE:
+	case V4L2L_BUF_READY_Q:
 		if (state == V4L2L_BUF_PROXY_ACQUIRED)
 			b->state = state;
 		else
 			ret = -1;
 		break;
 	case V4L2L_BUF_USER_ACQUIRED:
-		if (state == V4L2L_BUF_OUTPUT_QUEUE)
+		if (state == V4L2L_BUF_READY_Q)
 			b->state = state;
 		else
 			ret = -1;
@@ -1893,7 +1919,7 @@ static int vidioc_qbuf(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		pr_debug("[dev %s] capture QBUF index: %d\n", dev->vdev->name, index);
 
-		rc = set_bufstate(dev, b, V4L2L_BUF_OUTPUT_QUEUE);
+		rc = set_bufstate(dev, b, V4L2L_BUF_READY_Q);
 		if (rc < 0)
 			pr_err("[dev %s] capture QBUF index: %d fail\n", dev->vdev->name, b->buffer.index);
 		else {
@@ -1913,7 +1939,7 @@ static int vidioc_qbuf(struct file *file,
 			b->buffer.timestamp = buf->timestamp;
 
 		b->buffer.sequence = buf->sequence;
-		rc = set_bufstate(dev, b, V4L2L_BUF_CAPTURE_QUEUE);
+		rc = set_bufstate(dev, b, V4L2L_BUF_DONE_Q);
 		if (rc < 0)
 			pr_err("[dev %s] output QBUF index: %d fail\n", dev->vdev->name, b->buffer.index);
 		else {
@@ -2325,7 +2351,7 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		dev->qcarcam_ctrl_ret = kcmd->ctrl_ret;
 		complete(&dev->ctrl_complete);
 		break;
-	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS:	{
+	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
 		struct ais_v4l2_buffers_t bufs;
 
 		if (kcmd->size != sizeof(bufs)) {
@@ -2340,11 +2366,6 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 			uint32_t i;
 
 			for (i = 0; i < bufs.nbufs; ++i) {
-				/*
-				 * increment the ref count so that ref count becomes 2 here
-				 * when we close fd, refcount becomes 1 and when we do
-				 * dmap_put_buf, ref count becomes 0 and memory will be freed.
-				 */
 				dmabuf = dma_buf_get(bufs.fds[i]);
 				if (dmabuf == NULL) {
 					pr_err("dma_buf_get failed, fd=%d\n", bufs.fds[i]);
@@ -2715,16 +2736,7 @@ static int allocate_buffers(struct v4l2_loopback_device *dev)
 /* allocates buffers, if buffer_size is set */
 static int allocate_dma_buffers(struct v4l2_loopback_device *dev)
 {
-
 	int rc = 0;
-/*
-	struct v4l2_event event;
-	event.type = AIS_V4L2_CLIENT_OUTPUT;
-	event.id = AIS_V4L2_ALLOC_BUFS;
-
-	event.u.data[0] = dev->buffers_number;
-	v4l2_event_queue(dev->vdev, &event);
-	*/
 
 	send_v4l2_event_ex(dev->vdev, AIS_V4L2_CLIENT_OUTPUT,
 			AIS_V4L2_ALLOC_BUFS, dev->used_buffers);
@@ -2940,7 +2952,6 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	INIT_LIST_HEAD(&dev->outbufs_list);
 	INIT_LIST_HEAD(&dev->capbufs_list);
 
-
 	memset(dev->bufpos2index, 0, sizeof(dev->bufpos2index));
 	memset(dev->dmabufs, 0, sizeof(dev->dmabufs));
 	atomic_set(&dev->open_count, 0);
@@ -2969,13 +2980,25 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_sustainframerate, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeout, NULL);
 	v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_timeoutimageio, NULL);
+
+	ctrl = v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_buffernum, NULL);
+	if (ctrl)
+		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
+	else {
+		pr_err("fail to new custom v4l2loopback_ctrl_buffernum \n");
+		goto error;
+	}
+
 	ctrl = v4l2_ctrl_new_custom(hdl, &v4l2loopback_ctrl_datasize, NULL);
 	if (ctrl)
 		ctrl->flags |= V4L2_CTRL_FLAG_VOLATILE;
-	else
+	else {
+		pr_err("fail to new custom v4l2loopback_ctrl_datasize \n");
 		goto error;
+	}
 
 	if (hdl->error) {
+		pr_err("ctrl handler error\n");
 		ret = hdl->error;
 		goto error;
 	}
@@ -3000,7 +3023,6 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	allocate_buffers(dev);
 
 	init_waitqueue_head(&dev->read_event);
-
 	init_completion(&dev->gparam_complete);
 	init_completion(&dev->sparam_complete);
 	init_completion(&dev->ctrl_complete);
@@ -3010,14 +3032,18 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	mutex_init(&dev->capbufs_mutex);
 	mutex_init(&dev->outbufs_mutex);
 	ret = v4l2_loopback_cropcap(dev, &cropcap);
-	if (ret)
+	if (ret) {
+		pr_err("fail to v4l2_loopback_cropcap \n");
 		goto error;
+	}
 
 	crop.type = cropcap.type;
 	crop.c = cropcap.defrect;
 	ret = v4l2_loopback_s_crop(dev, &crop, false);
-	if (ret)
+	if (ret) {
+		pr_err("fail to v4l2_loopback_s_crop \n");
 		goto error;
+	}
 
 	MARK();
 	return 0;
@@ -3035,8 +3061,6 @@ static const struct v4l2_file_operations v4l2_loopback_fops = {
 	.owner   = THIS_MODULE,
 	.open    = v4l2_loopback_open,
 	.release = v4l2_loopback_close,
-//	.read    = v4l2_loopback_read,
-//	.write   = v4l2_loopback_write,
 	.poll    = v4l2_loopback_poll,
 	.unlocked_ioctl   = video_ioctl2,
 };
@@ -3045,12 +3069,6 @@ static const struct v4l2_ioctl_ops v4l2_loopback_ioctl_ops = {
 	.vidioc_querycap         = &vidioc_querycap,
 	.vidioc_enum_framesizes  = &vidioc_enum_framesizes,
 	.vidioc_enum_frameintervals = &vidioc_enum_frameintervals,
-
-#ifndef HAVE__V4L2_CTRLS
-	.vidioc_queryctrl         = &vidioc_queryctrl,
-	.vidioc_g_ctrl            = &vidioc_g_ctrl,
-	.vidioc_s_ctrl            = &vidioc_s_ctrl,
-#endif /* HAVE__V4L2_CTRLS */
 
 	.vidioc_enum_output       = &vidioc_enum_output,
 	.vidioc_g_output          = &vidioc_g_output,
