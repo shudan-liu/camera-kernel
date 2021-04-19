@@ -1490,9 +1490,6 @@ static int v4l2loopback_s_ctrl(struct v4l2_ctrl *ctrl)
 
 int v4l2loopback_g_ctrl(struct v4l2_ctrl *ctrl)
 {
-	struct v4l2_loopback_device *dev = container_of(ctrl->handler,
-				struct v4l2_loopback_device, ctrl_handler);
-
 	switch(ctrl->id) {
 	case V4L2_CID_MIN_BUFFERS_FOR_CAPTURE:
 		ctrl->val = 4;
@@ -1659,7 +1656,6 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int i;
 
 	MARK();
 	dev = v4l2loopback_getdevice(file);
@@ -1752,9 +1748,8 @@ static int vidioc_expbuf(struct file *file, void *fh,
 			struct v4l2_exportbuffer *e)
 {
 	struct v4l2_loopback_device *dev;
-	int fd;
+	int fd = 0;
 	int rc;
-	size_t size;
 	struct dma_buf *dmabuf = NULL;
 
 	MARK();
@@ -1884,8 +1879,6 @@ static void set_allbufs_state(struct v4l2_loopback_device *dev,
 
 	mutex_lock(&dev->buf_mutex);
 	for (i = 0; i < dev->buffers_number; ++i) {
-		struct v4l2_buffer *b = &dev->buffers[i].buffer;
-
 		dev->buffers[i].state = state;
 	}
 
@@ -1963,9 +1956,8 @@ static int vidioc_dqbuf(struct file *file,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int index;
 	struct v4l2l_buffer *b;
-	int rc;
+	int rc = 0;
 
 	dev = v4l2loopback_getdevice(file);
 	opener = fh_to_opener(private_data);
@@ -2048,7 +2040,8 @@ static int vidioc_streamon(struct file *file,
 {
 	struct v4l2_loopback_device *dev;
 	struct v4l2_loopback_opener *opener;
-	int rc;
+	struct v4l2l_buffer *pos, *n;
+	int rc = 0;
 
 	MARK();
 	dev = v4l2loopback_getdevice(file);
@@ -2060,7 +2053,6 @@ static int vidioc_streamon(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE: {
 		set_allbufs_state(dev, V4L2L_BUF_PROXY_ACQUIRED);
 		mutex_lock(&dev->outbufs_mutex);
-		struct v4l2l_buffer *pos, *n;
 		list_for_each_entry_safe(pos, n,
 			&dev->outbufs_list, list_head) {
 			list_del_init(&pos->list_head);
@@ -2100,7 +2092,8 @@ static int vidioc_streamoff(struct file *file,
 		void *private_data, enum v4l2_buf_type type)
 {
 	struct v4l2_loopback_device *dev;
-	int rc;
+	struct v4l2l_buffer *pos, *n;
+	int rc = 0;
 
 	dev = v4l2loopback_getdevice(file);
 
@@ -2118,7 +2111,6 @@ static int vidioc_streamoff(struct file *file,
 			rc = dev->qcarcam_ctrl_ret;
 			pr_info("clear list when streamoff\n");
 			mutex_lock(&dev->outbufs_mutex);
-			struct v4l2l_buffer *pos, *n;
 			list_for_each_entry_safe(pos, n,
 				&dev->outbufs_list, list_head) {
 				list_del_init(&pos->list_head);
@@ -2281,10 +2273,13 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 	struct ais_v4l2_control_t *kcmd)
 {
 	int rc = 0;
+	struct v4l2_event event;
+	struct ais_v4l2_buffers_t bufs;
+	struct dma_buf *dmabuf = NULL;
+	uint32_t i;
 
 	switch (kcmd->cmd) {
 	case AIS_V4L2_OUTPUT_PRIV_SET_PARAM_EVENT: {
-		struct v4l2_event event;
 
 		if (kcmd->size > MAX_AIS_V4L2_PARAM_EVNET_SIZE) {
 			rc = -EINVAL;
@@ -2352,8 +2347,6 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		complete(&dev->ctrl_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
-		struct ais_v4l2_buffers_t bufs;
-
 		if (kcmd->size != sizeof(bufs)) {
 			rc = -EINVAL;
 		} else if (copy_from_user(&bufs,
@@ -2362,9 +2355,6 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 			rc = -EFAULT;
 			pr_err("fail to AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
 		} else {
-			struct dma_buf *dmabuf = NULL;
-			uint32_t i;
-
 			for (i = 0; i < bufs.nbufs; ++i) {
 				dmabuf = dma_buf_get(bufs.fds[i]);
 				if (dmabuf == NULL) {
@@ -2670,8 +2660,8 @@ static int free_buffers(struct v4l2_loopback_device *dev)
 	}
 	for (i = 0; i < dev->buffers_number; ++i) {
 		if (dev->dmabufs[i]) {
-			dev->buffers[i].kvaddr = NULL;
-			dma_buf_put(dev->dmabufs[i]);
+			dev->buffers[i].kvaddr = 0;
+			dma_buf_put((struct dma_buf *)dev->dmabufs[i]);
 			dev->dmabufs[i] = NULL;
 		}
 	}

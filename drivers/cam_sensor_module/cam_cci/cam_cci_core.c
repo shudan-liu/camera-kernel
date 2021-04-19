@@ -2022,6 +2022,11 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 		rc = -ENODEV;
 		return rc;
 	}
+
+	if (cci_ctrl->cci_info->cci_i2c_master >= NUM_MASTERS) {
+		CAM_ERR(CAM_CCI, "Invalid CCI master: %d", cci_ctrl->cci_info->cci_i2c_master);
+		return -EINVAL;
+	}
 	cci_dev = v4l2_get_subdevdata(sd);
 
 	CAM_DBG(CAM_CCI, "cmd %d", cci_ctrl->cmd);

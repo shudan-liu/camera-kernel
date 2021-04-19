@@ -551,7 +551,8 @@ static int ais_ife_csid_config_rdi_path(
 	soc_info = &csid_hw->hw_info->soc_info;
 
 	id = res->path;
-	if (id >= csid_reg->cmn_reg->num_rdis || !csid_reg->rdi_reg[id]) {
+	if (id >= AIS_IFE_CSID_RDI_MAX || id >= csid_reg->cmn_reg->num_rdis || 
+		!csid_reg->rdi_reg[id]) {
 		CAM_ERR(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
 			 csid_hw->hw_intf->hw_idx, id);
 		return -EINVAL;
@@ -811,6 +812,11 @@ static int ais_ife_csid_enable_rdi_path(
 	struct ais_ife_csid_path_cfg              *path_data;
 	uint32_t id, val;
 
+	if (start_cmd->path >= AIS_IFE_CSID_RDI_MAX) {
+		CAM_ERR(CAM_ISP, "RDI:%d path is not supported", start_cmd->path);
+		return -EINVAL;
+	}
+
 	id = start_cmd->path;
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
@@ -861,6 +867,11 @@ static int ais_ife_csid_disable_rdi_path(
 	const struct ais_ife_csid_reg_offset       *csid_reg;
 	struct cam_hw_soc_info                     *soc_info;
 	struct ais_ife_csid_path_cfg               *path_data;
+
+	if (stop_args->path >= AIS_IFE_CSID_RDI_MAX) {
+		CAM_ERR(CAM_ISP, "RDI:%d path is not supported", stop_args->path);
+		return -EINVAL;
+	}
 
 	id = stop_args->path;
 	csid_reg = csid_hw->csid_info->csid_reg;
