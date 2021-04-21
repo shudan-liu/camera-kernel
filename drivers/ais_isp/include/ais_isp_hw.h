@@ -331,7 +331,8 @@ struct ais_ife_csid_csi_info {
 	uint32_t dt;
 	uint32_t num_lanes;
 	uint32_t lane_assign;
-	uint32_t is_3Phase;
+	uint8_t is_3Phase;
+	uint8_t vcx_mode;
 };
 
 /**
