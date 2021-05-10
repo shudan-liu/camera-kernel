@@ -12,8 +12,8 @@
 
 #include <linux/iopoll.h>
 #include <linux/slab.h>
-#include <uapi/media/cam_isp.h>
-#include <uapi/media/cam_defs.h>
+#include <media/cam_isp.h>
+#include <media/cam_defs.h>
 
 #include "cam_req_mgr_workq.h"
 #include "ais_ife_csid_core.h"
@@ -551,7 +551,7 @@ static int ais_ife_csid_config_rdi_path(
 	soc_info = &csid_hw->hw_info->soc_info;
 
 	id = res->path;
-	if (id >= AIS_IFE_CSID_RDI_MAX || id >= csid_reg->cmn_reg->num_rdis || 
+	if (id >= AIS_IFE_CSID_RDI_MAX || id >= csid_reg->cmn_reg->num_rdis ||
 		!csid_reg->rdi_reg[id]) {
 		CAM_ERR(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
 			 csid_hw->hw_intf->hw_idx, id);

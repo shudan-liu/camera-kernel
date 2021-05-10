@@ -19,8 +19,8 @@
 #include <linux/timer.h>
 #include <linux/kernel.h>
 
-#include <uapi/media/ais_isp.h>
-#include <uapi/media/cam_req_mgr.h>
+#include <media/ais_isp.h>
+#include <media/cam_req_mgr.h>
 #include "ais_ife_dev.h"
 #include "ais_vfe_hw_intf.h"
 #include "ais_ife_csid_hw_intf.h"

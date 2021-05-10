@@ -1,0 +1,6 @@
+# SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+
+# Legacy file used for kernel 4.19.x build system to install
+# UAPI headers.
+
+header-y += media/
