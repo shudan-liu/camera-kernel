@@ -14,7 +14,7 @@
 #define _AIS_ISP_HW_H_
 
 #include <linux/completion.h>
-#include <uapi/media/cam_isp.h>
+#include <media/cam_isp.h>
 #include "cam_hw.h"
 #include "cam_hw_intf.h"
 #include "cam_soc_util.h"

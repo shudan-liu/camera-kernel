@@ -19,8 +19,8 @@
 #include <linux/timer.h>
 #include <linux/kernel.h>
 
-#include <uapi/media/ais_isp.h>
-#include <uapi/media/cam_req_mgr.h>
+#include <media/ais_isp.h>
+#include <media/cam_req_mgr.h>
 #include "ais_ife_dev.h"
 #include "ais_vfe_hw_intf.h"
 #include "ais_ife_csid_hw_intf.h"
@@ -726,7 +726,7 @@ static void __exit ais_ife_dev_exit_module(void)
 	platform_driver_unregister(&ife_driver);
 }
 
-module_init(ais_ife_dev_init_module);
+early_module_init(ais_ife_dev_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(ais_ife_dev_exit_module);
 MODULE_DESCRIPTION("AIS IFE driver");
 MODULE_LICENSE("GPL v2");

@@ -1,7 +1,7 @@
 #ifndef __UAPI_AIS_SENSOR_H__
 #define __UAPI_AIS_SENSOR_H__
 
-#include <media/cam_sensor.h>
+#include "cam_sensor.h"
 
 #define AIS_SENSOR_OPCODE_START (CAM_COMMON_OPCODE_MAX + 10)
 #define AIS_SENSOR_PROBE_CMD   (AIS_SENSOR_OPCODE_START + 1)

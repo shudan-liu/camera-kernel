@@ -19,7 +19,7 @@
 #include <linux/timer.h>
 #include <linux/kernel.h>
 
-#include <uapi/media/cam_req_mgr.h>
+#include <media/cam_req_mgr.h>
 #include "cam_isp_dev.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_isp_hw_mgr_intf.h"
@@ -199,7 +199,7 @@ static void __exit cam_isp_dev_exit_module(void)
 	platform_driver_unregister(&isp_driver);
 }
 
-module_init(cam_isp_dev_init_module);
+early_module_init(cam_isp_dev_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_isp_dev_exit_module);
 MODULE_DESCRIPTION("MSM ISP driver");
 MODULE_LICENSE("GPL v2");

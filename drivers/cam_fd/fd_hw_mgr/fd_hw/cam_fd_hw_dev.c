@@ -231,7 +231,7 @@ static void __exit cam_fd_hw_exit_module(void)
 	platform_driver_unregister(&cam_fd_hw_driver);
 }
 
-module_init(cam_fd_hw_init_module);
+early_module_init(cam_fd_hw_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_fd_hw_exit_module);
 MODULE_DESCRIPTION("CAM FD HW driver");
 MODULE_LICENSE("GPL v2");

@@ -59,13 +59,12 @@ endif
 
 ifeq (y, $(findstring y, $(CONFIG_MSM_AIS) $(CONFIG_V4L2_LOOPBACK_V2)))
 # Use USERINCLUDE when you must reference the UAPI directories only.
-USERINCLUDE += \
-                -I$(srctree)/techpack/ais/include/uapi
+USERINCLUDE = -I$(srctree)/techpack/ais/include/uapi/ais
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
 # Needed to be compatible with the O= option
 LINUXINCLUDE += \
-                -I$(srctree)/techpack/ais/include/uapi \
+                -I$(srctree)/techpack/ais/include/uapi/ais \
                 -I$(srctree)/techpack/ais/include \
                 -I$(srctree) \
                 -I$(srctree)/include

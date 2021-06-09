@@ -13,8 +13,8 @@
 #ifndef _AIS_VFE_BUS_H_
 #define _AIS_VFE_BUS_H_
 
-#include <uapi/media/ais_isp.h>
-#include <uapi/media/cam_isp.h>
+#include <media/ais_isp.h>
+#include <media/cam_isp.h>
 #include "cam_hw_intf.h"
 #include "ais_isp_hw.h"
 
