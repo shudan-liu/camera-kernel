@@ -151,7 +151,7 @@ static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev)
 #define CLOSE_TIMEOUT 4000
 #define START_TIMEOUT 4000
 #define STOP_TIMEOUT 4000
-#define ALLOCBUFS_TIMEOUT 4000
+#define ALLOCBUFS_TIMEOUT 6000
 
 
 
@@ -161,7 +161,7 @@ static inline void v4l2_device_unregister(struct v4l2_device *v4l2_dev)
  * are all mapped to max_buffers buffers
  */
 #ifndef MAX_BUFFERS
-# define MAX_BUFFERS 20
+# define MAX_BUFFERS MAX_AIS_BUFFERS_NUM
 #endif
 
 /* module parameters */
@@ -169,7 +169,7 @@ static int debug;
 module_param(debug, int, 0644);
 MODULE_PARM_DESC(debug, "debugging level (higher values == more verbose)");
 
-static int max_buffers = 8;
+static int max_buffers = MAX_AIS_BUFFERS_NUM;
 module_param(max_buffers, int, 0444);
 MODULE_PARM_DESC(max_buffers, "how many buffers should be allocated");
 
@@ -1968,7 +1968,7 @@ static void set_allbufs_state(struct v4l2_loopback_device *dev,
 	int i = 0;
 
 	mutex_lock(&dev->buf_mutex);
-	for (i = 0; i < dev->buffers_number; ++i) {
+	for (i = 0; i < dev->used_buffers; ++i) {
 		dev->buffers[i].state = state;
 	}
 
@@ -2153,6 +2153,7 @@ static int vidioc_streamon(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE: {
+		pr_info("streamon\n");
 		set_allbufs_state(dev, V4L2L_BUF_PROXY_ACQUIRED);
 		mutex_lock(&dev->outbufs_mutex);
 		list_for_each_entry_safe(pos, n,
@@ -2207,6 +2208,7 @@ static int vidioc_streamoff(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
+		pr_info("streamoff\n");
 		set_allbufs_state(dev, V4L2L_BUF_PENDING);
 
 		send_v4l2_event(dev->vdev, AIS_V4L2_CLIENT_OUTPUT,
@@ -2457,15 +2459,17 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		complete(&dev->ctrl_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
-
 		if (kcmd->size != sizeof(bufs)) {
 			rc = -EINVAL;
+			pr_err("kcmd->size != sizeof(bufs)\n");
 		} else if (copy_from_user(&bufs,
 				u64_to_user_ptr(kcmd->payload),
 				sizeof(bufs))) {
 			rc = -EFAULT;
 			pr_err("fail to AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
 		} else {
+			pr_info("setbufs %u begin\n", bufs.nbufs);
+
 			for (i = 0; i < bufs.nbufs; ++i) {
 				dmabuf = dma_buf_get(bufs.fds[i]);
 				if (dmabuf == NULL) {
@@ -2479,7 +2483,43 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 			dev->allocbufs_ret = kcmd->ctrl_ret;
 			complete(&dev->allocbufs_complete);
 
-			pr_info("setbufs %u\n", bufs.nbufs);
+			pr_info("setbufs %u end\n", bufs.nbufs);
+		}
+		break;
+	}
+	case AIS_V4L2_OUTPUT_PRIV_SET_INPUT_SIGNAL_EVENT: {
+		if (copy_from_user(&event.u.data[2],
+				u64_to_user_ptr(kcmd->payload),
+				kcmd->size)) {
+			rc = -EFAULT;
+			pr_err("fail to copy from user on input signal\n");
+		} else {
+			event.type = AIS_V4L2_CLIENT_CAPTURE;
+			event.id = AIS_V4L2_EVENT_INPUT_SIGNAL;
+
+			event.u.data[0] = kcmd->param_type;
+			event.u.data[1] = kcmd->size;
+			v4l2_event_queue(dev->vdev, &event);
+			pr_debug("send AIS_V4L2_EVENT_INPUT_SIGNAL : %d\n",
+				event.u.data[2]);
+		}
+		break;
+	}
+	case AIS_V4L2_OUTPUT_PRIV_SET_ERROR_EVENT: {
+		if (copy_from_user(&event.u.data[2],
+				u64_to_user_ptr(kcmd->payload),
+				kcmd->size)) {
+			rc = -EFAULT;
+			pr_err("fail to copy from user on input signal\n");
+		} else {
+			event.type = AIS_V4L2_CLIENT_CAPTURE;
+			event.id = AIS_V4L2_EVENT_ERROR;
+
+			event.u.data[0] = kcmd->param_type;
+			event.u.data[1] = kcmd->size;
+			v4l2_event_queue(dev->vdev, &event);
+			pr_debug("send AIS_V4L2_EVENT_ERROR :%d\n",
+				event.u.data[2]);
 		}
 		break;
 	}
@@ -3051,7 +3091,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	set_timeperframe(dev, &dev->capture_param.timeperframe);
 	dev->keep_format = 0;
 	dev->sustain_framerate = 0;
-	dev->buffers_number = max_buffers;
+	dev->buffers_number = MAX_AIS_BUFFERS_NUM;
 	dev->used_buffers = max_buffers;
 	dev->max_openers = max_openers;
 	dev->write_position = 0;
@@ -3274,7 +3314,7 @@ static int __init v4l2loopback_init_module(void)
 		video_nr[i] = video_idx + i;
 	}
 
-	max_buffers = 20;
+	max_buffers = MAX_AIS_BUFFERS_NUM;
 
 	if (devices < 0) {
 		devices = 1;
