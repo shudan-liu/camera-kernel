@@ -245,7 +245,7 @@ static int cam_lrme_hw_dev_remove(struct platform_device *pdev)
 	if (!lrme_hw) {
 		CAM_ERR(CAM_LRME, "Invalid lrme_hw from fd_hw_intf");
 		rc = -ENODEV;
-		goto deinit_platform_res;
+		return rc;
 	}
 
 	lrme_core = (struct cam_lrme_core *)lrme_hw->core_info;
