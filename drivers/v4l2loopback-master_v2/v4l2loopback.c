@@ -368,6 +368,7 @@ struct v4l2l_buffer {
 	int use_count;
 	uintptr_t kvaddr;
 	enum V4L2_LOOPBACK_BUF_STATE state;
+	struct ais_v4l2_buffer_ext_t ext;
 };
 
 struct v4l2_loopback_device {
@@ -601,14 +602,17 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 
 	if (fmt->flags & FORMAT_FLAGS_PLANAR) {
 		f->bytesperline = width; /* Y plane */
-		f->sizeimage = (width * height * fmt->depth) >> 3;
+		if (f->sizeimage == 0)
+			f->sizeimage = (width * height * fmt->depth) >> 3;
 	} else if (fmt->flags & FORMAT_FLAGS_COMPRESSED) {
 		/* doesn't make sense for compressed formats */
 		f->bytesperline = 0;
-		f->sizeimage = (width * height * fmt->depth) >> 3;
+		if (f->sizeimage == 0)
+			f->sizeimage = (width * height * fmt->depth) >> 3;
 	} else {
 		f->bytesperline = (width * fmt->depth) >> 3;
-		f->sizeimage = height * f->bytesperline;
+		if (f->sizeimage == 0)
+			f->sizeimage = height * f->bytesperline;
 	}
 }
 
@@ -1192,6 +1196,10 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 		struct v4l2_format *fmt)
 {
 	struct v4l2_loopback_device *dev;
+	__u32 w = fmt->fmt.pix.width;
+	__u32 h = fmt->fmt.pix.height;
+	__u32 pixfmt = fmt->fmt.pix.pixelformat;
+	const struct v4l2l_format *format = format_by_fourcc(pixfmt);
 
 	MARK();
 	dev = v4l2loopback_getdevice(file);
@@ -1203,39 +1211,34 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 	/* TODO(vasaka) loopback does not care about formats writer want to set,
 	 * maybe it is a good idea to restrict format somehow
 	 */
-	if (dev->state == V4L2L_READY_FOR_CAPTURE) {
-		__u32 w = fmt->fmt.pix.width;
-		__u32 h = fmt->fmt.pix.height;
-		__u32 pixfmt = fmt->fmt.pix.pixelformat;
-		const struct v4l2l_format *format = format_by_fourcc(pixfmt);
 
-		if (w > max_width)
-			w = max_width;
-		if (h > max_height)
-			h = max_height;
+	if (w > max_width)
+		w = max_width;
+	if (h > max_height)
+		h = max_height;
 
-		pr_debug("trying image %dx%d\n", w, h);
+	pr_debug("trying image %dx%d\n", w, h);
 
-		if (w < 1)
-			w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
+	if (w < 1)
+		w = V4L2LOOPBACK_SIZE_DEFAULT_WIDTH;
 
-		if (h < 1)
-			h = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
+	if (h < 1)
+		h = V4L2LOOPBACK_SIZE_DEFAULT_HEIGHT;
 
-		if (format == NULL)
-			format = &formats[0];
+	if (format == NULL)
+		format = &formats[0];
 
-		pix_format_set_size(&fmt->fmt.pix, format, w, h);
+	pix_format_set_size(&fmt->fmt.pix, format, w, h);
 
-		fmt->fmt.pix.pixelformat = format->fourcc;
-		fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
+	fmt->fmt.pix.pixelformat = format->fourcc;
+	fmt->fmt.pix.colorspace = V4L2_COLORSPACE_SRGB;
 
-		if (fmt->fmt.pix.field == V4L2_FIELD_ANY)
-			fmt->fmt.pix.field = V4L2_FIELD_NONE;
+	if (fmt->fmt.pix.field == V4L2_FIELD_ANY)
+		fmt->fmt.pix.field = V4L2_FIELD_NONE;
 
-		/* FIXXME: try_fmt should never modify the device-state */
-		dev->pix_format = fmt->fmt.pix;
-	}
+	/* FIXXME: try_fmt should never modify the device-state */
+	dev->pix_format = fmt->fmt.pix;
+
 	return 0;
 }
 
@@ -1258,24 +1261,23 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 		return -EINVAL;
 	}
 
-	if (dev->state == V4L2L_READY_FOR_CAPTURE) {
-		ret = vidioc_try_fmt_out(file, priv, fmt);
+	ret = vidioc_try_fmt_out(file, priv, fmt);
 
-		pr_info("s_fmt_out(%d) %d...%d\n", ret,
-			(dev->state & V4L2L_READY_FOR_CAPTURE),
-			dev->pix_format.sizeimage);
+	pr_info("s_fmt_out(%d) %d...%d %d %d\n", ret,
+		(dev->state & V4L2L_READY_FOR_CAPTURE),
+		fmt->fmt.pix.width, fmt->fmt.pix.height,
+		dev->pix_format.sizeimage);
 
-		buf[4] = 0;
-		pr_debug("outFOURCC=%s\n",
-			fourcc2str(dev->pix_format.pixelformat, buf));
+	buf[4] = 0;
+	pr_debug("outFOURCC=%s\n",
+		fourcc2str(dev->pix_format.pixelformat, buf));
 
-		if (ret < 0)
-			return ret;
+	if (ret < 0)
+		return ret;
 
-		dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
-		fmt->fmt.pix.sizeimage = dev->buffer_size;
-		pr_info("buffer size %u\n", dev->buffer_size);
-	}
+	dev->buffer_size = PAGE_ALIGN(dev->pix_format.sizeimage);
+	fmt->fmt.pix.sizeimage = dev->buffer_size;
+	pr_info("buffer size %u\n", dev->buffer_size);
 
 	return ret;
 }
@@ -1513,7 +1515,7 @@ static int v4l2loopback_datasize_get_ctrl(struct v4l2_loopback_device *dev,
 				  u32 id,
 				  s32 *val)
 {
-	struct v4l2_pix_format pix_format;
+	struct v4l2_pix_format pix_format = {};
 	const struct v4l2l_format *format;
 	__u32 pixfmt;
 	__u32 w;
@@ -1987,6 +1989,7 @@ static int vidioc_qbuf(struct file *file,
 	int index;
 	int rc;
 
+
 	dev = v4l2loopback_getdevice(file);
 	if (!dev) {
 		pr_err("dev is null");
@@ -2017,7 +2020,8 @@ static int vidioc_qbuf(struct file *file,
 				AIS_V4L2_OUTPUT_BUF_READY);
 		}
 		return rc;
-	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
+	case V4L2_BUF_TYPE_VIDEO_OUTPUT: {
+		__u64 payload = 0;
 		pr_debug("[dev %s] output QBUF pos: %d index: %d\n",
 				dev->vdev->name, dev->write_position, index);
 		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
@@ -2033,9 +2037,22 @@ static int vidioc_qbuf(struct file *file,
 			mutex_lock(&dev->capbufs_mutex);
 			list_add_tail(&b->list_head, &dev->capbufs_list);
 			mutex_unlock(&dev->capbufs_mutex);
+
+			// copy from user to b->ext
+			payload = *((__u64*)&buf->reserved2);
+			if (payload !=0) {
+				if (copy_from_user(&(b->ext),
+					u64_to_user_ptr(payload),
+					sizeof(b->ext))) {
+					rc = -EFAULT;
+					pr_err("copy_from_user fail on qbuf\n");
+				}
+			}
+
 			wake_up_all(&dev->read_event);
 		}
 		return rc;
+	}
 	default:
 		pr_err("unsupported buf type %d\n", buf->type);
 		return -EINVAL;
@@ -2068,8 +2085,7 @@ static int vidioc_dqbuf(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		mutex_lock(&dev->capbufs_mutex);
 		if (!list_empty(&dev->capbufs_list)) {
-
-			b = list_entry(dev->capbufs_list.prev,
+			b = list_first_entry(&dev->capbufs_list,
 						struct v4l2l_buffer, list_head);
 
 			rc = set_bufstate(dev, b, V4L2L_BUF_USER_ACQUIRED);
@@ -2077,10 +2093,23 @@ static int vidioc_dqbuf(struct file *file,
 				mutex_unlock(&dev->capbufs_mutex);
 				pr_err("[dev %s] capture DQBUF index: %d fail\n", dev->vdev->name, b->buffer.index);
 			} else {
+				__u64 payload = 0;
 				list_del_init(&b->list_head);
 				mutex_unlock(&dev->capbufs_mutex);
 
 				pr_debug("[dev %s] capture DQBUF index: %d\n", dev->vdev->name, b->buffer.index);
+				// copy to user *buf.reversed2 from b->ext
+				payload = *((__u64*)&buf->reserved2);
+				if (payload != 0) {
+					if (copy_to_user(u64_to_user_ptr(payload),
+						&b->ext,
+						sizeof(b->ext))) {
+						rc = -EFAULT;
+						pr_err("copy_to_user fail on dqbuf\n");
+					}
+					b->ext.batch_num = 0;
+				}
+
 				*buf = b->buffer;
 			}
 		} else {
@@ -2098,8 +2127,7 @@ static int vidioc_dqbuf(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		mutex_lock(&dev->outbufs_mutex);
 		if (!list_empty(&dev->outbufs_list)) {
-
-			b = list_entry(dev->outbufs_list.prev,
+			b = list_first_entry(&dev->outbufs_list,
 					struct v4l2l_buffer, list_head);
 
 			rc = set_bufstate(dev, b, V4L2L_BUF_PROXY_ACQUIRED);
@@ -2937,6 +2965,7 @@ static void init_buffers(struct v4l2_loopback_device *dev)
 
 		/* all the buffers are acquired by the proxy when init */
 		dev->buffers[i].state = V4L2L_BUF_USER_ACQUIRED;
+		dev->buffers[i].ext.batch_num = 0;
 
 		cam_common_util_get_curr_timestamp(&b->timestamp);
 	}
