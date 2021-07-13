@@ -364,33 +364,38 @@ free_s_ctrl:
 	return rc;
 }
 
-static int cam_pm_sensor_suspend(struct platform_device *pdev,
-	pm_message_t state)
+static int cam_pm_sensor_suspend(struct device *pdev)
 {
 	struct cam_sensor_ctrl_t  *s_ctrl;
 	struct cam_control cam_cmd = {};
+	int rc = 0;
 
 	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_DOWN");
 	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_DOWN;
 	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
 	cam_cmd.size        = 0;
-	s_ctrl = platform_get_drvdata(pdev);
-	cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
-	return 0;
+	s_ctrl = dev_get_drvdata(pdev);
+	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_DOWN sensor");
+	return rc;
 }
 
-static int cam_pm_sensor_resume(struct platform_device *pdev)
+static int cam_pm_sensor_resume(struct device *pdev)
 {
 	struct cam_sensor_ctrl_t  *s_ctrl;
 	struct cam_control cam_cmd = {};
+	int rc = 0;
 
 	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_UP");
 	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_UP;
 	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
 	cam_cmd.size        = 0;
-	s_ctrl = platform_get_drvdata(pdev);
-	cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
-	return 0;
+	s_ctrl = dev_get_drvdata(pdev);
+	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_UP sensor");
+	return rc;
 }
 
 static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
@@ -407,11 +412,13 @@ static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
 	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_DOWN sensor");
-	return 0;
+	return rc;
 }
 
 static const struct dev_pm_ops cam_pm_hiber_ops = {
 	.freeze = &cam_pm_sensor_hibernation_suspend,
+	.suspend = &cam_pm_sensor_suspend,
+	.resume = &cam_pm_sensor_resume,
 };
 
 MODULE_DEVICE_TABLE(of, cam_sensor_driver_dt_match);
@@ -425,8 +432,6 @@ static struct platform_driver cam_sensor_platform_driver = {
 		.suppress_bind_attrs = true,
 		.pm = &cam_pm_hiber_ops,
 	},
-	.suspend = cam_pm_sensor_suspend,
-	.resume = cam_pm_sensor_resume,
 	.remove = cam_sensor_platform_remove,
 };
 
