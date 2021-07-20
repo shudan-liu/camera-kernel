@@ -1041,7 +1041,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	if (rc) {
 		CAM_ERR(CAM_CDM, "HW CDM Interface registration failed");
 		cdm_hw->open_count--;
-		goto disable_platform_resource;
+		goto cpas_unregister;
 	}
 	cdm_hw->open_count--;
 	mutex_unlock(&cdm_hw->hw_mutex);
@@ -1069,9 +1069,9 @@ release_platform_resource:
 	if (cam_soc_util_release_platform_resource(&cdm_hw->soc_info))
 		CAM_ERR(CAM_CDM, "Release platform resource failed");
 
+destroy_non_secure_hdl:
 	flush_workqueue(cdm_core->work_queue);
 	destroy_workqueue(cdm_core->work_queue);
-destroy_non_secure_hdl:
 	cam_smmu_set_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
 		NULL, cdm_hw);
 	if (cam_smmu_destroy_handle(cdm_core->iommu_hdl.non_secure))
