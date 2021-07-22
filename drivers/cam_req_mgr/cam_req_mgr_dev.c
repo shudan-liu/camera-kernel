@@ -758,38 +758,19 @@ static const struct of_device_id cam_req_mgr_dt_match[] = {
 };
 //MODULE_DEVICE_TABLE(of, cam_dt_match);
 
-static int cam_pm_freeze(struct device *pdev)
-{
-	CAM_DBG(CAM_CRM, "Freeze done for cam_req_mgr driver");
-	return 0;
-}
-
 static int cam_pm_restore(struct device *pdev)
 {
 	struct v4l2_event event;
 
 	event.id = V4L_EVENT_CAM_REQ_MGR_HIBERNATION_RESUME;
 	event.type = V4L_EVENT_CAM_REQ_MGR_EVENT;
-	CAM_DBG(CAM_CRM, "Queue hibernation restore event");
-	v4l2_event_queue(g_dev.video, &event);
-	return 0;
-}
-
-static int cam_pm_thaw(struct device *pdev)
-{
-	struct v4l2_event event;
-
-	event.id = V4L_EVENT_CAM_REQ_MGR_HIBERNATION_SUSPEND;
-	event.type = V4L_EVENT_CAM_REQ_MGR_EVENT;
-	CAM_DBG(CAM_CRM, "Queue hibernation thaw event");
+	CAM_INFO(CAM_CRM, "Queue hibernation restore event");
 	v4l2_event_queue(g_dev.video, &event);
 	return 0;
 }
 
 static const struct dev_pm_ops cam_pm_ops = {
-	.freeze = &cam_pm_freeze,
 	.restore = &cam_pm_restore,
-	.thaw = &cam_pm_thaw,
 };
 
 static struct platform_driver cam_req_mgr_driver = {
