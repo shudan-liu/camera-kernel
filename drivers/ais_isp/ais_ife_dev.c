@@ -506,17 +506,24 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 	}
 
 	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d",
-		p_ife_dev->hw_idx, evt_data->type);
+		p_ife_dev->hw_idx, evt_data->msg.type);
 
 
-	if (sizeof(*evt_data) > sizeof(event.u.data)) {
-		CAM_ERR(CAM_ISP, "IFE Callback struct too large (%d)!",
-			sizeof(*evt_data));
+	if (sizeof(evt_data->u) > sizeof(event.u.data)) {
+		CAM_ERR(CAM_ISP, "IFE Msg struct too large (%d)!",
+			sizeof(evt_data->u));
+		return -EINVAL;
+	}
+
+	if (sizeof(evt_data->msg) > sizeof(event.reserved)) {
+		CAM_ERR(CAM_ISP, "IFE Msg union struct too large (%d)!",
+			sizeof(evt_data->msg));
 		return -EINVAL;
 	}
 
 	/* Queue the event */
-	memcpy(event.u.data, (void *)evt_data, sizeof(*evt_data));
+	memcpy(event.u.data, (void *)&evt_data->u, sizeof(evt_data->u));
+	memcpy(event.reserved, (void *)&evt_data->msg, sizeof(evt_data->msg));
 	event.id = V4L_EVENT_ID_AIS_IFE;
 	event.type = V4L_EVENT_TYPE_AIS_IFE;
 	v4l2_event_queue(p_ife_dev->cam_sd.sd.devnode, &event);

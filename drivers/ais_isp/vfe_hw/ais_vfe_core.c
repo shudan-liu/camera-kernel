@@ -1048,8 +1048,8 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 						path, 1, 0);
 
 		//send warning
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_WARNING;
+		core_info->event.msg.path = path;
 		core_info->event.u.err_msg.reserved = 0;
 
 		core_info->event_cb(core_info->event_cb_priv,
@@ -1060,8 +1060,8 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 	p_rdi->last_sof_info.cur_sof_hw_ts = cur_sof_hw_ts;
 
 	//send sof only for current frame
-	core_info->event.type = AIS_IFE_MSG_SOF;
-	core_info->event.path = path;
+	core_info->event.msg.type = AIS_IFE_MSG_SOF;
+	core_info->event.msg.path = path;
 	core_info->event.u.sof_msg.frame_id = p_rdi->frame_cnt;
 	core_info->event.u.sof_msg.hw_ts = cur_sof_hw_ts;
 
@@ -1158,8 +1158,8 @@ static int ais_vfe_handle_error(
 			bus_hw_info->common_reg.sw_reset);
 
 
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_ERROR;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_ERROR;
+		core_info->event.msg.path = path;
 
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
@@ -1194,8 +1194,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 	rdi_path = &core_info->rdi_out[path];
 	bus_hw_info = core_info->vfe_hw_info->bus_hw_info;
 
-	core_info->event.type = AIS_IFE_MSG_FRAME_DONE;
-	core_info->event.path = path;
+	core_info->event.msg.type = AIS_IFE_MSG_FRAME_DONE;
+	core_info->event.msg.path = path;
 
 	while (rdi_path->num_buffer_hw_q && !last_addr_match) {
 		struct ais_sof_info_t *p_sof_info = NULL;
@@ -1272,10 +1272,10 @@ static void ais_vfe_bus_handle_client_frame_done(
 				rdi_path->num_buffer_hw_q,
 				last_addr_match);
 
-		core_info->event.u.frame_msg.frame_id = frame_cnt;
+		core_info->event.u.frame_msg.frame_id[0] = frame_cnt;
 		core_info->event.u.frame_msg.buf_idx = vfe_buf->bufIdx;
 		core_info->event.u.frame_msg.ts = sof_ts;
-		core_info->event.u.frame_msg.hw_ts = cur_sof_hw_ts;
+		core_info->event.u.frame_msg.hw_ts[0] = cur_sof_hw_ts;
 
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
@@ -1291,8 +1291,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 1);
 
 		//send warning
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_WARNING;
+		core_info->event.msg.path = path;
 		core_info->event.u.err_msg.reserved = 1;
 
 		core_info->event_cb(core_info->event_cb_priv,
@@ -1320,8 +1320,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 0);
 
 		//send warning
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_WARNING;
+		core_info->event.msg.path = path;
 		core_info->event.u.err_msg.reserved = 0;
 
 		core_info->event_cb(core_info->event_cb_priv,
@@ -1480,8 +1480,8 @@ static int ais_vfe_process_irq_bh(void *priv, void *data)
 	CAM_DBG(CAM_ISP, "VFE[%d] event %d",
 		core_info->vfe_idx, work_data->evt_type);
 
-	core_info->event.idx = core_info->vfe_idx;
-	core_info->event.boot_ts = work_data->ts;
+	core_info->event.msg.idx = core_info->vfe_idx;
+	core_info->event.msg.boot_ts = work_data->ts;
 
 	switch (work_data->evt_type) {
 	case AIS_VFE_HW_IRQ_EVENT_SOF:

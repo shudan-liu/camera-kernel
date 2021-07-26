@@ -274,6 +274,17 @@ struct ais_ife_rdi_in_cfg {
 	uint32_t reserved;
 };
 
+enum ais_ife_batch_mode_type {
+    AIS_IFE_BATCH_MODE_DEFAULT = 0,
+};
+
+struct ais_ife_batch_config_type {
+    enum ais_ife_batch_mode_type batchMode;
+    uint32_t numBatchFrames;
+    uint32_t frameIncrement;
+};
+
+
 /**
  * struct ais_ife_rdi_out_cfg
  *
@@ -301,7 +312,9 @@ struct ais_ife_rdi_out_cfg {
 	uint32_t frame_drop_pattern;
 	uint32_t frame_drop_period;
 	uint32_t reserved;
+	struct ais_ife_batch_config_type batch_config;
 };
+
 
 /**
  * struct ais_ife_diag_info - queries total number of packets received
@@ -472,16 +485,18 @@ struct ais_ife_error_msg {
  *
  * @brief Frame done event message
  *
- * @hw_ts : SOF HW timestamp
+ * @hw_ts : SOF HW timestamp per batch
  * @ts :    SOF timestamp
- * @frame_id : frame count
+ * @frame_id : frame count per batch
  * @buf_idx : buffer index
+ * @num_batch_frames : number of batched frames
  */
 struct ais_ife_frame_msg {
-	uint64_t  hw_ts;
+	uint64_t  hw_ts[4];
 	uint64_t  ts;
-	uint32_t  frame_id;
+	uint32_t  frame_id[4];
 	uint32_t  buf_idx;
+	uint32_t  num_batch_frames;
 };
 
 /**
@@ -498,6 +513,13 @@ enum ais_ife_msg_type {
 	AIS_IFE_MSG_CSID_ERROR
 };
 
+struct ais_ife_event_common_data {
+	uint64_t  boot_ts;
+	uint8_t   type;
+	uint8_t   idx;
+	uint8_t   path;
+};
+
 /**
  * struct ais_ife_frame_msg
  *
@@ -512,12 +534,8 @@ enum ais_ife_msg_type {
  * @u       : event message
  */
 struct ais_ife_event_data {
-	uint8_t   type;
-	uint8_t   idx;
-	uint8_t   path;
-	uint8_t   reserved;
-	uint32_t  reserved1;
-	uint64_t  boot_ts;
+	struct ais_ife_event_common_data msg;
+
 	union {
 		struct ais_ife_sof_msg sof_msg;
 		struct ais_ife_error_msg err_msg;

@@ -1650,9 +1650,9 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 		work_data->irq_status[CSID_IRQ_STATUS_RDI2],
 		work_data->irq_status[CSID_IRQ_STATUS_RDI3]);
 
-	evt_payload.idx = csid_hw->hw_intf->hw_idx;
-	evt_payload.boot_ts = work_data->timestamp;
-	evt_payload.path = 0xF;
+	evt_payload.msg.idx = csid_hw->hw_intf->hw_idx;
+	evt_payload.msg.boot_ts = work_data->timestamp;
+	evt_payload.msg.path = 0xF;
 	evt_payload.u.err_msg.reserved =
 		work_data->irq_status[CSID_IRQ_STATUS_RX];
 
@@ -1662,7 +1662,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 			break;
 		csid_hw->fatal_err_detected = true;
 
-		evt_payload.type = AIS_IFE_MSG_CSID_ERROR;
+		evt_payload.msg.type = AIS_IFE_MSG_CSID_ERROR;
 
 		rc = csid_hw->event_cb(csid_hw->event_cb_priv, &evt_payload);
 		break;
