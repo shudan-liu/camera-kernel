@@ -12,8 +12,8 @@
 
 #include <linux/iopoll.h>
 #include <linux/slab.h>
-#include <uapi/media/cam_isp.h>
-#include <uapi/media/cam_defs.h>
+#include <media/cam_isp.h>
+#include <media/cam_defs.h>
 
 #include "cam_req_mgr_workq.h"
 #include "ais_ife_csid_core.h"
@@ -551,7 +551,7 @@ static int ais_ife_csid_config_rdi_path(
 	soc_info = &csid_hw->hw_info->soc_info;
 
 	id = res->path;
-	if (id >= AIS_IFE_CSID_RDI_MAX || id >= csid_reg->cmn_reg->num_rdis || 
+	if (id >= AIS_IFE_CSID_RDI_MAX || id >= csid_reg->cmn_reg->num_rdis ||
 		!csid_reg->rdi_reg[id]) {
 		CAM_ERR(CAM_ISP, "CSID:%d RDI:%d is not supported on HW",
 			 csid_hw->hw_intf->hw_idx, id);
@@ -561,7 +561,7 @@ static int ais_ife_csid_config_rdi_path(
 	path_cfg = &csid_hw->rdi_cfg[id];
 	path_cfg->vc = res->csi_cfg.vc;
 	path_cfg->dt = res->csi_cfg.dt;
-	path_cfg->cid = id;
+	path_cfg->cid = res->csi_cfg.dt_id;
 	path_cfg->in_format = res->in_cfg.format;
 	path_cfg->out_format = res->out_cfg.format;
 	path_cfg->crop_enable = res->in_cfg.crop_enable;
@@ -1650,9 +1650,9 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 		work_data->irq_status[CSID_IRQ_STATUS_RDI2],
 		work_data->irq_status[CSID_IRQ_STATUS_RDI3]);
 
-	evt_payload.idx = csid_hw->hw_intf->hw_idx;
-	evt_payload.boot_ts = work_data->timestamp;
-	evt_payload.path = 0xF;
+	evt_payload.msg.idx = csid_hw->hw_intf->hw_idx;
+	evt_payload.msg.boot_ts = work_data->timestamp;
+	evt_payload.msg.path = 0xF;
 	evt_payload.u.err_msg.reserved =
 		work_data->irq_status[CSID_IRQ_STATUS_RX];
 
@@ -1662,7 +1662,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 			break;
 		csid_hw->fatal_err_detected = true;
 
-		evt_payload.type = AIS_IFE_MSG_CSID_ERROR;
+		evt_payload.msg.type = AIS_IFE_MSG_CSID_ERROR;
 
 		rc = csid_hw->event_cb(csid_hw->event_cb_priv, &evt_payload);
 		break;

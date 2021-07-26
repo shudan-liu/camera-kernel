@@ -1,23 +1,4 @@
 # SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
 
-# Legacy file used for kernel 4.19.x build system to install
-# UAPI headers.
-
-header-y += media/cam_cpas.h
-header-y += media/cam_defs.h
-header-y += media/cam_fd.h
-header-y += media/cam_icp.h
-header-y += media/cam_isp.h
-header-y += media/cam_isp_vfe.h
-header-y += media/cam_isp_ife.h
-header-y += media/cam_jpeg.h
-header-y += media/cam_req_mgr.h
-header-y += media/cam_sensor.h
-header-y += media/cam_sync.h
-header-y += media/ais_isp.h
-header-y += media/ais_sensor.h
-
-header-$(CONFIG_V4L2_LOOPBACK_V2) += media/ais_v4l2loopback.h
-
-# for compile temp add it
-header-y += media/msm_media_info.h
+# Top-level Makefile calls into asm-$(ARCH)
+# List only non-arch directories below

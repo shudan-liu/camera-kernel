@@ -16,7 +16,7 @@
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_tasklet_util.h"
 
-#define CAM_ISP_HW_NUM_MAX                       4
+#define CAM_ISP_HW_NUM_MAX                       8
 
 /**
  * struct cam_isp_hw_mgr_ctx - common acquired context for managers

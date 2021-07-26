@@ -663,7 +663,7 @@ static int cam_lrme_mgr_hw_dump(void *hw_mgr_priv, void *hw_dump_args)
 	struct cam_lrme_device *hw_device;
 	int rc = 0;
 	uint32_t device_index;
-	struct cam_lrme_hw_dump_args lrme_dump_args;
+	struct cam_lrme_hw_dump_args lrme_dump_args = {};
 
 	device_index = CAM_LRME_DECODE_DEVICE_INDEX(dump_args->ctxt_to_hw_map);
 	if (device_index >= hw_mgr->device_count) {
