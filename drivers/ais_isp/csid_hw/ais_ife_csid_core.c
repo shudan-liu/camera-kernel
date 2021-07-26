@@ -1563,6 +1563,13 @@ static int ais_ife_csid_get_total_pkts(
 	struct cam_hw_soc_info                         *soc_info;
 	const struct ais_ife_csid_reg_offset           *csid_reg;
 
+	if (csid_hw->hw_info->hw_state != CAM_HW_STATE_POWER_UP) {
+		CAM_ERR(CAM_ISP, "CSID:%d Invalid hw state :%d",
+			csid_hw->hw_intf->hw_idx,
+			csid_hw->hw_info->hw_state);
+		return -EINVAL;
+	}
+
 	csid_reg = csid_hw->csid_info->csid_reg;
 	soc_info = &csid_hw->hw_info->soc_info;
 
