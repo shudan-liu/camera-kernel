@@ -2489,7 +2489,7 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
 		if (kcmd->size != sizeof(bufs)) {
 			rc = -EINVAL;
-			pr_err("kcmd->size != sizeof(bufs)\n");
+			pr_err("kcmd->size != sizeof(bufs) %u %u\n", kcmd->size, sizeof(bufs));
 		} else if (copy_from_user(&bufs,
 				u64_to_user_ptr(kcmd->payload),
 				sizeof(bufs))) {
