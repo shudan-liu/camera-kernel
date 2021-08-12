@@ -604,10 +604,9 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 	 *  Also, we have to release them once we have the
 	 *  deinit support
 	 */
-	cam_smmu_get_handle("ife", &p_ife_dev->iommu_hdl);
+	rc = cam_smmu_get_handle("ife", &p_ife_dev->iommu_hdl);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Can not get iommu handle");
-		rc = -EINVAL;
 		goto unregister;
 	}
 
