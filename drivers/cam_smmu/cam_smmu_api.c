@@ -745,7 +745,7 @@ static int cam_smmu_create_add_handle_in_table(char *name,
 	CAM_ERR(CAM_SMMU, "Error: Cannot find name %s or all handle exist",
 		name);
 	cam_smmu_print_table();
-	return -EINVAL;
+	return -EPROBE_DEFER;;
 }
 
 static int cam_smmu_init_scratch_map(struct scratch_mapping *scratch_map,
