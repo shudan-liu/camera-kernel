@@ -1,4 +1,4 @@
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,7 @@
 static int g_num_pf_handled = 4;
 module_param(g_num_pf_handled, int, 0644);
 
-struct cam_fw_alloc_info icp_fw;
+static struct cam_fw_alloc_info icp_fw;
 
 struct cam_smmu_work_payload {
 	int idx;
@@ -619,7 +619,7 @@ static enum dma_data_direction cam_smmu_translate_dir(
 	return DMA_NONE;
 }
 
-void cam_smmu_reset_iommu_table(enum cam_smmu_init_dir ops)
+static void cam_smmu_reset_iommu_table(enum cam_smmu_init_dir ops)
 {
 	unsigned int i;
 	int j = 0;

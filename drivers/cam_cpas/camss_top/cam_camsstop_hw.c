@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,7 +14,7 @@
 #include "cam_cpas_hw.h"
 #include "cam_cpas_soc.h"
 
-int cam_camsstop_get_hw_info(struct cam_hw_info *cpas_hw,
+static int cam_camsstop_get_hw_info(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_hw_caps *hw_caps)
 {
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
@@ -42,7 +42,7 @@ int cam_camsstop_get_hw_info(struct cam_hw_info *cpas_hw,
 	return 0;
 }
 
-int cam_camsstop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
+static int cam_camsstop_setup_regbase_indices(struct cam_hw_soc_info *soc_info,
 	int32_t regbase_index[], int32_t num_reg_map)
 {
 	uint32_t index;

@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -79,7 +79,7 @@
  * Always make sure below register offsets are aligned with
  * enum cam_cdm_regs offsets
  */
-struct cam_cdm_reg_offset cam170_cpas_cdm_register_offsets[] = {
+static struct cam_cdm_reg_offset cam170_cpas_cdm_register_offsets[] = {
 	{ CAM_CDM_OFFSET_HW_VERSION, CAM_REG_ATTR_READ },
 	{ CAM_CDM_OFFSET_TITAN_VERSION, CAM_REG_ATTR_READ },
 	{ CAM_CDM_OFFSET_RST_CMD, CAM_REG_ATTR_WRITE },
@@ -130,7 +130,7 @@ struct cam_cdm_reg_offset cam170_cpas_cdm_register_offsets[] = {
 	{ CAM_CDM_OFFSET_SPARE, CAM_REG_ATTR_READ_WRITE }
 };
 
-struct cam_cdm_reg_offset_table cam170_cpas_cdm_offset_table = {
+static struct cam_cdm_reg_offset_table cam170_cpas_cdm_offset_table = {
 	.first_offset = 0x0,
 	.last_offset = 0x200,
 	.reg_count = 0x30,

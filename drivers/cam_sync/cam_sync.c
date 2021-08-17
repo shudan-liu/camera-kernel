@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,7 +29,7 @@ struct sync_device *sync_dev;
  */
 static bool trigger_cb_without_switch;
 
-void cam_sync_print_fence_table(void)
+static void cam_sync_print_fence_table(void)
 {
 	int cnt;
 
@@ -898,19 +898,19 @@ static long cam_sync_dev_ioctl(struct file *filep, void *fh,
 	return rc;
 }
 
-static unsigned int cam_sync_poll(struct file *f,
+static __poll_t cam_sync_poll(struct file *f,
 	struct poll_table_struct *pll_table)
 {
-	int rc = 0;
+	__poll_t rc = 0;
 	struct v4l2_fh *eventq = f->private_data;
 
 	if (!eventq)
-		return -EINVAL;
+		return (__force __poll_t)-EINVAL;
 
 	poll_wait(f, &eventq->wait, pll_table);
 
 	if (v4l2_event_pending(eventq))
-		rc = POLLPRI;
+		rc = EPOLLPRI;
 
 	return rc;
 }
@@ -1020,13 +1020,13 @@ static int cam_sync_close(struct file *filep)
 	return rc;
 }
 
-int cam_sync_subscribe_event(struct v4l2_fh *fh,
+static int cam_sync_subscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
 	return v4l2_event_subscribe(fh, sub, CAM_SYNC_MAX_V4L2_EVENTS, NULL);
 }
 
-int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
+static int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
 	return v4l2_event_unsubscribe(fh, sub);

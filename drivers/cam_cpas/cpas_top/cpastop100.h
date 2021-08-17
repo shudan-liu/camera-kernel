@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -523,7 +523,7 @@ static struct cam_cpas_hw_errata_wa_list cam170_cpas100_errata_wa_list = {
 	},
 };
 
-struct cam_camnoc_info cam170_cpas100_camnoc_info = {
+static struct cam_camnoc_info cam170_cpas100_camnoc_info = {
 	.specific = &cam_cpas100_camnoc_specific[0],
 	.specific_size = sizeof(cam_cpas100_camnoc_specific) /
 		sizeof(cam_cpas100_camnoc_specific[0]),
