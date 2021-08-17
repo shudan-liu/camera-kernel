@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -119,7 +119,7 @@ int cam_vfe_get_hw_caps(void *hw_priv, void *get_hw_cap_args, uint32_t arg_size)
 	return rc;
 }
 
-int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
+static int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 	struct cam_irq_th_payload         *th_payload)
 {
 	int32_t                            rc = -EINVAL;

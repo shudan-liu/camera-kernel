@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +63,7 @@ static int session_info_open(struct inode *inode, struct file *file)
 	return 0;
 }
 
-static ssize_t session_info_read(struct file *t_file, char *t_char,
+static ssize_t session_info_read(struct file *t_file, char __user *t_char,
 	size_t t_size_t, loff_t *t_loff_t)
 {
 	int i;
@@ -104,7 +104,7 @@ static ssize_t session_info_read(struct file *t_file, char *t_char,
 }
 
 static ssize_t session_info_write(struct file *t_file,
-	const char *t_char, size_t t_size_t, loff_t *t_loff_t)
+	const char __user *t_char, size_t t_size_t, loff_t *t_loff_t)
 {
 	memset(sess_info_buffer, 0, MAX_SESS_INFO_LINE_BUFF_LEN);
 

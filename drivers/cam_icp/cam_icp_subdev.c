@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -145,7 +145,7 @@ end:
 	return 0;
 }
 
-const struct v4l2_subdev_internal_ops cam_icp_subdev_internal_ops = {
+static const struct v4l2_subdev_internal_ops cam_icp_subdev_internal_ops = {
 	.open = cam_icp_subdev_open,
 	.close = cam_icp_subdev_close,
 };

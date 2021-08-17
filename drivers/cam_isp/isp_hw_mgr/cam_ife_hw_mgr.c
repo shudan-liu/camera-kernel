@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2019,7 +2019,7 @@ err:
 	return rc;
 }
 
-void cam_ife_cam_cdm_callback(uint32_t handle, void *userdata,
+static void cam_ife_cam_cdm_callback(uint32_t handle, void *userdata,
 	enum cam_cdm_cb_status status, uint64_t cookie)
 {
 	struct cam_ife_hw_mgr_ctx *ctx = NULL;

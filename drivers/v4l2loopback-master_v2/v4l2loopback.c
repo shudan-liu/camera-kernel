@@ -2623,13 +2623,13 @@ static const struct vm_operations_struct vm_ops = {
 	.close = vm_close,
 };
 
-static unsigned int v4l2_loopback_poll(struct file *file,
+static __poll_t v4l2_loopback_poll(struct file *file,
 						struct poll_table_struct *pts)
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
-	unsigned long req_events = poll_requested_events(pts);
-	int ret_mask = 0;
+	__poll_t req_events = poll_requested_events(pts);
+	__poll_t ret_mask = 0;
 
 	MARK();
 
@@ -2637,14 +2637,14 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 	dev = v4l2loopback_getdevice(file);
 	if (!dev) {
 		pr_err("dev is null");
-		return -EINVAL;
+		return (__force __poll_t)-EINVAL;
 	}
 
-	if (req_events & POLLPRI) {
+	if (req_events & EPOLLPRI) {
 		if (!v4l2_event_pending(&opener->fh))
 			poll_wait(file, &opener->fh.wait, pts);
 		if (v4l2_event_pending(&opener->fh)) {
-			ret_mask |= POLLPRI;
+			ret_mask |= EPOLLPRI;
 			if (!(req_events & DEFAULT_POLLMASK))
 				return ret_mask;
 		}
@@ -2652,7 +2652,7 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 
 	switch (opener->type) {
 	case V4L2L_WRITER:
-		ret_mask |= POLLOUT | POLLWRNORM;
+		ret_mask |= EPOLLOUT | EPOLLWRNORM;
 		break;
 	case V4L2L_READER:
 		if (!can_read(dev, opener)) {
@@ -2662,9 +2662,9 @@ static unsigned int v4l2_loopback_poll(struct file *file,
 			poll_wait(file, &dev->read_event, pts);
 		}
 		if (can_read(dev, opener))
-			ret_mask |= POLLIN | POLLRDNORM;
+			ret_mask |= EPOLLIN | EPOLLRDNORM;
 		if (v4l2_event_pending(&opener->fh))
-			ret_mask |= POLLPRI;
+			ret_mask |= EPOLLPRI;
 		break;
 	default:
 		break;
