@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -129,6 +130,7 @@ struct cam_sensor_ctrl_t {
 	uint32_t last_flush_req;
 	uint16_t pipeline_delay;
 	struct cam_sensor_intr_t s_intr[AIS_MAX_INTR_GPIO];
+	bool no_lpm_mode_enabled;
 };
 
 #endif /* _CAM_SENSOR_DEV_H_ */
