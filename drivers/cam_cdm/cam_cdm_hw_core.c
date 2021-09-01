@@ -946,12 +946,16 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	cdm_core->work_queue = alloc_workqueue(cdm_core->name,
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS,
 		CAM_CDM_INFLIGHT_WORKS);
+	if(!cdm_core->work_queue) {
+		CAM_ERR(CAM_CDM, "Failed to alloc work queue");
+		goto destroy_non_secure_hdl;
+	}
 
 	rc = cam_soc_util_request_platform_resource(&cdm_hw->soc_info,
 			cam_hw_cdm_irq, cdm_hw);
 	if (rc) {
 		CAM_ERR(CAM_CDM, "Failed to request platform resource");
-		goto destroy_non_secure_hdl;
+		goto failed_workq_create;
 	}
 
 	cpas_parms.cam_cpas_client_cb = cam_cdm_cpas_cb;
@@ -1041,7 +1045,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	if (rc) {
 		CAM_ERR(CAM_CDM, "HW CDM Interface registration failed");
 		cdm_hw->open_count--;
-		goto disable_platform_resource;
+		goto cpas_unregister;
 	}
 	cdm_hw->open_count--;
 	mutex_unlock(&cdm_hw->hw_mutex);
@@ -1069,6 +1073,7 @@ release_platform_resource:
 	if (cam_soc_util_release_platform_resource(&cdm_hw->soc_info))
 		CAM_ERR(CAM_CDM, "Release platform resource failed");
 
+failed_workq_create:
 	flush_workqueue(cdm_core->work_queue);
 	destroy_workqueue(cdm_core->work_queue);
 destroy_non_secure_hdl:
