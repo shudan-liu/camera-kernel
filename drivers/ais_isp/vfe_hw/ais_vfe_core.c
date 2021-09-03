@@ -44,6 +44,8 @@
 #define AIS_VFE_MASK0_RDI 0x780001E0
 #define AIS_VFE_MASK1_RDI 0x000000BC
 
+#define AIS_VFE_MASK1_RDI_OVERFLOW_SHT 2
+
 #define AIS_VFE_STATUS0_BUS_WR_IRQ  (1 << 9)
 #define AIS_VFE_STATUS0_RDI_SOF_IRQ  (0xF << AIS_VFE_STATUS0_RDI_SOF_IRQ_SHFT)
 #define AIS_VFE_STATUS0_RDI_OVERFLOW_IRQ  \
@@ -1204,6 +1206,12 @@ static int ais_vfe_handle_error(
 		cam_io_w_mb(core_info->bus_wr_mask1,
 			core_info->mem_base +
 			bus_hw_irq_regs[1].mask_reg_offset);
+
+               /* Disable rdi* overflow irq mask*/
+		core_info->irq_mask1 &=
+				~(1 << (AIS_VFE_MASK1_RDI_OVERFLOW_SHT + path));
+		cam_io_w_mb(core_info->irq_mask1,
+				core_info->mem_base + AIS_VFE_IRQ_MASK1);
 
 		/* Disable WM and reg-update */
 		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
