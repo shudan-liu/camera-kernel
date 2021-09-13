@@ -357,6 +357,7 @@ struct v4l2_loopback_device {
 	struct v4l2l_buffer buffers[MAX_BUFFERS]; /* inner driver buffers */
 	int used_buffers; /* number of the actually used buffers */
 	int max_openers;  /* how many times can this device be opened */
+	unsigned int use_buf_width;
 
 	int write_position; /* number of last written frame + 1 */
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
@@ -486,6 +487,22 @@ static void send_v4l2_event_ex(struct video_device *vdev, unsigned int type,
 		cmd);
 }
 
+static void send_v4l2_event_ex1(struct video_device *vdev, unsigned int type,
+	enum AIS_V4L2_NOTIFY_CMD cmd, u8 data0, u8 data1)
+{
+	struct v4l2_event event;
+
+	event.id = cmd;
+	event.type = type;
+	event.u.data[0] = data0;
+	event.u.data[1] = data1;
+
+	v4l2_event_queue(vdev, &event);
+	pr_debug("send v4l2 event for ais_v4l2loopback :%d\n",
+		cmd);
+}
+
+
 static void send_v4l2_event_ex2(struct video_device *vdev, unsigned int type,
 	enum AIS_V4L2_NOTIFY_CMD cmd, u8 data0, u8 size, __u64 payload)
 {
@@ -540,7 +557,8 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 	f->height = height;
 
 	if (fmt->flags & FORMAT_FLAGS_PLANAR) {
-		f->bytesperline = width; /* Y plane */
+		if (f->bytesperline == 0)
+			f->bytesperline = width; /* Y plane */
 		if (f->sizeimage == 0)
 			f->sizeimage = (width * height * fmt->depth) >> 3;
 	} else if (fmt->flags & FORMAT_FLAGS_COMPRESSED) {
@@ -549,7 +567,8 @@ static void pix_format_set_size(struct v4l2_pix_format *f,
 		if (f->sizeimage == 0)
 			f->sizeimage = (width * height * fmt->depth) >> 3;
 	} else {
-		f->bytesperline = (width * fmt->depth) >> 3;
+		if (f->bytesperline == 0)
+			f->bytesperline = (width * fmt->depth) >> 3;
 		if (f->sizeimage == 0)
 			f->sizeimage = height * f->bytesperline;
 	}
@@ -1494,6 +1513,9 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 			b->count = dev->buffers_number;
 
 		dev->used_buffers = b->count;
+		dev->use_buf_width = b->reserved[0];
+
+		pr_info("use_buf_width %d\n", dev->use_buf_width);
 
 		return 0;
 	default:
@@ -2563,8 +2585,8 @@ static int allocate_dma_buffers(struct v4l2_loopback_device *dev)
 {
 	int rc = 0;
 
-	send_v4l2_event_ex(dev->vdev, AIS_V4L2_CLIENT_OUTPUT,
-			AIS_V4L2_ALLOC_BUFS, dev->used_buffers);
+	send_v4l2_event_ex1(dev->vdev, AIS_V4L2_CLIENT_OUTPUT,
+			AIS_V4L2_ALLOC_BUFS, dev->used_buffers, dev->use_buf_width);
 	/* wait for the signal */
 	rc = wait_for_completion_timeout(&dev->allocbufs_complete,
 		msecs_to_jiffies(ALLOCBUFS_TIMEOUT));
