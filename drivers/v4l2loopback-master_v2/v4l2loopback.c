@@ -2511,7 +2511,6 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 						pr_err("dma_buf_get failed, fd=%d\n", bufs.fds[i]);
 						return -EINVAL;
 					}
-
 					dev->dmabufs[i] = dmabuf;
 				}
 
