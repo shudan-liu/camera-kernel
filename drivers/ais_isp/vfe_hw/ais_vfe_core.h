@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -21,7 +21,7 @@
 #include "ais_vfe_top_ver2.h"
 
 #define AIS_VFE_WORKQ_NUM_TASK             20
-#define AIS_VFE_MAX_BUF                    20
+#define AIS_VFE_MAX_BUF                    80
 #define AIS_VFE_MAX_SOF_INFO               8
 
 enum ais_vfe_hw_irq_event {
@@ -82,6 +82,7 @@ struct ais_vfe_buffer_t {
 	int32_t                    mem_handle;
 	uint64_t                   iova_addr;
 	uint32_t                   bufIdx;
+	uint32_t                   batchId;
 	struct ais_ife_rdi_timestamps    ts_hw;
 };
 
@@ -91,6 +92,11 @@ struct ais_sof_info_t {
 	uint64_t                sof_ts;
 	uint64_t                cur_sof_hw_ts;
 	uint64_t                prev_sof_hw_ts;
+};
+struct ais_ife_batch_frame_info {
+	uint32_t batchId;
+	uint32_t frameId;
+	uint64_t hwTimestamp;
 };
 
 struct ais_vfe_rdi_output {
@@ -113,6 +119,8 @@ struct ais_vfe_rdi_output {
 	struct list_head                 sof_info_q;
 	struct list_head                 free_sof_info_list;
 	struct ais_sof_info_t            last_sof_info;
+	struct ais_ife_batch_config_type      batchConfig;
+	struct ais_ife_batch_frame_info       batchFrameInfo[4];
 };
 
 struct ais_vfe_hw_core_info {
