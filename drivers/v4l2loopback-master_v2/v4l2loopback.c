@@ -2489,29 +2489,39 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
 		if (kcmd->size != sizeof(bufs)) {
 			rc = -EINVAL;
-			pr_err("kcmd->size != sizeof(bufs)\n");
+			pr_err("kcmd->size != sizeof(bufs), kcmd->size %d, bufs size %d\n",
+				kcmd->size, sizeof(bufs));
 		} else if (copy_from_user(&bufs,
 				u64_to_user_ptr(kcmd->payload),
-				sizeof(bufs))) {
+				sizeof(bufs.nbufs))) {
 			rc = -EFAULT;
-			pr_err("fail to AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
+			pr_err("fail get count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
 		} else {
-			pr_info("setbufs %u begin\n", bufs.nbufs);
+			if (bufs.nbufs > MAX_AIS_BUFFERS_NUM) {
+				rc = -EFAULT;
+				pr_err("invalid buffer count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
+			} else if (copy_from_user(&bufs,
+				u64_to_user_ptr(kcmd->payload),
+				sizeof(bufs.nbufs) + sizeof(int) * bufs.nbufs)) {
+				rc = -EFAULT;
+				pr_err("fail to get fds AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
+			} else {
+				pr_info("v4l2 setbufs %u begin\n", bufs.nbufs);
 
-			for (i = 0; i < bufs.nbufs; ++i) {
-				dmabuf = dma_buf_get(bufs.fds[i]);
-				if (dmabuf == NULL) {
-					pr_err("dma_buf_get failed, fd=%d\n", bufs.fds[i]);
-					return -EINVAL;
+				for (i = 0; i < bufs.nbufs; ++i) {
+					dmabuf = dma_buf_get(bufs.fds[i]);
+					if (dmabuf == NULL) {
+						pr_err("dma_buf_get failed, fd=%d\n", bufs.fds[i]);
+						return -EINVAL;
+					}
+					dev->dmabufs[i] = dmabuf;
 				}
 
-				dev->dmabufs[i] = dmabuf;
+				dev->allocbufs_ret = kcmd->ctrl_ret;
+				complete(&dev->allocbufs_complete);
+
+				pr_info("v4l2 setbufs %u end\n", bufs.nbufs);
 			}
-
-			dev->allocbufs_ret = kcmd->ctrl_ret;
-			complete(&dev->allocbufs_complete);
-
-			pr_info("setbufs %u end\n", bufs.nbufs);
 		}
 		break;
 	}
