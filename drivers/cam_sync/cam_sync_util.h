@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __CAM_SYNC_UTIL_H__
@@ -81,14 +82,12 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work);
 /**
  * @brief: Function to dispatch callbacks for a signaled sync object
  *
- * @sync_obj    : Sync object that is signaled
- * @status      : Status of the signaled object
- * @evt_param   : Event paramaeter
- *
+ * @cam_sync_signal_param  : Cam sync signal parameter information
+ * @timestamp              : Sync timestamp information
  * @return None
  */
-void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
-	uint32_t status, uint32_t evt_param);
+void cam_sync_util_dispatch_signaled_cb(struct cam_sync_signal_param *param,
+	struct cam_sync_timestamp *timestamp);
 
 /**
  * @brief: Function to send V4L event to user space
@@ -98,7 +97,7 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
  * @payload        : Payload that needs to be sent to user space
  * @len            : Length of the payload
  * @evt_param      : Event Paramenter
- *
+ * @time_stamp     : Sync timestamp information
  * @return None
  */
 void cam_sync_util_send_v4l2_event(uint32_t id,
@@ -106,7 +105,8 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 	int status,
 	void *payload,
 	int len,
-	uint32_t evt_param);
+	uint32_t evt_param,
+	struct cam_sync_timestamp *time_stamp);
 
 /**
  * @brief: Function which gets the next state of the sync object based on the

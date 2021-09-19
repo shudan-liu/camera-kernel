@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, 2020 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_SYNC_H__
@@ -16,6 +17,7 @@
 /* V4L event which user space will subscribe to */
 #define CAM_SYNC_V4L_EVENT                       (V4L2_EVENT_PRIVATE_START + 0)
 #define CAM_SYNC_V4L_EVENT_V2                    (V4L2_EVENT_PRIVATE_START + 1)
+#define CAM_SYNC_V4L_EVENT_V3                    (V4L2_EVENT_PRIVATE_START + 2)
 
 /* Specific event ids to get notified in user space */
 #define CAM_SYNC_V4L_EVENT_ID_CB_TRIG            0
@@ -37,6 +39,12 @@
 
 #define CAM_SYNC_GET_HEADER_PTR_V2(ev)              \
 	((struct cam_sync_ev_header_v2 *)ev.u.data)
+
+#define CAM_SYNC_GET_HEADER_PTR_V3(ev)              \
+	((struct cam_sync_ev_header_v3 *)ev.u.data)
+
+#define CAM_SYNC_GET_PAYLOAD_PTR_V3(ev, type)       \
+	(type *)((char *)ev.u.data + sizeof(struct cam_sync_ev_header_v3))
 
 #define CAM_SYNC_STATE_INVALID                   0
 #define CAM_SYNC_STATE_ACTIVE                    1
@@ -146,8 +154,14 @@
 #define CAM_SYNC_CRE_EVENT_HW_ERR              (CAM_SYNC_CRE_EVENT_START + 5)
 #define CAM_SYNC_CRE_EVENT_END                 (CAM_SYNC_CRE_EVENT_START + 50)
 
-#define CAM_SYNC_EVENT_MAX         8
+#define CAM_SYNC_EVENT_MAX                8
+#define CAM_SYNC_EVENT_CNT                8
+#define CAM_SYNC_EVENTV3_CNT              9
 #define CAM_SYNC_EVENT_REASON_CODE_INDEX  0
+#define CAM_SYNC_EVENT_TRACKER_ID         1
+#define CAM_SYNC_EVENT_SOF_TIMESTAMP      2
+#define CAM_SYNC_EVENT_BOOT_TIMESTAMP     4
+#define CAM_SYNC_EVENT_SLAVE_TIMESTAMP    6
 
 /**
  * struct cam_sync_ev_header - Event header for sync event notification
@@ -173,6 +187,41 @@ struct cam_sync_ev_header_v2 {
 	__s32 status;
 	uint32_t version;
 	uint32_t evt_param[CAM_SYNC_EVENT_MAX];
+};
+
+/**
+ * struct cam_sync_ev_header_v3 - Event header for sync event notification
+ *
+ * @sync_obj:    Sync object
+ * @status:      Status of the object
+ * @version:     sync driver version
+ * @evt_param:   event parameter
+ */
+
+struct cam_sync_ev_header_v3 {
+	__s32 sync_obj;
+	__s32 status;
+	uint32_t version;
+	uint32_t evt_param[CAM_SYNC_EVENTV3_CNT];
+};
+
+/**
+ * struct cam_sync_timestamp - Sync timestamp information
+ *
+ * @tracker_id:       Optional string representation of the sync object
+ * @reserved:         reserve
+ * @sof_timestamp:    Captured time stamp value at sof hw event
+ * @boot_timestamp:   Boot time stamp for a given req_id
+ * @slave_timestamp:  Slave timestamp
+ * @reserved:         Last index from evt_param in cam_sync_ev_header_v3
+ */
+
+struct cam_sync_timestamp {
+	uint32_t tracker_id;
+	uint64_t sof_timestamp;
+	uint64_t boot_timestamp;
+	uint64_t slave_timestamp;
+	uint32_t reserved;
 };
 
 /**
