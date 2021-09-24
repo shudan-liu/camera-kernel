@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +15,8 @@
 
 /* Max len for tag name for header while dumping cmd buffer*/
 #define CAM_CDM_CMD_TAG_MAX_LEN 32
+
+extern struct cam_cdm_utils_ops CDM170_ops;
 
 enum cam_cdm_command {
 	CAM_CDM_CMD_UNUSED = 0x0,

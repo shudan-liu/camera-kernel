@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -100,7 +100,7 @@ static long cam_subdev_compat_ioctl(struct v4l2_subdev *sd,
 }
 #endif
 
-const struct v4l2_subdev_core_ops cam_subdev_core_ops = {
+static const struct v4l2_subdev_core_ops cam_subdev_core_ops = {
 	.ioctl = cam_subdev_ioctl,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = cam_subdev_compat_ioctl,

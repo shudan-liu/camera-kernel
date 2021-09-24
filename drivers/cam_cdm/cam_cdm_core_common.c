@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -25,6 +25,7 @@
 #include "cam_cdm_intf_api.h"
 #include "cam_cdm.h"
 #include "cam_cdm_soc.h"
+#include "cam_cdm_util.h"
 #include "cam_cdm_core_common.h"
 
 static void cam_cdm_get_client_refcount(struct cam_cdm_client *client)
@@ -145,7 +146,7 @@ int cam_cdm_get_caps(void *hw_priv,
 	return -EINVAL;
 }
 
-int cam_cdm_find_free_client_slot(struct cam_cdm *hw)
+static int cam_cdm_find_free_client_slot(struct cam_cdm *hw)
 {
 	int i;
 
