@@ -485,6 +485,9 @@ struct cam_mem_cache_ops_cmd {
  * @CAM_REQ_MGR_CSID_MISSING_EOT               : CSID is missing EOT on one or more lanes
  * @CAM_REQ_MGR_CSID_RX_PKT_PAYLOAD_CORRUPTION : CSID long packet payload CRC mismatch
  * @CAM_REQ_MGR_SENSOR_APPLY_FAILURE         : sensor packet apply failure
+ * @CAM_REQ_MGR_ERROR_TYPE_HOST_ERROR           : Error type host error
+ * @CAM_REQ_MGR_ERROR_TYPE_HOST_RECOVER         : Error type on overflow
+ * @CAM_REQ_MGR_ERROR_TYPE_HOST_FATAL_RECOVERY  : Error type on fatal error
  */
 #define CAM_REQ_MGR_ISP_UNREPORTED_ERROR                 0
 #define CAM_REQ_MGR_LINK_STALLED_ERROR                   BIT(0)
@@ -502,7 +505,9 @@ struct cam_mem_cache_ops_cmd {
 #define CAM_REQ_MGR_CSID_MISSING_EOT                     BIT(12)
 #define CAM_REQ_MGR_CSID_RX_PKT_PAYLOAD_CORRUPTION       BIT(13)
 #define CAM_REQ_MGR_SENSOR_APPLY_FAILURE                 BIT(14)
-
+#define CAM_REQ_MGR_ERROR_TYPE_HOST_ERROR                BIT(15)
+#define CAM_REQ_MGR_ERROR_TYPE_HOST_RECOVERY             BIT(16)
+#define CAM_REQ_MGR_ERROR_TYPE_HOST_FATAL_RECOVERY       BIT(17)
 /**
  * struct cam_req_mgr_error_msg
  * @error_type: type of error
