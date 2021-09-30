@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -46,7 +46,6 @@
 #define HFI_POLL_TRY_SLEEP 1
 
 static struct hfi_info *g_hfi;
-unsigned int g_icp_mmu_hdl;
 static DEFINE_MUTEX(hfi_cmd_q_mutex);
 static DEFINE_MUTEX(hfi_msg_q_mutex);
 

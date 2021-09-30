@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,7 +18,6 @@
 #define CAM_CDM170_VERSION 0x10000000
 #define CAM_CDM175_VERSION 0x10010000
 
-extern struct cam_cdm_utils_ops CDM170_ops;
 
 int cam_hw_cdm_init(void *hw_priv, void *init_hw_args, uint32_t arg_size);
 int cam_hw_cdm_deinit(void *hw_priv, void *init_hw_args, uint32_t arg_size);

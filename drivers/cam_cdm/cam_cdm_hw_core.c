@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -57,7 +57,7 @@ static enum cam_cdm_id cam_hw_cdm_get_id_by_name(char *name)
 	return CAM_CDM_MAX;
 }
 
-int cam_hw_cdm_bl_fifo_pending_bl_rb(struct cam_hw_info *cdm_hw,
+static int cam_hw_cdm_bl_fifo_pending_bl_rb(struct cam_hw_info *cdm_hw,
 	uint32_t *pending_bl)
 {
 	int rc = 0;
@@ -151,64 +151,7 @@ static int cam_hw_cdm_enable_core(struct cam_hw_info *cdm_hw, bool enable)
 	return rc;
 }
 
-int cam_hw_cdm_enable_core_dbg(struct cam_hw_info *cdm_hw)
-{
-	int rc = 0;
-
-	if (cam_cdm_write_hw_reg(cdm_hw, CDM_DBG_CORE_DBUG, 0x10100)) {
-		CAM_ERR(CAM_CDM, "Failed to Write CDM HW core debug");
-		rc = -EIO;
-	}
-
-	return rc;
-}
-
-int cam_hw_cdm_disable_core_dbg(struct cam_hw_info *cdm_hw)
-{
-	int rc = 0;
-
-	if (cam_cdm_write_hw_reg(cdm_hw, CDM_DBG_CORE_DBUG, 0)) {
-		CAM_ERR(CAM_CDM, "Failed to Write CDM HW core debug");
-		rc = -EIO;
-	}
-
-	return rc;
-}
-
-void cam_hw_cdm_dump_scratch_registors(struct cam_hw_info *cdm_hw)
-{
-	uint32_t dump_reg = 0;
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_CFG_CORE_EN, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump core en=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_0_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch0=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_1_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch1=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_2_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch2=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_3_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch3=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_4_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch4=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_5_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch5=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_6_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch6=%x", dump_reg);
-
-	cam_cdm_read_hw_reg(cdm_hw, CDM_DBG_SCRATCH_7_REG, &dump_reg);
-	CAM_ERR(CAM_CDM, "dump scratch7=%x", dump_reg);
-
-}
-
-void cam_hw_cdm_dump_core_debug_registers(
+static void cam_hw_cdm_dump_core_debug_registers(
 	struct cam_hw_info *cdm_hw)
 {
 	uint32_t dump_reg, core_dbg, loop_cnt;
@@ -284,7 +227,7 @@ void cam_hw_cdm_dump_core_debug_registers(
 
 }
 
-int cam_hw_cdm_wait_for_bl_fifo(struct cam_hw_info *cdm_hw,
+static int cam_hw_cdm_wait_for_bl_fifo(struct cam_hw_info *cdm_hw,
 	uint32_t bl_count)
 {
 	uint32_t pending_bl = 0;
@@ -345,7 +288,7 @@ int cam_hw_cdm_wait_for_bl_fifo(struct cam_hw_info *cdm_hw,
 	return rc;
 }
 
-bool cam_hw_cdm_bl_write(struct cam_hw_info *cdm_hw, uint32_t src,
+static bool cam_hw_cdm_bl_write(struct cam_hw_info *cdm_hw, uint32_t src,
 	uint32_t len, uint32_t tag)
 {
 	if (cam_cdm_write_hw_reg(cdm_hw, CDM_BL_FIFO_BASE_REG, src)) {
@@ -360,7 +303,7 @@ bool cam_hw_cdm_bl_write(struct cam_hw_info *cdm_hw, uint32_t src,
 	return false;
 }
 
-bool cam_hw_cdm_commit_bl_write(struct cam_hw_info *cdm_hw)
+static bool cam_hw_cdm_commit_bl_write(struct cam_hw_info *cdm_hw)
 {
 	if (cam_cdm_write_hw_reg(cdm_hw, CDM_BL_FIFO_STORE_REG, 1)) {
 		CAM_ERR(CAM_CDM, "Failed to write CDM commit BL");
@@ -369,7 +312,7 @@ bool cam_hw_cdm_commit_bl_write(struct cam_hw_info *cdm_hw)
 	return false;
 }
 
-int cam_hw_cdm_submit_gen_irq(struct cam_hw_info *cdm_hw,
+static int cam_hw_cdm_submit_gen_irq(struct cam_hw_info *cdm_hw,
 	struct cam_cdm_hw_intf_cmd_submit_bl *req)
 {
 	struct cam_cdm_bl_cb_request_entry *node;
@@ -682,7 +625,7 @@ static void cam_hw_cdm_iommu_fault_handler(struct iommu_domain *domain,
 
 }
 
-irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
+static irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 {
 	struct cam_hw_info *cdm_hw = data;
 	struct cam_cdm *cdm_core = cdm_hw->core_info;
@@ -855,7 +798,7 @@ int cam_hw_cdm_deinit(void *hw_priv,
 	return rc;
 }
 
-int cam_hw_cdm_probe(struct platform_device *pdev)
+static int cam_hw_cdm_probe(struct platform_device *pdev)
 {
 	int rc;
 	struct cam_hw_info *cdm_hw = NULL;
@@ -946,12 +889,16 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	cdm_core->work_queue = alloc_workqueue(cdm_core->name,
 		WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS,
 		CAM_CDM_INFLIGHT_WORKS);
+	if(!cdm_core->work_queue) {
+		CAM_ERR(CAM_CDM, "Failed to alloc work queue");
+		goto destroy_non_secure_hdl;
+	}
 
 	rc = cam_soc_util_request_platform_resource(&cdm_hw->soc_info,
 			cam_hw_cdm_irq, cdm_hw);
 	if (rc) {
 		CAM_ERR(CAM_CDM, "Failed to request platform resource");
-		goto destroy_non_secure_hdl;
+		goto failed_workq_create;
 	}
 
 	cpas_parms.cam_cpas_client_cb = cam_cdm_cpas_cb;
@@ -1041,7 +988,7 @@ int cam_hw_cdm_probe(struct platform_device *pdev)
 	if (rc) {
 		CAM_ERR(CAM_CDM, "HW CDM Interface registration failed");
 		cdm_hw->open_count--;
-		goto disable_platform_resource;
+		goto cpas_unregister;
 	}
 	cdm_hw->open_count--;
 	mutex_unlock(&cdm_hw->hw_mutex);
@@ -1069,6 +1016,7 @@ release_platform_resource:
 	if (cam_soc_util_release_platform_resource(&cdm_hw->soc_info))
 		CAM_ERR(CAM_CDM, "Release platform resource failed");
 
+failed_workq_create:
 	flush_workqueue(cdm_core->work_queue);
 	destroy_workqueue(cdm_core->work_queue);
 destroy_non_secure_hdl:
@@ -1088,7 +1036,7 @@ release_mem:
 	return rc;
 }
 
-int cam_hw_cdm_remove(struct platform_device *pdev)
+static int cam_hw_cdm_remove(struct platform_device *pdev)
 {
 	int rc = -EBUSY;
 	struct cam_hw_info *cdm_hw = NULL;

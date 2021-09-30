@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,7 +19,7 @@
 #include "cam_sensor_soc.h"
 #include "cam_soc_util.h"
 
-int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
+static int32_t cam_sensor_get_sub_module_index(struct device_node *of_node,
 	struct cam_sensor_board_info *s_info)
 {
 	int rc = 0, i = 0;
@@ -233,7 +233,7 @@ FREE_SENSOR_DATA:
 	return rc;
 }
 
-int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
+static int32_t msm_sensor_init_default_params(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	/* Validate input parameters */
 	if (!s_ctrl) {

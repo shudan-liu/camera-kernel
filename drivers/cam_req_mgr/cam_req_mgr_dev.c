@@ -1,4 +1,4 @@
-/* Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -143,18 +143,18 @@ end:
 	return rc;
 }
 
-static unsigned int cam_req_mgr_poll(struct file *f,
+static __poll_t cam_req_mgr_poll(struct file *f,
 	struct poll_table_struct *pll_table)
 {
-	int rc = 0;
+	__poll_t rc = 0;
 	struct v4l2_fh *eventq = f->private_data;
 
 	if (!eventq)
-		return -EINVAL;
+		return (__force __poll_t)-EINVAL;
 
 	poll_wait(f, &eventq->wait, pll_table);
 	if (v4l2_event_pending(eventq))
-		rc = POLLPRI;
+		rc = EPOLLPRI;
 
 	return rc;
 }
@@ -206,11 +206,11 @@ static int cam_req_mgr_close(struct file *filep)
 }
 
 static struct v4l2_file_operations g_cam_fops = {
-	.owner  = THIS_MODULE,
-	.open   = cam_req_mgr_open,
-	.poll   = cam_req_mgr_poll,
+	.owner = THIS_MODULE,
+	.open = cam_req_mgr_open,
+	.poll = cam_req_mgr_poll,
 	.release = cam_req_mgr_close,
-	.unlocked_ioctl   = video_ioctl2,
+	.unlocked_ioctl = video_ioctl2,
 #ifdef CONFIG_COMPAT
 	.compat_ioctl32 = video_ioctl2,
 #endif
@@ -593,7 +593,7 @@ int cam_req_mgr_notify_message(struct cam_req_mgr_message *msg,
 }
 EXPORT_SYMBOL(cam_req_mgr_notify_message);
 
-void cam_video_device_cleanup(void)
+static void cam_video_device_cleanup(void)
 {
 	video_unregister_device(g_dev.video);
 	video_device_release(g_dev.video);
@@ -785,7 +785,7 @@ static struct platform_driver cam_req_mgr_driver = {
 	},
 };
 
-int cam_dev_mgr_create_subdev_nodes(void)
+static int cam_dev_mgr_create_subdev_nodes(void)
 {
 	int rc;
 	struct v4l2_subdev *sd;

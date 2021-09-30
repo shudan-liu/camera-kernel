@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -43,7 +43,7 @@ EXPORT_SYMBOL(cam_ipe_hw_info);
 
 static char ipe_dev_name[8];
 
-int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
+static int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_ipe_device_core_info *core_info,
 	uint32_t hw_idx)
 {
@@ -66,7 +66,7 @@ int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int cam_ipe_probe(struct platform_device *pdev)
+static int cam_ipe_probe(struct platform_device *pdev)
 {
 	struct cam_hw_info            *ipe_dev = NULL;
 	struct cam_hw_intf            *ipe_dev_intf = NULL;
