@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_TOP_VER4_H_
@@ -130,6 +131,7 @@ struct cam_vfe_top_ver4_hw_info {
 	struct cam_vfe_top_ver4_pdaf_violation_desc *pdaf_violation_desc;
 	struct cam_vfe_top_ver4_pdaf_lcr_res_info   *pdaf_lcr_res_mask;
 	uint32_t                                     num_pdaf_lcr_res;
+	bool                                         secure_cdm_support;
 };
 
 struct cam_vfe_ver4_path_reg_data {
