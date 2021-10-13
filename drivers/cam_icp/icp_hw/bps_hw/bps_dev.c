@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -18,6 +19,7 @@
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
 #include "camera_main.h"
+#include <dt-bindings/msm-camera.h>
 
 static struct cam_bps_device_hw_info cam_bps_hw_info = {
 	.hw_idx = 0,
@@ -115,6 +117,15 @@ static int cam_bps_component_bind(struct device *dev,
 
 	of_property_read_u32(pdev->dev.of_node,
 		"cell-index", &bps_dev_intf->hw_idx);
+
+	if (!cam_cpas_is_feature_supported(CAM_CPAS_ICP_BPS_FUSE,
+		(1 << bps_dev_intf->hw_idx), 0)) {
+		CAM_DBG(CAM_ICP,
+			"BPS HW support is not present, BPS component bind index %d",
+			bps_dev_intf->hw_idx);
+		kfree(bps_dev_intf);
+		return 0;
+	}
 
 	bps_dev = kzalloc(sizeof(struct cam_hw_info), GFP_KERNEL);
 	if (!bps_dev) {
