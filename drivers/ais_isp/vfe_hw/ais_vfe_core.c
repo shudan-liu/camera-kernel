@@ -640,6 +640,10 @@ int ais_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 
 	rdi_path->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
 
+	spin_lock(&rdi_path->buffer_lock);
+	ais_clear_rdi_path(rdi_path);
+	spin_unlock(&rdi_path->buffer_lock);
+
 	core_info->bus_wr_mask1 &= ~(1 << stop_cmd->path);
 	cam_io_w_mb(core_info->bus_wr_mask1,
 		core_info->mem_base + bus_hw_irq_regs[1].mask_reg_offset);
@@ -667,8 +671,6 @@ int ais_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 	} else {
 		CAM_WARN(CAM_ISP, "Reset Bus WR timeout");
 	}
-
-	ais_clear_rdi_path(rdi_path);
 
 EXIT:
 	mutex_unlock(&vfe_hw->hw_mutex);
@@ -906,6 +908,7 @@ static int ais_vfe_q_sof(struct ais_vfe_hw_core_info *core_info,
 	struct ais_sof_info_t *p_sof_info = NULL;
 	int rc = 0;
 
+	spin_lock_bh(&p_rdi->buffer_lock);
 	if (!list_empty(&p_rdi->free_sof_info_list)) {
 		p_sof_info = list_first_entry(&p_rdi->free_sof_info_list,
 			struct ais_sof_info_t, list);
@@ -916,6 +919,7 @@ static int ais_vfe_q_sof(struct ais_vfe_hw_core_info *core_info,
 		p_sof_info->prev_sof_hw_ts = p_sof->prev_sof_hw_ts;
 		list_add_tail(&p_sof_info->list, &p_rdi->sof_info_q);
 		p_rdi->num_sof_info_q++;
+		spin_unlock_bh(&p_rdi->buffer_lock);
 
 		trace_ais_isp_vfe_q_sof(core_info->vfe_idx, path,
 			p_sof->frame_cnt, p_sof->cur_sof_hw_ts);
@@ -924,6 +928,7 @@ static int ais_vfe_q_sof(struct ais_vfe_hw_core_info *core_info,
 			core_info->vfe_idx, path, p_sof->frame_cnt,
 			p_sof_info->cur_sof_hw_ts);
 	} else {
+		spin_unlock_bh(&p_rdi->buffer_lock);
 		rc = -1;
 
 		CAM_ERR(CAM_ISP,
@@ -1035,6 +1040,7 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 		if (p_rdi->num_sof_info_q) {
 			struct ais_sof_info_t *p_sof_info;
 
+			spin_lock_bh(&p_rdi->buffer_lock);
 			while (!list_empty(&p_rdi->sof_info_q)) {
 				p_sof_info = list_first_entry(
 					&p_rdi->sof_info_q,
@@ -1044,6 +1050,7 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 						&p_rdi->free_sof_info_list);
 			}
 			p_rdi->num_sof_info_q = 0;
+			spin_unlock_bh(&p_rdi->buffer_lock);
 		}
 
 		trace_ais_isp_vfe_error(core_info->vfe_idx,
@@ -1208,10 +1215,13 @@ static void ais_vfe_bus_handle_client_frame_done(
 	while (rdi_path->num_buffer_hw_q && !last_addr_match) {
 		struct ais_sof_info_t *p_sof_info = NULL;
 		bool is_sof_match = false;
+		uint32_t bufIdx = 0;
 
+		spin_lock_bh(&rdi_path->buffer_lock);
 		if (list_empty(&rdi_path->buffer_hw_q)) {
 			CAM_DBG(CAM_ISP, "I%d|R%d: FD while HW Q empty",
 				core_info->vfe_idx, path);
+			spin_unlock_bh(&rdi_path->buffer_lock);
 			break;
 		}
 
@@ -1269,27 +1279,28 @@ static void ais_vfe_bus_handle_client_frame_done(
 			frame_cnt = sof_ts = cur_sof_hw_ts = 0;
 		}
 
+		bufIdx = vfe_buf->bufIdx;
+		list_add_tail(&vfe_buf->list, &rdi_path->free_buffer_list);
+		spin_unlock_bh(&rdi_path->buffer_lock);
+
 		CAM_DBG(CAM_ISP, "I%d|R%d|F%llu: si [%llu, %llu, %llu]",
 			core_info->vfe_idx, path, frame_cnt, sof_ts,
 			cur_sof_hw_ts);
 
 
 		trace_ais_isp_vfe_buf_done(core_info->vfe_idx, path,
-				vfe_buf->bufIdx,
+				bufIdx,
 				frame_cnt,
 				rdi_path->num_buffer_hw_q,
 				last_addr_match);
 
 		core_info->event.u.frame_msg.frame_id[0] = frame_cnt;
-		core_info->event.u.frame_msg.buf_idx = vfe_buf->bufIdx;
+		core_info->event.u.frame_msg.buf_idx = bufIdx;
 		core_info->event.u.frame_msg.ts = sof_ts;
 		core_info->event.u.frame_msg.hw_ts[0] = cur_sof_hw_ts;
 
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
-
-
-		list_add_tail(&vfe_buf->list, &rdi_path->free_buffer_list);
 	}
 
 	if (!last_addr_match) {
@@ -1311,6 +1322,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 	if (rdi_path->num_buffer_hw_q == 0) {
 		struct ais_sof_info_t *p_sof_info = NULL;
 
+		spin_lock_bh(&rdi_path->buffer_lock);
 		CAM_DBG(CAM_ISP, "I%d|R%d|F%llu: Flush SOF (%d) HW Q empty",
 			core_info->vfe_idx, path, frame_cnt,
 			rdi_path->num_sof_info_q);
@@ -1324,6 +1336,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 		}
 
 		rdi_path->num_sof_info_q = 0;
+		spin_unlock_bh(&rdi_path->buffer_lock);
 
 		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 0);
 
