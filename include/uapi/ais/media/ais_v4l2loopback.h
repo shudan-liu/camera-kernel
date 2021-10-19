@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ */
+
 #ifndef _UAPI_AIS_V4L2_H
 #define _UAPI_AIS_V4L2_H
 
@@ -67,6 +71,7 @@ enum AIS_V4L2_PARAM_CODE {
 	AIS_V4L2_PARAM_EVENT_CHANGE_UNSUBSCRIBE, /* Event unsubscribe */
 	AIS_V4L2_PARAM_RECOVERY,             /* Should recovery mechanism be active or not. */
 	AIS_V4L2_PARAM_BATCH_MODE,
+	AIS_V4L2_PARAM_ISP_USECASE,          /* ISP usecase */
 	AIS_V4L2_PARAM_NUM,                  /* total number of valid parameters. */
 
 	AIS_V4L2_PARAM_MAX = 0x7FFFFFFF
