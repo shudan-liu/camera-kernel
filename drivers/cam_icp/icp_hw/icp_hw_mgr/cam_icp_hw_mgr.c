@@ -5322,6 +5322,11 @@ static int cam_icp_util_dump_frame_data(struct cam_packet *packet,
 		return -ENOMEM;
 	}
 
+	if (!ctx_data->icp_dev_acquire_info) {
+		CAM_ERR(CAM_ICP, "icp_dev_acquire_info address is NULL");
+		return -ENOMEM;
+	}
+
 	if (ctx_data->icp_dev_acquire_info->dev_type !=
 		CAM_ICP_RES_TYPE_BPS) {
 		ipe_frame_process_data =
