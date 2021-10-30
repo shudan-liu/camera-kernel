@@ -120,7 +120,7 @@ static int32_t cam_get_free_handle_index(void)
 
 	idx = find_first_zero_bit(hdl_tbl->bitmap, hdl_tbl->bits);
 
-	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2 || idx < 0) {
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES || idx < 0) {
 		CAM_ERR(CAM_CRM, "No free index found idx: %d", idx);
 		return -ENOSR;
 	}
