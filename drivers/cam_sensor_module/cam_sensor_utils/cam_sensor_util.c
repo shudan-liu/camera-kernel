@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, 2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -70,7 +70,7 @@ int32_t delete_request(struct i2c_settings_array *i2c_array)
 	return rc;
 }
 
-int32_t cam_sensor_handle_delay(
+static int32_t cam_sensor_handle_delay(
 	uint32_t **cmd_buf,
 	uint16_t generic_op_code,
 	struct i2c_settings_array *i2c_reg_settings,
@@ -110,7 +110,7 @@ int32_t cam_sensor_handle_delay(
 	return rc;
 }
 
-int32_t cam_sensor_handle_poll(
+static int32_t cam_sensor_handle_poll(
 	uint32_t **cmd_buf,
 	struct i2c_settings_array *i2c_reg_settings,
 	uint32_t *byte_cnt, int32_t *offset,
@@ -150,7 +150,7 @@ int32_t cam_sensor_handle_poll(
 	return rc;
 }
 
-int32_t cam_sensor_handle_random_write(
+static int32_t cam_sensor_handle_random_write(
 	struct cam_cmd_i2c_random_wr *cam_cmd_i2c_random_wr,
 	struct i2c_settings_array *i2c_reg_settings,
 	uint16_t *cmd_length_in_bytes, int32_t *offset,
@@ -1523,7 +1523,7 @@ int cam_sensor_bob_pwm_mode_switch(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-int msm_cam_sensor_handle_reg_gpio(int seq_type,
+static int msm_cam_sensor_handle_reg_gpio(int seq_type,
 	struct msm_camera_gpio_num_info *gpio_num_info, int val)
 {
 	int gpio_offset = -1;
@@ -2039,12 +2039,14 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		case SENSOR_CUSTOM_GPIO2:
 
 			if (!gpio_num_info->valid[pd->seq_type])
+			{
+				CAM_INFO(CAM_SENSOR, "continuing without reset");
 				continue;
+			}
 
-			cam_res_mgr_gpio_set_value(
-				gpio_num_info->gpio_num
-				[pd->seq_type],
-				(int) pd->config_val);
+			gpio_free(gpio_num_info->gpio_num[pd->seq_type]);
+			ret = gpio_request_one(gpio_num_info->gpio_num[pd->seq_type],
+					(int)pd->config_val, NULL);
 
 			break;
 		case SENSOR_VANA:

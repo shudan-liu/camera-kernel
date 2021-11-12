@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -2179,7 +2179,7 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 	return rc;
 }
 
-int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
+static int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 {
 	int32_t rc = 0;
 	unsigned long flags;
@@ -5319,6 +5319,11 @@ static int cam_icp_util_dump_frame_data(struct cam_packet *packet,
 
 	if (!cpu_addr) {
 		CAM_ERR(CAM_ICP, "CPU address is NULL");
+		return -ENOMEM;
+	}
+
+	if (!ctx_data->icp_dev_acquire_info) {
+		CAM_ERR(CAM_ICP, "icp_dev_acquire_info address is NULL");
 		return -ENOMEM;
 	}
 

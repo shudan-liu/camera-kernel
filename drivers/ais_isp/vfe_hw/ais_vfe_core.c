@@ -44,11 +44,14 @@
 #define AIS_VFE_MASK0_RDI 0x780001E0
 #define AIS_VFE_MASK1_RDI 0x000000BC
 
+#define AIS_VFE_MASK1_RDI_OVERFLOW_SHT 2
+
 #define AIS_VFE_STATUS0_BUS_WR_IRQ  (1 << 9)
 #define AIS_VFE_STATUS0_RDI_SOF_IRQ  (0xF << AIS_VFE_STATUS0_RDI_SOF_IRQ_SHFT)
 #define AIS_VFE_STATUS0_RDI_OVERFLOW_IRQ  \
 	(0xF << AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_SHFT)
 #define AIS_VFE_STATUS0_RESET_ACK_IRQ  (1 << 31)
+#define AIS_VFE_GLOBAL_RESET_CMD_RDI_0_RESET_SHFT (10)
 
 #define AIS_VFE_REGUP_RDI_SHIFT 1
 #define AIS_VFE_REGUP_RDI_ALL 0x1E
@@ -252,6 +255,51 @@ static int ais_vfe_reset(void *hw_priv,
 
 	CAM_DBG(CAM_ISP, "Exit");
 	return rc;
+}
+
+
+static void ais_vfe_reset_rdi(void *hw_priv,
+	enum ais_ife_output_path_id path)
+{
+	struct cam_hw_info *vfe_hw  = hw_priv;
+	struct ais_vfe_top_ver2_hw_info *top_hw_info = NULL;
+	struct ais_vfe_hw_core_info *core_info = NULL;
+	uint32_t  reset_reg_val = 0;
+	int rc = 0;
+
+	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
+	top_hw_info = core_info->vfe_hw_info->top_hw_info;
+
+	cam_io_w_mb(AIS_VFE_STATUS0_RESET_ACK_IRQ,
+		core_info->mem_base + AIS_VFE_IRQ_MASK0);
+
+	reinit_completion(&vfe_hw->hw_complete);
+
+	reset_reg_val = 1 << (AIS_VFE_GLOBAL_RESET_CMD_RDI_0_RESET_SHFT + path);
+
+	/* Reset HW */
+	cam_io_w_mb(reset_reg_val,
+		core_info->mem_base +
+		top_hw_info->common_reg->global_reset_cmd);
+
+	CAM_DBG(CAM_ISP, "waiting for vfe reset complete");
+
+	/* Wait for Completion or Timeout of 500ms */
+	rc = wait_for_completion_timeout(&vfe_hw->hw_complete,
+					msecs_to_jiffies(500));
+
+	CAM_INFO(CAM_ISP, "reset IFE%d RDI%d complete done (%d)", core_info->vfe_idx, path, rc);
+
+	if (rc) {
+		rc = 0;
+	} else {
+		CAM_ERR(CAM_ISP, "Error! Reset Timeout");
+	}
+
+	core_info->irq_mask0 = 0x0;
+	cam_io_w_mb(0x0, core_info->mem_base + AIS_VFE_IRQ_MASK0);
+
+	return;
 }
 
 int ais_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
@@ -636,8 +684,6 @@ int ais_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 		goto EXIT;
 	}
 
-	rdi_path->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
-
 	core_info->bus_wr_mask1 &= ~(1 << stop_cmd->path);
 	cam_io_w_mb(core_info->bus_wr_mask1,
 		core_info->mem_base + bus_hw_irq_regs[1].mask_reg_offset);
@@ -666,7 +712,19 @@ int ais_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 		CAM_WARN(CAM_ISP, "Reset Bus WR timeout");
 	}
 
+	/*
+	* For now just when ERROR state do reset_rdi to clear IFE overflow error.
+	* TBD: If INIT/AVAILABLE state do reset_rdi, in multi-stream start/stop
+	* test lead frame freeze, need to check further why freeze.
+	*/
+	if (rdi_path->state == AIS_ISP_RESOURCE_STATE_ERROR)
+	{
+		ais_vfe_reset_rdi(vfe_hw, stop_cmd->path);
+	}
+
 	ais_clear_rdi_path(rdi_path);
+
+	rdi_path->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
 
 EXIT:
 	mutex_unlock(&vfe_hw->hw_mutex);
@@ -924,7 +982,7 @@ static int ais_vfe_q_sof(struct ais_vfe_hw_core_info *core_info,
 	} else {
 		rc = -1;
 
-		CAM_ERR(CAM_ISP,
+		CAM_DBG(CAM_ISP,
 			"I%d|R%d|F%llu: free timestamp empty (%d) sof %llu",
 			core_info->vfe_idx, path, p_sof->frame_cnt,
 			p_rdi->num_buffer_hw_q, p_sof->cur_sof_hw_ts);
@@ -1048,8 +1106,8 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 						path, 1, 0);
 
 		//send warning
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_WARNING;
+		core_info->event.msg.path = path;
 		core_info->event.u.err_msg.reserved = 0;
 
 		core_info->event_cb(core_info->event_cb_priv,
@@ -1060,8 +1118,8 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 	p_rdi->last_sof_info.cur_sof_hw_ts = cur_sof_hw_ts;
 
 	//send sof only for current frame
-	core_info->event.type = AIS_IFE_MSG_SOF;
-	core_info->event.path = path;
+	core_info->event.msg.type = AIS_IFE_MSG_SOF;
+	core_info->event.msg.path = path;
 	core_info->event.u.sof_msg.frame_id = p_rdi->frame_cnt;
 	core_info->event.u.sof_msg.hw_ts = cur_sof_hw_ts;
 
@@ -1149,6 +1207,12 @@ static int ais_vfe_handle_error(
 			core_info->mem_base +
 			bus_hw_irq_regs[1].mask_reg_offset);
 
+               /* Disable rdi* overflow irq mask*/
+		core_info->irq_mask1 &=
+				~(1 << (AIS_VFE_MASK1_RDI_OVERFLOW_SHT + path));
+		cam_io_w_mb(core_info->irq_mask1,
+				core_info->mem_base + AIS_VFE_IRQ_MASK1);
+
 		/* Disable WM and reg-update */
 		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
 		cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
@@ -1158,8 +1222,8 @@ static int ais_vfe_handle_error(
 			bus_hw_info->common_reg.sw_reset);
 
 
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_ERROR;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_ERROR;
+		core_info->event.msg.path = path;
 
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
@@ -1194,8 +1258,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 	rdi_path = &core_info->rdi_out[path];
 	bus_hw_info = core_info->vfe_hw_info->bus_hw_info;
 
-	core_info->event.type = AIS_IFE_MSG_FRAME_DONE;
-	core_info->event.path = path;
+	core_info->event.msg.type = AIS_IFE_MSG_FRAME_DONE;
+	core_info->event.msg.path = path;
 
 	while (rdi_path->num_buffer_hw_q && !last_addr_match) {
 		struct ais_sof_info_t *p_sof_info = NULL;
@@ -1272,10 +1336,10 @@ static void ais_vfe_bus_handle_client_frame_done(
 				rdi_path->num_buffer_hw_q,
 				last_addr_match);
 
-		core_info->event.u.frame_msg.frame_id = frame_cnt;
+		core_info->event.u.frame_msg.frame_id[0] = frame_cnt;
 		core_info->event.u.frame_msg.buf_idx = vfe_buf->bufIdx;
 		core_info->event.u.frame_msg.ts = sof_ts;
-		core_info->event.u.frame_msg.hw_ts = cur_sof_hw_ts;
+		core_info->event.u.frame_msg.hw_ts[0] = cur_sof_hw_ts;
 
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
@@ -1291,8 +1355,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 1);
 
 		//send warning
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_WARNING;
+		core_info->event.msg.path = path;
 		core_info->event.u.err_msg.reserved = 1;
 
 		core_info->event_cb(core_info->event_cb_priv,
@@ -1320,8 +1384,8 @@ static void ais_vfe_bus_handle_client_frame_done(
 		trace_ais_isp_vfe_error(core_info->vfe_idx, path, 1, 0);
 
 		//send warning
-		core_info->event.type = AIS_IFE_MSG_OUTPUT_WARNING;
-		core_info->event.path = path;
+		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_WARNING;
+		core_info->event.msg.path = path;
 		core_info->event.u.err_msg.reserved = 0;
 
 		core_info->event_cb(core_info->event_cb_priv,
@@ -1480,8 +1544,8 @@ static int ais_vfe_process_irq_bh(void *priv, void *data)
 	CAM_DBG(CAM_ISP, "VFE[%d] event %d",
 		core_info->vfe_idx, work_data->evt_type);
 
-	core_info->event.idx = core_info->vfe_idx;
-	core_info->event.boot_ts = work_data->ts;
+	core_info->event.msg.idx = core_info->vfe_idx;
+	core_info->event.msg.boot_ts = work_data->ts;
 
 	switch (work_data->evt_type) {
 	case AIS_VFE_HW_IRQ_EVENT_SOF:

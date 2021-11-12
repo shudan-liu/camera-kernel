@@ -1544,7 +1544,7 @@ static int cam_fd_mgr_hw_dump(void *hw_mgr_priv,
 		(struct cam_fd_hw_mgr_ctx *)dump_args->ctxt_to_hw_map;
 	struct cam_fd_device *hw_device;
 	char *dst;
-	struct cam_fd_hw_dump_args fd_dump_args;
+	struct cam_fd_hw_dump_args fd_dump_args = {};
 	struct cam_fd_hw_dump_header *hdr;
 	uint64_t *addr, *start;
 	uint32_t min_len, remain_len;

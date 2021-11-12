@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_COMPAT_H_
@@ -27,7 +27,7 @@
 
 struct cam_fw_alloc_info {
 	struct device *fw_dev;
-	void          *fw_kva;
+	void __iomem  *fw_kva;
 	uint64_t       fw_hdl;
 };
 

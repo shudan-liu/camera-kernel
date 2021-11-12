@@ -385,18 +385,18 @@ static int ais_ife_driver_cmd(struct ais_ife_dev *p_ife_dev, void *arg)
 		} else {
 			rc = vfe_drv->hw_ops.start(
 				vfe_drv->hw_priv, &rdi_start, cmd->size);
-                        if (!rc) {
-                            rc = csid_drv->hw_ops.start(
-                                    csid_drv->hw_priv, &rdi_start,
-                                    cmd->size);
-                            if (rc) {
-                                struct ais_ife_rdi_stop_args rdi_stop;
+				if (!rc) {
+					rc = csid_drv->hw_ops.start(
+							csid_drv->hw_priv, &rdi_start,
+							cmd->size);
+					if (rc) {
+						struct ais_ife_rdi_stop_args rdi_stop;
 
-                                rdi_stop.path = rdi_start.path;
-                                vfe_drv->hw_ops.stop(vfe_drv->hw_priv,
-                                        &rdi_stop, sizeof(rdi_stop));
-                        }
-                }
+						rdi_stop.path = rdi_start.path;
+						vfe_drv->hw_ops.stop(vfe_drv->hw_priv,
+								&rdi_stop, sizeof(rdi_stop));
+				}
+			}
 		}
 	}
 		break;
@@ -506,17 +506,24 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 	}
 
 	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d",
-		p_ife_dev->hw_idx, evt_data->type);
+		p_ife_dev->hw_idx, evt_data->msg.type);
 
 
-	if (sizeof(*evt_data) > sizeof(event.u.data)) {
-		CAM_ERR(CAM_ISP, "IFE Callback struct too large (%d)!",
-			sizeof(*evt_data));
+	if (sizeof(evt_data->u) > sizeof(event.u.data)) {
+		CAM_ERR(CAM_ISP, "IFE Msg struct too large (%d)!",
+			sizeof(evt_data->u));
+		return -EINVAL;
+	}
+
+	if (sizeof(evt_data->msg) > sizeof(event.reserved)) {
+		CAM_ERR(CAM_ISP, "IFE Msg union struct too large (%d)!",
+			sizeof(evt_data->msg));
 		return -EINVAL;
 	}
 
 	/* Queue the event */
-	memcpy(event.u.data, (void *)evt_data, sizeof(*evt_data));
+	memcpy(event.u.data, (void *)&evt_data->u, sizeof(evt_data->u));
+	memcpy(event.reserved, (void *)&evt_data->msg, sizeof(evt_data->msg));
 	event.id = V4L_EVENT_ID_AIS_IFE;
 	event.type = V4L_EVENT_TYPE_AIS_IFE;
 	v4l2_event_queue(p_ife_dev->cam_sd.sd.devnode, &event);
@@ -597,10 +604,9 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 	 *  Also, we have to release them once we have the
 	 *  deinit support
 	 */
-	cam_smmu_get_handle("ife", &p_ife_dev->iommu_hdl);
+	rc = cam_smmu_get_handle("ife", &p_ife_dev->iommu_hdl);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Can not get iommu handle");
-		rc = -EINVAL;
 		goto unregister;
 	}
 
@@ -608,7 +614,11 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 		&p_ife_dev->iommu_hdl_secure);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Failed to get secure iommu handle %d", rc);
-		goto secure_fail;
+		/*
+		 * not goto fail if get failed for now
+		 * workround for direwolf ife sid not config by TZ
+		 */
+		//goto secure_fail;
 	}
 
 	CAM_DBG(CAM_ISP, "iommu_handles: non-secure[0x%x], secure[0x%x]",
@@ -618,8 +628,10 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 	cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl,
 			ais_ife_dev_iommu_fault_handler, p_ife_dev);
 
-	cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl_secure,
-			ais_ife_dev_iommu_fault_handler, p_ife_dev);
+	if (p_ife_dev->iommu_hdl_secure) {
+		cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl_secure,
+				ais_ife_dev_iommu_fault_handler, p_ife_dev);
+	}
 
 	hw_init.hw_idx = p_ife_dev->hw_idx;
 	hw_init.iommu_hdl = p_ife_dev->iommu_hdl;

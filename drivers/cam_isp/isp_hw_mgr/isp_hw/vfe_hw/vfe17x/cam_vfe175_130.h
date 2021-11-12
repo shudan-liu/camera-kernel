@@ -1,4 +1,4 @@
-/* Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1304,7 +1304,7 @@ static struct cam_vfe_bus_ver2_hw_info vfe175_130_bus_hw_info = {
 	.stats_data = &stats_175_130_info,
 };
 
-struct cam_vfe_hw_info cam_vfe175_130_hw_info = {
+static struct cam_vfe_hw_info cam_vfe175_130_hw_info = {
 	.irq_reg_info                  = &vfe175_130_top_irq_reg_info,
 
 	.bus_version                   = CAM_VFE_BUS_VER_2_0,
