@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2018,2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,6 +65,22 @@ int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type,
 	int32_t num_bytes);
+
+/**
+ * @io_master_info: I2C/SPI master information
+ * @addr: I2C address
+ * @data: I2C data
+ * @addr_type: I2C addr type
+ * @data_type: I2C data type
+ * @num_bytes: count of data
+ *
+ * This API abstracts read functionality for burst mode based on master type
+ */
+int32_t camera_io_dev_read_burst(struct camera_io_master *io_master_info,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type,
+	uint32_t count);
 
 /**
  * @io_master_info: I2C/SPI master information

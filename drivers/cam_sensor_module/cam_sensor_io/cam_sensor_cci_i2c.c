@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018,2020 The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018,2020-2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -96,6 +98,70 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *cci_client,
 			data[i] = buf[i];
 			CAM_DBG(CAM_SENSOR, "Byte %d: Data: 0x%x",
 				i, data[i]);
+		}
+	}
+
+	kfree(buf);
+	return rc;
+}
+
+int32_t cam_camera_cci_i2c_read_burst(struct cam_sensor_cci_client *cci_client,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type,
+	uint32_t count)
+{
+	int32_t                    rc = -EFAULT;
+	unsigned char             *buf = NULL;
+	int                        i = 0, c = 0;
+	struct cam_cci_ctrl        cci_ctrl;
+	uint32_t                   num_byte;
+
+	if ((addr_type >= CAMERA_SENSOR_I2C_TYPE_MAX)
+		|| (data_type >= CAMERA_SENSOR_I2C_TYPE_MAX)) {
+		CAM_ERR(CAM_SENSOR, "addr_type %d data_type %d", addr_type,
+					data_type);
+		return rc;
+	}
+
+	num_byte = data_type * count;
+	if (num_byte > I2C_REG_DATA_MAX)
+		CAM_WARN(CAM_SENSOR, "Read requested for more than %d bytes of data ",
+								I2C_REG_DATA_MAX);
+	buf = kzalloc(num_byte, GFP_KERNEL);
+	if (!buf)
+		return -ENOMEM;
+
+	cci_ctrl.cmd = MSM_CCI_I2C_READ_BURST;
+	cci_ctrl.cci_info = cci_client;
+	cci_ctrl.cfg.cci_i2c_read_cfg.addr = addr;
+	cci_ctrl.cfg.cci_i2c_read_cfg.addr_type = addr_type;
+	cci_ctrl.cfg.cci_i2c_read_cfg.data_type = data_type;
+	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
+	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte = num_byte;
+	cci_ctrl.status = -EFAULT;
+
+	rc = cam_cci_core_cfg(cci_client->cci_subdev, &cci_ctrl);
+	CAM_DBG(CAM_SENSOR, "addr = 0x%x, count of data = %d, rc = %d",
+				addr, count, rc);
+
+	if (!rc) {
+		for (i = 0, c = 0; i < num_byte; c++) {
+			if (data_type == CAMERA_SENSOR_I2C_TYPE_BYTE) {
+				data[c] = buf[i];
+				i += 1;
+			} else if (data_type == CAMERA_SENSOR_I2C_TYPE_WORD) {
+				data[c] = buf[i] << 8 | buf[i + 1];
+				i += 2;
+			} else if (data_type == CAMERA_SENSOR_I2C_TYPE_3B) {
+				data[c] = buf[i] << 16 | buf[i + 1] << 8 | buf[i + 2];
+				i += 3;
+			} else {
+				data[c] = buf[i] << 24 | buf[i + 1] << 16 |
+							buf[i + 2] << 8 | buf[i + 3];
+				i += 4;
+			}
+			CAM_DBG(CAM_SENSOR, "Iter %d: Data: 0x%x", c, data[c]);
 		}
 	}
 
