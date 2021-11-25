@@ -6,6 +6,10 @@ $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
 endif
 
 # Include Architecture configurations
+ifeq ($(CONFIG_ARCH_NEO), y)
+include $(CAMERA_KERNEL_ROOT)/config/neo.mk
+endif
+
 ifeq ($(CONFIG_ARCH_WAIPIO), y)
 include $(CAMERA_KERNEL_ROOT)/config/waipio.mk
 endif

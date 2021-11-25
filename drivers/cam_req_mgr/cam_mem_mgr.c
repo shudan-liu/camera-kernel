@@ -11,7 +11,9 @@
 #include <linux/version.h>
 #include <linux/debugfs.h>
 #if IS_REACHABLE(CONFIG_DMABUF_HEAPS)
+#if IS_REACHABLE(CONFIG_QCOM_MEM_BUF)
 #include <linux/mem-buf.h>
+#endif
 #include <soc/qcom/secure_buffer.h>
 #endif
 
@@ -558,7 +560,6 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	struct timespec64 ts1, ts2;
 	long microsec = 0;
 	bool use_cached_heap = false;
-	struct mem_buf_lend_kernel_arg arg;
 	int vmids[CAM_MAX_VMIDS];
 	int perms[CAM_MAX_VMIDS];
 	int num_vmids = 0;
@@ -656,8 +657,10 @@ static int cam_mem_util_get_dma_buf(size_t len,
 
 	*i_ino = file_inode((*buf)->file)->i_ino;
 
+#if IS_REACHABLE(CONFIG_QCOM_MEM_BUF)
 	if ((cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) ||
 		(cam_flags & CAM_MEM_FLAG_EVA_NOPIXEL)) {
+		struct mem_buf_lend_kernel_arg arg;
 		if (num_vmids >= CAM_MAX_VMIDS) {
 			CAM_ERR(CAM_MEM, "Insufficient array size for vmids %d", num_vmids);
 			rc = -EINVAL;
@@ -676,6 +679,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			goto end;
 		}
 	}
+#endif
 
 	CAM_DBG(CAM_MEM, "Allocate success, len=%zu, *buf=%pK, i_ino=%lu", len, *buf, *i_ino);
 
@@ -687,7 +691,9 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	}
 
 	return rc;
+#if IS_REACHABLE(CONFIG_QCOM_MEM_BUF)
 end:
+#endif
 	dma_buf_put(*buf);
 	return rc;
 }

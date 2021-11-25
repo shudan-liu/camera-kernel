@@ -6,7 +6,7 @@ KBUILD_OPTIONS += MODNAME=camera
 
 all: modules
 
-modules dtbs:
+modules:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
 
 modules_install:
@@ -14,3 +14,6 @@ modules_install:
 
 clean:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
+
+headers_install:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) headers_install $(KBUILD_OPTIONS)
