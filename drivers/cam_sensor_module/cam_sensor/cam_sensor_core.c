@@ -839,6 +839,743 @@ static int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
+static int cam_sensor_process_powerup_cmd(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+
+	if ((s_ctrl->is_probe_succeed == 0) ||
+		(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
+		CAM_WARN(CAM_SENSOR,
+			"Not in right state to powerup %d (%d)",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	CAM_WARN(CAM_SENSOR, "powering up %d", s_ctrl->soc_info.index);
+	rc = cam_sensor_power_up(s_ctrl);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "power up failed");
+		return rc;
+	}
+
+	s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
+	CAM_INFO(CAM_SENSOR,
+			"SENSOR_POWER_UP Success %d",
+			s_ctrl->soc_info.index);
+	return rc;
+}
+
+static int cam_sensor_process_powerdown_cmd(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+
+	if (s_ctrl->sensor_state == CAM_SENSOR_START) {
+		rc = -EINVAL;
+		CAM_WARN(CAM_SENSOR,
+			"Not in right state to release %d (%d)",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		return rc;
+	}
+
+	CAM_WARN(CAM_SENSOR, "powering down %d",
+		s_ctrl->soc_info.index);
+	rc = cam_sensor_power_down(s_ctrl);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "power down failed");
+		return rc;
+	}
+
+	s_ctrl->sensor_state = CAM_SENSOR_INIT;
+	CAM_INFO(CAM_SENSOR,
+		"SENSOR_POWER_DOWN Success %d",
+		s_ctrl->soc_info.index);
+	return rc;
+}
+
+static int cam_sensor_process_read_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int rc = 0;
+	struct ais_sensor_cmd_i2c_read i2c_read;
+	struct cam_sensor_i2c_slave_info slave_info;
+
+	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+		CAM_WARN(CAM_SENSOR,
+			"%d Not in right state to aquire %d",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = copy_from_user(&i2c_read,
+		(void __user *) cmd->handle, sizeof(i2c_read));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		return rc;
+	}
+
+	slave_info.slave_addr = i2c_read.i2c_config.slave_addr;
+	slave_info.i2c_freq_mode = i2c_read.i2c_config.i2c_freq_mode;
+	rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
+		&slave_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to update slave info");
+		return rc;
+	}
+
+	rc = camera_io_dev_read(&(s_ctrl->io_master_info),
+		i2c_read.reg_addr, &i2c_read.reg_data,
+		i2c_read.addr_type, i2c_read.data_type);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to read 0x%x:0x%x, rc = %d",
+			slave_info.slave_addr, i2c_read.reg_addr, rc);
+		(void)cam_sensor_restore_slave_info(s_ctrl);
+		return rc;
+	}
+
+	CAM_DBG(CAM_SENSOR, "Read 0x%x : 0x%x <- 0x%x",
+		i2c_read.i2c_config.slave_addr,
+		i2c_read.reg_addr, i2c_read.reg_data);
+
+	if (copy_to_user((void __user *) cmd->handle, &i2c_read,
+			sizeof(i2c_read))) {
+		CAM_ERR(CAM_SENSOR, "Failed Copy to User");
+		rc = -EFAULT;
+	}
+
+	(void)cam_sensor_restore_slave_info(s_ctrl);
+	return rc;
+}
+
+static int cam_sensor_process_read_burst_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int rc = 0;
+	struct ais_sensor_cmd_i2c_burst i2c_read_burst;
+	struct cam_sensor_i2c_slave_info slave_info;
+	uint32_t *read_data;
+
+	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+		CAM_WARN(CAM_SENSOR,
+			"%d Not in right state to aquire %d",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = copy_from_user(&i2c_read_burst,
+			(void __user *) cmd->handle, sizeof(i2c_read_burst));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		return rc;
+	}
+
+	read_data = kcalloc(i2c_read_burst.count,
+					(sizeof(uint32_t)),
+					GFP_KERNEL);
+	if (!read_data) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	slave_info.slave_addr = i2c_read_burst.i2c_config.slave_addr;
+	slave_info.i2c_freq_mode = i2c_read_burst.i2c_config.i2c_freq_mode;
+	rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
+								&slave_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to update slave info");
+		return rc;
+	}
+
+	rc = camera_io_dev_read_burst(&(s_ctrl->io_master_info),
+					i2c_read_burst.reg_addr, read_data,
+					i2c_read_burst.addr_type, i2c_read_burst.data_type,
+					i2c_read_burst.count);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to read 0x%x:0x%x, rc = %d",
+				slave_info.slave_addr, i2c_read_burst.reg_addr, rc);
+		(void)cam_sensor_restore_slave_info(s_ctrl);
+		return rc;
+	}
+
+	CAM_DBG(CAM_SENSOR, "Read from slave 0x%x in burst mode %d count of data",
+			i2c_read_burst.i2c_config.slave_addr, i2c_read_burst.count);
+
+	if (copy_to_user((void __user *)(i2c_read_burst.data), read_data,
+				i2c_read_burst.count * sizeof(uint32_t))) {
+		CAM_ERR(CAM_SENSOR, "Failed to copy read data to User");
+		rc = -EFAULT;
+		kfree(read_data);
+		return rc;
+	}
+
+	if (copy_to_user((void __user *) cmd->handle, &i2c_read_burst,
+				sizeof(i2c_read_burst))) {
+		CAM_ERR(CAM_SENSOR, "Failed Copy to User");
+		rc = -EFAULT;
+	}
+	kfree(read_data);
+
+	(void)cam_sensor_restore_slave_info(s_ctrl);
+	return rc;
+}
+
+static int cam_sensor_process_write_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int rc = 0;
+	struct ais_sensor_cmd_i2c_wr i2c_write;
+	struct cam_sensor_i2c_reg_setting write_setting;
+	struct cam_sensor_i2c_reg_array reg_setting;
+	struct cam_sensor_i2c_slave_info slave_info;
+
+	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+		CAM_WARN(CAM_SENSOR,
+			"%d Not in right state to aquire %d",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = copy_from_user(&i2c_write,
+		(void __user *) cmd->handle, sizeof(i2c_write));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		return rc;
+	}
+
+	slave_info.slave_addr = i2c_write.i2c_config.slave_addr;
+	slave_info.i2c_freq_mode = i2c_write.i2c_config.i2c_freq_mode;
+	rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
+		&slave_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to update slave info");
+		return rc;
+	}
+
+	CAM_DBG(CAM_SENSOR,
+		"Write 0x%x, 0x%x <- 0x%x [%d, %d]",
+		i2c_write.i2c_config.slave_addr,
+		i2c_write.wr_payload.reg_addr,
+		i2c_write.wr_payload.reg_data,
+		i2c_write.addr_type, i2c_write.data_type);
+
+	reg_setting.reg_addr = i2c_write.wr_payload.reg_addr;
+	reg_setting.reg_data = i2c_write.wr_payload.reg_data;
+	reg_setting.data_mask = 0;
+	reg_setting.delay = i2c_write.wr_payload.delay;
+
+	write_setting.reg_setting = &reg_setting;
+	write_setting.size = 1;
+	write_setting.delay = 0;
+	write_setting.addr_type = i2c_write.addr_type;
+	write_setting.data_type = i2c_write.data_type;
+
+	rc = camera_io_dev_write(&(s_ctrl->io_master_info),
+				&write_setting);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to write 0x%x:0x%x 0x%x",
+			slave_info.slave_addr,
+			reg_setting.reg_addr,
+			reg_setting.reg_data);
+		(void)cam_sensor_restore_slave_info(s_ctrl);
+		return rc;
+	}
+
+	(void)cam_sensor_restore_slave_info(s_ctrl);
+	return rc;
+}
+
+static int cam_sensor_process_write_burst_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int i = 0, rc = 0;
+	unsigned int *wr_data;
+	struct ais_sensor_cmd_i2c_burst i2c_write_burst;
+	struct cam_sensor_i2c_reg_setting write_setting;
+	struct cam_sensor_i2c_reg_array *reg_data_arr;
+	struct cam_sensor_i2c_slave_info slave_info;
+
+	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+		CAM_WARN(CAM_SENSOR,
+			"%d Not in right state to acquire %d",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = copy_from_user(&i2c_write_burst,
+			(void __user *) cmd->handle, sizeof(i2c_write_burst));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		return rc;
+	}
+
+	if (!i2c_write_burst.count) {
+		CAM_ERR(CAM_SENSOR, "invalid i2c array size 0");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	if (i2c_write_burst.count > CCI_I2C_MAX_WRITE) {
+		CAM_WARN(CAM_SENSOR, "Count to write in burst mode exceeds %d",
+					CCI_I2C_MAX_WRITE);
+	}
+
+	wr_data = kcalloc(i2c_write_burst.count,
+		(sizeof(unsigned int)),
+		GFP_KERNEL);
+	if (!wr_data) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	reg_data_arr = kcalloc(i2c_write_burst.count,
+		(sizeof(struct cam_sensor_i2c_reg_array)),
+		GFP_KERNEL);
+	if (!reg_data_arr) {
+		rc = -ENOMEM;
+		kfree(wr_data);
+		return rc;
+	}
+
+	if (copy_from_user(wr_data,
+			(void __user *)(i2c_write_burst.data),
+			i2c_write_burst.count *
+			sizeof(unsigned int))) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		kfree(wr_data);
+		kfree(reg_data_arr);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	write_setting.reg_setting = reg_data_arr;
+	write_setting.size = i2c_write_burst.count;
+	write_setting.delay = 0;
+	write_setting.addr_type = i2c_write_burst.addr_type;
+	write_setting.data_type = i2c_write_burst.data_type;
+
+	reg_data_arr[0].reg_addr = i2c_write_burst.reg_addr;
+	for (i = 0; i < i2c_write_burst.count; i++)
+		reg_data_arr[i].reg_data = wr_data[i];
+
+	slave_info.slave_addr = i2c_write_burst.i2c_config.slave_addr;
+	slave_info.i2c_freq_mode = i2c_write_burst.i2c_config.i2c_freq_mode;
+	rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
+			&slave_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to update slave info");
+		kfree(wr_data);
+		kfree(reg_data_arr);
+		return rc;
+	}
+
+	CAM_DBG(CAM_SENSOR,
+		"Burst write slave 0x%x addr 0x%x, count %d addr-data type [%d, %d]",
+		i2c_write_burst.i2c_config.slave_addr, i2c_write_burst.reg_addr,
+		i2c_write_burst.count,
+		i2c_write_burst.addr_type, i2c_write_burst.data_type);
+
+	rc = camera_io_dev_write_continuous(&(s_ctrl->io_master_info),
+			&write_setting, 1); //1 for burst mode
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "Failed write in burst mode to 0x%x for size %d",
+					slave_info.slave_addr,
+					write_setting.size);
+
+	(void)cam_sensor_restore_slave_info(s_ctrl);
+	kfree(wr_data);
+	kfree(reg_data_arr);
+	return rc;
+}
+
+static int cam_sensor_process_write_array_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int i = 0, rc = 0;
+	struct ais_sensor_cmd_i2c_wr_array i2c_write;
+	struct cam_sensor_i2c_reg_setting write_setting;
+	struct cam_sensor_i2c_reg_array *reg_setting;
+	struct ais_sensor_i2c_wr_payload *wr_array;
+	struct cam_sensor_i2c_slave_info slave_info;
+
+	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+		CAM_WARN(CAM_SENSOR,
+			"%d Not in right state to aquire %d",
+			s_ctrl->soc_info.index,
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	rc = copy_from_user(&i2c_write,
+			(void __user *) cmd->handle, sizeof(i2c_write));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		return rc;
+	}
+
+	if (!i2c_write.count ||
+		i2c_write.count > CCI_I2C_MAX_WRITE) {
+		CAM_ERR(CAM_SENSOR, "invalid i2c array size");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	wr_array = kcalloc(i2c_write.count,
+		(sizeof(struct ais_sensor_i2c_wr_payload)),
+		GFP_KERNEL);
+	if (!wr_array) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	reg_setting = kcalloc(i2c_write.count,
+		(sizeof(struct cam_sensor_i2c_reg_array)),
+		GFP_KERNEL);
+	if (!reg_setting) {
+		rc = -ENOMEM;
+		kfree(wr_array);
+		return rc;
+	}
+
+	if (copy_from_user(wr_array,
+			(void __user *)(i2c_write.wr_array),
+			i2c_write.count *
+			sizeof(struct ais_sensor_i2c_wr_payload))) {
+		pr_err("%s:%d failed\n", __func__, __LINE__);
+		kfree(wr_array);
+		kfree(reg_setting);
+		rc = -EFAULT;
+		return rc;
+	}
+
+	write_setting.reg_setting = reg_setting;
+	write_setting.size = i2c_write.count;
+	write_setting.delay = 0;
+	write_setting.addr_type = i2c_write.addr_type;
+	write_setting.data_type = i2c_write.data_type;
+
+	for (i = 0; i < i2c_write.count; i++) {
+		reg_setting[i].reg_addr = wr_array[i].reg_addr;
+		reg_setting[i].reg_data = wr_array[i].reg_data;
+		reg_setting[i].delay = wr_array[i].delay;
+	}
+
+	slave_info.slave_addr = i2c_write.i2c_config.slave_addr;
+	slave_info.i2c_freq_mode = i2c_write.i2c_config.i2c_freq_mode;
+	rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
+			&slave_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed to update slave info");
+		kfree(wr_array);
+		kfree(reg_setting);
+		return rc;
+	}
+
+	CAM_DBG(CAM_SENSOR,
+		"Write 0x%x, %d regs [%d, %d]",
+		i2c_write.i2c_config.slave_addr,
+		i2c_write.count,
+		i2c_write.addr_type, i2c_write.data_type);
+
+	rc = camera_io_dev_write(&(s_ctrl->io_master_info),
+			&write_setting);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "Failed to write array to 0x%x %d",
+			slave_info.slave_addr,
+			write_setting.size);
+
+	(void)cam_sensor_restore_slave_info(s_ctrl);
+	kfree(wr_array);
+	kfree(reg_setting);
+	return rc;
+}
+
+static int cam_sensor_process_acquire_dev_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int rc = 0;
+	struct cam_sensor_acquire_dev sensor_acq_dev;
+	struct cam_create_dev_hdl bridge_params;
+
+	if ((s_ctrl->is_probe_succeed == 0) ||
+		(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
+		CAM_WARN(CAM_SENSOR,
+			"Not in right state to aquire %d",
+			s_ctrl->sensor_state);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	if (s_ctrl->bridge_intf.device_hdl != -1) {
+		CAM_ERR(CAM_SENSOR, "Device is already acquired");
+		rc = -EINVAL;
+		return rc;
+	}
+	rc = copy_from_user(&sensor_acq_dev,
+		u64_to_user_ptr(cmd->handle),
+		sizeof(sensor_acq_dev));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		return rc;
+	}
+
+	bridge_params.session_hdl = sensor_acq_dev.session_handle;
+	bridge_params.ops = &s_ctrl->bridge_intf.ops;
+	bridge_params.v4l2_sub_dev_flag = 0;
+	bridge_params.media_entity_flag = 0;
+	bridge_params.priv = s_ctrl;
+	bridge_params.dev_id = CAM_SENSOR;
+	sensor_acq_dev.device_handle =
+		cam_create_device_hdl(&bridge_params);
+	s_ctrl->bridge_intf.device_hdl = sensor_acq_dev.device_handle;
+	s_ctrl->bridge_intf.session_hdl = sensor_acq_dev.session_handle;
+
+	CAM_DBG(CAM_SENSOR, "Device Handle: %d",
+		sensor_acq_dev.device_handle);
+	if (copy_to_user(u64_to_user_ptr(cmd->handle),
+		&sensor_acq_dev,
+		sizeof(struct cam_sensor_acquire_dev))) {
+		CAM_ERR(CAM_SENSOR, "Failed Copy to User");
+		rc = -EFAULT;
+		return rc;
+	}
+
+	rc = cam_sensor_power_up(s_ctrl);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
+		return rc;
+	}
+
+	s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
+	s_ctrl->last_flush_req = 0;
+	CAM_INFO(CAM_SENSOR,
+		"CAM_ACQUIRE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
+		s_ctrl->sensordata->slave_info.sensor_id,
+		s_ctrl->sensordata->slave_info.sensor_slave_addr);
+	return rc;
+}
+
+static int cam_sensor_process_release_dev_cmd(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+
+	if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+		(s_ctrl->sensor_state == CAM_SENSOR_START)) {
+		rc = -EINVAL;
+		CAM_WARN(CAM_SENSOR,
+			"Not in right state to release : %d",
+			s_ctrl->sensor_state);
+		return rc;
+	}
+
+	if (s_ctrl->bridge_intf.link_hdl != -1) {
+		CAM_ERR(CAM_SENSOR,
+			"Device [%d] still active on link 0x%x",
+			s_ctrl->sensor_state,
+			s_ctrl->bridge_intf.link_hdl);
+		rc = -EAGAIN;
+		return rc;
+	}
+
+	rc = cam_sensor_power_down(s_ctrl);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
+		return rc;
+	}
+
+	cam_sensor_release_per_frame_resource(s_ctrl);
+	cam_sensor_release_stream_rsc(s_ctrl);
+	if (s_ctrl->bridge_intf.device_hdl == -1) {
+		CAM_ERR(CAM_SENSOR,
+			"Invalid Handles: link hdl: %d device hdl: %d",
+			s_ctrl->bridge_intf.device_hdl,
+			s_ctrl->bridge_intf.link_hdl);
+		rc = -EINVAL;
+		return rc;
+	}
+	rc = cam_destroy_device_hdl(s_ctrl->bridge_intf.device_hdl);
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR,
+			"failed in destroying the device hdl");
+
+	s_ctrl->bridge_intf.device_hdl = -1;
+	s_ctrl->bridge_intf.link_hdl = -1;
+	s_ctrl->bridge_intf.session_hdl = -1;
+
+	s_ctrl->sensor_state = CAM_SENSOR_INIT;
+	CAM_INFO(CAM_SENSOR,
+		"CAM_RELEASE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
+		s_ctrl->sensordata->slave_info.sensor_id,
+		s_ctrl->sensordata->slave_info.sensor_slave_addr);
+	s_ctrl->streamon_count = 0;
+	s_ctrl->streamoff_count = 0;
+	s_ctrl->last_flush_req = 0;
+	return rc;
+}
+
+static int cam_sensor_process_query_cap_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+						struct cam_control *cmd)
+{
+	int rc = 0;
+	struct  cam_sensor_query_cap sensor_cap;
+
+	cam_sensor_query_cap(s_ctrl, &sensor_cap);
+	if (copy_to_user(u64_to_user_ptr(cmd->handle),
+		&sensor_cap, sizeof(struct  cam_sensor_query_cap))) {
+		CAM_ERR(CAM_SENSOR, "Failed Copy to User");
+		rc = -EFAULT;
+		return rc;
+	}
+	return rc;
+}
+
+static int cam_sensor_process_start_dev_cmd(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+
+	if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
+		(s_ctrl->sensor_state == CAM_SENSOR_START)) {
+		rc = -EINVAL;
+		CAM_WARN(CAM_SENSOR,
+		"Not in right state to start : %d",
+		s_ctrl->sensor_state);
+		return rc;
+	}
+
+	if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
+		(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
+		rc = cam_sensor_apply_settings(s_ctrl, 0,
+			CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"cannot apply streamon settings");
+			return rc;
+		}
+	}
+	s_ctrl->sensor_state = CAM_SENSOR_START;
+	CAM_INFO(CAM_SENSOR,
+		"CAM_START_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
+		s_ctrl->sensordata->slave_info.sensor_id,
+		s_ctrl->sensordata->slave_info.sensor_slave_addr);
+	return rc;
+}
+
+static int cam_sensor_process_stop_dev_cmd(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0;
+
+	if (s_ctrl->sensor_state != CAM_SENSOR_START) {
+		rc = -EINVAL;
+		CAM_WARN(CAM_SENSOR,
+		"Not in right state to stop : %d",
+		s_ctrl->sensor_state);
+		return rc;
+	}
+
+	if (s_ctrl->i2c_data.streamoff_settings.is_settings_valid &&
+		(s_ctrl->i2c_data.streamoff_settings.request_id == 0)) {
+		rc = cam_sensor_apply_settings(s_ctrl, 0,
+			CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+			"cannot apply streamoff settings");
+		}
+	}
+
+	cam_sensor_release_per_frame_resource(s_ctrl);
+	s_ctrl->last_flush_req = 0;
+	s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
+	CAM_INFO(CAM_SENSOR,
+		"CAM_STOP_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
+		s_ctrl->sensordata->slave_info.sensor_id,
+		s_ctrl->sensordata->slave_info.sensor_slave_addr);
+	return rc;
+}
+
+static int cam_sensor_process_config_dev_cmd(struct cam_sensor_ctrl_t *s_ctrl,
+							void *arg)
+{
+	int rc = 0;
+
+	if (s_ctrl->sensor_state < CAM_SENSOR_ACQUIRE) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_SENSOR,
+			"sensor_id:[0x%x] not acquired to configure [%d] ",
+			s_ctrl->sensordata->slave_info.sensor_id,
+			s_ctrl->sensor_state
+		);
+		return rc;
+	}
+
+	rc = cam_sensor_i2c_pkt_parse(s_ctrl, arg);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed i2c pkt parse: %d", rc);
+		return rc;
+	}
+
+	if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
+		(s_ctrl->i2c_data.init_settings.request_id == 0)) {
+
+		rc = cam_sensor_apply_settings(s_ctrl, 0,
+			CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
+
+		s_ctrl->i2c_data.init_settings.request_id = -1;
+
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"cannot apply init settings");
+			delete_request(&s_ctrl->i2c_data.init_settings);
+			return rc;
+		}
+		rc = delete_request(&s_ctrl->i2c_data.init_settings);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Fail in deleting the Init settings");
+			return rc;
+		}
+	}
+
+	if (s_ctrl->i2c_data.config_settings.is_settings_valid &&
+		(s_ctrl->i2c_data.config_settings.request_id == 0)) {
+		rc = cam_sensor_apply_settings(s_ctrl, 0,
+			CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
+
+		s_ctrl->i2c_data.config_settings.request_id = -1;
+
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"cannot apply config settings");
+			delete_request(
+				&s_ctrl->i2c_data.config_settings);
+			return rc;
+		}
+
+		rc = delete_request(&s_ctrl->i2c_data.config_settings);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Fail in deleting the config settings");
+			return rc;
+		}
+		s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
+	}
+
+	CAM_INFO(CAM_SENSOR,
+		"CAM_CONFIG_DEV done sensor_id:0x%x,sensor_slave_addr:0x%x",
+		s_ctrl->sensordata->slave_info.sensor_id,
+		s_ctrl->sensordata->slave_info.sensor_slave_addr);
+	return rc;
+}
+
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
 {
@@ -1018,55 +1755,14 @@ free_probe_cmd:
 		kfree(probe_cmd);
 	}
 		break;
-	case AIS_SENSOR_POWER_UP: {
-		if ((s_ctrl->is_probe_succeed == 0) ||
-			(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
-			CAM_WARN(CAM_SENSOR,
-				"Not in right state to powerup %d (%d)",
-				s_ctrl->soc_info.index,
-				s_ctrl->sensor_state);
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-
-		CAM_WARN(CAM_SENSOR, "powering up %d", s_ctrl->soc_info.index);
-		rc = cam_sensor_power_up(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "power up failed");
-			goto release_mutex;
-		}
-
-		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
-		CAM_INFO(CAM_SENSOR,
-				"SENSOR_POWER_UP Success %d",
-				s_ctrl->soc_info.index);
-	}
+	case AIS_SENSOR_POWER_UP:
+		rc = cam_sensor_process_powerup_cmd(s_ctrl);
 		break;
 
-	case AIS_SENSOR_POWER_DOWN: {
-		if (s_ctrl->sensor_state == CAM_SENSOR_START) {
-			rc = -EINVAL;
-			CAM_WARN(CAM_SENSOR,
-				"Not in right state to release %d (%d)",
-				s_ctrl->soc_info.index,
-				s_ctrl->sensor_state);
-			goto release_mutex;
-		}
-
-		CAM_WARN(CAM_SENSOR, "powering down %d",
-			s_ctrl->soc_info.index);
-		rc = cam_sensor_power_down(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "power down failed");
-			goto release_mutex;
-		}
-
-		s_ctrl->sensor_state = CAM_SENSOR_INIT;
-		CAM_INFO(CAM_SENSOR,
-			"SENSOR_POWER_DOWN Success %d",
-			s_ctrl->soc_info.index);
-	}
+	case AIS_SENSOR_POWER_DOWN:
+		rc = cam_sensor_process_powerdown_cmd(s_ctrl);
 		break;
+
 	case AIS_SENSOR_I2C_POWER_UP: {
 		rc = camera_io_init(&(s_ctrl->io_master_info));
 		if (rc < 0)
@@ -1079,223 +1775,26 @@ free_probe_cmd:
 			CAM_ERR(CAM_SENSOR, "io_release failed: rc: %d", rc);
 	}
 		break;
-	case AIS_SENSOR_I2C_READ: {
-		struct ais_sensor_cmd_i2c_read i2c_read;
-		struct cam_sensor_i2c_slave_info slave_info;
-
-		if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
-			CAM_WARN(CAM_SENSOR,
-				"%d Not in right state to aquire %d",
-				s_ctrl->soc_info.index,
-				s_ctrl->sensor_state);
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-
-		rc = copy_from_user(&i2c_read,
-			(void __user *) cmd->handle, sizeof(i2c_read));
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			goto release_mutex;
-		}
-
-		slave_info.slave_addr = i2c_read.i2c_config.slave_addr;
-		slave_info.i2c_freq_mode = i2c_read.i2c_config.i2c_freq_mode;
-		rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
-			&slave_info);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed to update slave info");
-			goto release_mutex;
-		}
-
-		rc = camera_io_dev_read(&(s_ctrl->io_master_info),
-			i2c_read.reg_addr, &i2c_read.reg_data,
-			i2c_read.addr_type, i2c_read.data_type);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed to read 0x%x:0x%x, rc = %d",
-				slave_info.slave_addr, i2c_read.reg_addr, rc);
-			(void)cam_sensor_restore_slave_info(s_ctrl);
-			goto release_mutex;
-		}
-
-		CAM_DBG(CAM_SENSOR, "Read 0x%x : 0x%x <- 0x%x",
-			i2c_read.i2c_config.slave_addr,
-			i2c_read.reg_addr, i2c_read.reg_data);
-
-		if (copy_to_user((void __user *) cmd->handle, &i2c_read,
-				sizeof(i2c_read))) {
-			CAM_ERR(CAM_SENSOR, "Failed Copy to User");
-			rc = -EFAULT;
-		}
-
-		(void)cam_sensor_restore_slave_info(s_ctrl);
-
-	}
+	case AIS_SENSOR_I2C_READ:
+		rc = cam_sensor_process_read_cmd(s_ctrl, cmd);
 		break;
-	case AIS_SENSOR_I2C_WRITE: {
-		struct ais_sensor_cmd_i2c_wr i2c_write;
-		struct cam_sensor_i2c_reg_setting write_setting;
-		struct cam_sensor_i2c_reg_array reg_setting;
-		struct cam_sensor_i2c_slave_info slave_info;
 
-		if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
-			CAM_WARN(CAM_SENSOR,
-				"%d Not in right state to aquire %d",
-				s_ctrl->soc_info.index,
-				s_ctrl->sensor_state);
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-
-		rc = copy_from_user(&i2c_write,
-			(void __user *) cmd->handle, sizeof(i2c_write));
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			goto release_mutex;
-		}
-
-		slave_info.slave_addr = i2c_write.i2c_config.slave_addr;
-		slave_info.i2c_freq_mode = i2c_write.i2c_config.i2c_freq_mode;
-		rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
-			&slave_info);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed to update slave info");
-			goto release_mutex;
-		}
-
-		CAM_DBG(CAM_SENSOR,
-			"Write 0x%x, 0x%x <- 0x%x [%d, %d]",
-			i2c_write.i2c_config.slave_addr,
-			i2c_write.wr_payload.reg_addr,
-			i2c_write.wr_payload.reg_data,
-			i2c_write.addr_type, i2c_write.data_type);
-
-		reg_setting.reg_addr = i2c_write.wr_payload.reg_addr;
-		reg_setting.reg_data = i2c_write.wr_payload.reg_data;
-		reg_setting.data_mask = 0;
-		reg_setting.delay = i2c_write.wr_payload.delay;
-
-		write_setting.reg_setting = &reg_setting;
-		write_setting.size = 1;
-		write_setting.delay = 0;
-		write_setting.addr_type = i2c_write.addr_type;
-		write_setting.data_type = i2c_write.data_type;
-
-		rc = camera_io_dev_write(&(s_ctrl->io_master_info),
-				&write_setting);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed to write 0x%x:0x%x 0x%x",
-				slave_info.slave_addr,
-				reg_setting.reg_addr,
-				reg_setting.reg_data);
-			(void)cam_sensor_restore_slave_info(s_ctrl);
-			goto release_mutex;
-		}
-
-		(void)cam_sensor_restore_slave_info(s_ctrl);
-	}
+	case AIS_SENSOR_I2C_READ_BURST:
+		rc = cam_sensor_process_read_burst_cmd(s_ctrl, cmd);
 		break;
-	case AIS_SENSOR_I2C_WRITE_ARRAY: {
-		int i = 0;
-		struct ais_sensor_cmd_i2c_wr_array i2c_write;
-		struct cam_sensor_i2c_reg_setting write_setting;
-		struct cam_sensor_i2c_reg_array *reg_setting;
-		struct ais_sensor_i2c_wr_payload *wr_array;
-		struct cam_sensor_i2c_slave_info slave_info;
 
-		if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
-			CAM_WARN(CAM_SENSOR,
-				"%d Not in right state to aquire %d",
-				s_ctrl->soc_info.index,
-				s_ctrl->sensor_state);
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-
-		rc = copy_from_user(&i2c_write,
-				(void __user *) cmd->handle, sizeof(i2c_write));
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			goto release_mutex;
-		}
-
-		if (!i2c_write.count ||
-			i2c_write.count > CCI_I2C_MAX_WRITE) {
-			CAM_ERR(CAM_SENSOR, "invalid i2c array size");
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-
-		wr_array = kcalloc(i2c_write.count,
-			(sizeof(struct ais_sensor_i2c_wr_payload)),
-			GFP_KERNEL);
-		if (!wr_array) {
-			rc = -ENOMEM;
-			goto release_mutex;
-		}
-
-		reg_setting = kcalloc(i2c_write.count,
-			(sizeof(struct cam_sensor_i2c_reg_array)),
-			GFP_KERNEL);
-		if (!reg_setting) {
-			rc = -ENOMEM;
-			kfree(wr_array);
-			goto release_mutex;
-		}
-
-		if (copy_from_user(wr_array,
-				(void __user *)(i2c_write.wr_array),
-				i2c_write.count *
-				sizeof(struct ais_sensor_i2c_wr_payload))) {
-			pr_err("%s:%d failed\n", __func__, __LINE__);
-			kfree(wr_array);
-			kfree(reg_setting);
-			rc = -EFAULT;
-			goto release_mutex;
-		}
-
-		write_setting.reg_setting = reg_setting;
-		write_setting.size = i2c_write.count;
-		write_setting.delay = 0;
-		write_setting.addr_type = i2c_write.addr_type;
-		write_setting.data_type = i2c_write.data_type;
-
-		for (i = 0; i < i2c_write.count; i++) {
-			reg_setting[i].reg_addr = wr_array[i].reg_addr;
-			reg_setting[i].reg_data = wr_array[i].reg_data;
-			reg_setting[i].delay = wr_array[i].delay;
-		}
-
-		slave_info.slave_addr = i2c_write.i2c_config.slave_addr;
-		slave_info.i2c_freq_mode = i2c_write.i2c_config.i2c_freq_mode;
-		rc = cam_sensor_update_i2c_slave_info(&(s_ctrl->io_master_info),
-				&slave_info);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed to update slave info");
-			kfree(wr_array);
-			kfree(reg_setting);
-			goto release_mutex;
-		}
-
-		CAM_DBG(CAM_SENSOR,
-			"Write 0x%x, %d regs [%d, %d]",
-			i2c_write.i2c_config.slave_addr,
-			i2c_write.count,
-			i2c_write.addr_type, i2c_write.data_type);
-
-		rc = camera_io_dev_write(&(s_ctrl->io_master_info),
-				&write_setting);
-		if (rc < 0)
-			CAM_ERR(CAM_SENSOR, "Failed to write array to 0x%x %d",
-				slave_info.slave_addr,
-				write_setting.size);
-
-		(void)cam_sensor_restore_slave_info(s_ctrl);
-
-		kfree(wr_array);
-		kfree(reg_setting);
-	}
+	case AIS_SENSOR_I2C_WRITE:
+		rc = cam_sensor_process_write_cmd(s_ctrl, cmd);
 		break;
+
+	case AIS_SENSOR_I2C_WRITE_BURST:
+		rc = cam_sensor_process_write_burst_cmd(s_ctrl, cmd);
+		break;
+
+	case AIS_SENSOR_I2C_WRITE_ARRAY:
+		rc = cam_sensor_process_write_array_cmd(s_ctrl, cmd);
+		break;
+
 	case AIS_SENSOR_INTR_INIT: {
 
 		struct ais_sensor_gpio_intr_config
@@ -1366,254 +1865,30 @@ free_gpio_intr_deinit_config:
 		kfree(gpio_intr_cfg);
 	}
 		break;
-	case CAM_ACQUIRE_DEV: {
-		struct cam_sensor_acquire_dev sensor_acq_dev;
-		struct cam_create_dev_hdl bridge_params;
-
-		if ((s_ctrl->is_probe_succeed == 0) ||
-			(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
-			CAM_WARN(CAM_SENSOR,
-				"Not in right state to aquire %d",
-				s_ctrl->sensor_state);
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-
-		if (s_ctrl->bridge_intf.device_hdl != -1) {
-			CAM_ERR(CAM_SENSOR, "Device is already acquired");
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-		rc = copy_from_user(&sensor_acq_dev,
-			u64_to_user_ptr(cmd->handle),
-			sizeof(sensor_acq_dev));
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			goto release_mutex;
-		}
-
-		bridge_params.session_hdl = sensor_acq_dev.session_handle;
-		bridge_params.ops = &s_ctrl->bridge_intf.ops;
-		bridge_params.v4l2_sub_dev_flag = 0;
-		bridge_params.media_entity_flag = 0;
-		bridge_params.priv = s_ctrl;
-		bridge_params.dev_id = CAM_SENSOR;
-		sensor_acq_dev.device_handle =
-			cam_create_device_hdl(&bridge_params);
-		s_ctrl->bridge_intf.device_hdl = sensor_acq_dev.device_handle;
-		s_ctrl->bridge_intf.session_hdl = sensor_acq_dev.session_handle;
-
-		CAM_DBG(CAM_SENSOR, "Device Handle: %d",
-			sensor_acq_dev.device_handle);
-		if (copy_to_user(u64_to_user_ptr(cmd->handle),
-			&sensor_acq_dev,
-			sizeof(struct cam_sensor_acquire_dev))) {
-			CAM_ERR(CAM_SENSOR, "Failed Copy to User");
-			rc = -EFAULT;
-			goto release_mutex;
-		}
-
-		rc = cam_sensor_power_up(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
-			goto release_mutex;
-		}
-
-		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
-		s_ctrl->last_flush_req = 0;
-		CAM_INFO(CAM_SENSOR,
-			"CAM_ACQUIRE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
-			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->sensordata->slave_info.sensor_slave_addr);
-	}
+	case CAM_ACQUIRE_DEV:
+		rc = cam_sensor_process_acquire_dev_cmd(s_ctrl, cmd);
 		break;
-	case CAM_RELEASE_DEV: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
-			rc = -EINVAL;
-			CAM_WARN(CAM_SENSOR,
-			"Not in right state to release : %d",
-			s_ctrl->sensor_state);
-			goto release_mutex;
-		}
 
-		if (s_ctrl->bridge_intf.link_hdl != -1) {
-			CAM_ERR(CAM_SENSOR,
-				"Device [%d] still active on link 0x%x",
-				s_ctrl->sensor_state,
-				s_ctrl->bridge_intf.link_hdl);
-			rc = -EAGAIN;
-			goto release_mutex;
-		}
-
-		rc = cam_sensor_power_down(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
-			goto release_mutex;
-		}
-
-		cam_sensor_release_per_frame_resource(s_ctrl);
-		cam_sensor_release_stream_rsc(s_ctrl);
-		if (s_ctrl->bridge_intf.device_hdl == -1) {
-			CAM_ERR(CAM_SENSOR,
-				"Invalid Handles: link hdl: %d device hdl: %d",
-				s_ctrl->bridge_intf.device_hdl,
-				s_ctrl->bridge_intf.link_hdl);
-			rc = -EINVAL;
-			goto release_mutex;
-		}
-		rc = cam_destroy_device_hdl(s_ctrl->bridge_intf.device_hdl);
-		if (rc < 0)
-			CAM_ERR(CAM_SENSOR,
-				"failed in destroying the device hdl");
-		s_ctrl->bridge_intf.device_hdl = -1;
-		s_ctrl->bridge_intf.link_hdl = -1;
-		s_ctrl->bridge_intf.session_hdl = -1;
-
-		s_ctrl->sensor_state = CAM_SENSOR_INIT;
-		CAM_INFO(CAM_SENSOR,
-			"CAM_RELEASE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
-			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->sensordata->slave_info.sensor_slave_addr);
-		s_ctrl->streamon_count = 0;
-		s_ctrl->streamoff_count = 0;
-		s_ctrl->last_flush_req = 0;
-	}
+	case CAM_RELEASE_DEV:
+		rc = cam_sensor_process_release_dev_cmd(s_ctrl);
 		break;
-	case CAM_QUERY_CAP: {
-		struct  cam_sensor_query_cap sensor_cap;
 
-		cam_sensor_query_cap(s_ctrl, &sensor_cap);
-		if (copy_to_user(u64_to_user_ptr(cmd->handle),
-			&sensor_cap, sizeof(struct  cam_sensor_query_cap))) {
-			CAM_ERR(CAM_SENSOR, "Failed Copy to User");
-			rc = -EFAULT;
-			goto release_mutex;
-		}
+	case CAM_QUERY_CAP:
+		rc = cam_sensor_process_query_cap_cmd(s_ctrl, cmd);
 		break;
-	}
-	case CAM_START_DEV: {
-		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
-			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
-			rc = -EINVAL;
-			CAM_WARN(CAM_SENSOR,
-			"Not in right state to start : %d",
-			s_ctrl->sensor_state);
-			goto release_mutex;
-		}
 
-		if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
-			(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
-			rc = cam_sensor_apply_settings(s_ctrl, 0,
-				CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"cannot apply streamon settings");
-				goto release_mutex;
-			}
-		}
-		s_ctrl->sensor_state = CAM_SENSOR_START;
-		CAM_INFO(CAM_SENSOR,
-			"CAM_START_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
-			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->sensordata->slave_info.sensor_slave_addr);
-	}
+	case CAM_START_DEV:
+		rc = cam_sensor_process_start_dev_cmd(s_ctrl);
 		break;
-	case CAM_STOP_DEV: {
-		if (s_ctrl->sensor_state != CAM_SENSOR_START) {
-			rc = -EINVAL;
-			CAM_WARN(CAM_SENSOR,
-			"Not in right state to stop : %d",
-			s_ctrl->sensor_state);
-			goto release_mutex;
-		}
 
-		if (s_ctrl->i2c_data.streamoff_settings.is_settings_valid &&
-			(s_ctrl->i2c_data.streamoff_settings.request_id == 0)) {
-			rc = cam_sensor_apply_settings(s_ctrl, 0,
-				CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-				"cannot apply streamoff settings");
-			}
-		}
-
-		cam_sensor_release_per_frame_resource(s_ctrl);
-		s_ctrl->last_flush_req = 0;
-		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
-		CAM_INFO(CAM_SENSOR,
-			"CAM_STOP_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
-			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->sensordata->slave_info.sensor_slave_addr);
-	}
+	case CAM_STOP_DEV:
+		rc = cam_sensor_process_stop_dev_cmd(s_ctrl);
 		break;
-	case CAM_CONFIG_DEV: {
-		if (s_ctrl->sensor_state < CAM_SENSOR_ACQUIRE) {
-			rc = -EINVAL;
-			CAM_ERR(CAM_SENSOR,
-				"sensor_id:[0x%x] not acquired to configure [%d] ",
-				s_ctrl->sensordata->slave_info.sensor_id,
-				s_ctrl->sensor_state
-			);
-			goto release_mutex;
-		}
 
-		rc = cam_sensor_i2c_pkt_parse(s_ctrl, arg);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed i2c pkt parse: %d", rc);
-			goto release_mutex;
-		}
-		if (s_ctrl->i2c_data.init_settings.is_settings_valid &&
-			(s_ctrl->i2c_data.init_settings.request_id == 0)) {
-
-			rc = cam_sensor_apply_settings(s_ctrl, 0,
-				CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG);
-
-			s_ctrl->i2c_data.init_settings.request_id = -1;
-
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"cannot apply init settings");
-				delete_request(&s_ctrl->i2c_data.init_settings);
-				goto release_mutex;
-			}
-			rc = delete_request(&s_ctrl->i2c_data.init_settings);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"Fail in deleting the Init settings");
-				goto release_mutex;
-			}
-		}
-
-		if (s_ctrl->i2c_data.config_settings.is_settings_valid &&
-			(s_ctrl->i2c_data.config_settings.request_id == 0)) {
-			rc = cam_sensor_apply_settings(s_ctrl, 0,
-				CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG);
-
-			s_ctrl->i2c_data.config_settings.request_id = -1;
-
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"cannot apply config settings");
-				delete_request(
-					&s_ctrl->i2c_data.config_settings);
-				goto release_mutex;
-			}
-			rc = delete_request(&s_ctrl->i2c_data.config_settings);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"Fail in deleting the config settings");
-				goto release_mutex;
-			}
-			s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
-		}
-
-		CAM_INFO(CAM_SENSOR,
-			"CAM_CONFIG_DEV done sensor_id:0x%x,sensor_slave_addr:0x%x",
-			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->sensordata->slave_info.sensor_slave_addr);
-	}
+	case CAM_CONFIG_DEV:
+		rc = cam_sensor_process_config_dev_cmd(s_ctrl, arg);
 		break;
+
 	default:
 		CAM_ERR(CAM_SENSOR, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;
