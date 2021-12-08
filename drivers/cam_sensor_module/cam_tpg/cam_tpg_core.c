@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021-2022, The Linux Foundation. All rights reserved.
  */
 
 #include "cam_tpg_core.h"
@@ -102,7 +102,6 @@ static int cam_tpg_flush_req(
 static int cam_tpg_process_crm_evt(
 	struct cam_req_mgr_link_evt_data *event)
 {
-
 	struct cam_tpg_device *tpg_dev = NULL;
 	if (!event) {
 		CAM_ERR(CAM_TPG, "Invalid argument");
@@ -293,19 +292,32 @@ static int __cam_tpg_handle_start_dev(
 		CAM_ERR(CAM_TPG, "Invalid session handle for context");
 		return -EINVAL;
 	}
-	if (tpg_dev->state != CAM_TPG_STATE_ACQUIRE) {
+	if (tpg_dev->state != CAM_TPG_STATE_ACQUIRE && tpg_dev->state != CAM_TPG_STATE_START) {
 		CAM_ERR(CAM_TPG, "TPG[%d] not in right state[%d] to start",
 				tpg_dev->soc_info.index, tpg_dev->state);
 		return -EINVAL;
 	}
-	rc = tpg_hw_start(&tpg_dev->tpg_hw);
-	if (rc) {
-		CAM_ERR(CAM_TPG, "TPG[%d] START_DEV failed", tpg_dev->soc_info.index);
+	if (tpg_dev->tpg_hw.global_config.mode == 0) {
+		rc = tpg_hw_start(&tpg_dev->tpg_hw);
+		if (rc) {
+			CAM_ERR(CAM_TPG, "TPG[%d] START_DEV failed", tpg_dev->soc_info.index);
+		} else {
+			tpg_dev->state = CAM_TPG_STATE_START;
+			CAM_INFO(CAM_TPG, "TPG[%d] START_DEV done.", tpg_dev->soc_info.index);
+		}
+	} else if (tpg_dev->tpg_hw.global_config.mode == 1 &&
+			tpg_dev->state == CAM_TPG_STATE_START) {
+		rc = tpg_hw_start(&tpg_dev->tpg_hw);
+		if (rc) {
+			CAM_ERR(CAM_TPG, "TPG[%d] START_DEV failed", tpg_dev->soc_info.index);
+		} else {
+			tpg_dev->state = CAM_TPG_STATE_START;
+			CAM_INFO(CAM_TPG, "TPG[%d] TPG configuerd.", tpg_dev->soc_info.index);
+		}
 	} else {
 		tpg_dev->state = CAM_TPG_STATE_START;
-		CAM_INFO(CAM_TPG, "TPG[%d] START_DEV done.", tpg_dev->soc_info.index);
+		CAM_DBG(CAM_TPG, "Start dev has happened for the first time.");
 	}
-
 	return rc;
 }
 
@@ -533,6 +545,35 @@ static int cam_tpg_packet_parse(
 		tpg_hw_config(&tpg_dev->tpg_hw, TPG_HW_CMD_INIT_CONFIG, NULL);
 		break;
 	}
+	case CAM_TPG_PACKET_OPCODE_EXTERNAL_TRIGGER: {
+		struct cam_req_mgr_add_request add_req = {0};
+
+		if (csl_packet->num_cmd_buf <= 0) {
+			rc = -EINVAL;
+			goto end;
+		}
+		rc = cam_tpg_cmd_buf_parse(tpg_dev, csl_packet);
+		if (rc < 0) {
+			CAM_ERR(CAM_TPG, "CMD buffer parse failed");
+			goto end;
+		}
+		CAM_DBG(CAM_TPG, "TPG[%d] External Trigger request id: %llu",
+					tpg_dev->soc_info.index,
+					csl_packet->header.request_id);
+		if ((tpg_dev->crm_intf.link_hdl != -1) &&
+			(tpg_dev->crm_intf.device_hdl != -1) &&
+			(tpg_dev->crm_intf.crm_cb != NULL)) {
+			add_req.link_hdl = tpg_dev->crm_intf.link_hdl;
+			add_req.dev_hdl  = tpg_dev->crm_intf.device_hdl;
+			add_req.req_id = csl_packet->header.request_id;
+			tpg_dev->crm_intf.crm_cb->add_req(&add_req);
+		} else {
+			CAM_ERR(CAM_TPG, "TPG[%d] invalid link req: %llu",
+					tpg_dev->soc_info.index,
+					csl_packet->header.request_id);
+		}
+		break;
+	}
 	case CAM_TPG_PACKET_OPCODE_NOP: {
 		struct cam_req_mgr_add_request add_req = {0};
 
@@ -729,12 +770,45 @@ int cam_tpg_core_cfg(
 			sizeof(config)))
 			rc = -EFAULT;
 		else {
+			uintptr_t generic_ptr;
+			size_t len_of_buff = 0, remain_len = 0;
+			struct cam_packet *csl_packet = NULL;
 			rc = __cam_tpg_handle_config_dev(tpg_dev, &config);
-			if (rc)
+			if (rc) {
 				CAM_ERR(CAM_TPG,
 					"TPG[%d] config device failed(rc = %d)",
 					tpg_dev->soc_info.index,
 					rc);
+				break;
+			}
+			rc = cam_mem_get_cpu_buf(config.packet_handle,
+			&generic_ptr, &len_of_buff);
+			if (rc < 0)
+				CAM_ERR(CAM_TPG, "Failed in getting the packet: %d", rc);
+			else {
+				remain_len = len_of_buff;
+				remain_len -= (size_t)config.offset;
+				csl_packet = (struct cam_packet *)(generic_ptr +
+					(uint32_t)config.offset);
+
+				if (tpg_dev->tpg_hw.global_config.mode == 1 &&
+					tpg_dev->state == CAM_TPG_STATE_START &&
+					(csl_packet->header.op_code & 0xFF) == CAM_TPG_PACKET_OPCODE_EXTERNAL_TRIGGER) {
+					struct cam_start_stop_dev_cmd start;
+
+					if (copy_from_user(&start, u64_to_user_ptr(cmd->handle),
+						sizeof(start)))
+						rc = -EFAULT;
+					else {
+						rc = __cam_tpg_handle_start_dev(tpg_dev, &start);
+						if (rc)
+							CAM_ERR(CAM_TPG,
+								"TPG[%d] start device failed(rc = %d)",
+								tpg_dev->soc_info.index,
+								rc);
+					}
+				}
+			}
 		}
 		break;
 	}

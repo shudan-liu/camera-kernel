@@ -152,6 +152,9 @@ int dump_global_configs(int idx,
 	CAM_DBG(CAM_TPG, "TPG[%d] tpg clock           : %d",
 			idx,
 			global->tpg_clock);
+	CAM_DBG(CAM_TPG, "TPG[%d] tpg mode           : %d",
+			idx,
+			global->mode);
 #endif
 	return 0;
 }
@@ -579,17 +582,35 @@ static int assign_vc_slot(
 	)
 {
 	int rc = -EINVAL, i = 0, slot_matched = 0;
-
+	struct tpg_hw_stream *entry = NULL;
 	if (!hw || !stream) {
 		return -EINVAL;
 	}
 
 	for(i = 0; i < hw->hw_info->max_vc_channels; i++) {
+		struct list_head *pos = NULL, *pos_next = NULL;
+
 		/* Found a matching slot */
 		if(hw->vc_slots[i].vc == vc) {
 			slot_matched = 1;
 			if (hw->vc_slots[i].stream_count
 					< hw->hw_info->max_dt_channels_per_vc) {
+				int flag = 0;
+
+				entry = list_first_entry(&hw->vc_slots[i].head, struct tpg_hw_stream,
+						list);
+				list_for_each_safe(pos, pos_next, &hw->vc_slots[i].head) {
+					entry = list_entry(pos, struct tpg_hw_stream, list);
+					if (stream->stream.dt == entry->stream.dt) {
+						rc = 0;
+						flag = 1;
+						CAM_DBG(CAM_TPG, "Duplicate vc[%d]dt[%d]=>slot[%d]", vc,
+								stream->stream.dt, i);
+					}
+				}
+				if (flag == 1)
+					break;
+
 				list_add_tail(&stream->list, &hw->vc_slots[i].head);
 				hw->vc_slots[i].stream_count++;
 				hw->vc_slots[i].vc = vc;
