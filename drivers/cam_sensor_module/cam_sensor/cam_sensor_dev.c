@@ -390,28 +390,6 @@ static int cam_pm_sensor_suspend(struct device *pdev)
 	return rc;
 }
 
-static int cam_pm_sensor_resume(struct device *pdev)
-{
-	struct cam_sensor_ctrl_t  *s_ctrl;
-	struct cam_control cam_cmd = {};
-	int rc = 0;
-
-	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_UP");
-	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_UP;
-	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
-	cam_cmd.size        = 0;
-	s_ctrl = dev_get_drvdata(pdev);
-
-	/* will return success if no_lpm_mode_enabled */
-	if (s_ctrl->no_lpm_mode_enabled)
-		return 0;
-
-	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
-	if (rc < 0)
-		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_UP sensor");
-	return rc;
-}
-
 static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
 {
 	struct cam_sensor_ctrl_t  *s_ctrl;
@@ -435,7 +413,6 @@ static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
 static const struct dev_pm_ops cam_pm_hiber_ops = {
 	.freeze = &cam_pm_sensor_hibernation_suspend,
 	.suspend = &cam_pm_sensor_suspend,
-	.resume = &cam_pm_sensor_resume,
 };
 
 MODULE_DEVICE_TABLE(of, cam_sensor_driver_dt_match);
