@@ -769,8 +769,20 @@ static int cam_pm_restore(struct device *pdev)
 	return 0;
 }
 
+static int cam_pm_resume(struct device *pdev)
+{
+	struct v4l2_event event;
+
+	event.id = V4L_EVENT_CAM_REQ_MGR_S2R_RESUME;
+	event.type = V4L_EVENT_CAM_REQ_MGR_EVENT;
+	CAM_INFO(CAM_CRM, "Queue LPM resume event");
+	v4l2_event_queue(g_dev.video, &event);
+	return 0;
+}
+
 static const struct dev_pm_ops cam_pm_ops = {
 	.restore = &cam_pm_restore,
+	.resume = &cam_pm_resume,
 };
 
 static struct platform_driver cam_req_mgr_driver = {
