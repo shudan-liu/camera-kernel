@@ -3,20 +3,22 @@
 
 #include "cam_sensor.h"
 
-#define AIS_SENSOR_OPCODE_START (CAM_COMMON_OPCODE_MAX + 10)
-#define AIS_SENSOR_PROBE_CMD   (AIS_SENSOR_OPCODE_START + 1)
-#define AIS_SENSOR_POWER_UP    (AIS_SENSOR_OPCODE_START + 2)
-#define AIS_SENSOR_POWER_DOWN  (AIS_SENSOR_OPCODE_START + 3)
-#define AIS_SENSOR_I2C_READ    (AIS_SENSOR_OPCODE_START + 4)
-#define AIS_SENSOR_I2C_WRITE   (AIS_SENSOR_OPCODE_START + 5)
-#define AIS_SENSOR_I2C_WRITE_SYNC (AIS_SENSOR_OPCODE_START + 6)
+#define AIS_SENSOR_OPCODE_START         (CAM_COMMON_OPCODE_MAX + 10)
+#define AIS_SENSOR_PROBE_CMD            (AIS_SENSOR_OPCODE_START + 1)
+#define AIS_SENSOR_POWER_UP             (AIS_SENSOR_OPCODE_START + 2)
+#define AIS_SENSOR_POWER_DOWN           (AIS_SENSOR_OPCODE_START + 3)
+#define AIS_SENSOR_I2C_READ             (AIS_SENSOR_OPCODE_START + 4)
+#define AIS_SENSOR_I2C_WRITE            (AIS_SENSOR_OPCODE_START + 5)
+#define AIS_SENSOR_I2C_WRITE_SYNC       (AIS_SENSOR_OPCODE_START + 6)
 #define AIS_SENSOR_I2C_WRITE_ARRAY_SYNC (AIS_SENSOR_OPCODE_START + 7)
-#define AIS_SENSOR_I2C_WRITE_ARRAY (AIS_SENSOR_OPCODE_START + 8)
-#define AIS_SENSOR_I2C_POWER_UP    (AIS_SENSOR_OPCODE_START + 9)
-#define AIS_SENSOR_I2C_POWER_DOWN  (AIS_SENSOR_OPCODE_START + 10)
-#define AIS_SENSOR_INTR_INIT      (AIS_SENSOR_OPCODE_START + 11)
-#define AIS_SENSOR_INTR_DEINIT    (AIS_SENSOR_OPCODE_START + 12)
-#define AIS_SENSOR_I2C_SET_SYNC_PARMS (AIS_SENSOR_OPCODE_START + 13)
+#define AIS_SENSOR_I2C_WRITE_ARRAY      (AIS_SENSOR_OPCODE_START + 8)
+#define AIS_SENSOR_I2C_POWER_UP         (AIS_SENSOR_OPCODE_START + 9)
+#define AIS_SENSOR_I2C_POWER_DOWN       (AIS_SENSOR_OPCODE_START + 10)
+#define AIS_SENSOR_INTR_INIT            (AIS_SENSOR_OPCODE_START + 11)
+#define AIS_SENSOR_INTR_DEINIT          (AIS_SENSOR_OPCODE_START + 12)
+#define AIS_SENSOR_I2C_SET_SYNC_PARMS   (AIS_SENSOR_OPCODE_START + 13)
+#define AIS_SENSOR_I2C_READ_BURST       (AIS_SENSOR_OPCODE_START + 14)
+#define AIS_SENSOR_I2C_WRITE_BURST      (AIS_SENSOR_OPCODE_START + 15)
 #define AIS_SENSOR_EVENT_BASE      (V4L2_EVENT_PRIVATE_START)
 #define AIS_SENSOR_EVENT_TYPE      (AIS_SENSOR_EVENT_BASE + 1)
 
@@ -153,6 +155,26 @@ struct ais_sensor_cmd_i2c_wr_array {
 } __attribute__((packed));
 
 /**
+ * struct ais_sensor_cmd_i2c_burst - I2C burst read/write
+ * @i2c_config      :    slave i2c info
+ * @addr_type       :    address type
+ * @data_type       :    data type
+ * @reg_addr        :    starting register address to read/write
+ * @count           :    length of data to read/write in burst mode
+ * @data            :    stores data to write to slave/read from slave
+ * @reserved        :    reserved
+ */
+struct ais_sensor_cmd_i2c_burst {
+	struct cam_cmd_i2c_info i2c_config;
+	uint8_t     addr_type;
+	uint8_t     data_type;
+	uint32_t    reg_addr;
+	uint32_t    count;
+	uint32_t    *data;
+	uint16_t    reserved;
+} __attribute__((packed));
+
+/**
  * struct ais_sensor_cmd_i2c_pwrup - i2c power up
  * @master          :    logical master
  * @retries         :    number of retries
@@ -201,6 +223,7 @@ struct ais_cci_cmd_t {
 	struct ais_sensor_wr_sync wr_sync;
 	struct ais_sensor_cmd_i2c_wr i2c_write;
 	struct ais_sensor_cmd_i2c_read i2c_read;
+	struct ais_sensor_cmd_i2c_burst i2c_burst;
 	} cmd;
 };
 

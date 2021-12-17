@@ -523,6 +523,12 @@ int ais_vfe_reserve(void *hw_priv, void *reserve_args, uint32_t arg_size)
 	cam_io_w_mb(rdi_cfg->out_cfg.frame_drop_pattern,
 		core_info->mem_base + client_regs->framedrop_pattern);
 
+	rdi_path->batchConfig = rdi_cfg->out_cfg.batch_config;
+	if (rdi_path->batchConfig.numBatchFrames < 1 || rdi_path->batchConfig.numBatchFrames > 4) {
+		CAM_ERR(CAM_ISP, "invalid numBatchFrames %d", rdi_path->batchConfig.numBatchFrames);
+		rdi_path->batchConfig.numBatchFrames = 1; //set numBatchFrames as default
+	}
+
 	rdi_path->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
 
 EXIT:
@@ -809,10 +815,13 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 		struct ais_ife_enqueue_buffer_args *enq_buf)
 {
 	int rc;
-	struct ais_vfe_buffer_t *vfe_buf = NULL;
+	struct ais_vfe_buffer_t *vfe_buf[4] = {};
 	struct ais_vfe_rdi_output *rdi_path = NULL;
 	int32_t mmu_hdl;
 	size_t  src_buf_size;
+	uint32_t i = 0;
+	uint32_t batch_id = 0;
+	uint64_t base_addr = 0;
 
 	if (enq_buf->path >= AIS_IFE_PATH_MAX) {
 		CAM_ERR(CAM_ISP, "Invalid output path %d", enq_buf->path);
@@ -829,34 +838,38 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 	}
 
 	spin_lock(&rdi_path->buffer_lock);
-	if (!list_empty(&rdi_path->free_buffer_list)) {
-		vfe_buf = list_first_entry(&rdi_path->free_buffer_list,
+	for (batch_id = 0; batch_id < rdi_path->batchConfig.numBatchFrames; batch_id++) {
+		if (!list_empty(&rdi_path->free_buffer_list)) {
+			vfe_buf[batch_id] = list_first_entry(&rdi_path->free_buffer_list,
 				struct ais_vfe_buffer_t, list);
-		list_del_init(&vfe_buf->list);
+			list_del_init(&vfe_buf[batch_id]->list);
+		}
+		if (!vfe_buf[batch_id]) {
+			CAM_ERR(CAM_ISP, "RDI%d No more free buffers!", enq_buf->path);
+			for (i = 0; i < batch_id; i++)
+			    list_add_tail(&vfe_buf[i]->list, &rdi_path->free_buffer_list);
+			spin_unlock(&rdi_path->buffer_lock);
+			return -ENOMEM;
+		}
 	}
 	spin_unlock(&rdi_path->buffer_lock);
 
-	if (!vfe_buf) {
-		CAM_ERR(CAM_ISP, "RDI%d No more free buffers!", enq_buf->path);
-		return -ENOMEM;
-	}
 
-	vfe_buf->bufIdx = enq_buf->buffer.idx;
-	vfe_buf->mem_handle = enq_buf->buffer.mem_handle;
+	vfe_buf[0]->mem_handle = enq_buf->buffer.mem_handle;
 
 	mmu_hdl = core_info->iommu_hdl;
 
-	if (cam_mem_is_secure_buf(vfe_buf->mem_handle) || rdi_path->secure_mode)
+	if (cam_mem_is_secure_buf(vfe_buf[0]->mem_handle) || rdi_path->secure_mode)
 		mmu_hdl = core_info->iommu_hdl_secure;
 
-	rc = cam_mem_get_io_buf(vfe_buf->mem_handle,
-		mmu_hdl, &vfe_buf->iova_addr, &src_buf_size);
+	rc = cam_mem_get_io_buf(vfe_buf[0]->mem_handle,
+		mmu_hdl, &vfe_buf[0]->iova_addr, &src_buf_size);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP,
 			"get src buf address fail mem_handle 0x%x",
-			vfe_buf->mem_handle);
+			vfe_buf[0]->mem_handle);
 	}
-	if (vfe_buf->iova_addr >> 32) {
+	if (vfe_buf[0]->iova_addr >> 32) {
 		CAM_ERR(CAM_ISP, "Invalid mapped address");
 		rc = -EINVAL;
 	}
@@ -869,23 +882,29 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 	//if any error, return buffer list object to being free
 	if (rc) {
 		spin_lock(&rdi_path->buffer_lock);
-		list_add_tail(&vfe_buf->list, &rdi_path->free_buffer_list);
+		for (batch_id = 0; batch_id < rdi_path->batchConfig.numBatchFrames; batch_id++)
+			list_add_tail(&vfe_buf[batch_id]->list, &rdi_path->free_buffer_list);
 		spin_unlock(&rdi_path->buffer_lock);
 	} else {
-		//add offset
-		vfe_buf->iova_addr += enq_buf->buffer.offset;
-
+		base_addr  = vfe_buf[0]->iova_addr + enq_buf->buffer.offset;
 		spin_lock(&rdi_path->buffer_lock);
+		for (batch_id = 0; batch_id < rdi_path->batchConfig.numBatchFrames; batch_id++) {
+			vfe_buf[batch_id]->bufIdx = enq_buf->buffer.idx;
 
-		trace_ais_isp_vfe_enq_req(core_info->vfe_idx, enq_buf->path,
-				enq_buf->buffer.idx);
+			vfe_buf[batch_id]->iova_addr = base_addr +
+				batch_id * rdi_path->batchConfig.frameIncrement;
 
-		list_add_tail(&vfe_buf->list, &rdi_path->buffer_q);
+			vfe_buf[batch_id]->batchId = batch_id;
 
-		if (rdi_path->state < AIS_ISP_RESOURCE_STATE_STREAMING)
-			ais_vfe_q_bufs_to_hw(core_info, enq_buf->path);
+			trace_ais_isp_vfe_enq_req(core_info->vfe_idx, enq_buf->path,
+					enq_buf->buffer.idx);
 
-		spin_unlock(&rdi_path->buffer_lock);
+			list_add_tail(&vfe_buf[batch_id]->list, &rdi_path->buffer_q);
+			}
+			spin_unlock(&rdi_path->buffer_lock);
+
+			if (rdi_path->state < AIS_ISP_RESOURCE_STATE_STREAMING)
+				ais_vfe_q_bufs_to_hw(core_info, enq_buf->path);
 	}
 
 EXIT:
@@ -1244,7 +1263,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 	uint64_t                           sof_ts;
 	uint64_t                           cur_sof_hw_ts;
 	bool last_addr_match = false;
-
+	uint32_t i = 0;
 
 	CAM_DBG(CAM_ISP, "I%d|R%d last_addr 0x%x",
 			core_info->vfe_idx, path, last_addr);
@@ -1325,25 +1344,36 @@ static void ais_vfe_bus_handle_client_frame_done(
 			frame_cnt = sof_ts = cur_sof_hw_ts = 0;
 		}
 
-		CAM_DBG(CAM_ISP, "I%d|R%d|F%llu: si [%llu, %llu, %llu]",
-			core_info->vfe_idx, path, frame_cnt, sof_ts,
-			cur_sof_hw_ts);
-
-
 		trace_ais_isp_vfe_buf_done(core_info->vfe_idx, path,
 				vfe_buf->bufIdx,
 				frame_cnt,
 				rdi_path->num_buffer_hw_q,
 				last_addr_match);
 
-		core_info->event.u.frame_msg.frame_id[0] = frame_cnt;
-		core_info->event.u.frame_msg.buf_idx = vfe_buf->bufIdx;
-		core_info->event.u.frame_msg.ts = sof_ts;
-		core_info->event.u.frame_msg.hw_ts[0] = cur_sof_hw_ts;
+		rdi_path->batchFrameInfo[vfe_buf->batchId].batchId = vfe_buf->batchId;
+		rdi_path->batchFrameInfo[vfe_buf->batchId].frameId = frame_cnt;
+		rdi_path->batchFrameInfo[vfe_buf->batchId].hwTimestamp = cur_sof_hw_ts;
 
-		core_info->event_cb(core_info->event_cb_priv,
-				&core_info->event);
+		if (vfe_buf->batchId == (rdi_path->batchConfig.numBatchFrames - 1)) {
+			core_info->event.u.frame_msg.buf_idx = vfe_buf->bufIdx;
+			core_info->event.u.frame_msg.num_batch_frames =
+				rdi_path->batchConfig.numBatchFrames;
+			core_info->event.u.frame_msg.ts = sof_ts;
+			for (i = 0; i < rdi_path->batchConfig.numBatchFrames; i++) {
+				core_info->event.u.frame_msg.frame_id[i] =
+					rdi_path->batchFrameInfo[i].frameId;
+				core_info->event.u.frame_msg.hw_ts[i] =
+					rdi_path->batchFrameInfo[i].hwTimestamp;
+			}
+			core_info->event_cb(core_info->event_cb_priv,
+					&core_info->event);
 
+			CAM_DBG(CAM_ISP, "I%d|R%d|F%llu: si [%llu, %llu]",
+				core_info->vfe_idx, path,
+				core_info->event.u.frame_msg.frame_id[i],
+				sof_ts,
+				core_info->event.u.frame_msg.hw_ts[i]);
+		}
 
 		list_add_tail(&vfe_buf->list, &rdi_path->free_buffer_list);
 	}
