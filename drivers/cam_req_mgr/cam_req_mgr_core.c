@@ -230,7 +230,7 @@ static void __cam_req_mgr_find_dev_name(
 					req_id, link->link_hdl, pd,
 					dev->dev_info.name, link->open_req_cnt);
 			else
-				CAM_INFO(CAM_CRM,
+				CAM_DBG(CAM_CRM,
 					"Skip Frame: req: %lld not ready on link: 0x%x for pd: %d dev: %s open_req count: %d",
 					req_id, link->link_hdl, pd,
 					dev->dev_info.name, link->open_req_cnt);
