@@ -38,6 +38,7 @@
 
 static struct hfi_info *g_hfi;
 unsigned int g_icp_mmu_hdl;
+
 static DEFINE_MUTEX(hfi_cmd_q_mutex);
 static DEFINE_MUTEX(hfi_msg_q_mutex);
 
@@ -460,6 +461,9 @@ int hfi_set_debug_level(u64 icp_dbg_type, uint32_t lvl)
 	if (lvl > val)
 		return -EINVAL;
 
+	if (g_hfi)
+		g_hfi->dbg_lvl = lvl;
+
 	size = sizeof(struct hfi_cmd_prop) +
 		sizeof(struct hfi_debug);
 
@@ -511,6 +515,50 @@ int hfi_set_fw_dump_level(uint32_t lvl)
 			 fw_dump_level_switch_prop->num_prop,
 			 fw_dump_level_switch_prop->prop_data[0],
 			 fw_dump_level_switch_prop->prop_data[1]);
+
+	hfi_write_cmd(prop);
+	kfree(prop);
+	return 0;
+}
+
+int hfi_send_freq_info(int32_t freq)
+{
+	uint8_t *prop = NULL;
+	struct hfi_cmd_prop *dbg_prop = NULL;
+	uint32_t size = 0;
+
+	if (!g_hfi) {
+		CAM_ERR(CAM_HFI, "HFI interface not setup");
+		return -ENODEV;
+	}
+
+	if (!(g_hfi->dbg_lvl & HFI_DEBUG_MSG_PERF))
+		return -EINVAL;
+
+	size = sizeof(struct hfi_cmd_prop) + sizeof(freq);
+	prop = kzalloc(size, GFP_KERNEL);
+	if (!prop)
+		return -ENOMEM;
+
+	dbg_prop = (struct hfi_cmd_prop *)prop;
+	dbg_prop->size = size;
+	dbg_prop->pkt_type = HFI_CMD_SYS_SET_PROPERTY;
+	dbg_prop->num_prop = 1;
+	dbg_prop->prop_data[0] = HFI_PROPERTY_SYS_ICP_HW_FREQUENCY;
+	dbg_prop->prop_data[1] = freq;
+
+	CAM_DBG(CAM_HFI, "prop->size = %d\n"
+			 "prop->pkt_type = %d\n"
+			 "prop->num_prop = %d\n"
+			 "prop->prop_data[0] = %d\n"
+			 "prop->prop_data[1] = %d\n"
+			 "dbg_lvl = 0x%x\n",
+			 dbg_prop->size,
+			 dbg_prop->pkt_type,
+			 dbg_prop->num_prop,
+			 dbg_prop->prop_data[0],
+			 dbg_prop->prop_data[1],
+			 g_hfi->dbg_lvl);
 
 	hfi_write_cmd(prop);
 	kfree(prop);
@@ -634,7 +682,7 @@ int cam_hfi_resume(struct hfi_mem_info *hfi_mem)
 	if (cam_common_read_poll_timeout(icp_base +
 		    HFI_REG_ICP_HOST_INIT_RESPONSE,
 		    HFI_POLL_DELAY_US, HFI_POLL_TIMEOUT_US,
-		    0x1, ICP_INIT_RESP_SUCCESS, &status)) {
+		    (uint32_t)UINT_MAX, ICP_INIT_RESP_SUCCESS, &status)) {
 	    CAM_ERR(CAM_HFI, "response poll timed out: status=0x%08x",
 		    status);
 	    return -ETIMEDOUT;
@@ -868,8 +916,6 @@ int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
 		icp_base + HFI_REG_SECONDARY_HEAP_PTR);
 	cam_io_w_mb((uint32_t)hfi_mem->sec_heap.len,
 		icp_base + HFI_REG_SECONDARY_HEAP_SIZE);
-	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_SET,
-		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 	cam_io_w_mb((uint32_t)hfi_mem->qdss.iova,
 		icp_base + HFI_REG_QDSS_IOVA);
 	cam_io_w_mb((uint32_t)hfi_mem->qdss.len,
@@ -886,6 +932,8 @@ int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
 		icp_base + HFI_REG_FWUNCACHED_REGION_IOVA);
 	cam_io_w_mb((uint32_t)hfi_mem->fw_uncached.len,
 		icp_base + HFI_REG_FWUNCACHED_REGION_SIZE);
+	cam_io_w_mb((uint32_t)ICP_INIT_REQUEST_SET,
+		icp_base + HFI_REG_HOST_ICP_INIT_REQUEST);
 
 	CAM_DBG(CAM_HFI, "IO1 : [0x%x 0x%x] IO2 [0x%x 0x%x]",
 		hfi_mem->io_mem.iova, hfi_mem->io_mem.len,
@@ -906,7 +954,7 @@ int cam_hfi_init(struct hfi_mem_info *hfi_mem, const struct hfi_ops *hfi_ops,
 	if (cam_common_read_poll_timeout(icp_base +
 		    HFI_REG_ICP_HOST_INIT_RESPONSE,
 		    HFI_POLL_DELAY_US, HFI_POLL_TIMEOUT_US,
-		    0x1, ICP_INIT_RESP_SUCCESS, &status)) {
+		    (uint32_t)UINT_MAX, ICP_INIT_RESP_SUCCESS, &status)) {
 		CAM_ERR(CAM_HFI, "response poll timed out: status=0x%08x",
 			status);
 		rc = -ETIMEDOUT;

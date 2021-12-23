@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -59,6 +59,8 @@ void cam_flash_put_source_node_data(struct cam_flash_ctrl *fctrl)
 	}
 }
 
+#if __or(IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2), \
+			IS_REACHABLE(CONFIG_LEDS_QTI_FLASH))
 static int32_t cam_get_source_node_info(
 	struct device_node *of_node,
 	struct cam_flash_ctrl *fctrl,
@@ -267,6 +269,7 @@ static int32_t cam_get_source_node_info(
 
 	return rc;
 }
+#endif
 
 int cam_flash_get_dt_data(struct cam_flash_ctrl *fctrl,
 	struct cam_hw_soc_info *soc_info)
@@ -285,7 +288,14 @@ int cam_flash_get_dt_data(struct cam_flash_ctrl *fctrl,
 		rc = -ENOMEM;
 		goto release_soc_res;
 	}
-	of_node = fctrl->pdev->dev.of_node;
+
+	if (fctrl->of_node == NULL) {
+		CAM_ERR(CAM_FLASH, "device node is NULL");
+		rc = -EINVAL;
+		goto free_soc_private;
+	}
+
+	of_node = fctrl->of_node;
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc) {
@@ -293,12 +303,15 @@ int cam_flash_get_dt_data(struct cam_flash_ctrl *fctrl,
 		goto free_soc_private;
 	}
 
+#if __or(IS_ENABLED(CONFIG_LEDS_QPNP_FLASH_V2), \
+			IS_ENABLED(CONFIG_LEDS_QTI_FLASH))
 	rc = cam_get_source_node_info(of_node, fctrl, soc_info->soc_private);
 	if (rc) {
 		CAM_ERR(CAM_FLASH,
 			"cam_flash_get_pmic_source_info failed rc %d", rc);
 		goto free_soc_private;
 	}
+#endif
 	return rc;
 
 free_soc_private:

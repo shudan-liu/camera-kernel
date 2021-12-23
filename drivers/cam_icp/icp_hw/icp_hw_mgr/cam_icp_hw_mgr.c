@@ -1934,36 +1934,29 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 	/* Store parent inode for cleanup in caller */
 	icp_hw_mgr.dentry = dbgfileptr;
 
-	dbgfileptr = debugfs_create_bool("icp_pc", 0644, icp_hw_mgr.dentry,
+	debugfs_create_bool("icp_pc", 0644, icp_hw_mgr.dentry,
 		&icp_hw_mgr.icp_pc_flag);
 
-	dbgfileptr = debugfs_create_bool("ipe_bps_pc", 0644, icp_hw_mgr.dentry,
+	debugfs_create_bool("ipe_bps_pc", 0644, icp_hw_mgr.dentry,
 		&icp_hw_mgr.ipe_bps_pc_flag);
 
-	dbgfileptr = debugfs_create_file("icp_debug_clk", 0644,
+	debugfs_create_file("icp_debug_clk", 0644,
 		icp_hw_mgr.dentry, NULL, &cam_icp_debug_default_clk);
 
-	dbgfileptr = debugfs_create_bool("icp_jtag_debug", 0644,
+	debugfs_create_bool("icp_jtag_debug", 0644,
 		icp_hw_mgr.dentry, &icp_hw_mgr.icp_jtag_debug);
 
-	dbgfileptr = debugfs_create_file("icp_debug_type", 0644,
+	debugfs_create_file("icp_debug_type", 0644,
 		icp_hw_mgr.dentry, NULL, &cam_icp_debug_type_fs);
 
-	dbgfileptr = debugfs_create_file("icp_debug_lvl", 0644,
+	debugfs_create_file("icp_debug_lvl", 0644,
 		icp_hw_mgr.dentry, NULL, &cam_icp_debug_fs);
 
-	dbgfileptr = debugfs_create_file("icp_fw_dump_lvl", 0644,
+	debugfs_create_file("icp_fw_dump_lvl", 0644,
 		icp_hw_mgr.dentry, NULL, &cam_icp_debug_fw_dump);
 
-	dbgfileptr = debugfs_create_bool("disable_ubwc_comp", 0644,
+	debugfs_create_bool("disable_ubwc_comp", 0644,
 		icp_hw_mgr.dentry, &icp_hw_mgr.disable_ubwc_comp);
-
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_ICP, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
 end:
 	/* Set default hang dump lvl */
 	icp_hw_mgr.icp_fw_dump_lvl = HFI_FW_DUMP_ON_FAILURE;
@@ -5742,10 +5735,10 @@ static int cam_icp_mgr_release_hw(void *hw_mgr_priv, void *release_hw_args)
 		cam_icp_hw_mgr_reset_clk_info(hw_mgr);
 		rc = cam_ipe_bps_deint(hw_mgr);
 	}
-	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	if ((!hw_mgr->bps_ctxt_cnt || !hw_mgr->ipe_ctxt_cnt))
 		cam_icp_device_timer_stop(hw_mgr);
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
 
 	CAM_DBG(CAM_ICP, "Release done for ctx_id %d", ctx_id);
 	return rc;
@@ -6553,7 +6546,9 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 		(camera_hw_version == CAM_CPAS_TITAN_570_V100) ||
 		(camera_hw_version == CAM_CPAS_TITAN_570_V200) ||
 		(camera_hw_version == CAM_CPAS_TITAN_680_V100) ||
-		(camera_hw_version == CAM_CPAS_TITAN_780_V100)) {
+		(camera_hw_version == CAM_CPAS_TITAN_680_V110) ||
+		(camera_hw_version == CAM_CPAS_TITAN_780_V100) ||
+		(camera_hw_version == CAM_CPAS_TITAN_640_V200)) {
 		if (cam_caps & CPAS_TITAN_IPE0_CAP_BIT)
 			icp_hw_mgr.ipe0_enable = true;
 		if (cam_caps & CPAS_BPS_BIT)

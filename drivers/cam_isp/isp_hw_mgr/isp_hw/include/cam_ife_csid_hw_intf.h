@@ -192,10 +192,12 @@ struct cam_csid_secondary_evt_config {
  * @buf_done_controller: IRQ controller for buf done for version 680 hw
  * @cdm_ops:             CDM Ops
  * @event_cb:            Callback function to hw mgr in case of hw events
- * @cb_priv:             Private pointer to return to callback
  * @phy_sel:             Phy selection number if tpg is enabled from userspace
+ * @cb_priv:             Private pointer to return to callback
  * @can_use_lite:        Flag to indicate if current call qualifies for
  *                       acquire lite
+ * @sfe_en:              Flag to indicate if SFE is enabled
+ * @use_wm_pack:         [OUT]Flag to indicate if WM packing is to be used for packing
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -218,8 +220,10 @@ struct cam_csid_hw_reserve_resource_args {
 	void                                     *cdm_ops;
 	cam_hw_mgr_event_cb_func                  event_cb;
 	uint32_t                                  phy_sel;
-	bool                                      can_use_lite;
 	void                                     *cb_priv;
+	bool                                      can_use_lite;
+	bool                                      sfe_en;
+	bool                                      use_wm_pack;
 };
 
 /**
@@ -279,6 +283,7 @@ struct cam_csid_hw_stop_args {
 struct cam_csid_hw_start_args {
 	struct cam_isp_resource_node            **node_res;
 	uint32_t                                  num_res;
+	bool                                      is_internal_start;
 };
 
 
@@ -304,14 +309,18 @@ struct cam_csid_reset_cfg_args {
 
 /**
  * struct cam_csid_get_time_stamp_args-  time stamp capture arguments
- * @node_res         : resource to get the time stamp
- * @time_stamp_val   : captured time stamp
- * @boot_timestamp   : boot time stamp
+ * @node_res            : resource to get the time stamp
+ * @time_stamp_val      : captured time stamp
+ * @boot_timestamp      : boot time stamp
+ * @get_prev_timestamp  : flag to fetch previous captured time stamp from hardware
+ * @prev_time_stamp_val : previous captured time stamp
  */
 struct cam_csid_get_time_stamp_args {
 	struct cam_isp_resource_node      *node_res;
 	uint64_t                           time_stamp_val;
 	uint64_t                           boot_timestamp;
+	bool                               get_prev_timestamp;
+	uint64_t                           prev_time_stamp_val;
 };
 
 /**

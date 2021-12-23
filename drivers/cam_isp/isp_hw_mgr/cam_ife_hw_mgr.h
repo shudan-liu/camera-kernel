@@ -81,7 +81,7 @@ struct cam_ife_hw_mgr_ctx_pf_info {
 };
 
 /**
- * struct cam_sfe_scratch_buf_info - Scratch buf info
+ * struct cam_ife_sfe_scratch_buf_info - Scratch buf info
  *
  * @width: Width in pixels
  * @height: Height in pixels
@@ -93,7 +93,7 @@ struct cam_ife_hw_mgr_ctx_pf_info {
  * @config_done: To indicate if RDIx received scratch cfg
  * @is_secure: secure scratch buffer
  */
-struct cam_sfe_scratch_buf_info {
+struct cam_ife_sfe_scratch_buf_info {
 	uint32_t   width;
 	uint32_t   height;
 	uint32_t   stride;
@@ -108,29 +108,45 @@ struct cam_sfe_scratch_buf_info {
 /**
  * struct cam_sfe_scratch_buf_cfg - Scratch buf info
  *
- * @num_configs: Number of buffer configs [max of 3 currently]
- * @curr_num_exp: Current num of exposures
- * @buf_info: Info on each of the buffers
+ * @num_configs     : Total Number of scratch buffers provided
+ * @updated_num_exp : Current num of exposures
+ * @buf_info        : Info on each of the buffers
  *
  */
 struct cam_sfe_scratch_buf_cfg {
-	uint32_t                        num_config;
-	uint32_t                        curr_num_exp;
-	struct cam_sfe_scratch_buf_info buf_info[
+	uint32_t                            num_config;
+	uint32_t                            updated_num_exp;
+	struct cam_ife_sfe_scratch_buf_info buf_info[
 		CAM_SFE_FE_RDI_NUM_MAX];
 };
+
+/**
+ * struct cam_sfe_scratch_buf_cfg - Scratch buf info
+ *
+ * @num_ports: Total Number of scratch buffers provided
+ * @buf_info : Info on each of the buffers
+ *
+ */
+struct cam_ife_scratch_buf_cfg {
+	uint32_t                            num_config;
+	struct cam_ife_sfe_scratch_buf_info buf_info[
+		CAM_IFE_SCRATCH_NUM_MAX];
+};
+
 
 /**
  * struct cam_ife_hw_mgr_sfe_info - SFE info
  *
  * @skip_scratch_cfg_streamon: Determine if scratch cfg needs to be programmed at stream on
  * @num_fetches:               Indicate number of SFE fetches for this stream
- * @scratch_config:            Scratch buffer config if any for this stream
+ * @scratch_config:            Scratch buffer config if any for SFE ports
+ * @ife_scratch_config:        Scratch buffer config if any for IFE ports
  */
 struct cam_ife_hw_mgr_sfe_info {
 	bool                            skip_scratch_cfg_streamon;
 	uint32_t                        num_fetches;
 	struct cam_sfe_scratch_buf_cfg *scratch_config;
+	struct cam_ife_scratch_buf_cfg *ife_scratch_config;
 };
 
 /**
@@ -153,6 +169,7 @@ struct cam_ife_hw_mgr_sfe_info {
  * @dump_on_flush:       Set if reg dump triggered on flush
  * @dump_on_error:       Set if reg dump triggered on error
  * @custom_aeb_mode:     Set if custom AEB stream
+ * @rdi_lcr_en:          To indicate if RDI LCR is enabled
  * @sys_cache_usage:     Per context sys cache usage
  *                       The corresponding index will be set
  *                       for the cache type
@@ -175,6 +192,7 @@ struct cam_ife_hw_mgr_ctx_flags {
 	bool   dump_on_flush;
 	bool   dump_on_error;
 	bool   is_aeb_mode;
+	bool   rdi_lcr_en;
 	bool   sys_cache_usage[CAM_LLCC_MAX];
 };
 
@@ -241,6 +259,7 @@ struct cam_ife_cdm_user_data {
  * @recovery_id:            Unique ID of the current valid scheduled recovery
  * @current_mup:            Current MUP val, scratch will then apply the same as previously
  *                          applied request
+ * @curr_num_exp:           Current num of exposures
  *
  */
 struct cam_ife_hw_mgr_ctx {
@@ -297,6 +316,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                          bw_config_version;
 	atomic_t                          recovery_id;
 	uint32_t                          current_mup;
+	uint32_t                          curr_num_exp;
 };
 
 /**
