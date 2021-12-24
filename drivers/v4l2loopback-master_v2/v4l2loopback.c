@@ -2314,6 +2314,23 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		}
 		break;
 	}
+	case AIS_V4L2_OUTPUT_PRIV_SET_FRAME_DROP_EVENT: {
+		if (copy_from_user(&event.u.data[2],
+				u64_to_user_ptr(kcmd->payload),
+				kcmd->size)) {
+			rc = -EFAULT;
+			pr_err("fail to copy from user on drop event\n");
+		} else {
+			event.type = AIS_V4L2_CLIENT_CAPTURE;
+			event.id = AIS_V4L2_EVENT_FRAME_DROP;
+			event.u.data[0] = kcmd->param_type;
+			event.u.data[1] = kcmd->size;
+			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+			pr_debug("send AIS_V4L2_EVENT_FRAME_DROP :%d\n",
+				event.u.data[2]);
+		}
+		break;
+	}
 	}
 
 	return rc;
