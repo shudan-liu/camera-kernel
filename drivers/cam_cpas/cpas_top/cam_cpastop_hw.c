@@ -43,6 +43,65 @@ static const char * const camnoc_salve_err_code[] = {
 	"Unknown Error",             /* unknown err code */
 };
 
+static void cam_cpastop_cam170_get_hw_version(struct cam_hw_version *cpas_version,
+	struct cam_hw_soc_info *soc_info)
+{
+	if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 0) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_170_V100;
+	else if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 1) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_170_V110;
+	else if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 2) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_170_V120;
+}
+
+static void cam_cpastop_cam175_get_hw_version(struct cam_hw_version *cpas_version,
+	struct cam_hw_soc_info *soc_info)
+{
+	if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 0) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_175_V100;
+	else if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 0) &&
+		(cpas_version->incr == 1))
+		soc_info->hw_version = CAM_CPAS_TITAN_175_V101;
+	else if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 1) &&
+		(cpas_version->incr == 1))
+		soc_info->hw_version = CAM_CPAS_TITAN_175_V111;
+	else if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 2) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_175_V120;
+	else if ((cpas_version->major == 2) &&
+		(cpas_version->minor == 0) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_175_V200;
+	else if ((cpas_version->major == 2) &&
+		(cpas_version->minor == 1) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_175_V200;
+}
+
+static void cam_cpastop_cam150_get_hw_version(struct cam_hw_version *cpas_version,
+	struct cam_hw_soc_info *soc_info)
+{
+	if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 0) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_150_V100;
+	else if ((cpas_version->major == 1) &&
+		(cpas_version->minor == 1) &&
+		(cpas_version->incr == 0))
+		soc_info->hw_version = CAM_CPAS_TITAN_150_V110;
+}
+
 static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 	struct cam_cpas_hw_caps *hw_caps)
 {
@@ -85,54 +144,16 @@ static int cam_cpastop_get_hw_info(struct cam_hw_info *cpas_hw,
 
 	if ((hw_caps->camera_version.major == 1) &&
 		(hw_caps->camera_version.minor == 7) &&
-		(hw_caps->camera_version.incr == 0)) {
-		if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 0) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_170_V100;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 1) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_170_V110;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 2) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_170_V120;
-	} else if ((hw_caps->camera_version.major == 1) &&
+		(hw_caps->camera_version.incr == 0))
+		cam_cpastop_cam170_get_hw_version(&hw_caps->cpas_version, soc_info);
+	else if ((hw_caps->camera_version.major == 1) &&
 		(hw_caps->camera_version.minor == 7) &&
-		(hw_caps->camera_version.incr == 5)) {
-		if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 0) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_175_V100;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 0) &&
-			(hw_caps->cpas_version.incr == 1))
-			soc_info->hw_version = CAM_CPAS_TITAN_175_V101;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 1) &&
-			(hw_caps->cpas_version.incr == 1))
-			soc_info->hw_version = CAM_CPAS_TITAN_175_V111;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 2) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_175_V120;
-		else if ((hw_caps->cpas_version.major == 2) &&
-			(hw_caps->cpas_version.minor == 0) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_175_V200;
-	} else if ((hw_caps->camera_version.major == 1) &&
+		(hw_caps->camera_version.incr == 5))
+		cam_cpastop_cam175_get_hw_version(&hw_caps->cpas_version, soc_info);
+	else if ((hw_caps->camera_version.major == 1) &&
 		(hw_caps->camera_version.minor == 5) &&
-		(hw_caps->camera_version.incr == 0)) {
-		if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 0) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_150_V100;
-		else if ((hw_caps->cpas_version.major == 1) &&
-			(hw_caps->cpas_version.minor == 1) &&
-			(hw_caps->cpas_version.incr == 0))
-			soc_info->hw_version = CAM_CPAS_TITAN_150_V110;
-	}
+		(hw_caps->camera_version.incr == 0))
+		cam_cpastop_cam150_get_hw_version(&hw_caps->cpas_version, soc_info);
 
 	CAM_DBG(CAM_CPAS, "CPAS HW VERSION %x", soc_info->hw_version);
 
@@ -529,6 +550,11 @@ done:
 static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i;
+
+	if (!camnoc_info) {
+		CAM_ERR(CAM_CPAS, "Invalid NULL camnoc_info");
+		return -EINVAL;
+	}
 
 	cam_cpastop_reset_irq(cpas_hw);
 	for (i = 0; i < camnoc_info->specific_size; i++) {
