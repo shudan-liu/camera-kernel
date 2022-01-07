@@ -61,7 +61,10 @@ static int cam_sensor_subdev_close(struct v4l2_subdev *sd,
 	}
 
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
-	cam_sensor_shutdown(s_ctrl);
+	if (v4l2_fh_is_singular(&fh->vfh)) {
+		CAM_DBG(CAM_SENSOR, "cam_sensor_shutdown");
+		cam_sensor_shutdown(s_ctrl);
+	}
 	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 
 	return 0;
