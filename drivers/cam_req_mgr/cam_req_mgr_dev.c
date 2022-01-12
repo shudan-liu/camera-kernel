@@ -125,6 +125,7 @@ static int cam_req_mgr_open(struct file *filep)
 
 	g_dev.open_cnt++;
 	g_dev.read_active_dev_id_hdls = 0;
+	CAM_DBG(CAM_CRM, " CRM open cnt %d", g_dev.open_cnt);
 	rc = cam_mem_mgr_init();
 	if (rc) {
 		g_dev.open_cnt--;
