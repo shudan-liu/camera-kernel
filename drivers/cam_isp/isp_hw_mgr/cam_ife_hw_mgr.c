@@ -9302,9 +9302,8 @@ static int cam_ife_mgr_v_release_hw(void *hw_mgr_priv, void *release_hw_args)
 			hw_mgr_ctx->concr_ctx =
 				ife_hw_mgr->acquired_hw_pool[ife_idx].ife_ctx;
 		} else {
-			/* No hw is stopped - just release context */
-			hw_mgr_ctx->ctx_in_use = false;
-			return 0;
+			/* No hw is stopped - just release sw context */
+			hw_mgr_ctx->concr_ctx = NULL;
 		}
 	}
 	rc = cam_ife_mgr_release_hw(hw_mgr_priv, release_hw_args);
