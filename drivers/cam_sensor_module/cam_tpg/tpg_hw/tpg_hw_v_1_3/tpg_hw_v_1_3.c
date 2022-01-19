@@ -334,7 +334,7 @@ static int configure_vc(
 		soc_info->reg_map[0].mem_base +
 		tpg_reg->tpg_vc0_lfsr_seed + (0x60 * vc_slot));
 
-	val = ((0 << tpg_reg->tpg_num_frames_shift_val) |
+	val = ((stream->frame_count << tpg_reg->tpg_num_frames_shift_val) |
 		((num_dts-1) <<	 tpg_reg->tpg_num_dts_shift_val) |
 		stream->vc);
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
@@ -441,8 +441,33 @@ int tpg_hw_v_1_3_process_cmd(
 
 int tpg_hw_v_1_3_start(struct tpg_hw *hw, void *data)
 {
+
+	int rc = 0;
+	struct cam_hw_soc_info *soc_info = NULL;
+	uint32_t val;
+	struct cam_tpg_ver_1_3_reg_offset *tpg_reg = &cam_tpg103_reg;
+
+	soc_info = hw->soc_info;
+
 	CAM_DBG(CAM_TPG, "TPG V1.3 HWL start");
-	return 0;
+
+	val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+			tpg_reg->tpg_ctrl);
+
+	if ((val & 1) == 1) {
+		rc = cam_io_poll_value(soc_info->reg_map[0].mem_base +
+			tpg_reg->tpg_top_irq_status, 1, 50, 2000, 3000);
+
+		if (rc == 0) {
+			CAM_DBG(CAM_TPG, "cam io poll succuess");
+			val = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+				tpg_reg->tpg_top_irq_status);
+			tpg_hw_v_1_3_reset(hw, data);
+		} else {
+			CAM_DBG(CAM_TPG, " cam io poll value fail");
+		}
+	}
+	return rc;
 }
 
 int tpg_hw_v_1_3_stop(struct tpg_hw *hw, void *data)
