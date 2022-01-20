@@ -2042,12 +2042,14 @@ static void cam_cpas_update_monitor_array(struct cam_hw_info *cpas_hw,
 		entry->be_mnoc = cam_io_r_mb(rpmh_base + be_mnoc_offset);
 	}
 
-	entry->camnoc_fill_level[0] = cam_io_r_mb(
-		soc_info->reg_map[reg_camnoc].mem_base + 0xA20);
-	entry->camnoc_fill_level[1] = cam_io_r_mb(
-		soc_info->reg_map[reg_camnoc].mem_base + 0x1420);
-	entry->camnoc_fill_level[2] = cam_io_r_mb(
-		soc_info->reg_map[reg_camnoc].mem_base + 0x1A20);
+	if (cpas_hw->soc_info.hw_version != CAM_CPAS_TITAN_150_V100) {
+	    entry->camnoc_fill_level[0] = cam_io_r_mb(
+		    soc_info->reg_map[reg_camnoc].mem_base + 0xA20);
+	    entry->camnoc_fill_level[1] = cam_io_r_mb(
+		    soc_info->reg_map[reg_camnoc].mem_base + 0x1420);
+	    entry->camnoc_fill_level[2] = cam_io_r_mb(
+		    soc_info->reg_map[reg_camnoc].mem_base + 0x1A20);
+	}
 
 	if (cpas_hw->soc_info.hw_version == CAM_CPAS_TITAN_580_V100) {
 		entry->camnoc_fill_level[3] = cam_io_r_mb(
