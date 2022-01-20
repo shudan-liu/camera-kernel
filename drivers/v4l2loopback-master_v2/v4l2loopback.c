@@ -320,6 +320,8 @@ struct v4l2_loopback_device {
 
 	int max_openers;
 
+	struct mutex dev_mutex;
+
 	int announce_all_caps;/* set to false, if device caps (OUTPUT/CAPTURE)
 			       * should only be announced if the resp. "ready"
 			       * flag is set; default=TRUE
@@ -2508,6 +2510,7 @@ static int v4l2_loopback_open(struct file *file)
 		/* app open it */
 		if (dev->state == V4L2L_READY_FOR_CAPTURE) {
 			// todo: add the mutex protect for open operation
+			mutex_lock(&dev->dev_mutex);
 			etype = V4L2L_READER;
 			send_v4l2_event(dev->main_opener, AIS_V4L2_CLIENT_OUTPUT,
 				AIS_V4L2_OPEN_INPUT);
@@ -2519,11 +2522,13 @@ static int v4l2_loopback_open(struct file *file)
 					CAM_INFO(CAM_V4L2, "app open succeed");
 				} else {
 					CAM_ERR(CAM_V4L2, "app open fail");
+					mutex_unlock(&dev->dev_mutex);
 					return rc;
 				}
 			} else {
 				CAM_ERR(CAM_V4L2, "open fail, timeout %d", rc);
 				rc = -ETIMEDOUT;
+				mutex_unlock(&dev->dev_mutex);
 				return rc;
 			}
 
@@ -2532,13 +2537,16 @@ static int v4l2_loopback_open(struct file *file)
 
 			if (connected_opener == NULL) {
 				CAM_ERR(CAM_V4L2, "connected opener error");
+				mutex_unlock(&dev->dev_mutex);
 				return -EINVAL;
 			}
 
 			/* create the opener */
 			opener = create_opener(file, etype);
-			if (opener == NULL)
+			if (opener == NULL) {
+				mutex_unlock(&dev->dev_mutex);
 				return -ENOMEM;
+			}
 
 			atomic_inc(&dev->open_count);
 
@@ -2548,6 +2556,7 @@ static int v4l2_loopback_open(struct file *file)
 
 			CAM_INFO(CAM_V4L2, "capture opener %pK, proxy opener %pK, data %pK",
 				opener, connected_opener, data);
+			mutex_unlock(&dev->dev_mutex);
 		} else {
 			CAM_ERR(CAM_V4L2, "invalid operation state %d", dev->state);
 			return -EINVAL;
@@ -2610,6 +2619,7 @@ static int v4l2_loopback_close(struct file *file)
 		}
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
+		mutex_lock(&dev->dev_mutex);
 		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when close", dev->open_count.counter);
 		if (dev->state >= V4L2L_READY_FOR_CAPTURE) {
 			if (opener->connected_opener) {
@@ -2628,6 +2638,7 @@ static int v4l2_loopback_close(struct file *file)
 		} else {
 			CAM_WARN(CAM_V4L2, "invalid close state %d", dev->state);
 		}
+		mutex_unlock(&dev->dev_mutex);
 	}
 
 	CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when close",
@@ -2637,6 +2648,7 @@ static int v4l2_loopback_close(struct file *file)
 	v4l2_fh_exit(file->private_data);
 
 	kfree(opener);
+	mutex_destroy(&dev->dev_mutex);
 
 	MARK();
 
@@ -2849,6 +2861,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 		return ret;
 
 	MARK();
+
+	mutex_init(&dev->dev_mutex);
+
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL) {
 		ret = -ENOMEM;
