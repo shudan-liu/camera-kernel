@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_DEBUG_UTIL_H_
@@ -52,6 +53,7 @@ enum cam_debug_module_id {
 	CAM_CRE,                 /* bit 31 */
 	CAM_PRESIL_CORE,         /* bit 32 */
 	CAM_TPG,                 /* bit 33 */
+	CAM_RPMSG,               /* bit 34 */
 	CAM_DBG_MOD_MAX
 };
 

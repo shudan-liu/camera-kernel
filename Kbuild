@@ -89,6 +89,7 @@ camera-y := \
 	drivers/cam_core/cam_context.o \
 	drivers/cam_core/cam_context_utils.o \
 	drivers/cam_core/cam_node.o \
+	drivers/cam_core/cam_rpmsg.o \
 	drivers/cam_core/cam_subdev.o \
 	drivers/cam_smmu/cam_smmu_api.o \
 	drivers/cam_sync/cam_sync.o \
