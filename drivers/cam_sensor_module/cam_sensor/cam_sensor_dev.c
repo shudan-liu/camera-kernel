@@ -370,8 +370,8 @@ static int cam_pm_sensor_suspend(struct device *pdev)
 	struct cam_control cam_cmd = {};
 	int rc = 0;
 
-	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_DOWN");
-	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_DOWN;
+	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_POWER_DOWN");
+	cam_cmd.op_code     = AIS_SENSOR_POWER_DOWN;
 	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
 	cam_cmd.size        = 0;
 	s_ctrl = dev_get_drvdata(pdev);
