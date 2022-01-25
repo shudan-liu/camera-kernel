@@ -8,7 +8,7 @@
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -706,6 +706,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	int devnr;
+	__u32 capabilities;
 
 	if (!dev) {
 		CAM_ERR(CAM_V4L2, "dev is null");
@@ -714,6 +715,11 @@ static int vidioc_querycap(struct file *file, void *priv,
 	devnr = ((struct v4l2loopback_private *)
 			video_get_drvdata(dev->vdev))->devicenr;
 
+	CAM_DBG(CAM_V4L2, "device_caps 0x%x, capabilities 0x%x",
+		cap->device_caps, cap->capabilities);
+
+	capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
+
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	vidioc_fill_name(cap->card, sizeof(cap->card), devnr);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
@@ -721,28 +727,30 @@ static int vidioc_querycap(struct file *file, void *priv,
 
 	/* since 3.1.0, the v4l2-core system is supposed to set the version */
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
-	cap->capabilities =
-		V4L2_CAP_DEVICE_CAPS |
-		V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 #ifdef V4L2_CAP_VIDEO_M2M
-	cap->capabilities |= V4L2_CAP_VIDEO_M2M;
+	capabilities |= V4L2_CAP_VIDEO_M2M;
 #endif /* V4L2_CAP_VIDEO_M2M */
-	if (dev->announce_all_caps) {
-		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE |
-			V4L2_CAP_VIDEO_OUTPUT;
-	} else {
 
+	if (dev->announce_all_caps) {
+		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
+	} else {
 		if (dev->state & V4L2L_READY_FOR_CAPTURE)
-			cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+			capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+
 		if (dev->state & V4L2L_READY_FOR_OUTPUT)
-			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+			capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 	}
-	cap->device_caps = (cap->capabilities & ~V4L2_CAP_DEVICE_CAPS);
-	cap->device_caps = cap->capabilities;
+
+	cap->device_caps = cap->capabilities = capabilities;
+	/* >=linux-4.7.0 */
+	dev->vdev->device_caps = cap->device_caps;
+	/* >=linux-3.3.0 */
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
+	CAM_DBG(CAM_V4L2, "device_caps 0x%x, capabilities 0x%x",
+		cap->device_caps, cap->capabilities);
 
 	return 0;
 }
@@ -2831,7 +2839,13 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
-	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE;
+
+	/* >=linux-4.7.0 */
+	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
+#ifdef V4L2_CAP_VIDEO_M2M
+	vdev->device_caps |= V4L2_CAP_VIDEO_M2M;
+#endif
 
 	if (debug > 1)
 		vdev->dev_debug =
