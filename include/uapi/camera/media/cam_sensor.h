@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_SENSOR_H__
@@ -153,7 +154,8 @@ struct cam_cmd_ois_info {
  * @data_mask       :   Data mask if only few bits are valid
  * @camera_id       :   Indicates the slot to which camera
  *                      needs to be probed
- * @reserved
+ * @reserved        :   right 8 bit for pipeline delay and left 8 bit for
+ *                      pluggable sensor
  */
 struct cam_cmd_probe {
 	__u8     data_type;
