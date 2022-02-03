@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_LINUX_CAM_REQ_MGR_H
@@ -433,6 +434,7 @@ struct cam_mem_cache_ops_cmd {
  * @CAM_REQ_MGR_ERROR_TYPE_SOF_FREEZE: SOF freeze, can be recovered
  * @CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY: Full recovery, can be recovered
  * @CAM_REQ_MGR_ERROR_TYPE_PAGE_FAULT: page fault, can be recovered
+ * @CAM_REQ_MGR_ERROR_TYPE_TUNNEL_OVERFLOW: tunneling fifo overflow, can be recovered
  */
 #define CAM_REQ_MGR_ERROR_TYPE_DEVICE           0
 #define CAM_REQ_MGR_ERROR_TYPE_REQUEST          1
@@ -441,6 +443,7 @@ struct cam_mem_cache_ops_cmd {
 #define CAM_REQ_MGR_ERROR_TYPE_SOF_FREEZE       4
 #define CAM_REQ_MGR_ERROR_TYPE_FULL_RECOVERY    5
 #define CAM_REQ_MGR_ERROR_TYPE_PAGE_FAULT       6
+#define CAM_REQ_MGR_ERROR_TYPE_TUNNEL_OVERFLOW  7
 
 /**
  * Request Manager : Error codes

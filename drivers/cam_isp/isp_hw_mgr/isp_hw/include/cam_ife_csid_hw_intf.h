@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CSID_HW_INTF_H_
@@ -10,7 +11,7 @@
 #include "cam_hw_intf.h"
 
 /* MAX IFE CSID instance */
-#define CAM_IFE_CSID_HW_NUM_MAX                        8
+#define CAM_IFE_CSID_HW_NUM_MAX                        10
 #define CAM_IFE_CSID_UDI_MAX                           3
 #define RT_BASE_IDX                                    2
 
@@ -98,7 +99,7 @@ struct cam_isp_out_port_generic_info {
 	uint32_t                comp_grp_id;
 	uint32_t                split_point;
 	uint32_t                secure_mode;
-	uint32_t                reserved;
+	bool                    tunnel_en; //TODO: will update in unified_structure_v3 in other task
 };
 
 struct cam_isp_in_port_generic_info {

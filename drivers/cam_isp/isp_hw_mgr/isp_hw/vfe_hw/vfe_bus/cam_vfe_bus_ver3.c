@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -43,11 +44,6 @@ static const char drv_name[] = "vfe_bus";
 	sizeof(struct cam_vfe_bus_ver3_reg_offset_ubwc_client))/4)
 #define MAX_REG_VAL_PAIR_SIZE    \
 	(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
-
-static uint32_t bus_error_irq_mask[2] = {
-	0xD0000000,
-	0x00000000,
-};
 
 enum cam_vfe_bus_ver3_packer_format {
 	PACKER_FMT_VER3_PLAIN_128,
@@ -104,10 +100,13 @@ struct cam_vfe_bus_ver3_common_data {
 	bool                                        disable_ubwc_comp;
 	bool                                        init_irq_subscribed;
 	bool                                        disable_mmu_prefetch;
+	bool                                        support_tunneling;
 	cam_hw_mgr_event_cb_func                    event_cb;
 	int                        rup_irq_handle[CAM_VFE_BUS_VER3_SRC_GRP_MAX];
 	uint32_t                                    pack_align_shift;
 	uint32_t                                    max_bw_counter_limit;
+	uint32_t                                    no_tunnelingId_shift;
+	uint32_t                                    tunneling_overflow_shift;
 };
 
 struct cam_vfe_bus_ver3_wm_resource_data {
@@ -153,6 +152,9 @@ struct cam_vfe_bus_ver3_wm_resource_data {
 	uint32_t             acquired_height;
 	uint32_t             default_line_based;
 	bool                 use_wm_pack;
+
+	uint32_t             tunnel_id;
+	uint32_t             tunnel_en;
 };
 
 struct cam_vfe_bus_ver3_comp_grp_data {
@@ -204,12 +206,13 @@ struct cam_vfe_bus_ver3_priv {
 	uint32_t                            num_client;
 	uint32_t                            num_out;
 	uint32_t                            num_comp_grp;
+	uint32_t                            bus_error_irq_mask[CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX];
 	uint32_t                            top_irq_shift;
 
 	struct cam_isp_resource_node       *bus_client;
 	struct cam_isp_resource_node       *comp_grp;
 	struct cam_isp_resource_node       *vfe_out;
-	uint32_t  vfe_out_map_outtype[CAM_VFE_BUS_VER3_VFE_OUT_MAX];
+	uint32_t                            vfe_out_map_outtype[CAM_VFE_BUS_VER3_VFE_OUT_MAX];
 
 	struct list_head                    free_comp_grp;
 	struct list_head                    used_comp_grp;
@@ -1054,6 +1057,9 @@ static int cam_vfe_bus_ver3_acquire_wm(
 	rsrc_data->acquired_width = out_acq_args->out_port_info->width;
 	rsrc_data->acquired_height = out_acq_args->out_port_info->height;
 	rsrc_data->is_dual = out_acq_args->is_dual;
+	if (ver3_bus_priv->common_data.support_tunneling)
+		rsrc_data->tunnel_en = out_acq_args->out_port_info->tunnel_en;
+
 	/* Set WM offset value to default */
 	rsrc_data->offset  = 0;
 	CAM_DBG(CAM_ISP, "WM:%d width %d height %d", rsrc_data->index,
@@ -1454,11 +1460,19 @@ static int cam_vfe_bus_ver3_start_wm(struct cam_isp_resource_node *wm_res)
 		common_data->mem_base +
 		rsrc_data->hw_regs->debug_status_cfg);
 
+	/* enable/disable tunneling feature */
+	if (common_data->support_tunneling) {
+		val = rsrc_data->tunnel_en << rsrc_data->hw_regs->tunnel_cfg_idx;
+		cam_io_w_mb(val,
+			common_data->mem_base +
+			rsrc_data->common_data->common_reg->tunneling_cfg);
+	}
+
 	CAM_DBG(CAM_ISP,
-		"Start VFE:%d WM:%d %s offset:0x%X en_cfg:0x%X width:%d height:%d",
-		rsrc_data->common_data->core_index, rsrc_data->index,
-		wm_res->res_name, (uint32_t) rsrc_data->hw_regs->cfg,
-		rsrc_data->en_cfg, rsrc_data->width, rsrc_data->height);
+		"Start VFE:%d WM:%d %s offset:0x%X en_cfg:0x%X width:%d height:%d tunneling:%d",
+		rsrc_data->common_data->core_index, rsrc_data->index, wm_res->res_name,
+		(uint32_t) rsrc_data->hw_regs->cfg, rsrc_data->en_cfg, rsrc_data->width,
+		rsrc_data->height, rsrc_data->tunnel_en);
 	CAM_DBG(CAM_ISP, "WM:%d pk_fmt:%d stride:%d burst len:%d",
 		rsrc_data->index, rsrc_data->pack_fmt,
 		rsrc_data->stride, 0xF);
@@ -2880,6 +2894,21 @@ static void cam_vfe_print_violations(
 	}
 }
 
+static uint32_t cam_vfe_bus_ver3_check_tunneling_overflow(
+	uint32_t status, struct cam_vfe_bus_ver3_common_data *common_data)
+{
+	uint32_t no_tunnelId, tunnel_overflow;
+
+	no_tunnelId     = (status >> common_data->no_tunnelingId_shift) & 0x1;
+	tunnel_overflow = (status >> common_data->tunneling_overflow_shift) & 0x1;
+
+	if (no_tunnelId || tunnel_overflow)
+		CAM_ERR(CAM_ISP, "tunnel id not present %d tunnel overflow %d",
+		no_tunnelId, tunnel_overflow);
+
+	return tunnel_overflow;
+}
+
 static int cam_vfe_bus_ver3_err_irq_bottom_half(
 	void *handler_priv, void *evt_payload_priv)
 {
@@ -2889,6 +2918,7 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 	struct cam_isp_hw_event_info evt_info;
 	struct cam_isp_hw_error_event_info err_evt_info;
 	uint32_t status = 0, image_size_violation = 0, ccif_violation = 0, constraint_violation = 0;
+	uint32_t tunnel_overflow = 0;
 
 	if (!handler_priv || !evt_payload_priv)
 		return -EINVAL;
@@ -2924,6 +2954,9 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 		cam_vfe_print_violations("CCIF", status, NULL);
 	}
 
+	if (common_data->support_tunneling)
+		tunnel_overflow = cam_vfe_bus_ver3_check_tunneling_overflow(status, common_data);
+
 	cam_vfe_bus_ver3_put_evt_payload(common_data, &evt_payload);
 
 	evt_info.hw_idx = common_data->core_index;
@@ -2932,6 +2965,9 @@ static int cam_vfe_bus_ver3_err_irq_bottom_half(
 	evt_info.hw_type = CAM_ISP_HW_TYPE_VFE;
 	err_evt_info.err_type = CAM_VFE_IRQ_STATUS_VIOLATION;
 	evt_info.event_data = (void *)&err_evt_info;
+
+	if (tunnel_overflow)
+		err_evt_info.err_type = CAM_VFE_IRQ_STATUS_TUNNEL_OVERFLOW;
 
 	if (common_data->event_cb)
 		common_data->event_cb(common_data->priv, CAM_ISP_HW_EVENT_ERROR,
@@ -3015,7 +3051,7 @@ static int cam_vfe_bus_ver3_subscribe_init_irq(
 		bus_priv->error_irq_handle = cam_irq_controller_subscribe_irq(
 			bus_priv->common_data.bus_irq_controller,
 			CAM_IRQ_PRIORITY_0,
-			bus_error_irq_mask,
+			bus_priv->bus_error_irq_mask,
 			bus_priv,
 			cam_vfe_bus_ver3_err_irq_top_half,
 			cam_vfe_bus_ver3_err_irq_bottom_half,
@@ -3540,6 +3576,23 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 		/* set initial configuration done */
 		if (!wm_data->init_cfg_done)
 			wm_data->init_cfg_done = true;
+
+		if (wm_data->tunnel_en) {
+			if (wm_data->tunnel_id) {
+				/* program tunneling id */
+				CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+					wm_data->common_data->common_reg->if_frameheader_cfg[wm_data->hw_regs->tunnel_cfg_idx],
+					wm_data->tunnel_id);
+				CAM_DBG(CAM_ISP, "programmed tunneling Id :%d wm: %d",
+					wm_data->tunnel_id, wm_data->index);
+				wm_data->tunnel_id = 0;
+			}
+			else {
+				CAM_ERR(CAM_ISP,
+					"Tunnel enabled with zero Tunnel_id, for wm:%d res_id %d", wm_data->index);
+				return -EINVAL;
+			}
+		}
 	}
 
 	num_regval_pairs = j / 2;
@@ -3927,6 +3980,49 @@ static int cam_vfe_bus_ver3_update_wm_config(
 	return 0;
 }
 
+static int cam_vfe_bus_ver3_update_tunnel_id(
+	void                         *cmd_args)
+{
+	int                                          i;
+	struct cam_isp_hw_get_cmd_update            *tunnel_id_update;
+	struct cam_vfe_bus_ver3_vfe_out_data        *vfe_out_data = NULL;
+	struct cam_vfe_bus_ver3_wm_resource_data    *wm_data = NULL;
+	struct cam_isp_tunnel_id_config             *tunnel_config = NULL;
+
+	if (!cmd_args) {
+		CAM_ERR(CAM_ISP, "Invalid args");
+		return -EINVAL;
+	}
+
+	tunnel_id_update = cmd_args;
+	vfe_out_data = tunnel_id_update->res->res_priv;
+	tunnel_config = (struct cam_isp_tunnel_id_config  *)
+		tunnel_id_update->data;
+
+	if (!vfe_out_data || !vfe_out_data->cdm_util_ops || !tunnel_config) {
+		CAM_ERR(CAM_ISP, "Invalid args vfe_out_data[%pK] tunnel_config[%pK]",
+			vfe_out_data, tunnel_config);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < vfe_out_data->num_wm; i++) {
+		wm_data = vfe_out_data->wm_res[i].res_priv;
+
+		if (wm_data->tunnel_en)
+			wm_data->tunnel_id = tunnel_config->tunnel_id;
+		else {
+			CAM_ERR(CAM_ISP,
+				"Received tunnel_id[%u] for WM:%d port:%d with Tunnel Disable",
+				tunnel_config->tunnel_id, wm_data->index, vfe_out_data->out_type);
+			return -EINVAL;
+		}
+
+		CAM_DBG(CAM_ISP, "WM:%d tunnel_id %d", wm_data->index, wm_data->tunnel_id);
+	}
+
+	return 0;
+}
+
 static int cam_vfe_bus_update_bw_limiter(
 	void *priv, void *cmd_args, uint32_t arg_size)
 {
@@ -4218,6 +4314,14 @@ static int cam_vfe_bus_ver3_process_cmd(
 	case CAM_ISP_HW_CMD_WM_CONFIG_UPDATE:
 		rc = cam_vfe_bus_ver3_update_wm_config(cmd_args);
 		break;
+	case CAM_ISP_HW_CMD_TUNNEL_ID_UPDATE:
+		bus_priv = (struct cam_vfe_bus_ver3_priv  *) priv;
+
+		if (bus_priv->common_data.support_tunneling)
+			rc = cam_vfe_bus_ver3_update_tunnel_id(cmd_args);
+		else
+			CAM_ERR(CAM_ISP, "Invalid Tunneling_ID blob");
+		break;
 	case CAM_ISP_HW_CMD_UNMASK_BUS_WR_IRQ:
 		bus_priv = (struct cam_vfe_bus_ver3_priv *) priv;
 		top_mask_0 = cam_io_r_mb(bus_priv->common_data.mem_base +
@@ -4329,6 +4433,12 @@ int cam_vfe_bus_ver3_init(
 	bus_priv->common_data.is_lite = soc_private->is_ife_lite;
 	bus_priv->common_data.support_consumed_addr =
 		ver3_hw_info->support_consumed_addr;
+	bus_priv->common_data.support_tunneling =
+		ver3_hw_info->support_tunneling;
+	bus_priv->common_data.no_tunnelingId_shift =
+		ver3_hw_info->no_tunnelingId_shift;
+	bus_priv->common_data.tunneling_overflow_shift =
+		ver3_hw_info->tunneling_overflow_shift;
 	bus_priv->common_data.disable_ubwc_comp = false;
 	bus_priv->common_data.supported_irq      = ver3_hw_info->supported_irq;
 	bus_priv->common_data.comp_config_needed =
@@ -4364,6 +4474,9 @@ int cam_vfe_bus_ver3_init(
 		rc = -ENOMEM;
 		goto free_comp_grp;
 	}
+
+	for (i = 0; i < CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX; i++)
+		bus_priv->bus_error_irq_mask[i] = ver3_hw_info->bus_error_irq_mask[i];
 
 	for (i = 0; i < CAM_VFE_BUS_VER3_SRC_GRP_MAX; i++)
 		bus_priv->common_data.rup_irq_handle[i] = 0;

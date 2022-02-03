@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -54,6 +55,7 @@ static uint32_t blob_type_hw_cmd_map[CAM_ISP_GENERIC_BLOB_TYPE_MAX] = {
 	CAM_ISP_HW_CMD_WM_CONFIG_UPDATE,
 	CAM_ISP_HW_CMD_BW_UPDATE_V2,
 	CAM_ISP_HW_CMD_BLANKING_UPDATE,
+	CAM_ISP_HW_CMD_TUNNEL_ID_UPDATE,
 };
 
 static struct cam_ife_hw_mgr g_ife_hw_mgr;
@@ -557,6 +559,25 @@ static inline bool cam_ife_hw_mgr_is_ife_out_port(uint32_t res_id)
 		is_ife_out = true;
 
 	return is_ife_out;
+}
+
+static inline bool cam_ife_hw_mgr_is_tunnel_supported_port(uint32_t res_id)
+{
+	bool is_tunn_supported = false;
+
+	switch(res_id) {
+	case CAM_ISP_IFE_OUT_RES_RDI_0:
+	case CAM_ISP_IFE_OUT_RES_RDI_1:
+	case CAM_ISP_IFE_OUT_RES_RDI_2:
+	case CAM_ISP_IFE_OUT_RES_RDI_3:
+		is_tunn_supported = true;
+		break;
+	default:
+		CAM_DBG(CAM_ISP, "Tunnel is not supported for port: %u", res_id);
+		break;
+	}
+
+	return is_tunn_supported;
 }
 
 static inline bool cam_ife_hw_mgr_is_sfe_out_port(uint32_t res_id)
@@ -2279,6 +2300,10 @@ static int cam_convert_hw_idx_to_ife_hw_num(int hw_idx)
 		case 2: return CAM_ISP_IFE2_LITE_HW;
 		case 3: return CAM_ISP_IFE3_LITE_HW;
 		case 4: return CAM_ISP_IFE4_LITE_HW;
+		case 5: return CAM_ISP_IFE5_LITE_HW;
+		case 6: return CAM_ISP_IFE6_LITE_HW;
+		case 7: return CAM_ISP_IFE7_LITE_HW;
+
 		}
 	} else {
 		CAM_ERR(CAM_ISP, "hw idx %d out-of-bounds", hw_idx);
@@ -4553,7 +4578,7 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 		in_port->data[i].comp_grp_id  = in->data[i].comp_grp_id;
 		in_port->data[i].split_point  = in->data[i].split_point;
 		in_port->data[i].secure_mode  = in->data[i].secure_mode;
-		in_port->data[i].reserved     = in->data[i].reserved;
+		in_port->data[i].tunnel_en    = in->data[i].reserved;
 	}
 
 	return 0;
@@ -8476,6 +8501,72 @@ static int cam_isp_blob_vfe_out_update(
 	return rc;
 }
 
+static int cam_isp_blob_update_tunneling_id(
+	uint32_t                                 blob_type,
+	struct cam_isp_generic_blob_info        *blob_info,
+	struct cam_isp_vfe_out_tunnel_id_config *tunnel_config,
+	struct cam_hw_prepare_update_args       *prepare)
+{
+	int rc = 0;
+	struct cam_isp_resource_node          *res;
+	struct cam_isp_tunnel_id_config       *tunnel_id_config;
+	struct cam_ife_hw_mgr_ctx             *ctx = NULL;
+	struct cam_isp_hw_mgr_res             *isp_out_res;
+	struct cam_isp_hw_get_cmd_update       cmd_update;
+	uint32_t                               res_id_out;
+	uint32_t i, j;
+
+	ctx = prepare->ctxt_to_hw_map;
+
+	for (i = 0; i < tunnel_config->num_ports; i++) {
+		tunnel_id_config = &tunnel_config->tunnel_id_config[i];
+		if (!cam_ife_hw_mgr_is_tunnel_supported_port(tunnel_id_config->port_type)) {
+			CAM_ERR(CAM_ISP, "Tunneling feature not supported for port:0x%x ctx: %u",
+				tunnel_id_config->port_type, ctx->ctx_index);
+			return -EINVAL;
+		}
+
+		if (!tunnel_id_config->tunnel_id) {
+			CAM_ERR(CAM_ISP, "Received invalid tunneling Id for port:0x%x ctx: %u",
+				tunnel_id_config->port_type, ctx->ctx_index);
+			return -EINVAL;
+		}
+
+		CAM_DBG(CAM_ISP, "IFE_LITE tunnel config idx: %d port: 0x%x ctx: %u",
+			i, tunnel_id_config->port_type, ctx->ctx_index);
+
+		res_id_out = tunnel_id_config->port_type & 0xFF;
+		isp_out_res = &ctx->res_list_ife_out[res_id_out];
+
+		cmd_update.cmd_type = CAM_ISP_HW_CMD_TUNNEL_ID_UPDATE;
+		cmd_update.data = tunnel_id_config;
+
+		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX; j++) {
+			if (!isp_out_res->hw_res[j])
+				continue;
+
+			if (isp_out_res->hw_res[j]->hw_intf->hw_idx !=
+				blob_info->base_info->idx)
+				continue;
+
+			res = isp_out_res->hw_res[j];
+			cmd_update.res = res;
+
+			rc = res->hw_intf->hw_ops.process_cmd(
+				res->hw_intf->hw_priv,
+				cmd_update.cmd_type, &cmd_update,
+				sizeof(struct cam_isp_hw_get_cmd_update));
+
+			if (rc) {
+				CAM_ERR(CAM_ISP, "update tunneling id (%d) failed for res_type :%d ctx: %u",
+					tunnel_id_config->tunnel_id, tunnel_id_config->port_type, ctx->ctx_index);
+				return rc;
+			}
+		}
+	}
+	return rc;
+}
+
 static int cam_isp_blob_sensor_blanking_config(
 	uint32_t                               blob_type,
 	struct cam_isp_generic_blob_info      *blob_info,
@@ -9448,6 +9539,56 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		if (rc)
 			CAM_ERR(CAM_ISP, "VFE out update failed rc: %d", rc);
 	}
+		break;
+	case CAM_ISP_GENERIC_BLOB_TYPE_TUNNELING_ID: {
+		struct cam_isp_vfe_out_tunnel_id_config  *tunnel_config;
+
+		if (blob_size < sizeof(struct cam_isp_vfe_out_tunnel_id_config)) {
+			CAM_ERR(CAM_ISP, "Invalid tunneling blob size %zu expected %zu ctx %u",
+				blob_size,
+				sizeof(struct cam_isp_vfe_out_tunnel_id_config), ife_mgr_ctx->ctx_index);
+			return -EINVAL;
+		}
+		tunnel_config = (struct cam_isp_vfe_out_tunnel_id_config *)blob_data;
+
+		if (tunnel_config->num_ports >  max_ife_out_res ||
+			tunnel_config->num_ports == 0) {
+			CAM_ERR(CAM_ISP,
+				"Invalid num_ports:%u in tunneling config ctx :%u",
+				tunnel_config->num_ports, ife_mgr_ctx->ctx_index);
+			return -EINVAL;
+		}
+
+		/* Check for integer overflow */
+		if (tunnel_config->num_ports != 1) {
+			if (sizeof(struct cam_isp_vfe_out_tunnel_id_config) > ((UINT_MAX -
+				sizeof(struct cam_isp_vfe_out_tunnel_id_config)) /
+				(tunnel_config->num_ports - 1))) {
+				CAM_ERR(CAM_ISP,
+					"Max size exceeded in tunneling config num_ports:%u size per port:%lu ctx:%u",
+					tunnel_config->num_ports,
+					sizeof(struct cam_isp_vfe_out_tunnel_id_config), ife_mgr_ctx->ctx_index);
+				return -EINVAL;
+			}
+		}
+
+		if (blob_size < (sizeof(struct cam_isp_vfe_out_tunnel_id_config) +
+			(tunnel_config->num_ports - 1) *
+			sizeof(struct cam_isp_vfe_out_tunnel_id_config))) {
+			CAM_ERR(CAM_ISP, "Invalid tunneling blob size %u expected %lu ctx %u",
+				blob_size, sizeof(struct cam_isp_vfe_out_tunnel_id_config)
+				+ (tunnel_config->num_ports - 1) *
+				sizeof(struct cam_isp_vfe_out_tunnel_id_config), ife_mgr_ctx->ctx_index);
+			return -EINVAL;
+		}
+
+		rc = cam_isp_blob_update_tunneling_id(blob_type, blob_info,
+			tunnel_config, prepare);
+		if (rc)
+			CAM_ERR(CAM_ISP, "VFE tunneling ID update failed rc: %d ctx: %u",
+				rc, ife_mgr_ctx->ctx_index);
+	}
+
 		break;
 	case CAM_ISP_GENERIC_BLOB_TYPE_SENSOR_BLANKING_CONFIG: {
 		struct cam_isp_sensor_blanking_config  *sensor_blanking_config;
@@ -12285,6 +12426,58 @@ static int cam_ife_hw_mgr_handle_sfe_hw_error(
 	return 0;
 }
 
+static int cam_ife_hw_mgr_handle_tunnel_overflow(
+	struct cam_isp_hw_event_info    *event_info)
+{
+	struct cam_ife_hw_mgr_ctx            *ife_hwr_mgr_ctx = NULL;
+	struct cam_ife_hw_mgr                *ife_hwr_mgr = NULL;
+	cam_hw_event_cb_func                 notify_err_cb;
+	struct cam_isp_hw_error_event_data   error_event_data = {0};
+	struct cam_isp_hw_error_event_info   *err_evt_info;
+	uint32_t i;
+	bool found_ctx;
+
+	err_evt_info = event_info->event_data;
+
+	CAM_DBG(CAM_ISP, "IFE_LITE[%u] error [%u] on res_type %u",
+		event_info->hw_idx, err_evt_info->err_type,
+		event_info->res_type);
+
+	/* Only report error to userspace */
+	error_event_data.error_type = CAM_ISP_HW_ERROR_TUNNEL_OVERFLOW;
+	error_event_data.error_code = CAM_REQ_MGR_ISP_UNREPORTED_ERROR;
+	CAM_DBG(CAM_ISP, "Notify context for IFE_LITE error");
+
+	ife_hwr_mgr = &g_ife_hw_mgr;
+	list_for_each_entry(ife_hwr_mgr_ctx,
+		&ife_hwr_mgr->used_ctx_list, list) {
+		for (i = 0; i < ife_hwr_mgr_ctx->num_base; i++) {
+			if (ife_hwr_mgr_ctx->base[i].idx == event_info->hw_idx) {
+				found_ctx = true;
+				break;
+			}
+		}
+		if (found_ctx) {
+			notify_err_cb = ife_hwr_mgr_ctx->common.event_cb;
+			/*
+			* In the call back function corresponding ISP context
+			* will update CRM about fatal Error
+			*/
+			if (notify_err_cb)
+				notify_err_cb(ife_hwr_mgr_ctx->common.cb_priv,
+					CAM_ISP_HW_EVENT_ERROR,
+						(void *)&error_event_data);
+			else {
+				CAM_WARN(CAM_ISP, "Error call back is not set ctx :%u",
+					ife_hwr_mgr_ctx->ctx_index);
+				goto end;
+			}
+		}
+	}
+end:
+	return 0;
+}
+
 static int cam_ife_hw_mgr_handle_hw_err(
 	struct cam_ife_hw_mgr_ctx         *ife_hw_mgr_ctx,
 	struct cam_isp_hw_event_info      *event_info)
@@ -12302,8 +12495,14 @@ static int cam_ife_hw_mgr_handle_hw_err(
 		return -EINVAL;
 	}
 
+
 	err_evt_info = (struct cam_isp_hw_error_event_info *)event_info->event_data;
 	err_type =  err_evt_info->err_type;
+
+	if (err_type == CAM_VFE_IRQ_STATUS_TUNNEL_OVERFLOW) {
+		rc = cam_ife_hw_mgr_handle_tunnel_overflow(event_info);
+		goto end;
+	}
 
 	spin_lock(&g_ife_hw_mgr.ctx_lock);
 	if (event_info->res_type ==

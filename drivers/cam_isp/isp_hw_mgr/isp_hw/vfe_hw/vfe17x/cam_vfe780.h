@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE780_H_
@@ -2222,12 +2223,17 @@ static struct cam_vfe_bus_ver3_hw_info vfe780_bus_hw_info = {
 			.error_description = "Meta Stride unalign"
 		},
 	},
+	.bus_error_irq_mask = {
+		0xD0000000,
+		0x00000000,
+	},
 	.num_comp_grp    = 15,
 	.support_consumed_addr = true,
 	.comp_done_shift = 0,
 	.top_irq_shift   = 0,
 	.max_out_res = CAM_ISP_IFE_OUT_RES_BASE + 36,
 	.pack_align_shift = 5,
+	.support_tunneling = false,
 };
 
 static struct cam_vfe_irq_hw_info vfe780_irq_hw_info = {

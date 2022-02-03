@@ -276,6 +276,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			0x00001240,
 			0x00001244,
 		},
+		.tunneling_cfg                    = 0x000012D4,
 		.pwr_iso_cfg                      = 0x0000125C,
 		.overflow_status_clear            = 0x00001260,
 		.ccif_violation_status            = 0x00001264,
@@ -319,6 +320,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x0000148C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_1,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x1,
 		},
 		/* BUS Client 1 RDI1 */
 		{
@@ -346,6 +348,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x0000158C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_2,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x2,
 		},
 		/* BUS Client 2 RDI2 */
 		{
@@ -373,6 +376,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x0000168C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_3,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x3,
 		},
 		/* BUS Client 3 RDI3 */
 		{
@@ -400,6 +404,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x0000178C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_4,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x4,
 		},
 		/* BUS Client 4 Gamma */
 		{
@@ -427,6 +432,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x0000188C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_0,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x0,
 		},
 		/* BUS Client 5 Stats BE */
 		{
@@ -454,6 +460,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x0000198C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_0,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x0,
 		},
 			/* BUS Client 6 Stats BHIST */
 		{
@@ -481,6 +488,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.debug_status_1           = 0x00001A8C,
 			.comp_group               = CAM_VFE_BUS_VER3_COMP_GRP_0,
 			.ubwc_regs                = NULL,
+			.tunnel_cfg_idx           = 0x0,
 		},
 
 	},
@@ -586,11 +594,18 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			},
 		},
 	},
+	.bus_error_irq_mask = {
+		0xDC000000,
+		0x00000000,
+	},
 	.num_comp_grp    = 5,
 	.support_consumed_addr = true,
 	.comp_done_shift = 0,
 	.top_irq_shift   = 0,
 	.max_out_res = CAM_ISP_IFE_OUT_RES_BASE + 33,
+	.support_tunneling = true,
+	.tunneling_overflow_shift = 0x1A,
+	.no_tunnelingId_shift = 0x1B,
 };
 
 static struct cam_vfe_irq_hw_info vfe65x_irq_hw_info = {

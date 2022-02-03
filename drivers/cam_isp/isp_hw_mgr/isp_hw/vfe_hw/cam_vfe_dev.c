@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -116,6 +117,9 @@ static int cam_vfe_component_bind(struct device *dev,
 
 	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
 		cam_vfe_hw_list[vfe_hw_intf->hw_idx].hw_intf = vfe_hw_intf;
+	else
+		CAM_ERR(CAM_ISP, "VFE index is more than max supported index hw_idx =%d max index",
+			vfe_hw_intf->hw_idx, CAM_VFE_HW_NUM_MAX);
 
 	vfe_soc_priv = vfe_hw->soc_info.soc_private;
 	cam_vfe_hw_list[vfe_hw_intf->hw_idx].num_hw_pid = vfe_soc_priv->num_pid;
