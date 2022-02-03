@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_LINUX_CAM_REQ_MGR_H
@@ -34,6 +35,10 @@
 #define CAM_TFE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 16)
 #define CAM_CRE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 17)
 #define CAM_TPG_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 18)
+
+/* sensor mode: streaming or fsync trigger base */
+#define CAM_REQ_MGR_LINK_STREAMING_TYPE      1
+#define CAM_REQ_MGR_LINK_TRIGGER_TYPE        2
 
 /* cam_req_mgr hdl info */
 #define CAM_REQ_MGR_HDL_IDX_POS           8
@@ -142,11 +147,28 @@ struct cam_req_mgr_link_info_v2 {
 	__s32 link_hdl;
 };
 
+/**
+ * struct cam_req_mgr_link_info
+ * @session_hdl:  Input param - Identifier for CSL session
+ * @num_devices:  Input Param - Num of devices to be linked
+ * @dev_hdls:     Input param - List of device handles to be linked
+ * @link_hdl:     Output Param -Identifier for link
+ * @trigger_type: Input param - streaming mode or fsync trigger mode
+ */
+struct cam_req_mgr_link_info_v3 {
+	__s32 session_hdl;
+	__u32 num_devices;
+	__s32 dev_hdls[CAM_REQ_MGR_MAX_HANDLES_V2];
+	__s32 link_hdl;
+	__u32 trigger_type;
+};
+
 struct cam_req_mgr_ver_info {
 	__u32 version;
 	union {
-		struct cam_req_mgr_link_info link_info_v1;
+		struct cam_req_mgr_link_info    link_info_v1;
 		struct cam_req_mgr_link_info_v2 link_info_v2;
+		struct cam_req_mgr_link_info_v3 link_info_v3;
 	} u;
 };
 /**
@@ -271,6 +293,7 @@ struct cam_req_mgr_link_control {
 #define CAM_REQ_MGR_LINK_CONTROL                (CAM_COMMON_OPCODE_MAX + 13)
 #define CAM_REQ_MGR_LINK_V2                     (CAM_COMMON_OPCODE_MAX + 14)
 #define CAM_REQ_MGR_REQUEST_DUMP                (CAM_COMMON_OPCODE_MAX + 15)
+#define CAM_REQ_MGR_LINK_V3                     (CAM_COMMON_OPCODE_MAX + 16)
 
 /* end of cam_req_mgr opcodes */
 
