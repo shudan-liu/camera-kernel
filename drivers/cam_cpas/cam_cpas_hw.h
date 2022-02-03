@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CPAS_HW_H_
@@ -14,7 +15,7 @@
 #include "cam_soc_bus.h"
 
 #define CAM_CPAS_INFLIGHT_WORKS              5
-#define CAM_CPAS_MAX_CLIENTS                 42
+#define CAM_CPAS_MAX_CLIENTS                 50
 #define CAM_CPAS_MAX_AXI_PORTS               6
 #define CAM_CPAS_MAX_TREE_LEVELS             4
 #define CAM_CPAS_MAX_RT_WR_NIU_NODES         10
