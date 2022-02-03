@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CDM_H_
@@ -430,6 +431,15 @@ enum cam_cdm_bl_cb_type {
 	CAM_HW_CDM_BL_CB_INTERNAL,
 };
 
+/* enum cam_cdm_irq_cb_type - Enum for possible CAM CDM IRQ cb types
+ * CAM_HW_CDM_IRQ_CB_INTERNAL:  indicates cdm bl done irq has to be handled in interrupt context
+ * CAM_HW_CDM_IRQ_CB_CLIENT_WQ: indicates cdm bl done irq has to be handled in workqueue context
+ */
+enum cam_cdm_irq_cb_type {
+	CAM_HW_CDM_IRQ_CB_INTERNAL = 1,
+	CAM_HW_CDM_IRQ_CB_CLIENT_WQ,
+};
+
 /* enum cam_cdm_arbitration - Enum type of arbitration */
 enum cam_cdm_arbitration {
 	CAM_CDM_ARBITRATION_NONE,
@@ -455,6 +465,7 @@ struct cam_cdm_client {
 	uint32_t stream_on;
 	uint32_t refcount;
 	struct mutex lock;
+	spinlock_t hw_lock;
 	uint32_t handle;
 };
 
@@ -472,6 +483,7 @@ struct cam_cdm_work_payload {
 struct cam_cdm_bl_cb_request_entry {
 	uint8_t bl_tag;
 	enum cam_cdm_bl_cb_type request_type;
+	enum cam_cdm_irq_cb_type irq_cb_type;
 	uint32_t client_hdl;
 	void *userdata;
 	uint32_t cookie;
@@ -497,6 +509,7 @@ struct cam_cdm_bl_fifo {
 	struct completion bl_complete;
 	struct workqueue_struct *work_queue;
 	struct list_head bl_request_list;
+	spinlock_t fifo_hw_lock;
 	struct mutex fifo_lock;
 	uint8_t bl_tag;
 	uint32_t bl_depth;

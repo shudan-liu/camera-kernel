@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -3950,6 +3951,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.init_packet = 0;
 	cfg.reapply_type = req_isp->reapply_type;
 	cfg.cdm_reset_before_apply = req_isp->cdm_reset_before_apply;
+	cfg.wait_for_request_apply = apply->wait_for_request_apply;
 
 	atomic_set(&ctx_isp->apply_in_progress, 1);
 

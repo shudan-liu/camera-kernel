@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -4457,7 +4458,7 @@ void cam_ife_cam_cdm_callback(uint32_t handle, void *userdata,
 		atomic_set(&ctx->cdm_done, 1);
 		ctx->last_cdm_done_req = cookie;
 		if ((g_ife_hw_mgr.debug_cfg.per_req_reg_dump) &&
-			(!reg_dump_done)) {
+			(ctx->cdm_userdata.support_cdm_cb_reg_dump) && (!reg_dump_done)) {
 			if (ctx->cdm_userdata.request_id == cookie) {
 				cam_ife_mgr_handle_reg_dump(ctx,
 					hw_update_data->reg_dump_buf_desc,
@@ -5788,6 +5789,10 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 	hw_update_data->isp_mgr_ctx = ctx;
 	ctx->cdm_userdata.request_id = cfg->request_id;
 	ctx->cdm_userdata.hw_update_data = hw_update_data;
+	if (cfg->wait_for_request_apply)
+		ctx->cdm_userdata.support_cdm_cb_reg_dump = FALSE;
+	else
+		ctx->cdm_userdata.support_cdm_cb_reg_dump = TRUE;
 
 	CAM_DBG(CAM_ISP, "Ctx[%pK][%d] : Applying Req %lld, init_packet=%d",
 		ctx, ctx->ctx_index, cfg->request_id, cfg->init_packet);
@@ -5887,6 +5892,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		cdm_cmd->userdata = ctx;
 		cdm_cmd->cookie = cfg->request_id;
 		cdm_cmd->gen_irq_arb = false;
+		cdm_cmd->irq_cb_intr_ctx = cfg->wait_for_request_apply;
 
 		for (i = 0 ; i < cfg->num_hw_update_entries; i++) {
 			cmd = (cfg->hw_update_entries + i);
@@ -5942,7 +5948,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		}
 
 		if (cfg->init_packet || hw_update_data->mup_en ||
-			(ctx->ctx_config & CAM_IFE_CTX_CFG_SW_SYNC_ON)) {
+			(ctx->ctx_config & CAM_IFE_CTX_CFG_SW_SYNC_ON) || cfg->wait_for_request_apply) {
 			rem_jiffies = cam_common_wait_for_completion_timeout(
 				&ctx->config_done_complete,
 				msecs_to_jiffies(60));
@@ -5964,6 +5970,13 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 					ctx->curr_num_exp = hw_update_data->num_exp;
 				}
 				hw_update_data->mup_en = false;
+
+				if (g_ife_hw_mgr.debug_cfg.per_req_reg_dump && (!ctx->cdm_userdata.support_cdm_cb_reg_dump))
+					cam_ife_mgr_handle_reg_dump(ctx,
+						hw_update_data->reg_dump_buf_desc,
+						hw_update_data->num_reg_dump_buf,
+						CAM_ISP_PACKET_META_REG_DUMP_PER_REQUEST,
+						NULL, false);
 			}
 		}
 	} else {

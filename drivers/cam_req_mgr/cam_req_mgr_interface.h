@@ -341,12 +341,13 @@ struct cam_req_mgr_core_dev_link_setup {
 
 /**
  * struct cam_req_mgr_apply_request
- * @link_hdl         : link identifier
- * @dev_hdl          : device handle for cross check
- * @request_id       : request id settings to apply
- * @report_if_bubble : report to crm if failure in applying
- * @trigger_point    : the trigger point of this apply
- * @re_apply         : to skip re_apply for buf_done request
+ * @link_hdl                : link identifier
+ * @dev_hdl                 : device handle for cross check
+ * @request_id              : request id settings to apply
+ * @report_if_bubble        : report to crm if failure in applying
+ * @trigger_point           : the trigger point of this apply
+ * @re_apply                : to skip re_apply for buf_done request
+ * @wait_for_request_apply  : wait till request is applied properly
  *
  */
 struct cam_req_mgr_apply_request {
@@ -356,6 +357,7 @@ struct cam_req_mgr_apply_request {
 	int32_t    report_if_bubble;
 	uint32_t   trigger_point;
 	bool       re_apply;
+	bool       wait_for_request_apply;
 };
 
 /**

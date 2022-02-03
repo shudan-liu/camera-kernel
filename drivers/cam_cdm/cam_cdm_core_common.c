@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -20,16 +21,20 @@
 
 static void cam_cdm_get_client_refcount(struct cam_cdm_client *client)
 {
-	mutex_lock(&client->lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->hw_lock, flags);
 	CAM_DBG(CAM_CDM, "CDM client get refcount=%d",
 		client->refcount);
 	client->refcount++;
-	mutex_unlock(&client->lock);
+	spin_unlock_irqrestore(&client->hw_lock, flags);
 }
 
 static void cam_cdm_put_client_refcount(struct cam_cdm_client *client)
 {
-	mutex_lock(&client->lock);
+	unsigned long flags;
+
+	spin_lock_irqsave(&client->hw_lock, flags);
 	CAM_DBG(CAM_CDM, "CDM client put refcount=%d",
 		client->refcount);
 	if (client->refcount > 0) {
@@ -38,7 +43,7 @@ static void cam_cdm_put_client_refcount(struct cam_cdm_client *client)
 		CAM_ERR(CAM_CDM, "Refcount put when zero");
 		WARN_ON(1);
 	}
-	mutex_unlock(&client->lock);
+	spin_unlock_irqrestore(&client->hw_lock, flags);
 }
 
 bool cam_cdm_set_cam_hw_version(
@@ -176,6 +181,8 @@ void cam_cdm_notify_clients(struct cam_hw_info *cdm_hw,
 
 	if (status == CAM_CDM_CB_STATUS_BL_SUCCESS) {
 		int client_idx;
+		unsigned long flags;
+
 		struct cam_cdm_bl_cb_request_entry *node =
 			(struct cam_cdm_bl_cb_request_entry *)data;
 
@@ -187,7 +194,7 @@ void cam_cdm_notify_clients(struct cam_hw_info *cdm_hw,
 			return;
 		}
 		cam_cdm_get_client_refcount(client);
-		mutex_lock(&client->lock);
+		spin_lock_irqsave(&client->hw_lock, flags);
 		if (client->data.cam_cdm_callback) {
 			CAM_DBG(CAM_CDM, "Calling client=%s cb cookie=%d",
 				client->data.identifier, node->cookie);
@@ -200,7 +207,7 @@ void cam_cdm_notify_clients(struct cam_hw_info *cdm_hw,
 			CAM_ERR(CAM_CDM, "No cb registered for client hdl=%x",
 				node->client_hdl);
 		}
-		mutex_unlock(&client->lock);
+		spin_unlock_irqrestore(&client->hw_lock, flags);
 		cam_cdm_put_client_refcount(client);
 		return;
 	} else if (status == CAM_CDM_CB_STATUS_HW_RESET_DONE ||
@@ -594,6 +601,7 @@ int cam_cdm_process_cmd(void *hw_priv,
 			data->cdm_version = core->version;
 		}
 
+		spin_lock_init(&client->hw_lock);
 		cam_cdm_get_client_refcount(client);
 		mutex_lock(&client->lock);
 		memcpy(&client->data, data,

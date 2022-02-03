@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -387,6 +388,7 @@ static int cam_ope_dev_prepare_cdm_request(
 	cdm_cmd->userdata = ctx_data;
 	cdm_cmd->cookie = req_idx;
 	cdm_cmd->gen_irq_arb = true;
+	cdm_cmd->irq_cb_intr_ctx = false;
 
 	i = cdm_cmd->cmd_arrary_count;
 	cdm_cmd->cmd[i].bl_addr.mem_handle =
