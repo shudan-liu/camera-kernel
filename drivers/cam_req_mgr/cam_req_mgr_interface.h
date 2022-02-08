@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_REQ_MGR_INTERFACE_H
@@ -224,6 +225,7 @@ enum cam_req_mgr_link_evt_type {
  * @sof_timestamp_val: Captured time stamp value at sof hw event
  * @req_id   : req id which returned buf_done
  * @trigger_id: ID to differentiate between the trigger devices
+ * @curr_req_id   : req id on which epoch is received
  */
 struct cam_req_mgr_trigger_notify {
 	int32_t  link_hdl;
@@ -233,6 +235,7 @@ struct cam_req_mgr_trigger_notify {
 	uint64_t sof_timestamp_val;
 	uint64_t req_id;
 	int32_t  trigger_id;
+	uint64_t curr_req_id;
 };
 
 /**

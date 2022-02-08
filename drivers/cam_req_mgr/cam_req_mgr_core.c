@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -67,6 +68,7 @@ void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 	link->num_sync_links = 0;
 	link->last_sof_trigger_jiffies = 0;
 	link->wq_congestion = false;
+	link->trigger_type = 0;
 	atomic_set(&link->eof_event_cnt, 0);
 	__cam_req_mgr_reset_apply_data(link);
 
@@ -608,6 +610,7 @@ static void __cam_req_mgr_flush_req_slot(
 		slot->additional_timeout = 0;
 		slot->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
 		slot->status = CRM_SLOT_STATUS_NO_REQ;
+		slot->received_trigger = FALSE;
 
 		/* Reset all pd table slot */
 		while (tbl != NULL) {
@@ -663,6 +666,7 @@ static void __cam_req_mgr_reset_req_slot(struct cam_req_mgr_core_link *link,
 	slot->additional_timeout = 0;
 	slot->sync_mode = CAM_REQ_MGR_SYNC_MODE_NO_SYNC;
 	slot->status = CRM_SLOT_STATUS_NO_REQ;
+	slot->received_trigger = FALSE;
 
 	/* Reset all pd table slot */
 	while (tbl != NULL) {
@@ -2169,6 +2173,7 @@ static int  __cam_req_mgr_setup_in_q(struct cam_req_mgr_req_data *req)
 		in_q->slot[i].req_id = -1;
 		in_q->slot[i].skip_idx = 0;
 		in_q->slot[i].status = CRM_SLOT_STATUS_NO_REQ;
+		in_q->slot[i].received_trigger = FALSE;
 	}
 
 	in_q->wr_idx = 0;
@@ -2841,7 +2846,10 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	struct cam_req_mgr_connected_device *device = NULL;
 	struct cam_req_mgr_req_tbl          *tbl = NULL;
 	struct cam_req_mgr_tbl_slot         *slot = NULL;
+	struct cam_req_mgr_slot             *last_applied_slot = NULL;
 	struct crm_task_payload             *task_data = NULL;
+	struct cam_req_mgr_req_queue        *in_q;
+	struct cam_req_mgr_trigger_notify   notify_trigger;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
@@ -2938,6 +2946,20 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 			"link 0x%x idx %d req_id %lld pd %d SLOT READY",
 			link->link_hdl, idx, add_req->req_id, tbl->pd);
 		slot->state = CRM_REQ_STATE_READY;
+		if (link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
+			in_q = link->req.in_q;
+			last_applied_slot = &in_q->slot[in_q->last_applied_idx];
+
+			if ((in_q->last_applied_idx == -1) ||
+				(last_applied_slot->received_trigger)) {
+				notify_trigger.trigger = CRM_WORKQ_TASK_NOTIFY_SOF;
+				CAM_DBG(CAM_CRM, "Applying req:%lld", add_req->req_id);
+				rc = __cam_req_mgr_process_req(link, &notify_trigger);
+				if (rc)
+					CAM_ERR(CAM_CRM,
+						"Failed to apply request");
+			}
+		}
 	}
 	mutex_unlock(&link->req.lock);
 
@@ -3121,6 +3143,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 	struct crm_task_payload             *task_data = NULL;
 	int                                  reset_step = 0;
 	int                                  i = 0;
+	struct cam_req_mgr_slot             *slot = NULL;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
@@ -3137,9 +3160,24 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 		trigger_data->frame_id,
 		trigger_data->trigger);
 
-	in_q = link->req.in_q;
-
 	mutex_lock(&link->req.lock);
+
+	in_q = link->req.in_q;
+	if (trigger_data->curr_req_id)
+	{
+		idx = __cam_req_mgr_find_slot_for_req(link->req.in_q, trigger_data->curr_req_id);
+		if (idx < 0) {
+			CAM_ERR(CAM_CRM,
+				"req %lld not found in in_q on link 0x%x",
+				trigger_data->curr_req_id, link->link_hdl);
+			rc = -EBADSLT;
+			mutex_unlock(&link->req.lock);
+			goto end;
+		}
+
+		slot = &link->req.in_q->slot[idx];
+		slot->received_trigger = TRUE;
+	}
 
 	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF) {
 		idx = __cam_req_mgr_find_slot_for_req(in_q,
@@ -3706,6 +3744,10 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		if (link_info->u.link_info_v2.num_devices >
 			CAM_REQ_MGR_MAX_HANDLES_V2)
 			return -EPERM;
+	} else if (link_info->version == VERSION_3) {
+		if (link_info->u.link_info_v3.num_devices >
+			CAM_REQ_MGR_MAX_HANDLES_V2)
+			return -EPERM;
 	}
 
 	mutex_init(&link->req.lock);
@@ -3721,6 +3763,8 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		num_devices = link_info->u.link_info_v1.num_devices;
 	else if (link_info->version == VERSION_2)
 		num_devices = link_info->u.link_info_v2.num_devices;
+	else if (link_info->version == VERSION_3)
+		num_devices = link_info->u.link_info_v3.num_devices;
 	for (i = 0; i < num_devices; i++) {
 		dev = &link->l_dev[i];
 		/* Using dev hdl, get ops ptr to communicate with device */
@@ -3732,6 +3776,10 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			dev->ops = (struct cam_req_mgr_kmd_ops *)
 					cam_get_device_ops(
 					link_info->u.link_info_v2.dev_hdls[i]);
+		else if (link_info->version == VERSION_3)
+			dev->ops = (struct cam_req_mgr_kmd_ops *)
+					cam_get_device_ops(
+					link_info->u.link_info_v3.dev_hdls[i]);
 		if (!dev->ops ||
 			!dev->ops->get_dev_info ||
 			!dev->ops->link_setup) {
@@ -3743,6 +3791,8 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			dev->dev_hdl = link_info->u.link_info_v1.dev_hdls[i];
 		else if (link_info->version == VERSION_2)
 			dev->dev_hdl = link_info->u.link_info_v2.dev_hdls[i];
+		else if (link_info->version == VERSION_3)
+			dev->dev_hdl = link_info->u.link_info_v3.dev_hdls[i];
 		dev->parent = (void *)link;
 		dev->dev_info.dev_hdl = dev->dev_hdl;
 		rc = dev->ops->get_dev_info(&dev->dev_info);
@@ -3759,6 +3809,13 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			CAM_DBG(CAM_CRM,
 				"%x: connected: %s, id %d, delay %d, trigger %x",
 				link_info->u.link_info_v2.session_hdl,
+				dev->dev_info.name,
+				dev->dev_info.dev_id, dev->dev_info.p_delay,
+				dev->dev_info.trigger);
+		else if (link_info->version == VERSION_3)
+			CAM_DBG(CAM_CRM,
+				"%x: connected: %s, id %d, delay %d, trigger %x",
+				link_info->u.link_info_v3.session_hdl,
 				dev->dev_info.name,
 				dev->dev_info.dev_id, dev->dev_info.p_delay,
 				dev->dev_info.trigger);
@@ -3779,6 +3836,12 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			else if (link_info->version == VERSION_2) {
 				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
 					link_info->u.link_info_v2.session_hdl,
+					dev->dev_info.name,
+					dev->dev_info.p_delay);
+				}
+			else if (link_info->version == VERSION_3) {
+				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
+					link_info->u.link_info_v3.session_hdl,
 					dev->dev_info.name,
 					dev->dev_info.p_delay);
 				}
@@ -4258,6 +4321,124 @@ setup_failed:
 create_subdev_failed:
 	cam_destroy_device_hdl(link->link_hdl);
 	link_info->u.link_info_v2.link_hdl = -1;
+link_hdl_fail:
+	mutex_unlock(&link->lock);
+	__cam_req_mgr_unreserve_link(cam_session, link);
+	mutex_unlock(&g_crm_core_dev->crm_lock);
+	return rc;
+}
+
+
+int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info)
+{
+	int                                     rc = 0;
+	int                                     wq_flag = 0;
+	char                                    buf[128];
+	struct cam_create_dev_hdl               root_dev;
+	struct cam_req_mgr_core_session        *cam_session;
+	struct cam_req_mgr_core_link           *link;
+
+	if (!link_info) {
+		CAM_DBG(CAM_CRM, "NULL pointer");
+		return -EINVAL;
+	}
+	if (link_info->u.link_info_v3.num_devices >
+		CAM_REQ_MGR_MAX_HANDLES_V2) {
+		CAM_ERR(CAM_CRM, "Invalid num devices %d",
+			link_info->u.link_info_v3.num_devices);
+		return -EINVAL;
+	}
+
+	mutex_lock(&g_crm_core_dev->crm_lock);
+
+	/* session hdl's priv data is cam session struct */
+	cam_session = (struct cam_req_mgr_core_session *)
+		cam_get_device_priv(link_info->u.link_info_v3.session_hdl);
+	if (!cam_session) {
+		CAM_DBG(CAM_CRM, "NULL pointer");
+		mutex_unlock(&g_crm_core_dev->crm_lock);
+		return -EINVAL;
+	}
+
+	/* Allocate link struct and map it with session's request queue */
+	link = __cam_req_mgr_reserve_link(cam_session);
+	if (!link) {
+		CAM_ERR(CAM_CRM, "failed to reserve new link");
+		mutex_unlock(&g_crm_core_dev->crm_lock);
+		return -EINVAL;
+	}
+	CAM_DBG(CAM_CRM, "link reserved %pK %x", link, link->link_hdl);
+
+	memset(&root_dev, 0, sizeof(struct cam_create_dev_hdl));
+	root_dev.session_hdl = link_info->u.link_info_v3.session_hdl;
+	root_dev.priv = (void *)link;
+	root_dev.dev_id = CAM_CRM;
+
+	mutex_lock(&link->lock);
+	/* Create unique dev handle for link */
+	link->link_hdl = cam_create_device_hdl(&root_dev);
+	if (link->link_hdl < 0) {
+		CAM_ERR(CAM_CRM,
+			"Insufficient memory to create new device handle");
+		rc = link->link_hdl;
+		goto link_hdl_fail;
+	}
+	link_info->u.link_info_v3.link_hdl = link->link_hdl;
+	link->trigger_type = link_info->u.link_info_v3.trigger_type;
+	link->last_flush_id = 0;
+
+	/* Allocate memory to hold data of all linked devs */
+	rc = __cam_req_mgr_create_subdevs(&link->l_dev,
+		link_info->u.link_info_v3.num_devices);
+	if (rc < 0) {
+		CAM_ERR(CAM_CRM,
+			"Insufficient memory to create new crm subdevs");
+		goto create_subdev_failed;
+	}
+
+	/* Using device ops query connected devs, prepare request tables */
+	rc = __cam_req_mgr_setup_link_info(link, link_info);
+	if (rc < 0)
+		goto setup_failed;
+
+	spin_lock_bh(&link->link_state_spin_lock);
+	link->state = CAM_CRM_LINK_STATE_READY;
+	spin_unlock_bh(&link->link_state_spin_lock);
+
+	/* Create worker for current link */
+	snprintf(buf, sizeof(buf), "%x-%x",
+		link_info->u.link_info_v3.session_hdl, link->link_hdl);
+	wq_flag = CAM_WORKQ_FLAG_HIGH_PRIORITY | CAM_WORKQ_FLAG_SERIAL;
+	rc = cam_req_mgr_workq_create(buf, CRM_WORKQ_NUM_TASKS,
+		&link->workq, CRM_WORKQ_USAGE_NON_IRQ, wq_flag,
+		cam_req_mgr_process_workq_link_worker);
+	if (rc < 0) {
+		CAM_ERR(CAM_CRM, "FATAL: unable to create worker");
+		__cam_req_mgr_destroy_link_info(link);
+		goto setup_failed;
+	}
+
+	/* Assign payload to workqueue tasks */
+	rc = __cam_req_mgr_setup_payload(link->workq);
+	if (rc < 0) {
+		__cam_req_mgr_destroy_link_info(link);
+		cam_req_mgr_workq_destroy(&link->workq);
+		goto setup_failed;
+	}
+
+	link->trigger_cnt[0][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[0][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[1][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[1][CAM_TRIGGER_POINT_EOF] = 0;
+
+	mutex_unlock(&link->lock);
+	mutex_unlock(&g_crm_core_dev->crm_lock);
+	return rc;
+setup_failed:
+	__cam_req_mgr_destroy_subdev(link->l_dev);
+create_subdev_failed:
+	cam_destroy_device_hdl(link->link_hdl);
+	link_info->u.link_info_v3.link_hdl = -1;
 link_hdl_fail:
 	mutex_unlock(&link->lock);
 	__cam_req_mgr_unreserve_link(cam_session, link);

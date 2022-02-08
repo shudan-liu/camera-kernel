@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #ifndef _CAM_REQ_MGR_CORE_H_
 #define _CAM_REQ_MGR_CORE_H_
@@ -43,6 +44,7 @@
 
 #define VERSION_1  1
 #define VERSION_2  2
+#define VERSION_3  3
 #define CAM_REQ_MGR_MAX_TRIGGERS   2
 
 /**
@@ -269,6 +271,7 @@ struct cam_req_mgr_req_tbl {
  * @sync_mode          : Sync mode in which req id in this slot has to applied
  * @additional_timeout : Adjusted watchdog timeout value associated with
  * this request
+ * @received_trigger     : indicates whether epoch received for this req_id
  */
 struct cam_req_mgr_slot {
 	int32_t               idx;
@@ -278,6 +281,7 @@ struct cam_req_mgr_slot {
 	int64_t               req_id;
 	int32_t               sync_mode;
 	int32_t               additional_timeout;
+	bool                  received_trigger;
 };
 
 /**
@@ -388,6 +392,7 @@ struct cam_req_mgr_connected_device {
  *                         case of long exposure use case
  * @last_sof_trigger_jiffies : Record the jiffies of last sof trigger jiffies
  * @wq_congestion        : Indicates if WQ congestion is detected or not
+ * @trigger_type         : indicates whether its streaming or fsync trigger based
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -426,6 +431,7 @@ struct cam_req_mgr_core_link {
 	bool                                 skip_init_frame;
 	uint64_t                             last_sof_trigger_jiffies;
 	bool                                 wq_congestion;
+	uint32_t                             trigger_type;
 };
 
 /**
@@ -602,7 +608,7 @@ int cam_req_mgr_destroy_session(struct cam_req_mgr_session_info *ses_info,
  */
 int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info);
 int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info);
-
+int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info);
 
 /**
  * cam_req_mgr_unlink()

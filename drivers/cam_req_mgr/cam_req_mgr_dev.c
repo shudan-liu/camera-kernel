@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -391,6 +392,29 @@ static long cam_private_ioctl(struct file *file, void *fh,
 				u64_to_user_ptr(k_ioctl->handle),
 				&ver_info.u.link_info_v2,
 				sizeof(struct cam_req_mgr_link_info_v2)))
+				rc = -EFAULT;
+			}
+		break;
+
+	case CAM_REQ_MGR_LINK_V3: {
+		struct cam_req_mgr_ver_info ver_info;
+
+		if (k_ioctl->size != sizeof(ver_info.u.link_info_v3))
+			return -EINVAL;
+
+		if (copy_from_user(&ver_info.u.link_info_v3,
+			u64_to_user_ptr(k_ioctl->handle),
+			sizeof(struct cam_req_mgr_link_info_v3))) {
+			return -EFAULT;
+		}
+
+		ver_info.version = VERSION_3;
+		rc = cam_req_mgr_link_v3(&ver_info);
+		if (!rc)
+			if (copy_to_user(
+				u64_to_user_ptr(k_ioctl->handle),
+				&ver_info.u.link_info_v3,
+				sizeof(struct cam_req_mgr_link_info_v3)))
 				rc = -EFAULT;
 			}
 		break;
