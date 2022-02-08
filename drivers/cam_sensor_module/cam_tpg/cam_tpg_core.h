@@ -6,6 +6,9 @@
 #ifndef __CAM_TPG_CORE_H__
 #define __CAM_TPG_CORE_H__
 
+#define TPG_STREAMING_MODE 0
+#define TPG_TRIGGER_MODE   1
+
 #include "cam_tpg_dev.h"
 
 /**
