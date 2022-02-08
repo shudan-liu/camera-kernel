@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <media/cam_defs.h>
@@ -748,6 +749,7 @@ int cam_isp_add_io_buffers(
 	int                                 mmu_hdl;
 	bool                                is_buf_secure, found = false;
 	uint32_t                            mode;
+	size_t                              len = 0;
 
 	io_cfg = (struct cam_buf_io_cfg *) ((uint8_t *)
 			&prepare->packet->payload +
@@ -878,7 +880,6 @@ int cam_isp_add_io_buffers(
 				io_cfg[i].direction);
 			return -EINVAL;
 		}
-
 		CAM_DBG(CAM_ISP, "setup mem io");
 		for (j = 0; j < CAM_ISP_HW_SPLIT_MAX &&
 			io_cfg[i].direction == CAM_BUF_OUTPUT; j++) {
@@ -900,6 +901,7 @@ int cam_isp_add_io_buffers(
 
 			for (plane_id = 0; plane_id < CAM_PACKET_MAX_PLANES;
 						plane_id++) {
+
 				if (!io_cfg[i].mem_handle[plane_id])
 					break;
 
@@ -955,6 +957,20 @@ int cam_isp_add_io_buffers(
 					"mmu_hdl=0x%x, size=%d, end=0x%x",
 					mmu_hdl, (int)size,
 					io_addr[plane_id]+size);
+
+				if (!is_buf_secure) {
+					rc = cam_mem_get_cpu_buf(io_cfg[i].mem_handle[plane_id],
+						(uintptr_t*)out_map_entries->kernel_map_buf_addr[plane_id], &len);
+					if (rc) {
+						CAM_ERR(CAM_ISP,
+							"get cpu buf failed, mem_hdl=0x%x, wm res id:%d",
+							io_cfg[i].mem_handle[plane_id],res->res_id);
+						out_map_entries->kernel_map_buf_addr[plane_id] = NULL;
+					}
+
+				} else {
+						out_map_entries->kernel_map_buf_addr[plane_id] = NULL;
+				}
 
 			}
 			if (!plane_id) {
@@ -1017,6 +1033,10 @@ int cam_isp_add_io_buffers(
 				rc = -ENOMEM;
 				return rc;
 			}
+			if (secure_mode.wm_update->slave_buf_data)
+				out_map_entries->slave_buf_data = true;
+			else
+				out_map_entries->slave_buf_data = false;
 
 			if (wm_update.fh_enabled) {
 				frame_header_info->frame_header_res_id =

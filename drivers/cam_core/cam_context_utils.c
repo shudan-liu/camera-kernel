@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -171,6 +172,7 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 	struct cam_hw_done_event_data *done =
 		(struct cam_hw_done_event_data *)done_event_data;
 	int rc;
+	struct cam_sync_signal_param param;
 
 	if (!ctx || !done) {
 		CAM_ERR(CAM_CTXT, "Invalid input params %pK %pK", ctx, done);
@@ -239,8 +241,11 @@ int cam_context_buf_done_from_hw(struct cam_context *ctx,
 
 		CAM_DBG(CAM_REQ, "fence %d signal with %d",
 			req->out_map_entries[j].sync_id, result);
-		cam_sync_signal(req->out_map_entries[j].sync_id, result,
-			done->evt_param);
+		memset(&param, 0, sizeof(param));
+		param.sync_obj = req->out_map_entries[j].sync_id;
+		param.status = result;
+		param.event_cause = done->evt_param;
+		cam_sync_signal(&param, NULL);
 		req->out_map_entries[j].sync_id = -1;
 	}
 
@@ -749,6 +754,7 @@ int32_t cam_context_flush_ctx_to_hw(struct cam_context *ctx)
 	struct cam_hw_flush_args flush_args;
 	struct list_head temp_list;
 	struct cam_ctx_request *req;
+	struct cam_sync_signal_param param;
 	uint32_t i;
 	int rc = 0;
 	bool free_req;
@@ -807,10 +813,11 @@ int32_t cam_context_flush_ctx_to_hw(struct cam_context *ctx)
 
 		for (i = 0; i < req->num_out_map_entries; i++) {
 			if (req->out_map_entries[i].sync_id != -1) {
-				rc = cam_sync_signal(
-					req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_CANCEL,
-					CAM_SYNC_COMMON_EVENT_FLUSH);
+				memset(&param, 0, sizeof(param));
+				param.sync_obj = req->out_map_entries[i].sync_id;
+				param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
+				param.event_cause = CAM_SYNC_ISP_EVENT_FLUSH;
+				rc = cam_sync_signal(&param, NULL);
 				if (rc == -EALREADY) {
 					CAM_ERR(CAM_CTXT,
 					"Req: %llu already signalled, sync_id:%d",
@@ -880,10 +887,11 @@ int32_t cam_context_flush_ctx_to_hw(struct cam_context *ctx)
 
 		for (i = 0; i < req->num_out_map_entries; i++) {
 			if (req->out_map_entries[i].sync_id != -1) {
-				rc = cam_sync_signal(
-					req->out_map_entries[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_CANCEL,
-					CAM_SYNC_COMMON_EVENT_FLUSH);
+				memset(&param, 0, sizeof(param));
+				param.sync_obj = req->out_map_entries[i].sync_id;
+				param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
+				param.event_cause = CAM_SYNC_ISP_EVENT_FLUSH;
+				rc = cam_sync_signal(&param, NULL);
 				if (rc == -EALREADY) {
 					CAM_ERR(CAM_CTXT,
 						"Req: %llu already signalled ctx: %pK dev_name: %s dev_handle: %d ctx_state: %d",
@@ -917,6 +925,7 @@ int32_t cam_context_flush_req_to_hw(struct cam_context *ctx,
 {
 	struct cam_ctx_request *req = NULL;
 	struct cam_hw_flush_args flush_args;
+	struct cam_sync_signal_param param;
 	uint32_t i;
 	int32_t sync_id = 0;
 	int rc = 0;
@@ -995,9 +1004,11 @@ int32_t cam_context_flush_req_to_hw(struct cam_context *ctx,
 				sync_id =
 					req->out_map_entries[i].sync_id;
 				if (sync_id != -1) {
-					rc = cam_sync_signal(sync_id,
-						CAM_SYNC_STATE_SIGNALED_CANCEL,
-						CAM_SYNC_COMMON_EVENT_FLUSH);
+					memset(&param, 0, sizeof(param));
+					param.sync_obj = sync_id;
+					param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
+					param.event_cause = CAM_SYNC_ISP_EVENT_FLUSH;
+					rc = cam_sync_signal(&param, NULL);
 					if (rc == -EALREADY) {
 						CAM_ERR(CAM_CTXT,
 						"Req: %llu already signalled, sync_id:%d",

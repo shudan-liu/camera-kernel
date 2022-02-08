@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_HW_MGR_INTF_H_
@@ -88,12 +89,15 @@ struct cam_hw_update_entry {
  * @resrouce_handle:       Resource port id for the buffer
  * @sync_id:               Sync id
  * @image_buf_addr:        Image buffer address array
- *
+ * @kernel_map_buf_addr    Kernel map buffer address array
+ * @slave_buf_data         Flag to identify slave buf data
  */
 struct cam_hw_fence_map_entry {
 	uint32_t           resource_handle;
 	int32_t            sync_id;
 	dma_addr_t         image_buf_addr[CAM_PACKET_MAX_PLANES];
+	uint32_t          *kernel_map_buf_addr[CAM_PACKET_MAX_PLANES];
+	bool               slave_buf_data;
 };
 
 /**
