@@ -422,6 +422,58 @@ static int __cam_req_mgr_notify_error_on_link(
 }
 
 /**
+ * __cam_req_mgr_notify_sensor_apply_failure()
+ *
+ * @brief : Notify userspace on sensor packet apply failure
+ *
+ * @link  : link on which the req could not be applied
+ *
+ * @return : 0 for success, negative for failure
+ */
+static int __cam_req_mgr_notify_sensor_apply_failure(
+	struct cam_req_mgr_core_link    *link,
+	struct cam_req_mgr_connected_device *dev)
+{
+	struct cam_req_mgr_core_session *session = NULL;
+	struct cam_req_mgr_message       msg;
+	int rc = 0, pd;
+
+	session = (struct cam_req_mgr_core_session *)link->parent;
+	if (!session) {
+		CAM_WARN(CAM_CRM, "session ptr NULL %x", link->link_hdl);
+		return -EINVAL;
+	}
+
+	pd = dev->dev_info.p_delay;
+	if (pd >= CAM_PIPELINE_DELAY_MAX) {
+		CAM_ERR(CAM_CRM, "pd : %d is more than expected", pd);
+		return -EINVAL;
+	}
+
+	CAM_ERR_RATE_LIMIT(CAM_CRM,
+		"Notifying userspace to trigger recovery on link 0x%x for session %d",
+		link->link_hdl, session->session_hdl);
+
+	memset(&msg, 0, sizeof(msg));
+
+	msg.session_hdl = session->session_hdl;
+	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_RECOVERY;
+	msg.u.err_msg.request_id = link->req.apply_data[pd].req_id;
+	msg.u.err_msg.link_hdl   = link->link_hdl;
+	msg.u.err_msg.error_code = CAM_REQ_MGR_SENSOR_APPLY_FAILURE;
+
+	rc = cam_req_mgr_notify_message(&msg, V4L_EVENT_CAM_REQ_MGR_ERROR,
+		V4L_EVENT_CAM_REQ_MGR_EVENT);
+
+	if (rc)
+		CAM_ERR_RATE_LIMIT(CAM_CRM,
+			"Error in notifying recovery for session %d link 0x%x rc %d",
+			session->session_hdl, link->link_hdl, rc);
+
+	return rc;
+}
+
+/**
  * __cam_req_mgr_traverse()
  *
  * @brief    : Traverse through pd tables, it will internally cover all linked
@@ -1965,6 +2017,12 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		/* Apply req failed retry at next sof */
 		slot->status = CRM_SLOT_STATUS_REQ_PENDING;
 		max_retry = MAXIMUM_RETRY_ATTEMPTS;
+		if ((link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) && dev &&
+			(dev->dev_info.dev_id == CAM_REQ_MGR_DEVICE_SENSOR)) {
+			__cam_req_mgr_notify_sensor_apply_failure(link, dev);
+			goto end;
+		}
+
 		if (link->max_delay == 1)
 			max_retry++;
 

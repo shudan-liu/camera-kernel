@@ -482,6 +482,7 @@ struct cam_mem_cache_ops_cmd {
  * @CAM_REQ_MGR_ICP_ERROR_SYSTEM_FAILURE       : ICP system failure
  * @CAM_REQ_MGR_CSID_MISSING_EOT               : CSID is missing EOT on one or more lanes
  * @CAM_REQ_MGR_CSID_RX_PKT_PAYLOAD_CORRUPTION : CSID long packet payload CRC mismatch
+ * @CAM_REQ_MGR_SENSOR_APPLY_FAILURE         : sensor packet apply failure
  */
 #define CAM_REQ_MGR_ISP_UNREPORTED_ERROR                 0
 #define CAM_REQ_MGR_LINK_STALLED_ERROR                   BIT(0)
@@ -498,6 +499,7 @@ struct cam_mem_cache_ops_cmd {
 #define CAM_REQ_MGR_ICP_SYSTEM_FAILURE                   BIT(11)
 #define CAM_REQ_MGR_CSID_MISSING_EOT                     BIT(12)
 #define CAM_REQ_MGR_CSID_RX_PKT_PAYLOAD_CORRUPTION       BIT(13)
+#define CAM_REQ_MGR_SENSOR_APPLY_FAILURE                 BIT(14)
 
 /**
  * struct cam_req_mgr_error_msg
