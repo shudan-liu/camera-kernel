@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_MGR_INTF_H_
@@ -13,7 +14,7 @@
 #include "cam_hw_mgr_intf.h"
 
 /* MAX IFE instance */
-#define CAM_IFE_HW_NUM_MAX       8
+#define CAM_IFE_HW_NUM_MAX       10
 #define CAM_SFE_HW_NUM_MAX       2
 #define CAM_IFE_RDI_NUM_MAX      4
 #define CAM_SFE_RDI_NUM_MAX      5
@@ -118,6 +119,7 @@ enum cam_isp_hw_err_type {
 	CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW = 0x0080,
 	CAM_ISP_HW_ERROR_CSID_FRAME_SIZE = 0x0100,
 	CAM_ISP_HW_ERROR_CSID_SENSOR_FRAME_DROP = 0x0200,
+	CAM_ISP_HW_ERROR_TUNNEL_OVERFLOW = 0x0400,
 };
 
 /**

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_HW_INTF_H_
@@ -11,7 +12,7 @@
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_cpas_api.h"
 
-#define CAM_VFE_HW_NUM_MAX            8
+#define CAM_VFE_HW_NUM_MAX            10
 
 #define VFE_CORE_BASE_IDX             0
 #define RT_BASE_IDX                   2
@@ -53,6 +54,7 @@ enum cam_vfe_hw_irq_status {
 	CAM_VFE_IRQ_STATUS_OVERFLOW             = 1,
 	CAM_VFE_IRQ_STATUS_P2I_ERROR            = 2,
 	CAM_VFE_IRQ_STATUS_VIOLATION            = 3,
+	CAM_VFE_IRQ_STATUS_TUNNEL_OVERFLOW      = 4,
 	CAM_VFE_IRQ_STATUS_MAX,
 };
 

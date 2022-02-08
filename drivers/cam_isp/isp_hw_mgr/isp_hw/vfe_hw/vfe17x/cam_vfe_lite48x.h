@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_LITE48x_H_
@@ -426,6 +427,10 @@ static struct cam_vfe_bus_ver3_hw_info vfe48x_bus_hw_info = {
 			},
 		},
 	},
+	.bus_error_irq_mask = {
+		0xD0000000,
+		0x00000000,
+	},
 	.num_comp_grp    = 4,
 	.comp_done_shift = 4,
 	.top_irq_shift   = 4,
@@ -433,6 +438,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe48x_bus_hw_info = {
 	.max_out_res = CAM_ISP_IFE_OUT_RES_BASE + 25,
 	.supported_irq =  CAM_VFE_HW_IRQ_CAP_BUF_DONE | CAM_VFE_HW_IRQ_CAP_RUP,
 	.comp_cfg_needed = true,
+	.support_tunneling = false,
 };
 
 static struct cam_vfe_irq_hw_info vfe48x_irq_hw_info = {

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -1598,7 +1599,10 @@ static struct cam_vfe_bus_ver3_hw_info vfe480_bus_hw_info = {
 			.error_description = "Meta Stride unalign"
 		},
 	},
-
+	.bus_error_irq_mask = {
+		0xD0000000,
+		0x00000000,
+	},
 	.num_comp_grp    = 14,
 	.comp_done_shift = 6,
 	.top_irq_shift   = 7,
@@ -1607,6 +1611,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe480_bus_hw_info = {
 	.supported_irq =  CAM_VFE_HW_IRQ_CAP_BUF_DONE | CAM_VFE_HW_IRQ_CAP_RUP,
 	.comp_cfg_needed = true,
 	.pack_align_shift = 4,
+	.support_tunneling = false,
 };
 
 static struct cam_irq_register_set vfe480_bus_rd_irq_reg[1] = {

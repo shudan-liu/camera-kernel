@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -10,10 +11,11 @@
 #include "cam_irq_controller.h"
 #include "cam_vfe_bus.h"
 
-#define CAM_VFE_BUS_VER3_MAX_SUB_GRPS        6
-#define CAM_VFE_BUS_VER3_MAX_MID_PER_PORT    4
-#define CAM_VFE_BUS_VER3_CONS_ERR_MAX        32
-#define CAM_VFE_BUS_VER3_MAX_CLIENTS         28
+#define CAM_VFE_BUS_VER3_MAX_SUB_GRPS                6
+#define CAM_VFE_BUS_VER3_MAX_MID_PER_PORT            4
+#define CAM_VFE_BUS_VER3_CONS_ERR_MAX                32
+#define CAM_VFE_BUS_VER3_MAX_CLIENTS                 28
+#define CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX             2
 
 enum cam_vfe_bus_ver3_vfe_core_id {
 	CAM_VFE_BUS_VER3_VFE_CORE_0,
@@ -112,6 +114,7 @@ struct cam_vfe_bus_ver3_reg_offset_common {
 	uint32_t comp_cfg_0;
 	uint32_t comp_cfg_1;
 	uint32_t if_frameheader_cfg[CAM_VFE_BUS_VER3_MAX_SUB_GRPS];
+	uint32_t tunneling_cfg;
 	uint32_t ubwc_static_ctrl;
 	uint32_t pwr_iso_cfg;
 	uint32_t overflow_status_clear;
@@ -179,6 +182,7 @@ struct cam_vfe_bus_ver3_reg_offset_bus_client {
 	uint32_t debug_status_1;
 	uint32_t bw_limiter_addr;
 	uint32_t comp_group;
+	uint32_t tunnel_cfg_idx;
 };
 
 /*
@@ -204,21 +208,25 @@ struct cam_vfe_bus_ver3_vfe_out_hw_info {
  *
  * @Brief:            HW register info for entire Bus
  *
- * @common_reg:            Common register details
- * @num_client:            Total number of write clients
- * @bus_client_reg:        Bus client register info
- * @vfe_out_hw_info:       VFE output capability
- * @num_cons_err:          Number of constraint errors in list
- * @constraint_error_list: Static list of all constraint errors
- * @num_comp_grp:          Number of composite groups
- * @comp_done_shift:       Mask shift for comp done mask
- * @top_irq_shift:         Mask shift for top level BUS WR irq
- * @support_consumed_addr: Indicate if bus support consumed address
- * @max_out_res:           Max vfe out resource value supported for hw
- * @supported_irq:         Mask to indicate the IRQ supported
- * @comp_cfg_needed:       Composite group config is needed for hw
- * @pack_align_shift:      Shift value for alignment of packer format
- * @max_bw_counter_limit:  Max BW counter limit
+ * @common_reg:               Common register details
+ * @num_client:               Total number of write clients
+ * @bus_client_reg:           Bus client register info
+ * @vfe_out_hw_info:          VFE output capability
+ * @num_cons_err:             Number of constraint errors in list
+ * @constraint_error_list:    Static list of all constraint errors
+ * @bus_error_irq_mask:       BUS errors mask that SW handles
+ * @num_comp_grp:             Number of composite groups
+ * @comp_done_shift:          Mask shift for comp done mask
+ * @top_irq_shift:            Mask shift for top level BUS WR irq
+ * @support_consumed_addr:    Indicate if bus support consumed address
+ * @max_out_res:              Max vfe out resource value supported for hw
+ * @supported_irq:            Mask to indicate the IRQ supported
+ * @comp_cfg_needed:          Composite group config is needed for hw
+ * @pack_align_shift:         Shift value for alignment of packer format
+ * @max_bw_counter_limit:     Max BW counter limit
+ * @no_tunnelingId_shift:     Mask shift for no tunneling ID irq
+ * @tunneling_overflow_shift: Mask shift for tunneling overflow irq
+ * @support_tunneling:        Indicate if bus support tunneling feature
  */
 struct cam_vfe_bus_ver3_hw_info {
 	struct cam_vfe_bus_ver3_reg_offset_common common_reg;
@@ -231,6 +239,7 @@ struct cam_vfe_bus_ver3_hw_info {
 	uint32_t num_cons_err;
 	struct cam_vfe_constraint_error_info
 		constraint_error_list[CAM_VFE_BUS_VER3_CONS_ERR_MAX];
+	uint32_t bus_error_irq_mask[CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX];
 	uint32_t num_comp_grp;
 	uint32_t comp_done_shift;
 	uint32_t top_irq_shift;
@@ -240,6 +249,9 @@ struct cam_vfe_bus_ver3_hw_info {
 	bool comp_cfg_needed;
 	uint32_t pack_align_shift;
 	uint32_t max_bw_counter_limit;
+	uint32_t no_tunnelingId_shift;
+	uint32_t tunneling_overflow_shift;
+	bool support_tunneling;
 };
 
 /**

@@ -3002,6 +3002,39 @@ static uint32_t get_evt_param(uint32_t error_type)
 	}
 }
 
+static int cam_isp_ctx_handle_tunnel_overflow(struct cam_isp_context *ctx_isp,
+	void *evt_data)
+{
+
+	struct cam_req_mgr_message       req_msg;
+	struct cam_isp_hw_error_event_data  *error_event_data =
+			(struct cam_isp_hw_error_event_data *)evt_data;
+
+	req_msg.session_hdl = ctx_isp->base->session_hdl;
+	req_msg.u.err_msg.device_hdl = ctx_isp->base->dev_hdl;
+
+	req_msg.u.err_msg.error_type =
+		CAM_REQ_MGR_ERROR_TYPE_TUNNEL_OVERFLOW;
+	req_msg.u.err_msg.link_hdl = ctx_isp->base->link_hdl;
+	req_msg.u.err_msg.request_id = ctx_isp->last_applied_req_id;
+	req_msg.u.err_msg.resource_size = 0x0;
+	req_msg.u.err_msg.error_code =
+		error_event_data->error_code;
+
+	if (cam_req_mgr_notify_message(&req_msg,
+			V4L_EVENT_CAM_REQ_MGR_ERROR,
+			V4L_EVENT_CAM_REQ_MGR_EVENT)) {
+		CAM_ERR(CAM_ISP,
+			"Error in notifying tunnelling overflow error, req id:%lld ctx:%u",
+				ctx_isp->last_applied_req_id, ctx_isp->base->ctx_id);
+		return 0;
+	}
+
+	CAM_ERR(CAM_ISP, "Tunnel Overflow reported for request: %lld ctx:%u",
+		ctx_isp->last_applied_req_id, ctx_isp->base->ctx_id);
+	return 0;
+
+}
 static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	void *evt_data)
 {
@@ -3027,8 +3060,14 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 
 	CAM_DBG(CAM_ISP, "Enter error_type = %d", error_type);
 
+
 	if (!ctx_isp->offline_context)
 		__cam_isp_ctx_pause_crm_timer(ctx);
+
+	if(error_type == CAM_ISP_HW_ERROR_TUNNEL_OVERFLOW) {
+		rc = cam_isp_ctx_handle_tunnel_overflow(ctx_isp, evt_data);
+		goto exit;
+	}
 
 	if ((error_type == CAM_ISP_HW_ERROR_OVERFLOW) ||
 		(error_type == CAM_ISP_HW_ERROR_BUSIF_OVERFLOW) ||

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_ISP_H__
@@ -125,6 +126,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_FPS_CONFIG                17
 #define CAM_ISP_GENERIC_BLOB_TYPE_INIT_CONFIG               18
 #define CAM_ISP_GENERIC_BLOB_TYPE_RDI_LCR_CONFIG            19
+#define CAM_ISP_GENERIC_BLOB_TYPE_TUNNELING_ID              20
 #define CAM_ISP_GENERIC_BLOB_TYPE_SFE_CLOCK_CONFIG          21
 #define CAM_ISP_GENERIC_BLOB_TYPE_SFE_CORE_CONFIG           22
 #define CAM_ISP_GENERIC_BLOB_TYPE_SFE_OUT_CONFIG            23
@@ -142,9 +144,12 @@
 #define CAM_ISP_IFE2_LITE_HW     0x10
 #define CAM_ISP_IFE3_LITE_HW     0x20
 #define CAM_ISP_IFE4_LITE_HW     0x40
+#define CAM_ISP_IFE5_LITE_HW     0x80
 #define CAM_ISP_IFE2_HW          0x100
 #define CAM_ISP_SFE0_HW          0x1000
 #define CAM_ISP_SFE1_HW          0x2000
+#define CAM_ISP_IFE6_LITE_HW     0x10000
+#define CAM_ISP_IFE7_LITE_HW     0x20000
 
 #define CAM_ISP_PXL_PATH          0x1
 #define CAM_ISP_PPP_PATH          0x2
@@ -283,6 +288,41 @@ struct cam_isp_out_port_info_v2 {
 	__u32                out_port_res2;
 };
 
+/**
+ * struct cam_isp_out_port_info_v3 - An output port resource info
+ *
+ * @version:                    version details
+ * @res_type:                   output resource type defined in file
+ *                              cam_isp_vfe.h or cam_isp_ife.h
+ * @format:                     output format of the resource
+ * @wdith:                      output width in pixels
+ * @height:                     output height in lines
+ * @comp_grp_id:                composite group id for the resource.
+ * @split_point:                split point in pixels for the dual VFE.
+ * @secure_mode:                flag to tell if output should be run in secure
+ *                              mode or not. See cam_defs.h for definition
+ * @wm_mode:                    WM mode
+ * @tunnel_en:                  Indicates whether tunneling is enabled/disabled
+ * @out_port_res1:              Output reserved field
+ * @out_port_res2:              Output reserved field
+ * @out_port_res3:              Output reserved field
+ *
+ */
+struct cam_isp_out_port_info_v3 {
+	__u32                version;
+	__u32                res_type;
+	__u32                format;
+	__u32                width;
+	__u32                height;
+	__u32                comp_grp_id;
+	__u32                split_point;
+	__u32                secure_mode;
+	__u32                wm_mode;
+	__u32                tunnel_en;
+	__u32                out_port_res1;
+	__u32                out_port_res2;
+	__u32                out_port_res3;
+};
 /**
  * struct cam_isp_in_port_info - An input port resource info
  *
@@ -427,6 +467,90 @@ struct cam_isp_in_port_info_v2 {
 	__u32                           ife_res_1;
 	__u32                           ife_res_2;
 	struct cam_isp_out_port_info_v2 data[1];
+};
+
+/**
+ * struct cam_isp_in_port_info_v3 - An input port resource info
+ *
+ * @res_type:                   input resource type define in file
+ *                              cam_isp_vfe.h or cam_isp_ife.h
+ * @lane_type:                  lane type: c-phy or d-phy.
+ * @lane_num:                   active lane number
+ * @lane_cfg:                   lane configurations: 4 bits per lane
+ * @vc:                         input virtual channel number
+ * @dt:                         input data type number
+ * @num_valid_vc_dt:            valid vc and dt in array
+ * @format:                     input format
+ * @test_pattern:               test pattern for the testgen
+ * @usage_type:                 whether dual vfe is required
+ * @left_start:                 left input start offset in pixels
+ * @left_stop:                  left input stop offset in pixels
+ * @left_width:                 left input width in pixels
+ * @right_start:                right input start offset in pixels.
+ *                              Only for Dual VFE
+ * @right_stop:                 right input stop offset in pixels.
+ *                              only for Dual VFE
+ * @right_width:                right input width in pixels.
+ *                              only for dual VFE
+ * @line_start:                 top of the line number
+ * @line_stop:                  bottome of the line number
+ * @height:                     input height in lines
+ * @pixel_clk;                  sensor output clock
+ * @batch_size:                 batch size for HFR mode
+ * @dsp_mode:                   DSP stream mode (Defines as CAM_ISP_DSP_MODE_*)
+ * @hbi_cnt:                    HBI count for the camif input
+ * @cust_node:                  if any custom HW block is present before IFE
+ * @num_out_res:                number of the output resource associated
+ * @bidirectional_bin:          [0  : 15] - Set 1 for Horizontal binning
+ *                              [16 : 31] - Set 1 for Vertical binning
+ * @qcfa_bin:                   Quadra Binning info
+ * @sfe_in_path_type:           SFE input path type
+ *                              0:15 - refer to cam_isp_sfe.h for SFE paths
+ *                              16:31 - Corresponding IFE i/p path type
+ *                              Example:((CAM_ISP_PXL_PATH << 16) |
+ *                                        CAM_ISP_SFE_INLINE_PIX)
+ *                              This will acquire SFE inline IPP and IFE IPP
+ *                              PPP is an exception CSID PPP -> IFE PPP
+ * @feature_flag:               See the macros defined under feature flag above
+ * @ife_res_1:                  payload for future use.
+ * @ife_res_2:                  payload for future use.
+ * @data:                       payload that contains the output resources
+ *
+ */
+struct cam_isp_in_port_info_v3 {
+	__u32                           res_type;
+	__u32                           lane_type;
+	__u32                           lane_num;
+	__u32                           lane_cfg;
+	__u32                           vc[CAM_ISP_VC_DT_CFG];
+	__u32                           dt[CAM_ISP_VC_DT_CFG];
+	__u32                           num_valid_vc_dt;
+	__u32                           format;
+	__u32                           test_pattern;
+	__u32                           usage_type;
+	__u32                           left_start;
+	__u32                           left_stop;
+	__u32                           left_width;
+	__u32                           right_start;
+	__u32                           right_stop;
+	__u32                           right_width;
+	__u32                           line_start;
+	__u32                           line_stop;
+	__u32                           height;
+	__u32                           pixel_clk;
+	__u32                           batch_size;
+	__u32                           dsp_mode;
+	__u32                           hbi_cnt;
+	__u32                           cust_node;
+	__u32                           num_out_res;
+	__u32                           offline_mode;
+	__u32                           bidirectional_bin;
+	__u32                           qcfa_bin;
+	__u32                           sfe_in_path_type;
+	__u32                           feature_flag;
+	__u32                           ife_res_1;
+	__u32                           ife_res_2;
+	struct cam_isp_out_port_info_v3 data[1];
 };
 
 /**
@@ -885,6 +1009,34 @@ struct cam_isp_vfe_out_config {
 	__u32                        num_ports;
 	__u32                        reserved;
 	struct cam_isp_vfe_wm_config wm_config[1];
+};
+
+/**
+ * struct cam_isp_tunnel_id_config  -  VFE write master config per port
+ *
+ * @port_type        : Unique ID of output port
+ * @tunnel_id        : Unique Tunneling ID of each port
+ * @reserved_1       : Reserved field for allignment
+ * @reserved_2       : Reserved field for allignment
+ */
+
+struct cam_isp_tunnel_id_config {
+	__u32                      port_type;
+	__u32                      tunnel_id;
+	__u32                      reserved_1;
+	__u32                      reserved_2;
+};
+/**
+ * struct cam_isp_vfe_out_tunnel_id_config  -  VFE write master tunneling id config
+ *
+ * @version        : Version details
+ * @num_ports      : Number of ports
+ * @tunnel_config  : VFE out tunneling id data
+ */
+struct cam_isp_vfe_out_tunnel_id_config {
+	__u32                           version;
+	__u32                           num_ports;
+	struct cam_isp_tunnel_id_config tunnel_id_config[1];
 };
 
 /**
