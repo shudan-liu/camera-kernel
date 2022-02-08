@@ -877,6 +877,11 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 	apply_req.link_hdl = link->link_hdl;
 	apply_req.report_if_bubble = 0;
 	apply_req.re_apply = false;
+	if (link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE)
+		apply_req.wait_for_request_apply = TRUE;
+	else
+		apply_req.wait_for_request_apply = FALSE;
+
 	if (link->retry_cnt > 0) {
 		if (g_crm_core_dev->recovery_on_apply_fail)
 			apply_req.re_apply = true;

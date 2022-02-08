@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CDM_API_H_
@@ -139,6 +140,8 @@ struct cam_cdm_bl_cmd {
  * @type : type of the submitted bl cmd address.
  * @cmd_arrary_count : Input number of BL commands to be submitted to CDM
  * @cookie : Cookie if the callback is gen irq status
+ * @irq_cb_intr_ctx: true for CDM irq has to be handled in
+ *                   interrupt context and false for workqueue context.
  * @bl_cmd_array     : Input payload holding the BL cmd's arrary
  *                     to be sumbitted.
  *
@@ -150,6 +153,7 @@ struct cam_cdm_bl_request {
 	enum cam_cdm_bl_cmd_addr_type type;
 	uint32_t cmd_arrary_count;
 	uint64_t cookie;
+	bool irq_cb_intr_ctx;
 	struct cam_cdm_bl_cmd cmd[1];
 };
 

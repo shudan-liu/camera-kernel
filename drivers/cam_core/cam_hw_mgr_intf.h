@@ -295,6 +295,7 @@ enum cam_hw_config_reapply_type {
  * @init_packet:               Set if INIT packet
  * @cdm_reset_before_apply:    True is need to reset CDM before re-apply bubble
  *                             request
+ * @wait_for_request_apply:    wait till cdm done irq received after request applied
  *
  */
 struct cam_hw_config_args {
@@ -308,6 +309,7 @@ struct cam_hw_config_args {
 	enum cam_hw_config_reapply_type reapply_type;
 	bool                            init_packet;
 	bool                            cdm_reset_before_apply;
+	bool                            wait_for_request_apply;
 };
 
 /**

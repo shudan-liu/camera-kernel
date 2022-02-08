@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_HW_MGR_H_
@@ -201,10 +202,13 @@ struct cam_ife_hw_mgr_ctx_flags {
  *
  * @prepare:                   hw_update_data
  * @request_id:                Request id
+ * @support_cdm_cb_reg_dump:   true for per frame register dump trigger in ife cdm callback
+ *                             false for per frame register dump trigger in ife config_hw workqueue
  */
 struct cam_ife_cdm_user_data {
 	struct cam_isp_prepare_hw_update_data    *hw_update_data;
 	uint64_t                                  request_id;
+	bool                                      support_cdm_cb_reg_dump;
 };
 
 /**
