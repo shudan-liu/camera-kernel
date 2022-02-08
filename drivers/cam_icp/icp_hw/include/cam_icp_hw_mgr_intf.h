@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef CAM_ICP_HW_MGR_INTF_H
@@ -35,7 +36,8 @@ typedef void(*cam_icp_mini_dump_cb)(void *priv,
 
 int cam_icp_hw_mgr_init(struct device_node *of_node,
 	uint64_t *hw_mgr_hdl, int *iommu_hdl,
-	cam_icp_mini_dump_cb mini_dump_cb);
+	cam_icp_mini_dump_cb mini_dump_cb,
+	bool *node_check);
 
 void cam_icp_hw_mgr_deinit(void);
 
