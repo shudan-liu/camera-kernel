@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -2480,6 +2481,41 @@ int cam_ife_csid_hw_ver2_hw_cfg(
 	return rc;
 }
 
+bool cam_ife_csid_ver2_is_width_valid(
+	struct cam_csid_hw_reserve_resource_args  *reserve,
+	struct cam_ife_csid_ver2_hw *csid_hw)
+{
+	struct cam_csid_soc_private *soc_private = NULL;
+	uint32_t                           width = 0;
+
+	if (reserve->res_id != CAM_IFE_PIX_PATH_RES_IPP)
+		return true;
+
+	soc_private = (struct cam_csid_soc_private *)
+			csid_hw->hw_info->soc_info.soc_private;
+
+	if (!soc_private->max_width_enabled)
+		return true;
+
+	if (reserve->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
+		reserve->sync_mode == CAM_ISP_HW_SYNC_NONE)
+		width = reserve->in_port->left_stop -
+			reserve->in_port->left_start + 1;
+	else if (reserve->sync_mode == CAM_ISP_HW_SYNC_SLAVE)
+		width = reserve->in_port->right_stop -
+			reserve->in_port->right_start + 1;
+
+	if (width > soc_private->max_width) {
+		CAM_ERR(CAM_ISP,
+			"CSID[%u] Resolution not supported required_width: %d max_supported_width: %d",
+			csid_hw->hw_intf->hw_idx,
+			width, soc_private->max_width);
+		return false;
+	}
+
+	return true;
+}
+
 static int cam_ife_csid_ver2_in_port_validate(
 	struct cam_csid_hw_reserve_resource_args  *reserve,
 	struct cam_ife_csid_ver2_hw     *csid_hw)
@@ -2497,6 +2533,9 @@ static int cam_ife_csid_ver2_in_port_validate(
 		if (rc)
 			goto err;
 	}
+
+	if (!cam_ife_csid_ver2_is_width_valid(reserve, csid_hw))
+		goto err;
 
 	if (csid_hw->counters.csi2_reserve_cnt) {
 
