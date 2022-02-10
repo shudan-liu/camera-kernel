@@ -515,7 +515,7 @@ static const char *__cam_isp_ctx_crm_trigger_point_to_string(
 }
 
 static int __cam_isp_ctx_notify_trigger_util(
-	int trigger_type, struct cam_isp_context *ctx_isp)
+	int trigger_type, struct cam_isp_context *ctx_isp, uint64_t  request_id)
 {
 	int                                rc = -EINVAL;
 	struct cam_context                *ctx = ctx_isp->base;
@@ -547,12 +547,13 @@ static int __cam_isp_ctx_notify_trigger_util(
 	notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 	notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
 	notify.trigger_id = ctx_isp->trigger_id;
+	notify.curr_req_id = request_id;
 
 	CAM_DBG(CAM_ISP,
-		"Notify CRM %s on frame: %llu ctx: %u link: 0x%x last_buf_done_req: %lld",
+		"Notify CRM %s on frame: %llu ctx: %u link: 0x%x last_buf_done_req: %lld curr_req_id:%d",
 		__cam_isp_ctx_crm_trigger_point_to_string(trigger_type),
 		ctx_isp->frame_id, ctx->ctx_id, ctx->link_hdl,
-		ctx_isp->req_info.last_bufdone_req_id);
+		ctx_isp->req_info.last_bufdone_req_id, notify.curr_req_id);
 
 	rc = ctx->ctx_crm_intf->notify_trigger(&notify);
 	if (rc)
@@ -2602,7 +2603,6 @@ notify_only:
 	 * helps the state machine to catch up the delay.
 	 */
 	if (ctx_isp->active_req_cnt <= 2) {
-		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
 
 		list_for_each_entry(req, &ctx->active_req_list, list) {
 			req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -2620,6 +2620,8 @@ notify_only:
 
 		if (request_id != 0)
 			ctx_isp->reported_req_id = request_id;
+
+		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
 
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
@@ -2639,7 +2641,7 @@ static int __cam_isp_ctx_notify_eof_in_activated_state(
 	int rc = 0;
 
 	/* notify reqmgr with eof signal */
-	rc = __cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_EOF, ctx_isp);
+	rc = __cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_EOF, ctx_isp, 0);
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_EOF, 0);
 
@@ -2796,7 +2798,8 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 			req->request_id, ctx->ctx_id);
 
 		if (ctx_isp->active_req_cnt <= 1)
-			__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
+			__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp,
+				req->request_id);
 	}
 
 	/*
@@ -3006,7 +3009,8 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		CAM_DBG(CAM_ISP, "Skip bubble recovery for req %lld ctx %u",
 			req->request_id, ctx->ctx_id);
 		if (ctx_isp->active_req_cnt <= 1)
-			__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
+			__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF,
+			ctx_isp, req->request_id);
 
 		atomic_set(&ctx_isp->process_bubble, 1);
 	}
@@ -3377,8 +3381,6 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 		goto end;
 
 	if (ctx_isp->active_req_cnt <= 2) {
-		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
-
 		list_for_each_entry(req, &ctx->active_req_list, list) {
 			if (req->request_id > ctx_isp->reported_req_id) {
 				request_id = req->request_id;
@@ -3386,6 +3388,8 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 				break;
 			}
 		}
+		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
+
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	}
@@ -3538,7 +3542,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
-		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
+		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
 	}
 
 	CAM_DBG(CAM_ISP, "next Substate[%s]",
@@ -4761,7 +4765,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	 * helps the state machine to catch up the delay.
 	 */
 	if (ctx_isp->active_req_cnt <= 2) {
-		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
 
 		/*
 		 * It's possible for rup done to be processed before
@@ -4777,6 +4780,8 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 				ctx_isp->reported_req_id = request_id;
 			}
 		}
+		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
+
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else {
@@ -5030,7 +5035,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 
 end:
 	/* notify reqmgr with sof signal */
-	__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
+	__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
 
 	/*
 	 * It is idle frame with out any applied request id, send
@@ -5104,7 +5109,7 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 			req->request_id, ctx_isp->active_req_cnt);
 	}
 
-	__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp);
+	__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, req->request_id);
 
 	if (request_id)
 		ctx_isp->reported_req_id = request_id;
@@ -6527,7 +6532,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	__cam_isp_context_reset_ctx_params(ctx_isp);
 
 	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
-		CAM_ISP_CTX_ACTIVATED_APPLIED :
+		CAM_ISP_CTX_ACTIVATED_EPOCH :
 		(req_isp->num_fence_map_out) ? CAM_ISP_CTX_ACTIVATED_EPOCH :
 		CAM_ISP_CTX_ACTIVATED_SOF;
 
@@ -6549,6 +6554,11 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		atomic_set(&ctx_isp->rxd_epoch, 1);
 		CAM_DBG(CAM_REQ,
 			"Move pending req: %lld to free list(cnt: %d) offline ctx %u",
+			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+	} else if (ctx_isp->rdi_only_context && !req_isp->num_fence_map_out) {
+		list_add_tail(&req->list, &ctx->free_req_list);
+		CAM_DBG(CAM_REQ,
+			"Move pending req: %lld to free list(cnt: %d) ctx %u",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
 	} else if (ctx_isp->rdi_only_context || !req_isp->num_fence_map_out) {
 		list_add_tail(&req->list, &ctx->wait_req_list);

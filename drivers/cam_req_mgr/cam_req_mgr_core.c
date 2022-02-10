@@ -2243,6 +2243,7 @@ static int  __cam_req_mgr_setup_in_q(struct cam_req_mgr_req_data *req)
 
 	in_q->wr_idx = 0;
 	in_q->rd_idx = 0;
+	in_q->last_applied_idx = -1;
 	mutex_unlock(&req->lock);
 
 	return 0;
@@ -3013,11 +3014,17 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 		slot->state = CRM_REQ_STATE_READY;
 		if (link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
 			in_q = link->req.in_q;
-			last_applied_slot = &in_q->slot[in_q->last_applied_idx];
+
+			if (in_q->last_applied_idx != -1) {
+				last_applied_slot = &in_q->slot[in_q->last_applied_idx];
+				CAM_DBG(CAM_CRM,
+					"last_applied_idx: 0x%x",
+					in_q->last_applied_idx);
+			}
 
 			if ((in_q->last_applied_idx == -1) ||
-				(last_applied_slot->received_trigger)) {
-				notify_trigger.trigger = CRM_WORKQ_TASK_NOTIFY_SOF;
+				((last_applied_slot) && last_applied_slot->received_trigger)) {
+				notify_trigger.trigger = CAM_TRIGGER_POINT_SOF;
 				CAM_DBG(CAM_CRM, "Applying req:%lld", add_req->req_id);
 				rc = __cam_req_mgr_process_req(link, &notify_trigger);
 				if (rc)
@@ -3220,10 +3227,13 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 	task_data = (struct crm_task_payload *)data;
 	trigger_data = (struct cam_req_mgr_trigger_notify *)&task_data->u;
 
-	CAM_DBG(CAM_REQ, "link_hdl %x frame_id %lld, trigger %x\n",
+	CAM_DBG(CAM_REQ,
+		"link_hdl %x frame_id %lld, trigger %x curr req_id:%lld last buf done req_id:%lld ",
 		trigger_data->link_hdl,
 		trigger_data->frame_id,
-		trigger_data->trigger);
+		trigger_data->trigger,
+		trigger_data->curr_req_id,
+		trigger_data->req_id);
 
 	mutex_lock(&link->req.lock);
 
@@ -3242,6 +3252,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 
 		slot = &link->req.in_q->slot[idx];
 		slot->received_trigger = TRUE;
+		CAM_DBG(CAM_CRM, "recived trigger:%d idx:%d", slot->received_trigger, idx);
 	}
 
 	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF) {
@@ -3693,10 +3704,12 @@ static int cam_req_mgr_cb_notify_trigger(
 		goto end;
 	}
 
-	CAM_DBG(CAM_REQ, "link_hdl %x frame_id %lld, trigger %x\n",
+	CAM_DBG(CAM_REQ, "link_hdl %x frame_id %lld, trigger %x curr_req_id:%lld req_id:%lld ",
 		trigger_data->link_hdl,
 		trigger_data->frame_id,
-		trigger_data->trigger);
+		trigger_data->trigger,
+		trigger_data->curr_req_id,
+		trigger_data->req_id);
 
 	trigger_id = trigger_data->trigger_id;
 	trigger = trigger_data->trigger;
@@ -3766,6 +3779,7 @@ static int cam_req_mgr_cb_notify_trigger(
 	notify_trigger->link_hdl = trigger_data->link_hdl;
 	notify_trigger->dev_hdl = trigger_data->dev_hdl;
 	notify_trigger->trigger = trigger_data->trigger;
+	notify_trigger->curr_req_id = trigger_data->curr_req_id;
 	notify_trigger->req_id = trigger_data->req_id;
 	notify_trigger->sof_timestamp_val = trigger_data->sof_timestamp_val;
 	task->process_cb = &cam_req_mgr_process_trigger;
@@ -4434,7 +4448,11 @@ int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info)
 		mutex_unlock(&g_crm_core_dev->crm_lock);
 		return -EINVAL;
 	}
-	CAM_DBG(CAM_CRM, "link reserved %pK %x", link, link->link_hdl);
+	CAM_INFO(CAM_CRM, "link reserved %pK %x trigger_type:%d num_devices:%d session_hdl:%d",
+		link, link->link_hdl,
+		link_info->u.link_info_v3.trigger_type,
+		link_info->u.link_info_v3.num_devices,
+		link_info->u.link_info_v3.session_hdl);
 
 	memset(&root_dev, 0, sizeof(struct cam_create_dev_hdl));
 	root_dev.session_hdl = link_info->u.link_info_v3.session_hdl;
