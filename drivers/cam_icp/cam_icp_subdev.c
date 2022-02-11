@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -174,7 +173,6 @@ static int cam_icp_component_bind(struct device *dev,
 	struct cam_node *node;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
 	int iommu_hdl = -1;
-	bool node_check = true;
 	struct platform_device *pdev = to_platform_device(dev);
 
 	if (!pdev) {
@@ -202,7 +200,7 @@ static int cam_icp_component_bind(struct device *dev,
 	}
 
 	rc = cam_icp_hw_mgr_init(pdev->dev.of_node, (uint64_t *)hw_mgr_intf,
-		&iommu_hdl, cam_icp_dev_mini_dump_cb, &node_check);
+		&iommu_hdl, cam_icp_dev_mini_dump_cb);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "ICP HW manager init failed: %d", rc);
 		goto hw_init_fail;
@@ -243,8 +241,6 @@ hw_init_fail:
 	kfree(hw_mgr_intf);
 hw_alloc_fail:
 	cam_subdev_remove(&g_icp_dev.sd);
-	if (!node_check)
-		return 0;
 probe_fail:
 	return rc;
 }

@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -19,7 +18,6 @@
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
 #include "camera_main.h"
-#include <dt-bindings/msm-camera.h>
 
 static struct cam_ipe_device_hw_info cam_ipe_hw_info[] = {
 	{
@@ -86,14 +84,6 @@ static int cam_ipe_component_bind(struct device *dev,
 
 	of_property_read_u32(pdev->dev.of_node,
 		"cell-index", &hw_idx);
-
-	if (!cam_cpas_is_feature_supported(CAM_CPAS_ICP_IPE_FUSE,
-		(1 << hw_idx), 0)) {
-		CAM_DBG(CAM_ICP,
-			"IPE HW support is not present, IPE component bind index %d",
-			hw_idx);
-		return 0;
-	}
 
 	rc = cam_cpas_get_hw_info(&query.camera_family,
 			&query.camera_version, &query.cpas_version,
