@@ -174,6 +174,7 @@ struct cam_ife_hw_mgr_sfe_info {
  * @sys_cache_usage:     Per context sys cache usage
  *                       The corresponding index will be set
  *                       for the cache type
+ * hybrid_acquire        Bool for categorising acquire type.
  *
  */
 struct cam_ife_hw_mgr_ctx_flags {
@@ -195,6 +196,7 @@ struct cam_ife_hw_mgr_ctx_flags {
 	bool   is_aeb_mode;
 	bool   rdi_lcr_en;
 	bool   sys_cache_usage[CAM_LLCC_MAX];
+	bool   hybrid_acquire;
 };
 
 /**
