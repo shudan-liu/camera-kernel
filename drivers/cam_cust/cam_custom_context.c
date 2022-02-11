@@ -150,7 +150,6 @@ static int __cam_custom_ctx_frame_done(
 	struct cam_context *ctx = custom_ctx->base;
 	struct cam_custom_hw_done_event_data *done_data =
 		(struct cam_custom_hw_done_event_data *)evt_data;
-	struct cam_sync_signal_param param;
 
 	if (list_empty(&ctx->active_req_list)) {
 		CAM_DBG(CAM_CUSTOM, "Frame done with no active request");
@@ -184,20 +183,18 @@ static int __cam_custom_ctx_frame_done(
 		}
 
 		if (!req_custom->bubble_detected) {
-			memset(&param, 0, sizeof(param));
-			param.sync_obj = req_custom->fence_map_out[j].sync_id;
-			param.status = CAM_SYNC_STATE_SIGNALED_SUCCESS;
-			param.event_cause = CAM_SYNC_COMMON_EVENT_SUCCESS;
-			rc = cam_sync_signal(&param, NULL);
+			rc = cam_sync_signal(
+				req_custom->fence_map_out[j].sync_id,
+				CAM_SYNC_STATE_SIGNALED_SUCCESS,
+				CAM_SYNC_COMMON_EVENT_SUCCESS);
 			if (rc)
 				CAM_ERR(CAM_CUSTOM,
 					"Sync failed with rc = %d", rc);
 		} else if (!req_custom->bubble_report) {
-			memset(&param, 0, sizeof(param));
-			param.sync_obj = req_custom->fence_map_out[j].sync_id;
-			param.status = CAM_SYNC_STATE_SIGNALED_ERROR;
-			param.event_cause = CAM_SYNC_ISP_EVENT_BUBBLE;
-			rc = cam_sync_signal(&param, NULL);
+			rc = cam_sync_signal(
+				req_custom->fence_map_out[j].sync_id,
+				CAM_SYNC_STATE_SIGNALED_ERROR,
+				CAM_SYNC_ISP_EVENT_BUBBLE);
 			if (rc)
 				CAM_ERR(CAM_CUSTOM,
 					"Sync failed with rc = %d", rc);
@@ -229,13 +226,12 @@ static int __cam_custom_ctx_frame_done(
 		req_custom->bubble_detected = false;
 		list_del_init(&req->list);
 		if (frame_done_req_id <= ctx->last_flush_req) {
-			for (i = 0; i < req_custom->num_fence_map_out; i++) {
-				memset(&param, 0, sizeof(param));
-				param.sync_obj = req_custom->fence_map_out[i].sync_id;
-				param.status = CAM_SYNC_STATE_SIGNALED_ERROR;
-				param.event_cause = CAM_SYNC_ISP_EVENT_BUBBLE;
-				rc = cam_sync_signal(&param, NULL);
-			}
+			for (i = 0; i < req_custom->num_fence_map_out; i++)
+				rc = cam_sync_signal(
+					req_custom->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_ERROR,
+					CAM_SYNC_ISP_EVENT_BUBBLE);
+
 			list_add_tail(&req->list, &ctx->free_req_list);
 			atomic_set(&custom_ctx->process_bubble, 0);
 			CAM_DBG(CAM_REQ,
@@ -468,7 +464,6 @@ static int __cam_custom_ctx_flush_req(struct cam_context *ctx,
 	struct cam_ctx_request           *req_temp;
 	struct cam_custom_dev_ctx_req    *req_custom;
 	struct list_head                  flush_list;
-	struct cam_sync_signal_param param;
 
 	INIT_LIST_HEAD(&flush_list);
 	if (list_empty(req_list)) {
@@ -506,11 +501,10 @@ static int __cam_custom_ctx_flush_req(struct cam_context *ctx,
 					"Flush req 0x%llx, fence %d",
 					 req->request_id,
 					req_custom->fence_map_out[i].sync_id);
-				memset(&param, 0, sizeof(param));
-				param.sync_obj = req_custom->fence_map_out[i].sync_id;
-				param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
-				param.event_cause = CAM_SYNC_ISP_EVENT_FLUSH;
-				rc = cam_sync_signal(&param, NULL);
+				rc = cam_sync_signal(
+					req_custom->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_CANCEL,
+					CAM_SYNC_COMMON_EVENT_FLUSH);
 				if (rc)
 					CAM_ERR_RATE_LIMIT(CAM_CUSTOM,
 						"signal fence failed\n");
@@ -665,7 +659,6 @@ static int __cam_custom_stop_dev_core(
 	struct cam_custom_dev_ctx_req      *req_custom;
 	struct cam_hw_stop_args             stop;
 	struct cam_custom_stop_args         custom_stop;
-	struct cam_sync_signal_param        param;
 
 	if ((ctx->state != CAM_CTX_FLUSHED) && (ctx_custom->hw_ctx) &&
 		(ctx->hw_mgr_intf->hw_stop)) {
@@ -688,11 +681,10 @@ static int __cam_custom_stop_dev_core(
 			 req_custom->num_fence_map_out);
 		for (i = 0; i < req_custom->num_fence_map_out; i++)
 			if (req_custom->fence_map_out[i].sync_id != -1) {
-				memset(&param, 0, sizeof(param));
-				param.sync_obj = req_custom->fence_map_out[i].sync_id;
-				param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
-				param.event_cause = CAM_SYNC_COMMON_EVENT_STOP;
-				cam_sync_signal(&param, NULL);
+				cam_sync_signal(
+					req_custom->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_CANCEL,
+					CAM_SYNC_COMMON_EVENT_STOP);
 			}
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
@@ -706,11 +698,10 @@ static int __cam_custom_stop_dev_core(
 			 req_custom->num_fence_map_out);
 		for (i = 0; i < req_custom->num_fence_map_out; i++)
 			if (req_custom->fence_map_out[i].sync_id != -1) {
-				memset(&param, 0, sizeof(param));
-				param.sync_obj = req_custom->fence_map_out[i].sync_id;
-				param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
-				param.event_cause = CAM_SYNC_COMMON_EVENT_STOP;
-				cam_sync_signal(&param, NULL);
+				cam_sync_signal(
+					req_custom->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_CANCEL,
+					CAM_SYNC_COMMON_EVENT_STOP);
 			}
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
@@ -724,11 +715,10 @@ static int __cam_custom_stop_dev_core(
 			 req_custom->num_fence_map_out);
 		for (i = 0; i < req_custom->num_fence_map_out; i++)
 			if (req_custom->fence_map_out[i].sync_id != -1) {
-				memset(&param, 0, sizeof(param));
-				param.sync_obj = req_custom->fence_map_out[i].sync_id;
-				param.status = CAM_SYNC_STATE_SIGNALED_CANCEL;
-				param.event_cause = CAM_SYNC_COMMON_EVENT_STOP;
-				cam_sync_signal(&param, NULL);
+				cam_sync_signal(
+					req_custom->fence_map_out[i].sync_id,
+					CAM_SYNC_STATE_SIGNALED_CANCEL,
+					CAM_SYNC_COMMON_EVENT_STOP);
 			}
 		list_add_tail(&req->list, &ctx->free_req_list);
 	}
