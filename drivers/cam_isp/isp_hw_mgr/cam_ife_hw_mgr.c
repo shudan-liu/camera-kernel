@@ -1977,6 +1977,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 		ife_out_res->res_id = out_port->res_type;
 		ife_src_res->num_children++;
 		ife_ctx->num_acq_vfe_out++;
+		if (out_port->secure_mode)
+			ife_ctx->flags.secure_mode = true;
 	}
 
 	return 0;
@@ -4765,7 +4767,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	uint32_t                           total_lite_port = 0;
 	struct cam_isp_acquire_hw_info    *acquire_hw_info = NULL;
 	uint32_t                           input_size = 0;
-
+	uint32_t                           secure_mode = 0;
 	CAM_DBG(CAM_ISP, "Enter...");
 
 	if (!acquire_args || acquire_args->num_acq <= 0) {
@@ -4790,6 +4792,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	ife_ctx->common.cb_priv = acquire_args->context_data;
 	ife_ctx->common.mini_dump_cb = acquire_args->mini_dump_cb;
 	ife_ctx->flags.internal_cdm = false;
+	ife_ctx->flags.secure_mode = false;
 	ife_ctx->common.event_cb = acquire_args->event_cb;
 	ife_ctx->hw_mgr = ife_hw_mgr;
 	ife_ctx->cdm_ops =  cam_cdm_publish_ops();
@@ -4884,7 +4887,6 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 				in_port[i].rdi_count, rc);
 			goto free_res;
 		}
-
 		kfree(in_port[i].data);
 		in_port[i].data = NULL;
 	}
@@ -4905,7 +4907,19 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	if (rc)
 		goto free_res;
 
-	if (ife_ctx->flags.is_dual)
+	if (ife_ctx->flags.is_lite_context && ife_ctx->flags.secure_mode) {
+		for (i = 0; i < ife_ctx->num_base; i++) {
+			if (g_ife_hw_mgr.ife_devices[ife_ctx->base[i].idx]->hw_intf->hw_type
+				== CAM_ISP_HW_TYPE_VFE &&
+				ife_hw_mgr->ife_dev_caps[ife_ctx->base[i].idx].secure_cdm) {
+				secure_mode = 1;
+				break;
+			}
+		}
+	}
+	if (secure_mode)
+		memcpy(cdm_acquire.identifier, "secureife", sizeof("secureife"));
+	else if (ife_ctx->flags.is_dual)
 		memcpy(cdm_acquire.identifier, "dualife", sizeof("dualife"));
 	else
 		memcpy(cdm_acquire.identifier, "ife", sizeof("ife"));
