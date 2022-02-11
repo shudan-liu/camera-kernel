@@ -85,16 +85,18 @@
 #define CAM_CPAS_FEATURE_TYPE_VALUE 2
 
 /* Feature support bit positions in feature fuse register*/
-#define CAM_CPAS_QCFA_BINNING_ENABLE 0
-#define CAM_CPAS_SECURE_CAMERA_ENABLE 1
-#define CAM_CPAS_MF_HDR_ENABLE 2
-#define CAM_CPAS_MP_LIMIT_FUSE 3
-#define CAM_CPAS_ISP_FUSE      4
-#define CAM_CPAS_ISP_PIX_FUSE  5
-#define CAM_CPAS_ISP_LITE_FUSE 6
-#define CAM_CPAS_CSIPHY_FUSE   7
+#define CAM_CPAS_QCFA_BINNING_ENABLE           0
+#define CAM_CPAS_SECURE_CAMERA_ENABLE          1
+#define CAM_CPAS_MF_HDR_ENABLE                 2
+#define CAM_CPAS_MP_LIMIT_FUSE                 3
+#define CAM_CPAS_ISP_FUSE                      4
+#define CAM_CPAS_ISP_PIX_FUSE                  5
+#define CAM_CPAS_ISP_LITE_FUSE                 6
+#define CAM_CPAS_CSIPHY_FUSE                   7
 #define CAM_CPAS_IPE_VID_OUT_8BPP_LIMIT_ENABLE 8
-#define CAM_CPAS_FUSE_FEATURE_MAX 9
+#define CAM_CPAS_ICP_IPE_FUSE                  9
+#define CAM_CPAS_ICP_BPS_FUSE                  10
+#define CAM_CPAS_FUSE_FEATURE_MAX              11
 
 #define CCI_MASTER_0         0
 #define CCI_MASTER_1         1

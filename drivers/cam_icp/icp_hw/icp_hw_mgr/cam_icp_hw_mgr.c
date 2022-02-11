@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/uaccess.h>
@@ -6273,7 +6274,8 @@ static void cam_icp_mgr_free_devs(void)
 		kfree(icp_hw_mgr.devices[i]);
 }
 
-static int cam_icp_mgr_init_devs(struct device_node *np)
+static int cam_icp_mgr_init_devs(struct device_node *np,
+	bool *node_check)
 {
 	int rc;
 	int i, count;
@@ -6323,6 +6325,16 @@ static int cam_icp_mgr_init_devs(struct device_node *np)
 		}
 
 		iface = platform_get_drvdata(pdev);
+		if (!iface && (strcmp(name, "qcom,ipe0") ||
+			strcmp(name, "qcom,bps"))) {
+			CAM_ERR(CAM_ICP,
+				"Invalid interface: iface=%pK, Node %s",
+				iface, name);
+			rc = -EINVAL;
+			*node_check = false;
+			goto free_devices;
+		}
+
 		if (!iface || !iface->hw_ops.process_cmd) {
 			CAM_ERR(CAM_ICP,
 				"invalid interface: iface=%pK process_cmd=%pK",
@@ -6491,7 +6503,7 @@ static int cam_icp_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 }
 
 int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
-	int *iommu_hdl, cam_icp_mini_dump_cb mini_dump_cb)
+	int *iommu_hdl, cam_icp_mini_dump_cb mini_dump_cb, bool *node_check)
 {
 	int i, rc = 0;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
@@ -6563,7 +6575,7 @@ int cam_icp_hw_mgr_init(struct device_node *of_node, uint64_t *hw_mgr_hdl,
 			icp_hw_mgr.bps_enable = true;
 	}
 
-	rc = cam_icp_mgr_init_devs(of_node);
+	rc = cam_icp_mgr_init_devs(of_node, node_check);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "cam_icp_mgr_init_devs fail: rc: %d", rc);
 		goto destroy_mutex;
