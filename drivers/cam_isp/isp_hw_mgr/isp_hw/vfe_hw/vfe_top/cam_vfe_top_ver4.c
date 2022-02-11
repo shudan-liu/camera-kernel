@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -630,11 +629,11 @@ int cam_vfe_top_ver4_get_hw_caps(void *device_priv, void *args, uint32_t arg_siz
 
 	soc_priv = (struct cam_vfe_soc_private *)vfe_top_prv->top_common.soc_info->soc_private;
 
-	vfe_cap_info->is_lite    = soc_priv->is_ife_lite;
-	vfe_cap_info->incr       = (vfe_top_prv->top_common.hw_version) & 0x00ffff;
-	vfe_cap_info->minor      = ((vfe_top_prv->top_common.hw_version) >> 16) & 0x0fff;
-	vfe_cap_info->major      = (vfe_top_prv->top_common.hw_version) >> 28;
-	vfe_cap_info->secure_cdm = vfe_top_prv->common_data.hw_info->secure_cdm_support;
+	vfe_cap_info->is_lite = soc_priv->is_ife_lite;
+	vfe_cap_info->incr    = (vfe_top_prv->top_common.hw_version) & 0x00ffff;
+	vfe_cap_info->minor   = ((vfe_top_prv->top_common.hw_version) >> 16) & 0x0fff;
+	vfe_cap_info->major   = (vfe_top_prv->top_common.hw_version) >> 28;
+
 	return 0;
 }
 

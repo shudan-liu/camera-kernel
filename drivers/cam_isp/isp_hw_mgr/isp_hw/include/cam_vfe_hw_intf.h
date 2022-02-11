@@ -93,19 +93,17 @@ enum cam_vfe_reset_type {
 /*
  * struct cam_vfe_hw_get_hw_cap:
  *
- * @Brief:       Argument type for fetching the hw information for Query caps
- * @major:       Major revision number
- * @minor:       Minor revision number
- * @incr:        Increment revision number
- * @is_lite:     Flag to indicate Whether a full vfe or a Lite vfe
- * @secure_cdm   Flag to indicate whether its secure cdm or not
+ * @Brief:     Argument type for fetching the hw information for Query caps
+ * @major:     Major revision number
+ * @minor:     Minor revision number
+ * @incr:      Increment revision number
+ * @is_lite:   Flag to indicate Whether a full vfe or a Lite vfe
  */
 struct cam_vfe_hw_get_hw_cap {
 	uint32_t major;
 	uint32_t minor;
 	uint32_t incr;
 	bool     is_lite;
-	bool     secure_cdm;
 };
 
 /*

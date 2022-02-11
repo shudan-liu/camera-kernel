@@ -175,7 +175,6 @@ struct cam_ife_hw_mgr_sfe_info {
  *                       The corresponding index will be set
  *                       for the cache type
  * hybrid_acquire        Bool for categorising acquire type.
- * @secure_mode          Flag to check if any out resource is secure
  *
  */
 struct cam_ife_hw_mgr_ctx_flags {
@@ -198,7 +197,6 @@ struct cam_ife_hw_mgr_ctx_flags {
 	bool   rdi_lcr_en;
 	bool   sys_cache_usage[CAM_LLCC_MAX];
 	bool   hybrid_acquire;
-	bool   secure_mode;
 };
 
 /**
