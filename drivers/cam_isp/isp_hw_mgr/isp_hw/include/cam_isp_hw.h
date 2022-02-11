@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_H_
@@ -361,7 +362,7 @@ struct cam_isp_hw_cmd_buf_update {
  * @ stride:           stride of scratch buffer
  * @ slice_height:     slice height of scratch buffer
  * @ io_cfg:           IO buffer config information sent from UMD
- *
+ * @slave_buf_data     Flag to identify slave buf data
  */
 struct cam_isp_hw_get_wm_update {
 	dma_addr_t                     *image_buf;
@@ -375,6 +376,7 @@ struct cam_isp_hw_get_wm_update {
 	uint32_t                        stride;
 	uint32_t                        slice_height;
 	struct cam_buf_io_cfg          *io_cfg;
+	bool                            slave_buf_data;
 };
 
 /*

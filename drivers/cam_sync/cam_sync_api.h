@@ -19,6 +19,20 @@ typedef void (*sync_callback)(int32_t sync_obj, int status, void *data);
 /* Kernel APIs */
 
 /**
+ * struct cam_sync_signal_param - Cam sync signal parameter information
+ *
+ * @sync_obj       int referencing the sync object.
+ * @status         Status of the signaling. Can be either SYNC_SIGNAL_ERROR or
+ *                 SYNC_SIGNAL_SUCCESS.
+ * @event_cause	   Event parameter
+ */
+struct cam_sync_signal_param {
+	int32_t    sync_obj;
+	uint32_t   status;
+	uint32_t   event_cause;
+};
+
+/**
  * @brief: Creates a sync object
  *
  *  The newly created sync obj is assigned to sync_obj.
@@ -74,14 +88,21 @@ int cam_sync_deregister_callback(sync_callback cb_func,
  * is not guaranteed. The status parameter will indicate whether the entity
  * performing the signaling wants to convey an error case or a success case.
  *
- * @param sync_obj: int referencing the sync object.
- * @param status: Status of the signaling. Can be either SYNC_SIGNAL_ERROR or
- * SYNC_SIGNAL_SUCCESS.
- * @param evt_param: Event parameter
+ * @param param: Pointer to cam_sync_signal_param object.
+ * @param timestamp: Pointer to cam_sync_timestamp object.
  *
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-int cam_sync_signal(int32_t sync_obj, uint32_t status, uint32_t evt_param);
+int cam_sync_signal(struct cam_sync_signal_param *param,
+	struct cam_sync_timestamp *timestamp);
+
+/**
+ * @brief: To get sync device version
+ *
+ * @return .Status of operation Sync device version support.
+ */
+
+int cam_sync_get_version(void);
 
 /**
  * @brief: Merges multiple sync objects

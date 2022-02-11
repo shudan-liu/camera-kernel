@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -81,6 +82,12 @@ int cam_sync_create(int32_t *sync_obj, const char *name)
 	spin_unlock_bh(&sync_dev->row_spinlocks[idx]);
 
 	return rc;
+}
+
+int cam_sync_get_version(void) {
+
+	return sync_dev->version;
+
 }
 
 int cam_sync_register_callback(sync_callback cb_func,
@@ -191,7 +198,8 @@ int cam_sync_deregister_callback(sync_callback cb_func,
 	return found ? 0 : -ENOENT;
 }
 
-int cam_sync_signal(int32_t sync_obj, uint32_t status, uint32_t event_cause)
+int cam_sync_signal(struct cam_sync_signal_param *param,
+	struct cam_sync_timestamp *time_stamp)
 {
 	struct sync_table_row *row = NULL;
 	struct sync_table_row *parent_row = NULL;
@@ -199,62 +207,62 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status, uint32_t event_cause)
 	struct list_head parents_list;
 	int rc = 0;
 
-	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0) {
+	if (param->sync_obj >= CAM_SYNC_MAX_OBJS || param->sync_obj <= 0) {
 		CAM_ERR(CAM_SYNC, "Error: Out of range sync obj (0 <= %d < %d)",
-			sync_obj, CAM_SYNC_MAX_OBJS);
+			param->sync_obj, CAM_SYNC_MAX_OBJS);
 		return -EINVAL;
 	}
-	row = sync_dev->sync_table + sync_obj;
-	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
+	row = sync_dev->sync_table + param->sync_obj;
+	spin_lock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 	if (row->state == CAM_SYNC_STATE_INVALID) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 		CAM_ERR(CAM_SYNC,
 			"Error: accessing an uninitialized sync obj = %s[%d]",
 			row->name,
-			sync_obj);
+			param->sync_obj);
 		return -EINVAL;
 	}
 
 	if (row->type == CAM_SYNC_TYPE_GROUP) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 		CAM_ERR(CAM_SYNC,
 			"Error: Signaling a GROUP sync object = %s[%d]",
 			row->name,
-			sync_obj);
+			param->sync_obj);
 		return -EINVAL;
 	}
 
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 		CAM_ERR(CAM_SYNC,
 			"Error: Sync object already signaled sync_obj = %s[%d]",
 			row->name,
-			sync_obj);
+			param->sync_obj);
 		return -EALREADY;
 	}
 
-	if ((status != CAM_SYNC_STATE_SIGNALED_SUCCESS) &&
-		(status != CAM_SYNC_STATE_SIGNALED_ERROR) &&
-		(status != CAM_SYNC_STATE_SIGNALED_CANCEL)) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+	if ((param->status != CAM_SYNC_STATE_SIGNALED_SUCCESS) &&
+		(param->status != CAM_SYNC_STATE_SIGNALED_ERROR) &&
+		(param->status != CAM_SYNC_STATE_SIGNALED_CANCEL)) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 		CAM_ERR(CAM_SYNC,
 			"Error: signaling with undefined status = %d event reason = %u",
-			status, event_cause);
+			param->status, param->event_cause);
 		return -EINVAL;
 	}
 
 	if (!atomic_dec_and_test(&row->ref_cnt)) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 		return 0;
 	}
 
-	row->state = status;
-	cam_sync_util_dispatch_signaled_cb(sync_obj, status, event_cause);
+	row->state = param->status;
+	cam_sync_util_dispatch_signaled_cb(param, time_stamp);
 
 	/* copy parent list to local and release child lock */
 	INIT_LIST_HEAD(&parents_list);
 	list_splice_init(&row->parents_list, &parents_list);
-	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+	spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
 
 	if (list_empty(&parents_list))
 		return 0;
@@ -273,7 +281,7 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status, uint32_t event_cause)
 
 		rc = cam_sync_util_update_parent_state(
 			parent_row,
-			status);
+			param->status);
 		if (rc) {
 			CAM_ERR(CAM_SYNC, "Invalid parent state %d",
 				parent_row->state);
@@ -282,11 +290,10 @@ int cam_sync_signal(int32_t sync_obj, uint32_t status, uint32_t event_cause)
 			kfree(parent_info);
 			continue;
 		}
-
+		param->sync_obj = parent_info->sync_id;
+		param->status = parent_row->state;
 		if (!parent_row->remaining)
-			cam_sync_util_dispatch_signaled_cb(
-				parent_info->sync_id, parent_row->state,
-				event_cause);
+			cam_sync_util_dispatch_signaled_cb(param, time_stamp);
 
 		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
 		list_del_init(&parent_info->list);
@@ -507,6 +514,7 @@ static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 {
 	int rc = 0;
 	struct cam_sync_signal sync_signal;
+	struct cam_sync_signal_param param;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_signal))
 		return -EINVAL;
@@ -527,10 +535,11 @@ static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 			sync_signal.sync_obj);
 		return rc;
 	}
-
-	return cam_sync_signal(sync_signal.sync_obj,
-		sync_signal.sync_state,
-		CAM_SYNC_COMMON_SYNC_SIGNAL_EVENT);
+	memset(&param, 0, sizeof(param));
+	param.sync_obj = sync_signal.sync_obj;
+	param.status = sync_signal.sync_state;
+	param.event_cause = CAM_SYNC_COMMON_SYNC_SIGNAL_EVENT;
+	return cam_sync_signal(&param, NULL);
 }
 
 static int cam_sync_handle_merge(struct cam_private_ioctl_arg *k_ioctl)
@@ -682,7 +691,7 @@ static int cam_sync_handle_register_user_payload(
 			row->state,
 			user_payload_kernel->payload_data,
 			CAM_SYNC_USER_PAYLOAD_SIZE * sizeof(__u64),
-			CAM_SYNC_COMMON_REG_PAYLOAD_EVENT);
+			CAM_SYNC_COMMON_REG_PAYLOAD_EVENT, NULL);
 
 		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		kfree(user_payload_kernel);
@@ -868,6 +877,7 @@ static int cam_sync_close(struct file *filep)
 	int rc = 0;
 	int i;
 	struct sync_device *sync_dev = video_drvdata(filep);
+	struct cam_sync_signal_param param;
 
 	if (!sync_dev) {
 		CAM_ERR(CAM_SYNC, "Sync device NULL");
@@ -887,9 +897,11 @@ static int cam_sync_close(struct file *filep)
 			 * it.
 			 */
 			if (row->state == CAM_SYNC_STATE_ACTIVE) {
-				rc = cam_sync_signal(i,
-					CAM_SYNC_STATE_SIGNALED_ERROR,
-					CAM_SYNC_COMMON_RELEASE_EVENT);
+				memset(&param, 0, sizeof(param));
+				param.sync_obj = i;
+				param.status = CAM_SYNC_STATE_SIGNALED_ERROR;
+				param.event_cause = CAM_SYNC_COMMON_RELEASE_EVENT;
+				rc = cam_sync_signal(&param, NULL);
 				if (rc < 0)
 					CAM_ERR(CAM_SYNC,
 					  "Cleanup signal fail idx:%d\n",
@@ -959,8 +971,7 @@ static struct v4l2_subscribed_event_ops cam_sync_v4l2_ops = {
 int cam_sync_subscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
-	if (!((sub->type == CAM_SYNC_V4L_EVENT) ||
-	(sub->type == CAM_SYNC_V4L_EVENT_V2))) {
+	if (sub->type > CAM_SYNC_V4L_EVENT_V3) {
 		CAM_ERR(CAM_SYNC, "Non supported event type 0x%x", sub->type);
 		return -EINVAL;
 	}
@@ -1089,6 +1100,7 @@ int cam_synx_sync_signal(int32_t sync_obj, uint32_t synx_status)
 {
 	int rc = 0;
 	uint32_t sync_status = synx_status;
+	struct cam_sync_signal_param param;
 
 	switch (synx_status) {
 	case SYNX_STATE_ACTIVE:
@@ -1109,8 +1121,11 @@ int cam_synx_sync_signal(int32_t sync_obj, uint32_t synx_status)
 		sync_status = CAM_SYNC_STATE_SIGNALED_ERROR;
 		break;
 	}
-
-	rc = cam_sync_signal(sync_obj, sync_status, CAM_SYNC_COMMON_EVENT_SYNX);
+	memset(&param, 0, sizeof(param));
+	param.sync_obj = sync_obj;
+	param.status = sync_status;
+	param.event_cause = CAM_SYNC_COMMON_EVENT_SYNX;
+	rc = cam_sync_signal(&param, NULL);
 	if (rc) {
 		CAM_ERR(CAM_SYNC,
 			"synx signal failed with %d, sync_obj=%d, synx_status=%d, sync_status=%d",

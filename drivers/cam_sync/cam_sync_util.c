@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2018, 2020-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sync_util.h"
@@ -305,8 +306,8 @@ void cam_sync_util_cb_dispatch(struct work_struct *cb_dispatch_work)
 	kfree(cb_info);
 }
 
-void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
-	uint32_t status, uint32_t event_cause)
+void cam_sync_util_dispatch_signaled_cb(struct cam_sync_signal_param *param,
+	struct cam_sync_timestamp *time_stamp)
 {
 	struct sync_callback_info  *sync_cb;
 	struct sync_user_payload   *payload_info;
@@ -314,18 +315,18 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
 	struct sync_table_row      *signalable_row;
 	struct sync_user_payload   *temp_payload_info;
 
-	signalable_row = sync_dev->sync_table + sync_obj;
+	signalable_row = sync_dev->sync_table + param->sync_obj;
 	if (signalable_row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_DBG(CAM_SYNC,
 			"Accessing invalid sync object:%s[%i]", signalable_row->name,
-			sync_obj);
+			param->sync_obj);
 		return;
 	}
 
 	/* Dispatch kernel callbacks if any were registered earlier */
 	list_for_each_entry_safe(sync_cb,
 		temp_sync_cb, &signalable_row->callback_list, list) {
-		sync_cb->status = status;
+		sync_cb->status = param->status;
 		list_del_init(&sync_cb->list);
 		queue_work(sync_dev->work_queue,
 			&sync_cb->cb_dispatch_work);
@@ -343,11 +344,11 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
 		spin_unlock_bh(&sync_dev->cam_sync_eventq_lock);
 		cam_sync_util_send_v4l2_event(
 			CAM_SYNC_V4L_EVENT_ID_CB_TRIG,
-			sync_obj,
-			status,
+			param->sync_obj,
+			param->status,
 			payload_info->payload_data,
 			CAM_SYNC_PAYLOAD_WORDS * sizeof(__u64),
-			event_cause);
+			param->event_cause, time_stamp);
 
 		list_del_init(&payload_info->list);
 		/*
@@ -368,8 +369,8 @@ void cam_sync_util_dispatch_signaled_cb(int32_t sync_obj,
 void cam_sync_util_send_v4l2_event(uint32_t id,
 	uint32_t sync_obj,
 	int status,
-	void *payload,
-	int len, uint32_t event_cause)
+	void *payload, int len,
+	uint32_t event_cause, struct cam_sync_timestamp *time_stamp)
 {
 	struct v4l2_event event;
 	__u64 *payload_data = NULL;
@@ -387,6 +388,38 @@ void cam_sync_util_send_v4l2_event(uint32_t id,
 		ev_header->evt_param[CAM_SYNC_EVENT_REASON_CODE_INDEX] =
 			event_cause;
 		payload_data = CAM_SYNC_GET_PAYLOAD_PTR_V2(event, __u64);
+
+	} else if (sync_dev->version == CAM_SYNC_V4L_EVENT_V3) {
+
+		struct cam_sync_ev_header_v3 *ev_header = NULL;
+		event.id = id;
+		event.type = CAM_SYNC_V4L_EVENT_V3;
+
+		ev_header = CAM_SYNC_GET_HEADER_PTR_V3(event);
+		ev_header->sync_obj = sync_obj;
+		ev_header->status = status;
+		ev_header->version = sync_dev->version;
+		ev_header->evt_param[CAM_SYNC_EVENT_REASON_CODE_INDEX] =
+			event_cause;
+		payload_data = CAM_SYNC_GET_PAYLOAD_PTR_V3(event, __u64);
+
+		if (time_stamp) {
+			ev_header->evt_param[CAM_SYNC_EVENT_TRACKER_ID] =
+				time_stamp->tracker_id;
+			ev_header->evt_param[CAM_SYNC_EVENT_SOF_TIMESTAMP] =
+				time_stamp->sof_timestamp & 0xFFFFFFFF;
+			ev_header->evt_param[CAM_SYNC_EVENT_SOF_TIMESTAMP + 1] =
+				(time_stamp->sof_timestamp >> 32) & 0xFFFFFFFF;
+			ev_header->evt_param[CAM_SYNC_EVENT_BOOT_TIMESTAMP] =
+				time_stamp->boot_timestamp & 0xFFFFFFFF;
+			ev_header->evt_param[CAM_SYNC_EVENT_BOOT_TIMESTAMP + 1] =
+				(time_stamp->boot_timestamp >> 32) & 0xFFFFFFFF;
+			ev_header->evt_param[CAM_SYNC_EVENT_SLAVE_TIMESTAMP] =
+				time_stamp->slave_timestamp & 0xFFFFFFFF;
+			ev_header->evt_param[CAM_SYNC_EVENT_SLAVE_TIMESTAMP + 1] =
+				(time_stamp->slave_timestamp >> 32) & 0xFFFFFFFF;
+		}
+
 	} else {
 		struct cam_sync_ev_header *ev_header = NULL;
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_CONTEXT_H_
@@ -57,6 +58,10 @@
 
 /* AEB error count threshold */
 #define CAM_ISP_CONTEXT_AEB_ERROR_CNT_MAX 3
+
+#define CAM_ISP_SLAVE_MSB_MASK            0xFFFFFF
+#define CAM_ISP_SLAVE_TS_FIRST_INDEX      4
+#define CAM_ISP_SLAVE_TS_SECOND_INDEX     5
 
 /* forward declaration */
 struct cam_isp_context;
@@ -287,6 +292,7 @@ struct cam_isp_context_event_record {
  * @v4l2_event_sub_ids         contains individual bits representing subscribed v4l2 ids
  * @aeb_enabled:               Indicate if stream is for AEB
  * @do_internal_recovery:      Enable KMD halt/reset/resume internal recovery
+ * @hybrid_acquire             flag to understand hybrid acquire model
  *
  */
 struct cam_isp_context {
@@ -342,6 +348,7 @@ struct cam_isp_context {
 	uint32_t                              v4l2_event_sub_ids;
 	bool                                  aeb_enabled;
 	bool                                  do_internal_recovery;
+	uint32_t                              hybrid_acquire;
 };
 
 /**
