@@ -12177,72 +12177,9 @@ static int cam_ife_hw_mgr_handle_csid_frame_drop(
 	return rc;
 }
 
-static int cam_ife_hw_mgr_util_csid_error(
-	struct   cam_isp_hw_event_info *event_info,
-	void                           *ctx)
-{
-	int                                      rc = -EINVAL;
-	uint32_t                                 err_type;
-	struct cam_isp_hw_error_event_info      *err_evt_info;
-	struct cam_isp_hw_error_event_data       error_event_data = {0};
-	struct cam_ife_hw_event_recovery_data    recovery_data = {0};
-	struct cam_ife_hw_mgr_ctx               *ife_hw_mgr_ctx;
-
-	ife_hw_mgr_ctx = (struct cam_ife_hw_mgr_ctx *)ctx;
-	err_evt_info = (struct cam_isp_hw_error_event_info *)event_info->event_data;
-	err_type = err_evt_info->err_type;
-
-	spin_lock(&g_ife_hw_mgr.ctx_lock);
-
-	if (err_type & CAM_ISP_HW_ERROR_CSID_SENSOR_FRAME_DROP)
-		cam_ife_hw_mgr_handle_csid_frame_drop(event_info, ctx);
-
-	if (err_type & CAM_ISP_HW_ERROR_CSID_FATAL) {
-
-		error_event_data.error_type = CAM_ISP_HW_ERROR_CSID_FATAL;
-		error_event_data.error_code = CAM_REQ_MGR_ERROR_TYPE_HOST_FATAL_RECOVERY;
-		rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
-			event_info->hw_idx, &recovery_data);
-		goto end;
-	}
-
-	if (err_type & (CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW |
-		CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW |
-		CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)) {
-
-		cam_ife_hw_mgr_notify_overflow(event_info, ctx);
-		error_event_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
-		if ((err_type & CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW) ||
-			(err_type & CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW))
-			error_event_data.error_code |=
-				CAM_REQ_MGR_ERROR_TYPE_HOST_RECOVERY;
-		if (err_type & CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)
-			error_event_data.error_code |=
-				CAM_REQ_MGR_ERROR_TYPE_HOST_ERROR;
-		rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
-			event_info->hw_idx, &recovery_data);
-	}
-
-end:
-
-	if (rc || !recovery_data.no_of_context)
-		goto skip_recovery;
-
-	recovery_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
-	cam_ife_hw_mgr_do_error_recovery(&recovery_data);
-	CAM_DBG(CAM_ISP, "Exit CSID[%u] error %d", event_info->hw_idx,
-		err_type);
-
-skip_recovery:
-	spin_unlock(&g_ife_hw_mgr.ctx_lock);
-	return 0;
-}
-
-
 static int cam_ife_hw_mgr_handle_csid_error(
 	struct cam_ife_hw_mgr_ctx      *ctx,
 	struct cam_isp_hw_event_info   *event_info)
-
 {
 	int                                      rc = -EINVAL;
 	uint32_t                                 err_type;
@@ -12259,42 +12196,39 @@ static int cam_ife_hw_mgr_handle_csid_error(
 
 	err_evt_info = (struct cam_isp_hw_error_event_info *)event_info->event_data;
 	err_type = err_evt_info->err_type;
-
 	CAM_DBG(CAM_ISP, "Entry CSID[%u] error %d", event_info->hw_idx, err_type);
 
-	if (ctx->flags.hybrid_acquire) {
-		rc = cam_ife_hw_mgr_util_csid_error(event_info, ctx);
-		return rc;
-	} else {
-		spin_lock(&g_ife_hw_mgr.ctx_lock);
-		if ((err_type & CAM_ISP_HW_ERROR_CSID_FATAL) &&
-			g_ife_hw_mgr.debug_cfg.enable_csid_recovery) {
+	spin_lock(&g_ife_hw_mgr.ctx_lock);
+	if (err_type & CAM_ISP_HW_ERROR_CSID_SENSOR_FRAME_DROP)
+		cam_ife_hw_mgr_handle_csid_frame_drop(event_info, ctx);
 
-			error_event_data.error_type = CAM_ISP_HW_ERROR_CSID_FATAL;
-			error_event_data.error_code = CAM_REQ_MGR_CSID_FATAL_ERROR;
-			rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
-				event_info->hw_idx, &recovery_data);
-			goto end;
-		}
+	if ((err_type & CAM_ISP_HW_ERROR_CSID_FATAL) &&
+		g_ife_hw_mgr.debug_cfg.enable_csid_recovery) {
 
-		if (err_type & (CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW |
-			CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW |
-			CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)) {
+		error_event_data.error_type = CAM_ISP_HW_ERROR_CSID_FATAL;
+		error_event_data.error_code = CAM_REQ_MGR_CSID_FATAL_ERROR;
+		rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
+			event_info->hw_idx, &recovery_data);
+		goto end;
+	}
 
-			cam_ife_hw_mgr_notify_overflow(event_info, ctx);
-			error_event_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
-			if (err_type & CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW)
-				error_event_data.error_code |=
-					CAM_REQ_MGR_CSID_FIFO_OVERFLOW_ERROR;
-			if (err_type & CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW)
-				error_event_data.error_code |=
-					CAM_REQ_MGR_CSID_RECOVERY_OVERFLOW_ERROR;
-			if (err_type & CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)
-				error_event_data.error_code |=
-					CAM_REQ_MGR_CSID_PIXEL_COUNT_MISMATCH;
-			rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
-				event_info->hw_idx, &recovery_data);
-		}
+	if (err_type & (CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW |
+		CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW |
+		CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)) {
+
+		cam_ife_hw_mgr_notify_overflow(event_info, ctx);
+		error_event_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
+		if (err_type & CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW)
+			error_event_data.error_code |=
+				CAM_REQ_MGR_CSID_FIFO_OVERFLOW_ERROR;
+		if (err_type & CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW)
+			error_event_data.error_code |=
+				CAM_REQ_MGR_CSID_RECOVERY_OVERFLOW_ERROR;
+		if (err_type & CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)
+			error_event_data.error_code |=
+				CAM_REQ_MGR_CSID_PIXEL_COUNT_MISMATCH;
+		rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
+			event_info->hw_idx, &recovery_data);
 	}
 
 end:
@@ -12311,7 +12245,6 @@ skip_recovery:
 	spin_unlock(&g_ife_hw_mgr.ctx_lock);
 	return 0;
 }
-
 
 static int cam_ife_hw_mgr_handle_csid_rup(
 	struct cam_ife_hw_mgr_ctx        *ife_hw_mgr_ctx,
@@ -12606,10 +12539,7 @@ static int cam_ife_hw_mgr_handle_hw_err(
 	if (g_ife_hw_mgr.debug_cfg.enable_req_dump)
 		error_event_data.enable_req_dump = true;
 
-	if (ife_hw_mgr_ctx->flags.hybrid_acquire)
-		error_event_data.error_code = CAM_REQ_MGR_ERROR_TYPE_HOST_RECOVERY;
-	else
-		error_event_data.error_code = CAM_REQ_MGR_ISP_UNREPORTED_ERROR;
+	error_event_data.error_code = CAM_REQ_MGR_ISP_UNREPORTED_ERROR;
 
 	rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
 		core_idx, &recovery_data);
