@@ -778,7 +778,9 @@ static void __cam_req_mgr_validate_crm_wd_timer(
 		"rd_idx: %d idx: %d curr_req_id: %lld current_frame_timeout: %d ms",
 		in_q->rd_idx, idx, current_req_id, current_frame_timeout);
 
-	if ((current_req_id == -1) && (next_req_id == -1)) {
+	if ((link->trigger_type &&
+		in_q->slot[in_q->rd_idx].status != CRM_SLOT_STATUS_REQ_APPLIED) ||
+		((current_req_id == -1) && (next_req_id == -1))) {
 		CAM_DBG(CAM_CRM,
 			"Skip modifying wd timer, continue with same timeout");
 		return;
@@ -3738,8 +3740,10 @@ static int cam_req_mgr_cb_notify_trigger(
 		}
 	}
 
-	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF)
+	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF && !link->trigger_type)
 		crm_timer_reset(link->watchdog);
+	else if (link->trigger_type)
+		crm_timer_modify(link->watchdog, CAM_REQ_MGR_WATCHDOG_MAX_TIMEOUT);
 
 	spin_unlock_bh(&link->link_state_spin_lock);
 
@@ -4839,9 +4843,16 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 				"Activate link: 0x%x init_timeout: %d ms",
 				link->link_hdl, control->init_timeout[i]);
 			/* Start SOF watchdog timer */
-			rc = crm_timer_init(&link->watchdog,
+			if (link->trigger_type) {
+				rc = crm_timer_init(&link->watchdog,
+				CAM_REQ_MGR_WATCHDOG_MAX_TIMEOUT,
+				link, &__cam_req_mgr_sof_freeze);
+			} else {
+				rc = crm_timer_init(&link->watchdog,
 				(init_timeout + CAM_REQ_MGR_WATCHDOG_TIMEOUT),
 				link, &__cam_req_mgr_sof_freeze);
+			}
+
 			if (rc < 0) {
 				CAM_ERR(CAM_CRM,
 					"SOF timer start fails: link=0x%x",
