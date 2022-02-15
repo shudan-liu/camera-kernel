@@ -5056,6 +5056,10 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	if ((in_port->aeb_mode) && (!ife_ctx->flags.is_aeb_mode))
 		ife_ctx->flags.is_aeb_mode = true;
 
+	/* Update independent crm mode for the given in_port once */
+	if ((in_port->independent_crm_mode) && (!ife_ctx->flags.is_independent_crm_mode))
+		ife_ctx->flags.is_independent_crm_mode = true;
+
 	/* get root node resource */
 	rc = cam_ife_hw_mgr_acquire_res_root(ife_ctx, in_port);
 	if (rc) {
@@ -5396,6 +5400,7 @@ static inline void cam_ife_mgr_acquire_get_feature_flag_params(
 	in_port->sfe_binned_epoch_cfg     = in->feature_flag & CAM_ISP_SFE_BINNED_EPOCH_CFG_ENABLE;
 	in_port->epd_supported            = in->feature_flag & CAM_ISP_EPD_SUPPORT;
 	in_port->aeb_mode                 = in->feature_flag & CAM_ISP_AEB_MODE_EN;
+	in_port->independent_crm_mode     = in->feature_flag & CAM_ISP_INDEPENDENT_CRM;
 }
 
 static inline void cam_ife_mgr_acquire_get_feature_flag_params_v3(
@@ -5408,6 +5413,7 @@ static inline void cam_ife_mgr_acquire_get_feature_flag_params_v3(
 	in_port->sfe_binned_epoch_cfg     = in->feature_flag & CAM_ISP_SFE_BINNED_EPOCH_CFG_ENABLE;
 	in_port->epd_supported            = in->feature_flag & CAM_ISP_EPD_SUPPORT;
 	in_port->aeb_mode                 = in->feature_flag & CAM_ISP_AEB_MODE_EN;
+	in_port->independent_crm_mode     = in->feature_flag & CAM_ISP_INDEPENDENT_CRM;
 }
 
 static int cam_ife_mgr_acquire_get_unified_structure_v2(
@@ -5932,6 +5938,9 @@ out:
 
 	if (ife_ctx->flags.is_aeb_mode)
 		acquire_args->op_flags |= CAM_IFE_CTX_AEB_EN;
+
+	if (ife_ctx->flags.is_independent_crm_mode)
+		acquire_args->op_flags |= CAM_IFE_CTX_INDEPENDENT_CRM_EN;
 
 	ife_ctx->flags.ctx_in_use = true;
 	ife_ctx->num_reg_dump_buf = 0;
@@ -12669,6 +12678,9 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			CAM_DBG(CAM_ISP, "virtual release in_port %d");
 			rc = cam_ife_mgr_release_virt_hw_for_ctx(ctx,
 					&ctx->in_ports[ctx->num_processed], true);
+			break;
+		case CAM_HW_MGR_CMD_GET_WORKQ:
+			isp_hw_cmd_args->cmd_data = ctx->common.workq_info;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",

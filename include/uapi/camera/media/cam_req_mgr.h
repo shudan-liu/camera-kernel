@@ -39,8 +39,9 @@
 #define CAM_CSIPHY_REMOTE_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 20)
 
 /* sensor mode: streaming or fsync trigger base */
-#define CAM_REQ_MGR_LINK_STREAMING_TYPE      1
-#define CAM_REQ_MGR_LINK_TRIGGER_TYPE        2
+#define CAM_REQ_MGR_LINK_STREAMING_TYPE       1
+#define CAM_REQ_MGR_LINK_TRIGGER_TYPE         2
+#define CAM_REQ_MGR_LINK_INDEPENDENT_CRM_TYPE 4
 
 /* cam_req_mgr hdl info */
 #define CAM_REQ_MGR_HDL_IDX_POS           8
