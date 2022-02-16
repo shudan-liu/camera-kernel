@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2018,2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -56,6 +58,22 @@ int32_t cam_camera_cci_i2c_read_seq(struct cam_sensor_cci_client *client,
 	enum camera_sensor_i2c_type addr_type,
 	enum camera_sensor_i2c_type data_type,
 	uint32_t num_byte);
+
+/**
+ * @client: CCI client structure
+ * @addr: I2c address
+ * @data: I2C data
+ * @addr_type: I2c address type
+ * @data_type: I2c data type
+ * @count: count of data
+ *
+ * This API handles CCI burst read
+ */
+int32_t cam_camera_cci_i2c_read_burst(struct cam_sensor_cci_client *cci_client,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type,
+	uint32_t count);
 
 /**
  * @client: CCI client structure

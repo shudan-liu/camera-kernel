@@ -1,3 +1,7 @@
+/* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ */
+
 #ifndef _UAPI_AIS_V4L2_H
 #define _UAPI_AIS_V4L2_H
 
@@ -28,8 +32,9 @@ enum AIS_V4L2_NOTIFY_CMD {
 	AIS_V4L2_PARAM_EVENT,       /* notify the capture side the param event */
 	AIS_V4L2_ALLOC_BUFS,        /* notify the output side alloc the bufs */
 	AIS_V4L2_OUTPUT_BUF_READY,  /* notify the output side buf ready */
-	AIS_V4L2_EVENT_INPUT_SIGNAL,/* nofity the capture side the input signal, qcarcam_input_signal_t payload */
-	AIS_V4L2_EVENT_ERROR,       /* nofity the capture side the error, qcarcam_event_error_t payload */
+	AIS_V4L2_EVENT_INPUT_SIGNAL,/* nofity the capture side the input */
+	AIS_V4L2_EVENT_ERROR,       /* nofity the capture side the error */
+	AIS_V4L2_EVENT_FRAME_DROP,  /* nofity the capture side frame drop*/
 };
 
 enum AIS_V4L2_PARAM_CODE {
@@ -67,6 +72,7 @@ enum AIS_V4L2_PARAM_CODE {
 	AIS_V4L2_PARAM_EVENT_CHANGE_UNSUBSCRIBE, /* Event unsubscribe */
 	AIS_V4L2_PARAM_RECOVERY,             /* Should recovery mechanism be active or not. */
 	AIS_V4L2_PARAM_BATCH_MODE,
+	AIS_V4L2_PARAM_ISP_USECASE,          /* ISP usecase */
 	AIS_V4L2_PARAM_NUM,                  /* total number of valid parameters. */
 
 	AIS_V4L2_PARAM_MAX = 0x7FFFFFFF
@@ -84,6 +90,7 @@ enum AIS_V4L2_OUTPUT_PRIVATE_CMD {
 	AIS_V4L2_OUTPUT_PRIV_SET_BUFS,
 	AIS_V4L2_OUTPUT_PRIV_SET_INPUT_SIGNAL_EVENT,
 	AIS_V4L2_OUTPUT_PRIV_SET_ERROR_EVENT,
+	AIS_V4L2_OUTPUT_PRIV_SET_FRAME_DROP_EVENT,
 };
 
 enum AIS_V4L2_CAPTURE_PRIVATE_CMD {

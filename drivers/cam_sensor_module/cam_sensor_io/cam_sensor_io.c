@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018,2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -84,6 +86,22 @@ int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 	} else {
 		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
 			io_master_info->master_type);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+int32_t camera_io_dev_read_burst(struct camera_io_master *io_master_info,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type, uint32_t count)
+{
+	if (io_master_info->master_type == CCI_MASTER) {
+		return cam_camera_cci_i2c_read_burst(io_master_info->cci_client,
+					addr, data, addr_type, data_type, count);
+	} else {
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+					io_master_info->master_type);
 		return -EINVAL;
 	}
 	return 0;

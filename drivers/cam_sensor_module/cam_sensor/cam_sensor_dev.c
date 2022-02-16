@@ -354,6 +354,7 @@ static int32_t cam_sensor_driver_platform_probe(
 	s_ctrl->sensordata->power_info.dev = &pdev->dev;
 	platform_set_drvdata(pdev, s_ctrl);
 	s_ctrl->sensor_state = CAM_SENSOR_INIT;
+	s_ctrl->no_lpm_mode_enabled = false;
 
 	return rc;
 unreg_subdev:
@@ -369,31 +370,22 @@ static int cam_pm_sensor_suspend(struct device *pdev)
 	struct cam_control cam_cmd = {};
 	int rc = 0;
 
-	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_DOWN");
-	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_DOWN;
+	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_POWER_DOWN");
+	cam_cmd.op_code     = AIS_SENSOR_POWER_DOWN;
 	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
 	cam_cmd.size        = 0;
 	s_ctrl = dev_get_drvdata(pdev);
 	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+	/* will return success if its already powered down or device is not connected */
+	if (rc == -EINVAL || rc == -ENODEV) {
+		s_ctrl->no_lpm_mode_enabled = true;
+		rc = 0;
+	}
+	else {
+		s_ctrl->no_lpm_mode_enabled = false;
+	}
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_DOWN sensor");
-	return rc;
-}
-
-static int cam_pm_sensor_resume(struct device *pdev)
-{
-	struct cam_sensor_ctrl_t  *s_ctrl;
-	struct cam_control cam_cmd = {};
-	int rc = 0;
-
-	CAM_DBG(CAM_SENSOR, "Call AIS_SENSOR_I2C_POWER_UP");
-	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_UP;
-	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
-	cam_cmd.size        = 0;
-	s_ctrl = dev_get_drvdata(pdev);
-	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
-	if (rc < 0)
-		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_UP sensor");
 	return rc;
 }
 
@@ -409,6 +401,9 @@ static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
 	cam_cmd.size        = 0;
 	s_ctrl = dev_get_drvdata(pdev);
 	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+	/* will return success if its already powered down or device is not connected */
+	if (rc == -EINVAL || rc == -ENODEV)
+		rc = 0;
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_DOWN sensor");
 	return rc;
@@ -417,7 +412,6 @@ static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
 static const struct dev_pm_ops cam_pm_hiber_ops = {
 	.freeze = &cam_pm_sensor_hibernation_suspend,
 	.suspend = &cam_pm_sensor_suspend,
-	.resume = &cam_pm_sensor_resume,
 };
 
 MODULE_DEVICE_TABLE(of, cam_sensor_driver_dt_match);

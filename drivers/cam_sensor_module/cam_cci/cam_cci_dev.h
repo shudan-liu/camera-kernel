@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -86,6 +88,7 @@ enum cam_cci_cmd_type {
 	MSM_CCI_SET_FREQ,
 	MSM_CCI_SET_SYNC_CID,
 	MSM_CCI_I2C_READ,
+	MSM_CCI_I2C_READ_BURST,
 	MSM_CCI_I2C_WRITE,
 	MSM_CCI_I2C_WRITE_SEQ,
 	MSM_CCI_I2C_WRITE_BURST,

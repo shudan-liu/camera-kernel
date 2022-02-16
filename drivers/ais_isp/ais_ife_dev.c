@@ -385,18 +385,18 @@ static int ais_ife_driver_cmd(struct ais_ife_dev *p_ife_dev, void *arg)
 		} else {
 			rc = vfe_drv->hw_ops.start(
 				vfe_drv->hw_priv, &rdi_start, cmd->size);
-                        if (!rc) {
-                            rc = csid_drv->hw_ops.start(
-                                    csid_drv->hw_priv, &rdi_start,
-                                    cmd->size);
-                            if (rc) {
-                                struct ais_ife_rdi_stop_args rdi_stop;
+				if (!rc) {
+					rc = csid_drv->hw_ops.start(
+							csid_drv->hw_priv, &rdi_start,
+							cmd->size);
+					if (rc) {
+						struct ais_ife_rdi_stop_args rdi_stop;
 
-                                rdi_stop.path = rdi_start.path;
-                                vfe_drv->hw_ops.stop(vfe_drv->hw_priv,
-                                        &rdi_stop, sizeof(rdi_stop));
-                        }
-                }
+						rdi_stop.path = rdi_start.path;
+						vfe_drv->hw_ops.stop(vfe_drv->hw_priv,
+								&rdi_stop, sizeof(rdi_stop));
+				}
+			}
 		}
 	}
 		break;
@@ -614,7 +614,11 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 		&p_ife_dev->iommu_hdl_secure);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Failed to get secure iommu handle %d", rc);
-		goto secure_fail;
+		/*
+		 * not goto fail if get failed for now
+		 * workround for direwolf ife sid not config by TZ
+		 */
+		//goto secure_fail;
 	}
 
 	CAM_DBG(CAM_ISP, "iommu_handles: non-secure[0x%x], secure[0x%x]",
@@ -624,8 +628,10 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 	cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl,
 			ais_ife_dev_iommu_fault_handler, p_ife_dev);
 
-	cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl_secure,
-			ais_ife_dev_iommu_fault_handler, p_ife_dev);
+	if (p_ife_dev->iommu_hdl_secure) {
+		cam_smmu_set_client_page_fault_handler(p_ife_dev->iommu_hdl_secure,
+				ais_ife_dev_iommu_fault_handler, p_ife_dev);
+	}
 
 	hw_init.hw_idx = p_ife_dev->hw_idx;
 	hw_init.iommu_hdl = p_ife_dev->iommu_hdl;
