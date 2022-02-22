@@ -1517,6 +1517,7 @@ static int cam_convert_hw_idx_to_ife_hw_num(int hw_idx)
 		case CAM_CPAS_TITAN_580_V100:
 		case CAM_CPAS_TITAN_570_V200:
 		case CAM_CPAS_TITAN_165_V100:
+		case CAM_CPAS_TITAN_150_V100:
 			if (hw_idx == 0)
 				return CAM_ISP_IFE0_HW;
 			else if (hw_idx == 1)
@@ -2182,6 +2183,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
 	enum cam_ife_pix_path_res_id         path_res_id;
 
+	uint32_t hw_version = 0;
+
 	ife_hw_mgr = ife_ctx->hw_mgr;
 
 	for (i = 0; i < in_port->num_out_res; i++) {
@@ -2221,8 +2224,17 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		 * Enable RDI pixel drop by default. CSID will enable only for
 		 * ver 480 HW to allow userspace to control pixel drop pattern.
 		 */
-		csid_acquire.drop_enable = true;
-		csid_acquire.crop_enable = true;
+		rc = cam_cpas_get_cpas_hw_version(&hw_version);
+		if (hw_version == CAM_CPAS_TITAN_150_V100)
+		{
+		    csid_acquire.drop_enable = false;
+		    csid_acquire.crop_enable = false;
+		}
+		else
+		{
+		    csid_acquire.drop_enable = true;
+		    csid_acquire.crop_enable = true;
+		}
 
 		if (in_port->usage_type)
 			csid_acquire.sync_mode = CAM_ISP_HW_SYNC_MASTER;

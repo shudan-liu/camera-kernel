@@ -74,6 +74,8 @@ static struct cam_vfe_camif_reg_data vfe_170_camif_reg_data = {
 	.eof_irq_mask                    = 0x00000002,
 	.error_irq_mask0                 = 0x0003FC00,
 	.error_irq_mask1                 = 0x0FFF7E80,
+	.subscribe_irq_mask0             = 0x00000017,
+	.subscribe_irq_mask1             = 0x00000000,
 	.enable_diagnostic_hw            = 0x1,
 };
 
@@ -124,6 +126,13 @@ static struct cam_vfe_top_ver2_reg_offset_common vfe170_top_common_reg = {
 
 static struct cam_vfe_rdi_ver2_reg vfe170_rdi_reg = {
 	.reg_update_cmd           = 0x000004AC,
+};
+
+static struct cam_vfe_rdi_common_reg_data vfe170_rdi_reg_data = {
+	.subscribe_irq_mask0      = 0x780001E0,
+	.subscribe_irq_mask1      = 0x0,
+	.error_irq_mask0          = 0x0,
+	.error_irq_mask1          = 0x3C,
 };
 
 static struct cam_vfe_rdi_reg_data  vfe_170_rdi_0_data = {
@@ -194,6 +203,7 @@ static struct cam_vfe_top_ver2_hw_info vfe170_top_hw_info = {
 		.common_reg      = &vfe170_top_common_reg,
 		.rdi_reg         = &vfe170_rdi_reg,
 		.rdi_irq_status  = &vfe170_rdi_irq_status,
+		.common_reg_data = &vfe170_rdi_reg_data,
 		.reg_data = {
 			&vfe_170_rdi_0_data,
 			&vfe_170_rdi_1_data,
