@@ -8920,6 +8920,15 @@ static int cam_ife_mgr_check_start_processing(void *hw_mgr_priv,
 			}
 		}
 		if (found) {
+
+			if (c_elem->cfg.request_id != 0) {
+				ife_ctx->waiting_start = false;
+				atomic_set(&ife_ctx->ctx_state,
+						CAM_IFE_HW_STATE_BUSY);
+			} else {
+				ife_ctx->waiting_start = true;
+				ife_ctx->start_ctx_idx = c_elem->ctx_idx;
+			}
 			ife_ctx->served_ctx_w = 1 - ife_ctx->served_ctx_w;
 			ife_ctx->served_ctx_id[ife_ctx->served_ctx_w] =
 							run_hw_mgr_ctx->ctx_idx;
@@ -8929,17 +8938,6 @@ static int cam_ife_mgr_check_start_processing(void *hw_mgr_priv,
 			c_elem->cfg.num_hw_update_entries =
 				c_elem->prepare.num_hw_update_entries;
 			rc = cam_ife_mgr_config_hw(hw_mgr_priv, &c_elem->cfg);
-			/* For the zero request we do not get event,
-			 * so restore state
-			 */
-			if (c_elem->cfg.request_id != 0) {
-				ife_ctx->waiting_start = false;
-				atomic_set(&ife_ctx->ctx_state,
-						CAM_IFE_HW_STATE_BUSY);
-			} else {
-				ife_ctx->waiting_start = true;
-				ife_ctx->start_ctx_idx = c_elem->ctx_idx;
-			}
 		}
 	}
 
@@ -9084,6 +9082,7 @@ static int cam_ife_mgr_v_acquire(void *hw_mgr_priv, void *acquire_hw_args)
 			ife_mgr_ctx = &ife_hw_mgr->virt_ctx_pool[i];
 			ife_mgr_ctx->ctx_in_use = true;
 			ife_mgr_ctx->ctx_idx = i;
+			ife_mgr_ctx->is_offline = false;
 			break;
 		}
 	}
