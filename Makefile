@@ -47,6 +47,15 @@ LINUXINCLUDE += \
 		-include $(srctree)/techpack/ais/config/hanacameraconf.h
 endif
 
+ifeq ($(CONFIG_ARCH_DIREWOLF), y)
+include $(srctree)/techpack/ais/config/direwolfcamera.conf
+endif
+
+ifeq ($(CONFIG_ARCH_DIREWOLF), y)
+LINUXINCLUDE += \
+		-include $(srctree)/techpack/ais/config/direwolfcameraconf.h
+endif
+
 ifeq ($(CONFIG_QTI_QUIN_GVM), y)
 include $(srctree)/techpack/ais/config/hanagvmcamera.conf
 endif

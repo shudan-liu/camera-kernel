@@ -1,4 +1,4 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -50,6 +50,7 @@ enum cam_cpas_hw_version {
 	CAM_CPAS_TITAN_175_V101 = 0x175101,
 	CAM_CPAS_TITAN_175_V111 = 0x175111,
 	CAM_CPAS_TITAN_175_V120 = 0x175120,
+	CAM_CPAS_TITAN_175_V200 = 0x175200,
 	CAM_CPAS_TITAN_MAX
 };
 
@@ -84,7 +85,9 @@ enum cam_cpas_hw_version {
 enum cam_camnoc_irq_type {
 	CAM_CAMNOC_IRQ_SLAVE_ERROR,
 	CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR,
+	CAM_CAMNOC_IRQ_IFE01_UBWC_ENCODE_ERROR = CAM_CAMNOC_IRQ_IFE02_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR,
+	CAM_CAMNOC_IRQ_IFE23_UBWC_ENCODE_ERROR = CAM_CAMNOC_IRQ_IFE13_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_IRQ_IFE0_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_IRQ_IFE1_WRITE_UBWC_ENCODE_ERROR,
 	CAM_CAMNOC_IRQ_IPE_BPS_UBWC_DECODE_ERROR,

@@ -1,13 +1,6 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
  */
 
 #define pr_fmt(fmt) "CAM-REQ-MGR_UTIL %s:%d " fmt, __func__, __LINE__
@@ -21,6 +14,7 @@
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_util.h"
 #include "cam_debug_util.h"
+#include "cam_subdev.h"
 
 static struct cam_req_mgr_util_hdl_tbl *hdl_tbl;
 static DEFINE_SPINLOCK(hdl_tbl_lock);
@@ -120,10 +114,8 @@ static int32_t cam_get_free_handle_index(void)
 
 	idx = find_first_zero_bit(hdl_tbl->bitmap, hdl_tbl->bits);
 
-	if (idx >= CAM_REQ_MGR_MAX_HANDLES || idx < 0) {
-		CAM_ERR(CAM_CRM, "No free index found idx: %d", idx);
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES || idx < 0)
 		return -ENOSR;
-	}
 
 	set_bit(idx, hdl_tbl->bitmap);
 
@@ -168,6 +160,14 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	int idx;
 	int rand = 0;
 	int32_t handle;
+	bool crm_active;
+
+	crm_active = cam_req_mgr_is_open();
+	if (!crm_active) {
+		CAM_ERR(CAM_ICP, "CRM is not ACTIVE");
+		spin_unlock_bh(&hdl_tbl_lock);
+		return -EINVAL;
+	}
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
@@ -178,8 +178,7 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 
 	idx = cam_get_free_handle_index();
 	if (idx < 0) {
-		CAM_ERR(CAM_CRM,
-			"Unable to create device handle(idx= %d)", idx);
+		CAM_ERR(CAM_CRM, "Unable to create device handle");
 		spin_unlock_bh(&hdl_tbl_lock);
 		return idx;
 	}
