@@ -1879,7 +1879,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 		vfe_in_res_id, vfe_out_res_id);
 
 	vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_OUT;
-	vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	vfe_acquire.workq = ife_ctx->common.workq_info;
 
 	ife_out_res = &ife_ctx->res_list_ife_out[vfe_out_res_id & 0xFF];
 	for (i = 0; i < in_port->num_out_res; i++) {
@@ -1974,7 +1974,7 @@ static int cam_ife_hw_mgr_acquire_res_vife_out_pixel(
 		ife_out_res->is_dual_isp = in_port->usage_type;
 
 		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_OUT;
-		vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+		vfe_acquire.workq = ife_ctx->common.workq_info;
 		vfe_acquire.vfe_out.cdm_ops = ife_ctx->cdm_ops;
 		vfe_acquire.priv = ife_ctx;
 		vfe_acquire.vfe_out.out_port_info =  out_port;
@@ -2075,7 +2075,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 		ife_out_res->is_dual_isp = in_port->usage_type;
 
 		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_OUT;
-		vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+		vfe_acquire.workq = ife_ctx->common.workq_info;
 		vfe_acquire.vfe_out.cdm_ops = ife_ctx->cdm_ops;
 		vfe_acquire.priv = ife_ctx;
 		vfe_acquire.vfe_out.out_port_info =  out_port;
@@ -2186,7 +2186,7 @@ static int cam_ife_hw_mgr_acquire_res_sfe_out_rdi(
 		sfe_in_res_id, sfe_out_res_id);
 
 	sfe_acquire.rsrc_type = CAM_ISP_RESOURCE_SFE_OUT;
-	sfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	sfe_acquire.workq = ife_ctx->common.workq_info;
 
 	sfe_out_res = &ife_ctx->res_list_sfe_out[sfe_out_res_id & 0xFF];
 	for (i = 0; i < in_port->num_out_res; i++) {
@@ -2269,7 +2269,7 @@ static int cam_ife_hw_mgr_acquire_res_sfe_out_pix(
 		sfe_out_res->is_dual_isp = in_port->usage_type;
 
 		sfe_acquire.rsrc_type = CAM_ISP_RESOURCE_SFE_OUT;
-		sfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+		sfe_acquire.workq = ife_ctx->common.workq_info;
 		sfe_acquire.sfe_out.cdm_ops = ife_ctx->cdm_ops;
 		sfe_acquire.priv = ife_ctx;
 		sfe_acquire.sfe_out.out_port_info =  out_port;
@@ -2647,7 +2647,7 @@ static int cam_ife_hw_mgr_acquire_res_sfe_src(
 
 		is_rdi = false;
 		sfe_acquire.rsrc_type = CAM_ISP_RESOURCE_SFE_IN;
-		sfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+		sfe_acquire.workq = ife_ctx->common.workq_info;
 		sfe_acquire.sfe_in.cdm_ops = ife_ctx->cdm_ops;
 		sfe_acquire.sfe_in.in_port = in_port;
 		sfe_acquire.sfe_in.is_offline = ife_ctx->flags.is_offline;
@@ -2779,7 +2779,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_bus_rd(
 	}
 
 	vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_BUS_RD;
-	vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	vfe_acquire.workq = ife_ctx->common.workq_info;
 	vfe_acquire.priv = ife_ctx;
 	vfe_acquire.event_cb = cam_ife_hw_mgr_event_handler;
 
@@ -2888,7 +2888,7 @@ static int cam_ife_hw_mgr_acquire_sfe_bus_rd(
 			"DUAL mode not supported for BUS RD [RDIs]");
 
 	sfe_acquire.rsrc_type = CAM_ISP_RESOURCE_SFE_RD;
-	sfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	sfe_acquire.workq = ife_ctx->common.workq_info;
 	sfe_acquire.priv = ife_ctx;
 	sfe_acquire.event_cb = cam_ife_hw_mgr_event_handler;
 	sfe_acquire.sfe_rd.cdm_ops = ife_ctx->cdm_ops;
@@ -3049,7 +3049,7 @@ static int cam_ife_hw_mgr_acquire_res_vife_src(
 			&ife_src_res);
 
 		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_IN;
-		vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+		vfe_acquire.workq = ife_ctx->common.workq_info;
 		vfe_acquire.vfe_in.cdm_ops = ife_ctx->cdm_ops;
 		vfe_acquire.vfe_in.in_port = in_port;
 		vfe_acquire.vfe_in.is_fe_enabled = ife_ctx->flags.is_fe_enabled;
@@ -3184,7 +3184,7 @@ static int cam_ife_hw_mgr_acquire_ife_src_for_sfe(
 	}
 
 	vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_IN;
-	vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	vfe_acquire.workq = ife_ctx->common.workq_info;
 	vfe_acquire.vfe_in.cdm_ops = ife_ctx->cdm_ops;
 	vfe_acquire.vfe_in.in_port = in_port;
 	vfe_acquire.vfe_in.is_fe_enabled = ife_ctx->flags.is_fe_enabled;
@@ -3344,7 +3344,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_src(
 			&ife_src_res);
 
 		vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_IN;
-		vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+		vfe_acquire.workq = ife_ctx->common.workq_info;
 		vfe_acquire.vfe_in.cdm_ops = ife_ctx->cdm_ops;
 		vfe_acquire.vfe_in.in_port = in_port;
 		vfe_acquire.vfe_in.is_fe_enabled = ife_ctx->flags.is_fe_enabled;
@@ -3691,7 +3691,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 				CAM_ISP_HW_SYNC_MASTER : CAM_ISP_HW_SYNC_SLAVE;
 
 		csid_acquire.event_cb = cam_ife_hw_mgr_event_handler;
-		csid_acquire.tasklet = ife_ctx->common.tasklet_info;
+		csid_acquire.workq = ife_ctx->common.workq_info;
 		csid_acquire.cb_priv = ife_ctx;
 		csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 
@@ -3842,7 +3842,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.out_port = out_port;
 		csid_acquire.node_res = NULL;
 		csid_acquire.event_cb = cam_ife_hw_mgr_event_handler;
-		csid_acquire.tasklet = ife_ctx->common.tasklet_info;
+		csid_acquire.workq = ife_ctx->common.workq_info;
 		csid_acquire.cb_priv = ife_ctx;
 		csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 		if (ife_ctx->ctx_type == CAM_IFE_CTX_TYPE_SFE)
@@ -4343,7 +4343,7 @@ static int cam_ife_hw_mgr_acquire_offline_res_ife_camif(
 	}
 
 	vfe_acquire.rsrc_type = CAM_ISP_RESOURCE_VFE_IN;
-	vfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	vfe_acquire.workq = ife_ctx->common.workq_info;
 	vfe_acquire.priv = ife_ctx;
 	vfe_acquire.event_cb = cam_ife_hw_mgr_event_handler;
 
@@ -4475,7 +4475,7 @@ static int cam_ife_hw_mgr_acquire_offline_res_sfe(
 	}
 
 	sfe_acquire.rsrc_type = CAM_ISP_RESOURCE_SFE_IN;
-	sfe_acquire.tasklet = ife_ctx->common.tasklet_info;
+	sfe_acquire.workq = ife_ctx->common.workq_info;
 	sfe_acquire.priv = ife_ctx;
 	sfe_acquire.event_cb = cam_ife_hw_mgr_event_handler;
 	sfe_acquire.sfe_in.cdm_ops = ife_ctx->cdm_ops;
@@ -4578,7 +4578,7 @@ static int cam_ife_hw_mgr_acquire_offline_res_csid(
 	csid_acquire.out_port = in_port->data;
 	csid_acquire.node_res = NULL;
 	csid_acquire.event_cb = cam_ife_hw_mgr_event_handler;
-	csid_acquire.tasklet = ife_ctx->common.tasklet_info;
+	csid_acquire.workq = ife_ctx->common.workq_info;
 	csid_acquire.cb_priv = ife_ctx;
 	csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 	csid_acquire.sync_mode = CAM_ISP_HW_SYNC_NONE;
@@ -4793,7 +4793,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_vcsid_ipp(
 	csid_acquire.out_port = out_port;
 	csid_acquire.node_res = NULL;
 	csid_acquire.event_cb = cam_ife_hw_mgr_event_handler;
-	csid_acquire.tasklet = ife_ctx->common.tasklet_info;
+	csid_acquire.workq = ife_ctx->common.workq_info;
 	csid_acquire.cb_priv = ife_ctx;
 	csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 	csid_acquire.drop_enable = false;
@@ -4879,7 +4879,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_vcsid_rdi(
 	csid_acquire.out_port = out_port;
 	csid_acquire.node_res = NULL;
 	csid_acquire.event_cb = cam_ife_hw_mgr_event_handler;
-	csid_acquire.tasklet = ife_ctx->common.tasklet_info;
+	csid_acquire.workq = ife_ctx->common.workq_info;
 	csid_acquire.cb_priv = ife_ctx;
 	csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 	csid_acquire.drop_enable = false;
@@ -7045,8 +7045,6 @@ static int cam_ife_mgr_stop_hw_in_overflow(void *stop_hw_args)
 		cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
 
 
-	/* Stop tasklet for context */
-	cam_tasklet_stop(ctx->common.tasklet_info);
 	CAM_DBG(CAM_ISP, "Exit...ctx id:%d rc :%d",
 		ctx->ctx_index, rc);
 
@@ -7246,8 +7244,6 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
 	}
 
-	cam_tasklet_stop(ctx->common.tasklet_info);
-
 	/* reset scratch buffer/mup expect INIT again for UMD triggered stop/flush */
 	if (!stop_isp->is_internal_stop) {
 		ctx->current_mup = 0;
@@ -7399,8 +7395,6 @@ static int cam_ife_mgr_restart_hw(void *start_hw_args)
 
 	CAM_DBG(CAM_ISP, "START IFE OUT ... in ctx id:%d", ctx->ctx_index);
 
-	cam_tasklet_start(ctx->common.tasklet_info);
-
 	/* start the IFE out devices */
 	for (i = 0; i < max_ife_out_res; i++) {
 		rc = cam_ife_hw_mgr_start_hw_res(
@@ -7526,8 +7520,6 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 
 	/* update Bandwidth should be done at the hw layer */
 
-	cam_tasklet_start(ctx->common.tasklet_info);
-
 	if (ctx->flags.init_done && start_isp->start_only) {
 		/* Unmask BUS_WR bit in VFE top */
 		for (i = 0; i < ctx->num_base; i++) {
@@ -7596,7 +7588,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 					rc = cam_ife_mgr_find_sfe_core_idx(
 						i, ctx, &csid_top_args.core_idx);
 					if (rc)
-						goto tasklet_stop;
+						return rc;
 				} else {
 					csid_top_args.input_core_type =
 						CAM_IFE_CSID_INPUT_CORE_IFE;
@@ -7643,7 +7635,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	rc = cam_ife_hw_mgr_init_hw(ctx);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Init failed");
-		goto tasklet_stop;
+		return rc;
 	}
 
 	ctx->flags.init_done = true;
@@ -7810,9 +7802,6 @@ safe_disable:
 
 deinit_hw:
 	cam_ife_hw_mgr_deinit_hw(ctx);
-
-tasklet_stop:
-	cam_tasklet_stop(ctx->common.tasklet_info);
 
 	return rc;
 }
@@ -14451,6 +14440,11 @@ end:
 	return rc;
 }
 
+static void cam_req_mgr_process_workq_cam_isp_worker(struct work_struct *w)
+{
+	cam_req_mgr_process_workq(w);
+}
+
 static void cam_req_mgr_process_workq_cam_ife_worker(struct work_struct *w)
 {
 	cam_req_mgr_process_workq(w);
@@ -14882,11 +14876,17 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 		g_ife_hw_mgr.ctx_pool[i].hw_mgr = &g_ife_hw_mgr;
 		g_ife_hw_mgr.ctx_pool[i].sensor_info = NULL;
 
-		cam_tasklet_init(&g_ife_hw_mgr.mgr_common.tasklet_pool[i],
-			&g_ife_hw_mgr.ctx_pool[i], i);
-		g_ife_hw_mgr.ctx_pool[i].common.tasklet_info =
-			g_ife_hw_mgr.mgr_common.tasklet_pool[i];
+		rc = cam_req_mgr_workq_create("cam_isp_worker", 256,
+			&g_ife_hw_mgr.mgr_common.workq_pool[i],
+			CRM_WORKQ_USAGE_IRQ, 0,
+			cam_req_mgr_process_workq_cam_isp_worker);
+		if (rc < 0) {
+			CAM_ERR(CAM_ISP, "Unable to create isp worker");
+			goto end;
+		}
 
+		g_ife_hw_mgr.ctx_pool[i].common.workq_info =
+			g_ife_hw_mgr.mgr_common.workq_pool[i];
 		init_completion(&g_ife_hw_mgr.ctx_pool[i].config_done_complete);
 		list_add_tail(&g_ife_hw_mgr.ctx_pool[i].list,
 			&g_ife_hw_mgr.free_ctx_list);
@@ -14943,12 +14943,12 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 end:
 	if (rc) {
 		for (i = 0; i < CAM_IFE_CTX_MAX; i++) {
-			cam_tasklet_deinit(
-				&g_ife_hw_mgr.mgr_common.tasklet_pool[i]);
+			cam_req_mgr_workq_destroy(
+				&g_ife_hw_mgr.mgr_common.workq_pool[i]);
 			g_ife_hw_mgr.ctx_pool[i].cdm_cmd = NULL;
 			kfree(g_ife_hw_mgr.ctx_pool[i].res_list_ife_out);
 			g_ife_hw_mgr.ctx_pool[i].res_list_ife_out = NULL;
-			g_ife_hw_mgr.ctx_pool[i].common.tasklet_info = NULL;
+			g_ife_hw_mgr.ctx_pool[i].common.workq_info = NULL;
 		}
 	}
 	cam_smmu_destroy_handle(
@@ -14969,12 +14969,12 @@ void cam_ife_hw_mgr_deinit(void)
 	g_ife_hw_mgr.debug_cfg.dentry = NULL;
 
 	for (i = 0; i < CAM_IFE_CTX_MAX; i++) {
-		cam_tasklet_deinit(
-			&g_ife_hw_mgr.mgr_common.tasklet_pool[i]);
+		cam_req_mgr_workq_destroy(
+			&g_ife_hw_mgr.mgr_common.workq_pool[i]);
 		g_ife_hw_mgr.ctx_pool[i].cdm_cmd = NULL;
 		kfree(g_ife_hw_mgr.ctx_pool[i].res_list_ife_out);
 		g_ife_hw_mgr.ctx_pool[i].res_list_ife_out = NULL;
-		g_ife_hw_mgr.ctx_pool[i].common.tasklet_info = NULL;
+		g_ife_hw_mgr.ctx_pool[i].common.workq_info = NULL;
 	}
 
 	cam_smmu_destroy_handle(

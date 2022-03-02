@@ -2536,7 +2536,7 @@ static int __cam_isp_ctx_notify_sof_in_activated_state(
 		if (ctx_isp->last_sof_timestamp ==
 			ctx_isp->sof_timestamp_val) {
 			CAM_DBG(CAM_ISP,
-				"Tasklet delay detected! Bubble frame check skipped, sof_timestamp: %lld",
+				"Workq delay detected! Bubble frame check skipped, sof_timestamp: %lld",
 				ctx_isp->sof_timestamp_val);
 			goto notify_only;
 		}
@@ -4758,6 +4758,11 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
+	if (list_empty(&ctx->active_req_list))
+		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
+	else
+		CAM_DBG(CAM_ISP, "Still need to wait for the buf done");
+
 	/*
 	 * notify reqmgr with sof signal. Note, due to scheduling delay
 	 * we can run into situation that two active requests has already
@@ -4788,11 +4793,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not notify SOF to CRM");
 	}
-
-	if (list_empty(&ctx->active_req_list))
-		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
-	else
-		CAM_DBG(CAM_ISP, "Still need to wait for the buf done");
 
 	CAM_DBG(CAM_ISP, "next Substate[%s]",
 		__cam_isp_ctx_substate_val_to_type(
@@ -4872,6 +4872,9 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 	req_isp->reapply_type = CAM_CONFIG_REAPPLY_IO;
 	req_isp->cdm_reset_before_apply = false;
 
+	/* change the state to bubble, as reg update has not come */
+	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
+
 	if (req_isp->bubble_report) {
 		__cam_isp_ctx_notify_error_util(CAM_TRIGGER_POINT_SOF, CRM_KMD_ERR_BUBBLE,
 			req->request_id, ctx_isp);
@@ -4903,8 +4906,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
-	/* change the state to bubble, as reg update has not come */
-	ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_BUBBLE;
 	CAM_DBG(CAM_ISP, "next Substate[%s]",
 		__cam_isp_ctx_substate_val_to_type(
 		ctx_isp->substate_activated));
@@ -4946,7 +4947,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 		if (ctx_isp->last_sof_timestamp ==
 			ctx_isp->sof_timestamp_val) {
 			CAM_DBG(CAM_ISP,
-				"Tasklet delay detected! Bubble frame: %lld check skipped, sof_timestamp: %lld, ctx_id: %d",
+				"Workq delay detected! Bubble frame: %lld check skipped, sof_timestamp: %lld, ctx_id: %d",
 				ctx_isp->frame_id,
 				ctx_isp->sof_timestamp_val,
 				ctx->ctx_id);
@@ -7340,7 +7341,6 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *)ctx->ctx_priv;
 
-	spin_lock(&ctx->lock);
 	trace_cam_isp_activated_irq(ctx, ctx_isp->substate_activated, evt_id,
 		__cam_isp_ctx_get_event_ts(evt_id, evt_data));
 
@@ -7362,7 +7362,6 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 		ctx->state, __cam_isp_ctx_substate_val_to_type(
 		ctx_isp->substate_activated));
 
-	spin_unlock(&ctx->lock);
 	return rc;
 }
 

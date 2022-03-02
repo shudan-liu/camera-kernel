@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SFE_HW_INTF_H_
@@ -323,7 +324,7 @@ struct cam_sfe_hw_sfe_out_acquire_args {
  * struct cam_sfe_acquire_args:
  *
  * @rsrc_type:               Type of Resource (OUT/IN) to acquire
- * @tasklet:                 Tasklet to associate with this resource. This is
+ * @workq:                   Workq to associate with this resource. This is
  *                           used to schedule bottom of IRQ events associated
  *                           with this resource.
  * @priv:                    Context data
@@ -335,7 +336,7 @@ struct cam_sfe_hw_sfe_out_acquire_args {
  */
 struct cam_sfe_acquire_args {
 	enum cam_isp_resource_type           rsrc_type;
-	void                                *tasklet;
+	void                                *workq;
 	void                                *priv;
 	cam_hw_mgr_event_cb_func             event_cb;
 	void                                *buf_done_controller;

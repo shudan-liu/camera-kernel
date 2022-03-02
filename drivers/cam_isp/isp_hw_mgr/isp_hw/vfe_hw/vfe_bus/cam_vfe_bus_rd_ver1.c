@@ -15,12 +15,12 @@
 #include "cam_ife_hw_mgr.h"
 #include "cam_vfe_hw_intf.h"
 #include "cam_irq_controller.h"
-#include "cam_tasklet_util.h"
 #include "cam_vfe_bus.h"
 #include "cam_vfe_bus_rd_ver1.h"
 #include "cam_vfe_core.h"
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
+#include "cam_req_mgr_workq.h"
 
 static const char drv_name[] = "vfe_bus_rd";
 
@@ -149,7 +149,7 @@ struct cam_vfe_bus_rd_ver1_priv {
 		CAM_VFE_BUS_RD_VER1_VFE_BUSRD_MAX];
 
 	int                                 irq_handle;
-	void                               *tasklet_info;
+	void                               *workq_info;
 	uint32_t                            top_irq_shift;
 };
 
@@ -348,7 +348,7 @@ static int cam_vfe_bus_get_rm_idx(
 
 static int cam_vfe_bus_acquire_rm(
 	struct cam_vfe_bus_rd_ver1_priv             *ver1_bus_rd_priv,
-	void                                        *tasklet,
+	void                                        *workq,
 	void                                        *ctx,
 	enum cam_vfe_bus_rd_ver1_vfe_bus_rd_type     vfe_bus_rd_res_id,
 	enum cam_vfe_bus_plane_type                  plane,
@@ -380,7 +380,7 @@ static int cam_vfe_bus_acquire_rm(
 		return -EALREADY;
 	}
 	rm_res_local->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
-	rm_res_local->tasklet_info = tasklet;
+	rm_res_local->workq_info = workq;
 
 	rsrc_data = rm_res_local->res_priv;
 	rsrc_data->ctx = ctx;
@@ -416,7 +416,7 @@ static int cam_vfe_bus_release_rm(void              *bus_priv,
 	rsrc_data->en_cfg = 0;
 	rsrc_data->is_dual = 0;
 
-	rm_res->tasklet_info = NULL;
+	rm_res->workq_info = NULL;
 	rm_res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
 	CAM_DBG(CAM_ISP, "VFE:%d RM:%d released",
@@ -583,8 +583,8 @@ static int cam_vfe_bus_acquire_vfe_bus_rd(void *bus_priv, void *acquire_args,
 		rsrc_data->common_data->core_index, acq_args->rsrc_type);
 
 	rsrc_data->num_rm = num_rm;
-	rsrc_node->tasklet_info = acq_args->tasklet;
-	ver1_bus_rd_priv->tasklet_info = acq_args->tasklet;
+	rsrc_node->workq_info = acq_args->workq;
+	ver1_bus_rd_priv->workq_info = acq_args->workq;
 	rsrc_node->cdm_ops = bus_rd_acquire_args->cdm_ops;
 	rsrc_data->cdm_util_ops = bus_rd_acquire_args->cdm_ops;
 	rsrc_data->common_data->event_cb = acq_args->event_cb;
@@ -593,7 +593,7 @@ static int cam_vfe_bus_acquire_vfe_bus_rd(void *bus_priv, void *acquire_args,
 
 	for (i = 0; i < num_rm; i++) {
 		rc = cam_vfe_bus_acquire_rm(ver1_bus_rd_priv,
-			acq_args->tasklet,
+			acq_args->workq,
 			acq_args->priv,
 			bus_rd_res_id,
 			i,
@@ -650,7 +650,7 @@ static int cam_vfe_bus_release_vfe_bus_rd(void *bus_priv, void *release_args,
 		cam_vfe_bus_release_rm(bus_priv, rsrc_data->rm_res[i]);
 	rsrc_data->num_rm = 0;
 
-	vfe_bus_rd->tasklet_info = NULL;
+	vfe_bus_rd->workq_info = NULL;
 	vfe_bus_rd->cdm_ops = NULL;
 	rsrc_data->cdm_util_ops = NULL;
 
@@ -701,8 +701,8 @@ static int cam_vfe_bus_start_vfe_bus_rd(
 		vfe_bus_rd,
 		cam_vfe_bus_rd_handle_irq_top_half,
 		cam_vfe_bus_rd_handle_irq_bottom_half,
-		vfe_bus_rd->tasklet_info,
-		&tasklet_bh_api,
+		vfe_bus_rd->workq_info,
+		&workq_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 
 	if (rsrc_data->irq_handle < 1) {

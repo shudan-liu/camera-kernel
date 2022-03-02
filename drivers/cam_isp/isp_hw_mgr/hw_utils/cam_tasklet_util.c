@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -73,12 +74,6 @@ struct cam_tasklet_info {
 	struct cam_tasklet_queue_cmd       cmd_queue[CAM_TASKLETQ_SIZE];
 
 	void                              *ctx_priv;
-};
-
-struct cam_irq_bh_api tasklet_bh_api = {
-	.bottom_half_enqueue_func = cam_tasklet_enqueue_cmd,
-	.get_bh_payload_func = cam_tasklet_get_cmd,
-	.put_bh_payload_func = cam_tasklet_put_cmd,
 };
 
 int cam_tasklet_get_cmd(
