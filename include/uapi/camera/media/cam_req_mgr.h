@@ -36,6 +36,7 @@
 #define CAM_CRE_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 17)
 #define CAM_TPG_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 18)
 #define CAM_SENSORLITE_DEVICE_TYPE        (CAM_DEVICE_TYPE_BASE + 19)
+#define CAM_CSIPHY_REMOTE_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 20)
 
 /* sensor mode: streaming or fsync trigger base */
 #define CAM_REQ_MGR_LINK_STREAMING_TYPE      1
