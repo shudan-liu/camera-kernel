@@ -440,6 +440,8 @@ static enum cam_vfe_bus_ver3_vfe_out_type
 	case CAM_ISP_IFE_OUT_RES_PDAF_PARSED_DATA:
 		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_PDAF_PARSED;
 		break;
+	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
+		 vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST;
 	default:
 		CAM_WARN(CAM_ISP, "Invalid isp res id: %d , assigning max",
 			res_type);
@@ -561,6 +563,9 @@ static int cam_vfe_bus_ver3_get_comp_vfe_out_res_id_list(
 
 	if (comp_mask & (BIT_ULL(CAM_VFE_BUS_VER3_VFE_OUT_PDAF_PARSED)))
 		out_list[count++] = CAM_ISP_IFE_OUT_RES_PDAF_PARSED_DATA;
+
+	if (comp_mask & (BIT_ULL(CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST)))
+		out_list[count++] = CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST;
 
 	*num_out = count;
 	return 0;
@@ -1164,7 +1169,8 @@ static int cam_vfe_bus_ver3_acquire_wm(
 
 	} else if (((vfe_out_res_id >= CAM_VFE_BUS_VER3_VFE_OUT_STATS_HDR_BE) &&
 		(vfe_out_res_id <= CAM_VFE_BUS_VER3_VFE_OUT_STATS_IHIST)) ||
-		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_STATS_BAYER_RS)) {
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_STATS_BAYER_RS) ||
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST)) {
 
 		rsrc_data->width = 0;
 		rsrc_data->height = 0;
