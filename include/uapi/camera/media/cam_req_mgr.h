@@ -63,6 +63,12 @@
 #define V4L_EVENT_CAM_REQ_MGR_CUSTOM_EVT                                3
 #define V4L_EVENT_CAM_REQ_MGR_NODE_EVENT                                4
 #define V4L_EVENT_CAM_REQ_MGR_SOF_UNIFIED_TS                            5
+#define V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS                              6
+
+/* Slave status */
+#define CAM_REQ_MGR_SLAVE_UNKNOWN               0
+#define CAM_REQ_MGR_SLAVE_UP                    1
+#define CAM_REQ_MGR_SLAVE_DOWN                  2
 
 /* SOF Event status */
 #define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
@@ -636,6 +642,32 @@ struct cam_req_mgr_node_msg {
 };
 
 /**
+ * struct cam_req_mgr_slave_status
+ * @version: Event version
+ * @status: status up/down
+ * @value2: unused
+ * @value3: unused
+ * @value4: unused
+ * @value5: unused
+ * @value6: unused
+ * @value7: unused
+ * @value8: unused
+ * @value9: unused
+ */
+struct cam_req_mgr_slave_status {
+	__u32 version;
+	__u32 status;
+	__u32 value2;
+	__u32 value3;
+	__u32 value4;
+	__u32 value5;
+	__u32 value6;
+	__u32 value7;
+	__u32 value8;
+	__u32 value9;
+};
+
+/**
  * struct cam_req_mgr_message
  * @session_hdl: session to which the frame belongs to
  * @reserved: reserved field
@@ -650,6 +682,7 @@ struct cam_req_mgr_message {
 		struct cam_req_mgr_frame_msg_v2 frame_msg_v2;
 		struct cam_req_mgr_custom_msg custom_msg;
 		struct cam_req_mgr_node_msg node_msg;
+		struct cam_req_mgr_slave_status slave_status;
 	} u;
 };
 #endif /* __UAPI_LINUX_CAM_REQ_MGR_H */
