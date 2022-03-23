@@ -8,7 +8,7 @@
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved
- * Copyright (c) 2021 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -319,6 +319,8 @@ struct v4l2_loopback_device {
 	atomic_t open_count;
 
 	int max_openers;
+
+	struct mutex dev_mutex;
 
 	int announce_all_caps;/* set to false, if device caps (OUTPUT/CAPTURE)
 			       * should only be announced if the resp. "ready"
@@ -704,6 +706,7 @@ static int vidioc_querycap(struct file *file, void *priv,
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
 	int devnr;
+	__u32 capabilities;
 
 	if (!dev) {
 		CAM_ERR(CAM_V4L2, "dev is null");
@@ -712,6 +715,11 @@ static int vidioc_querycap(struct file *file, void *priv,
 	devnr = ((struct v4l2loopback_private *)
 			video_get_drvdata(dev->vdev))->devicenr;
 
+	CAM_DBG(CAM_V4L2, "device_caps 0x%x, capabilities 0x%x",
+		cap->device_caps, cap->capabilities);
+
+	capabilities = V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
+
 	strlcpy(cap->driver, "v4l2 loopback", sizeof(cap->driver));
 	vidioc_fill_name(cap->card, sizeof(cap->card), devnr);
 	snprintf(cap->bus_info, sizeof(cap->bus_info),
@@ -719,28 +727,30 @@ static int vidioc_querycap(struct file *file, void *priv,
 
 	/* since 3.1.0, the v4l2-core system is supposed to set the version */
 	cap->version = V4L2LOOPBACK_VERSION_CODE;
-	cap->capabilities =
-		V4L2_CAP_DEVICE_CAPS |
-		V4L2_CAP_STREAMING | V4L2_CAP_READWRITE;
 
 #ifdef V4L2_CAP_VIDEO_M2M
-	cap->capabilities |= V4L2_CAP_VIDEO_M2M;
+	capabilities |= V4L2_CAP_VIDEO_M2M;
 #endif /* V4L2_CAP_VIDEO_M2M */
-	if (dev->announce_all_caps) {
-		cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE |
-			V4L2_CAP_VIDEO_OUTPUT;
-	} else {
 
+	if (dev->announce_all_caps) {
+		capabilities |= V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT;
+	} else {
 		if (dev->state & V4L2L_READY_FOR_CAPTURE)
-			cap->capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+			capabilities |= V4L2_CAP_VIDEO_CAPTURE;
+
 		if (dev->state & V4L2L_READY_FOR_OUTPUT)
-			cap->capabilities |= V4L2_CAP_VIDEO_OUTPUT;
+			capabilities |= V4L2_CAP_VIDEO_OUTPUT;
 	}
-	cap->device_caps = (cap->capabilities & ~V4L2_CAP_DEVICE_CAPS);
-	cap->device_caps = cap->capabilities;
+
+	cap->device_caps = cap->capabilities = capabilities;
+	/* >=linux-4.7.0 */
+	dev->vdev->device_caps = cap->device_caps;
+	/* >=linux-3.3.0 */
 	cap->capabilities |= V4L2_CAP_DEVICE_CAPS;
 
 	memset(cap->reserved, 0, sizeof(cap->reserved));
+	CAM_DBG(CAM_V4L2, "device_caps 0x%x, capabilities 0x%x",
+		cap->device_caps, cap->capabilities);
 
 	return 0;
 }
@@ -2508,6 +2518,7 @@ static int v4l2_loopback_open(struct file *file)
 		/* app open it */
 		if (dev->state == V4L2L_READY_FOR_CAPTURE) {
 			// todo: add the mutex protect for open operation
+			mutex_lock(&dev->dev_mutex);
 			etype = V4L2L_READER;
 			send_v4l2_event(dev->main_opener, AIS_V4L2_CLIENT_OUTPUT,
 				AIS_V4L2_OPEN_INPUT);
@@ -2519,11 +2530,13 @@ static int v4l2_loopback_open(struct file *file)
 					CAM_INFO(CAM_V4L2, "app open succeed");
 				} else {
 					CAM_ERR(CAM_V4L2, "app open fail");
+					mutex_unlock(&dev->dev_mutex);
 					return rc;
 				}
 			} else {
 				CAM_ERR(CAM_V4L2, "open fail, timeout %d", rc);
 				rc = -ETIMEDOUT;
+				mutex_unlock(&dev->dev_mutex);
 				return rc;
 			}
 
@@ -2532,13 +2545,16 @@ static int v4l2_loopback_open(struct file *file)
 
 			if (connected_opener == NULL) {
 				CAM_ERR(CAM_V4L2, "connected opener error");
+				mutex_unlock(&dev->dev_mutex);
 				return -EINVAL;
 			}
 
 			/* create the opener */
 			opener = create_opener(file, etype);
-			if (opener == NULL)
+			if (opener == NULL) {
+				mutex_unlock(&dev->dev_mutex);
 				return -ENOMEM;
+			}
 
 			atomic_inc(&dev->open_count);
 
@@ -2548,6 +2564,7 @@ static int v4l2_loopback_open(struct file *file)
 
 			CAM_INFO(CAM_V4L2, "capture opener %pK, proxy opener %pK, data %pK",
 				opener, connected_opener, data);
+			mutex_unlock(&dev->dev_mutex);
 		} else {
 			CAM_ERR(CAM_V4L2, "invalid operation state %d", dev->state);
 			return -EINVAL;
@@ -2610,6 +2627,7 @@ static int v4l2_loopback_close(struct file *file)
 		}
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
+		mutex_lock(&dev->dev_mutex);
 		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when close", dev->open_count.counter);
 		if (dev->state >= V4L2L_READY_FOR_CAPTURE) {
 			if (opener->connected_opener) {
@@ -2628,6 +2646,7 @@ static int v4l2_loopback_close(struct file *file)
 		} else {
 			CAM_WARN(CAM_V4L2, "invalid close state %d", dev->state);
 		}
+		mutex_unlock(&dev->dev_mutex);
 	}
 
 	CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when close",
@@ -2637,6 +2656,7 @@ static int v4l2_loopback_close(struct file *file)
 	v4l2_fh_exit(file->private_data);
 
 	kfree(opener);
+	mutex_destroy(&dev->dev_mutex);
 
 	MARK();
 
@@ -2819,7 +2839,13 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
 	vdev->release      = &video_device_release;
 	vdev->minor        = -1;
-	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE;
+
+	/* >=linux-4.7.0 */
+	vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE | V4L2_CAP_VIDEO_OUTPUT |
+			    V4L2_CAP_READWRITE | V4L2_CAP_STREAMING;
+#ifdef V4L2_CAP_VIDEO_M2M
+	vdev->device_caps |= V4L2_CAP_VIDEO_M2M;
+#endif
 
 	if (debug > 1)
 		vdev->dev_debug =
@@ -2849,6 +2875,9 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 		return ret;
 
 	MARK();
+
+	mutex_init(&dev->dev_mutex);
+
 	dev->vdev = video_device_alloc();
 	if (dev->vdev == NULL) {
 		ret = -ENOMEM;
