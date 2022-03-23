@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_MGR_H_
@@ -11,7 +12,7 @@
 #include "cam_tasklet_util.h"
 #include "cam_isp_hw.h"
 
-#define CAM_ISP_HW_NUM_MAX                       8
+#define CAM_ISP_HW_NUM_MAX                       10
 
 /**
  * struct cam_isp_hw_mgr_ctx - common acquired context for managers
