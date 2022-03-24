@@ -288,6 +288,11 @@ device_ops_fail:
 
 static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 {
+	if (-1 == dev_hdl) {
+		CAM_WARN(CAM_CRM, "Hdl already destroyed");
+		return 0;
+	}
+
 	int idx;
 	int type;
 
