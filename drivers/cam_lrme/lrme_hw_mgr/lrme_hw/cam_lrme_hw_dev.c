@@ -305,7 +305,7 @@ static void __exit cam_lrme_hw_exit_module(void)
 	platform_driver_unregister(&cam_lrme_hw_driver);
 }
 
-module_init(cam_lrme_hw_init_module);
+early_module_init(cam_lrme_hw_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_lrme_hw_exit_module);
 MODULE_DESCRIPTION("CAM LRME HW driver");
 MODULE_LICENSE("GPL v2");

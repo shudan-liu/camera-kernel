@@ -48,6 +48,6 @@ static int __init cam_csid_ppi170_init_module(void)
 	return platform_driver_register(&cam_csid_ppi170_driver);
 }
 
-module_init(cam_csid_ppi170_init_module);
+early_module_init(cam_csid_ppi170_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 MODULE_DESCRIPTION("CAM CSID_PPI170 driver");
 MODULE_LICENSE("GPL v2");

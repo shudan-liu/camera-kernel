@@ -590,7 +590,7 @@ static void __exit cam_eeprom_driver_exit(void)
 	i2c_del_driver(&cam_eeprom_i2c_driver);
 }
 
-module_init(cam_eeprom_driver_init);
+early_module_init(cam_eeprom_driver_init, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_eeprom_driver_exit);
 MODULE_DESCRIPTION("CAM EEPROM driver");
 MODULE_LICENSE("GPL v2");
