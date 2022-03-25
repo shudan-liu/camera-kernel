@@ -1902,6 +1902,9 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->session_max_device_support = 1;
 		}
 
+		if (csiphy_dev->is_aggregator_rx)
+			csiphy_dev->session_max_device_support = CSIPHY_MAX_INSTANCES_PER_PHY;
+
 		bridge_params.ops = NULL;
 		bridge_params.session_hdl = csiphy_acq_dev.session_handle;
 		bridge_params.v4l2_sub_dev_flag = 0;
@@ -2005,6 +2008,15 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (--csiphy_dev->start_dev_count) {
+			if (csiphy_dev->is_aggregator_rx) {
+				CAM_INFO(CAM_CSIPHY,
+					"CAM_STOP_PHYDEV: %d dev_cnt: %u, slot: %d",
+					soc_info->index,
+					csiphy_dev->start_dev_count,
+					offset);
+				goto release_mutex;
+			}
+
 			if (csiphy_dev->csiphy_info[offset].secure_mode)
 				cam_csiphy_notify_secure_mode(
 					csiphy_dev,
@@ -2191,6 +2203,16 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (csiphy_dev->start_dev_count) {
+			if (csiphy_dev->is_aggregator_rx) {
+				csiphy_dev->start_dev_count++;
+				CAM_INFO(CAM_CSIPHY,
+					"CAM_START_PHYDEV: %d dev_cnt: %u, slot: %d",
+					soc_info->index,
+					csiphy_dev->start_dev_count,
+					offset);
+				goto release_mutex;
+			}
+
 			clk_vote_level =
 				csiphy_dev->ctrl_reg->getclockvoting(
 					csiphy_dev, offset);

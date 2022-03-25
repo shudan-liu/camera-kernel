@@ -331,6 +331,7 @@ struct csiphy_work_queue {
  * @en_lane_status_reg_dump    : Debugfs flag to enable cphy/dphy lane status dump
  * @en_full_phy_reg_dump       : Debugfs flag to enable the dump for all the Phy registers
  * @preamble_enable            : To enable preamble pattern
+ * @is_aggregator_rx           : Is PHY an RX for aggregator
  */
 struct csiphy_device {
 	char                           device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
@@ -365,6 +366,7 @@ struct csiphy_device {
 	bool                           en_lane_status_reg_dump;
 	bool                           en_full_phy_reg_dump;
 	uint16_t                       preamble_enable;
+	bool                           is_aggregator_rx;
 };
 
 /**
