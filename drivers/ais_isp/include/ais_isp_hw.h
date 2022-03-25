@@ -272,6 +272,14 @@ struct ais_ife_rdi_in_cfg {
 	uint32_t crop_right;
 	uint32_t init_frame_drop;
 	uint32_t reserved;
+	uint32_t vdrop_en;
+	uint32_t vdrop_pattern;
+	uint32_t vdrop_period;
+	uint32_t hdrop_en;
+	uint32_t hdrop_pattern;
+	uint32_t hdrop_period;
+	uint32_t chromasub_en;
+	uint32_t chromaswap_en;
 };
 
 enum ais_ife_batch_mode_type {
@@ -348,12 +356,13 @@ struct ais_ife_csid_csi_info {
 	uint32_t lane_assign;
 	uint8_t is_3Phase;
 	uint8_t vcx_mode;
+	uint64_t mipi_rate;
 };
 
 /**
  * struct ais_ife_rdi_init_args
  *
- * @brief Iniit RDI path
+ * @brief Init RDI path
  *
  * @path : output path
  * @csi_cfg : CSI configuration
@@ -379,7 +388,18 @@ struct ais_ife_rdi_deinit_args {
 };
 
 /**
- * struct ais_ife_rdi_stop_args
+ * struct ais_ife_addr_sync_args
+ *
+ * @brief Configure IFE paths with address sync
+ *
+ * @paths : bitmask of paths to be address synced
+ */
+struct ais_ife_addr_sync_args {
+	uint32_t paths;
+};
+
+/**
+ * struct ais_ife_rdi_start_args
  *
  * @brief Start RDI path
  *
