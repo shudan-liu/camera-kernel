@@ -2994,11 +2994,14 @@ static int cam_ife_csid_ver2_init_config_pxl_path(
 	struct cam_ife_csid_ver2_path_cfg *path_cfg;
 	struct cam_ife_csid_cid_data *cid_data;
 	void __iomem *mem_base;
+	struct cam_csid_soc_private              *soc_private;
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
 			csid_hw->core_info->csid_reg;
 	path_reg = csid_reg->path_reg[res->res_id];
+	soc_private = (struct cam_csid_soc_private *)
+		soc_info->soc_private;
 
 	if (!path_reg) {
 		CAM_ERR(CAM_ISP,
@@ -3103,7 +3106,9 @@ static int cam_ife_csid_ver2_init_config_pxl_path(
 			(path_cfg->drop_enable <<
 				path_reg->drop_h_en_shift_val);
 
-	cfg1 |= 1 << path_reg->pix_store_en_shift_val;
+	if (((soc_private->is_ife_csid_lite) && (path_reg->capabilities &
+		CAM_IFE_CSID_CAP_LITE_PIX_STORE)) || (!soc_private->is_ife_csid_lite))
+		cfg1 |= (1 << path_reg->pix_store_en_shift_val);
 
 	/*enable early eof based on crop enable */
 	if (!(csid_hw->debug_info.debug_val &
@@ -3123,7 +3128,6 @@ static int cam_ife_csid_ver2_init_config_pxl_path(
 
 	CAM_DBG(CAM_ISP, "CSID[%d] res:%d cfg1_addr 0x%x",
 		csid_hw->hw_intf->hw_idx, res->res_id, cfg1);
-
 	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
 
 	/* set frame drop pattern to 0 and period to 1 */
