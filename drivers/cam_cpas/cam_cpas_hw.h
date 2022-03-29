@@ -93,7 +93,7 @@ struct cam_cpas_internal_ops {
 	int (*setup_qos_settings)(struct cam_hw_info *cpas_hw,
 		uint32_t selection_mask);
 	int (*print_poweron_settings)(struct cam_hw_info *cpas_hw);
-	int (*qchannel_handshake)(struct cam_hw_info *cpas_hw, bool power_on);
+	int (*qchannel_handshake)(struct cam_hw_info *cpas_hw, bool power_on, bool force_on);
 };
 
 /**

@@ -512,6 +512,9 @@ static struct cam_cpas_hw_errata_wa_list cam650_cpas100_errata_wa_list = {
 			.value = 0, /* expected to be 0 */
 		},
 	},
+	.enable_icp_clk_for_qchannel = {
+		.enable = true,
+	},
 };
 
 static struct cam_camnoc_info cam650_cpas100_camnoc_info = {
