@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1235,12 +1236,6 @@ static int ais_vfe_handle_error(
 			core_info->mem_base +
 			bus_hw_irq_regs[1].mask_reg_offset);
 
-               /* Disable rdi* overflow irq mask*/
-		core_info->irq_mask1 &=
-				~(1 << (AIS_VFE_MASK1_RDI_OVERFLOW_SHT + path));
-		cam_io_w_mb(core_info->irq_mask1,
-				core_info->mem_base + AIS_VFE_IRQ_MASK1);
-
 		/* Disable WM and reg-update */
 		cam_io_w_mb(0x0, core_info->mem_base + client_regs->cfg);
 		cam_io_w_mb(AIS_VFE_REGUP_RDI_ALL, core_info->mem_base +
@@ -1651,6 +1646,7 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 	struct cam_hw_info            *vfe_hw;
 	struct ais_vfe_hw_core_info   *core_info;
 	uint32_t ife_status[2] = {};
+	int path =  0;
 
 	if (!data)
 		return IRQ_NONE;
@@ -1732,6 +1728,19 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 				work_data.path = (ife_status[1] >>
 				AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_SHFT) &
 				AIS_VFE_STATUS1_RDI_OVERFLOW_IRQ_MSK;
+
+				for (path = 0; path < AIS_IFE_PATH_MAX; path++) {
+
+					if (!(work_data.path & (1 << path)))
+						continue;
+
+					/* Disable rdi* overflow irq mask*/
+					core_info->irq_mask1 &=
+							~(1 << (AIS_VFE_MASK1_RDI_OVERFLOW_SHT +
+							path));
+					cam_io_w_mb(core_info->irq_mask1,
+							core_info->mem_base + AIS_VFE_IRQ_MASK1);
+				}
 
 				CAM_ERR_RATE_LIMIT(CAM_ISP,
 					"IFE%d Overflow 0x%x",
