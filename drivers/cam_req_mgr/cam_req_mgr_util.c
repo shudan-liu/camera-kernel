@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "CAM-REQ-MGR_UTIL %s:%d " fmt, __func__, __LINE__
@@ -165,7 +166,6 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	crm_active = cam_req_mgr_is_open();
 	if (!crm_active) {
 		CAM_ERR(CAM_ICP, "CRM is not ACTIVE");
-		spin_unlock_bh(&hdl_tbl_lock);
 		return -EINVAL;
 	}
 
@@ -290,6 +290,11 @@ static int cam_destroy_hdl(int32_t dev_hdl, int dev_hdl_type)
 {
 	int idx;
 	int type;
+
+	if (-1 == dev_hdl) {
+		CAM_WARN(CAM_CRM, "Hdl already destroyed");
+		return 0;
+	}
 
 	spin_lock_bh(&hdl_tbl_lock);
 	if (!hdl_tbl) {
