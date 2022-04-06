@@ -441,7 +441,8 @@ static enum cam_vfe_bus_ver3_vfe_out_type
 		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_PDAF_PARSED;
 		break;
 	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
-		 vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST;
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST;
+		break;
 	default:
 		CAM_WARN(CAM_ISP, "Invalid isp res id: %d , assigning max",
 			res_type);
