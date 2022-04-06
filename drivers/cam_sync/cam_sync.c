@@ -618,6 +618,11 @@ static int cam_sync_handle_wait(struct cam_private_ioctl_arg *k_ioctl)
 	return 0;
 }
 
+static inline int cam_sync_handle_exit_poll(void)
+{
+	return cam_sync_util_send_exit_poll_event();
+}
+
 static int cam_sync_handle_destroy(struct cam_private_ioctl_arg *k_ioctl)
 {
 	struct cam_sync_info sync_create;
@@ -818,6 +823,9 @@ static long cam_sync_dev_ioctl(struct file *filep, void *fh,
 		((struct cam_private_ioctl_arg *)arg)->result =
 			k_ioctl.result;
 		break;
+	case CAM_SYNC_EXIT_DQ_THREAD:
+		rc = cam_sync_handle_exit_poll();
+		break;
 	default:
 		rc = -ENOIOCTLCMD;
 	}
@@ -973,6 +981,15 @@ int cam_sync_subscribe_event(struct v4l2_fh *fh,
 {
 	if (sub->type > CAM_SYNC_V4L_EVENT_V3) {
 		CAM_ERR(CAM_SYNC, "Non supported event type 0x%x", sub->type);
+		return -EINVAL;
+	}
+
+	switch (sub->id) {
+	case CAM_SYNC_V4L_EVENT_ID_CB_TRIG:
+	case CAM_SYNC_V4L_EVENT_ID_EXIT:
+		break;
+	default:
+		CAM_ERR(CAM_SYNC, "Non supported event id 0x%x", sub->id);
 		return -EINVAL;
 	}
 
