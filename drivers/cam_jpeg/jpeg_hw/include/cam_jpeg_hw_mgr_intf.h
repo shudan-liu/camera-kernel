@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef CAM_JPEG_HW_MGR_INTF_H
@@ -15,6 +16,8 @@
 enum cam_jpeg_hw_type {
 	CAM_JPEG_DEV_ENC,
 	CAM_JPEG_DEV_DMA,
+	CAM_JPEG_DEV_ENC_NSP,
+	CAM_JPEG_DEV_DMA_NSP,
 	CAM_JPEG_DEV_MAX,
 };
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef CAM_JPEG_HW_MGR_H
@@ -11,6 +12,7 @@
 #include <media/cam_jpeg.h>
 
 #include "cam_jpeg_hw_intf.h"
+#include "cam_jpeg_hw_mgr_intf.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_hw_intf.h"
 #include "cam_req_mgr_workq.h"
@@ -129,6 +131,8 @@ struct cam_jpeg_hw_ctx_data {
  * @process_frame_work_data: Work data pool for hw config
  *     requests
  * @process_irq_cb_work_data: Work data pool for irq requests
+ * @num_nsp_enc: Number of nsp accessible encoder
+ * @num_nsp_dma: Number of nsp accessible dma
  * @cdm_iommu_hdl: Iommu handle received from cdm
  * @cdm_iommu_hdl_secure: Secure iommu handle received from cdm
  * @dentry: Debugfs entry
@@ -161,8 +165,11 @@ struct cam_jpeg_hw_mgr {
 	struct dentry *dentry;
 	u64 camnoc_misr_test;
 	u64 bug_on_misr;
+	int num_nsp_enc;
+	int num_nsp_dma;
 
 	struct cam_hw_intf **devices[CAM_JPEG_DEV_TYPE_MAX];
+	struct cam_hw_intf **nsp_devices[CAM_JPEG_DEV_TYPE_MAX];
 	struct cam_jpeg_hw_cdm_info_t cdm_info[CAM_JPEG_DEV_TYPE_MAX]
 		[CAM_JPEG_NUM_DEV_PER_RES_MAX];
 	struct cam_soc_reg_map *cdm_reg_map[CAM_JPEG_DEV_TYPE_MAX]
@@ -221,4 +228,7 @@ struct cam_jpeg_hw_mgr_mini_dump {
 	struct cam_jpeg_mini_dump_core_info    core[CAM_JPEG_RES_TYPE_MAX];
 	uint32_t                               num_context;
 };
+
+int cam_jpeg_mgr_nsp_acquire_hw(uint32_t *iommu_hdl);
+
 #endif /* CAM_JPEG_HW_MGR_H */

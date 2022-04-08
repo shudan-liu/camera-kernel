@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -107,6 +108,15 @@ static int cam_jpeg_dma_component_bind(struct device *dev,
 	}
 	core_info = (struct cam_jpeg_dma_device_core_info *)
 		jpeg_dma_dev->core_info;
+
+	core_info->is_nsp_controlled =
+		of_property_read_bool(pdev->dev.of_node, "nsp-controlled");
+
+	if (core_info->is_nsp_controlled)
+		jpeg_dma_dev_intf->hw_type = CAM_JPEG_DEV_DMA_NSP;
+	else
+		jpeg_dma_dev_intf->hw_type = CAM_JPEG_DEV_DMA;
+
 
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);
