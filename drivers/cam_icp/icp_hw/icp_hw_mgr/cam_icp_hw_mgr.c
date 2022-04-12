@@ -1405,23 +1405,11 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 	if (!icp_hw_mgr.dentry)
 		return -ENOMEM;
 
-	if (!debugfs_create_bool("icp_pc",
-		0644,
-		icp_hw_mgr.dentry,
-		&icp_hw_mgr.icp_pc_flag)) {
-		CAM_ERR(CAM_ICP, "failed to create icp_pc entry");
-		rc = -ENOMEM;
-		goto err;
-	}
+	debugfs_create_bool("icp_pc", 0644, icp_hw_mgr.dentry,
+		&icp_hw_mgr.icp_pc_flag);
 
-	if (!debugfs_create_bool("ipe_bps_pc",
-		0644,
-		icp_hw_mgr.dentry,
-		&icp_hw_mgr.ipe_bps_pc_flag)) {
-		CAM_ERR(CAM_ICP, "failed to create ipe_bps_pc entry");
-		rc = -ENOMEM;
-		goto err;
-	}
+	debugfs_create_bool("ipe_bps_pc", 0644, icp_hw_mgr.dentry,
+		&icp_hw_mgr.ipe_bps_pc_flag);
 
 	if (!debugfs_create_file("icp_debug_clk",
 		0644,
@@ -1432,13 +1420,9 @@ static int cam_icp_hw_mgr_create_debugfs_entry(void)
 		goto err;
 	}
 
-	if (!debugfs_create_bool("a5_jtag_debug",
-		0644,
-		icp_hw_mgr.dentry,
-		&icp_hw_mgr.a5_jtag_debug)) {
-		rc = -ENOMEM;
-		goto err;
-	}
+	debugfs_create_bool("a5_jtag_debug", 0644,
+		icp_hw_mgr.dentry, &icp_hw_mgr.a5_jtag_debug);
+
 
 	if (!debugfs_create_file("a5_debug_type",
 		0644,
@@ -4454,7 +4438,7 @@ static int cam_icp_mgr_hw_dump(void *hw_priv, void *hw_dump_args)
 	int rc = 0;
 	struct cam_icp_hw_ctx_data *ctx_data;
 	struct hfi_frame_process_info *frm_process;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 	uint64_t diff;
 	int i;
 	struct cam_icp_dump_header *hdr;
@@ -4485,17 +4469,17 @@ hw_dump:
 		CAM_INFO(CAM_ICP, "No Error req %lld %ld:%06ld %ld:%06ld",
 			dump_args->request_id,
 			frm_process->submit_timestamp[i].tv_sec,
-			frm_process->submit_timestamp[i].tv_usec,
+			frm_process->submit_timestamp[i].tv_nsec/NSEC_PER_USEC,
 			cur_time.tv_sec,
-			cur_time.tv_usec);
+			cur_time.tv_nsec/NSEC_PER_USEC);
 		return 0;
 	}
 	CAM_INFO(CAM_ICP, "Error req %lld %ld:%06ld %ld:%06ld",
 		dump_args->request_id,
 		frm_process->submit_timestamp[i].tv_sec,
-		frm_process->submit_timestamp[i].tv_usec,
+		frm_process->submit_timestamp[i].tv_nsec/NSEC_PER_USEC,
 		cur_time.tv_sec,
-		cur_time.tv_usec);
+		cur_time.tv_nsec/NSEC_PER_USEC);
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&icp_dump_args.cpu_addr, &icp_dump_args.buf_len);
 	if (!icp_dump_args.cpu_addr || !icp_dump_args.buf_len || rc) {
@@ -4520,9 +4504,9 @@ hw_dump:
 	start = addr;
 	*addr++ = frm_process->request_id[i];
 	*addr++ = frm_process->submit_timestamp[i].tv_sec;
-	*addr++ = frm_process->submit_timestamp[i].tv_usec;
+	*addr++ = frm_process->submit_timestamp[i].tv_nsec / NSEC_PER_USEC;
 	*addr++ = cur_time.tv_sec;
-	*addr++ = cur_time.tv_usec;
+	*addr++ = cur_time.tv_nsec / NSEC_PER_USEC;
 	hdr->size = hdr->word_size * (addr - start);
 	dump_args->offset += (hdr->size + sizeof(struct cam_icp_dump_header));
 	/* Dumping the fw image*/
@@ -5523,4 +5507,18 @@ dev_init_failed:
 		mutex_destroy(&icp_hw_mgr.ctx_data[i].ctx_mutex);
 
 	return rc;
+}
+
+void cam_icp_hw_mgr_deinit(void)
+{
+	int i = 0;
+
+	debugfs_remove_recursive(icp_hw_mgr.dentry);
+	icp_hw_mgr.dentry = NULL;
+	kfree(icp_hw_mgr.devices[CAM_ICP_DEV_BPS]);
+	kfree(icp_hw_mgr.devices[CAM_ICP_DEV_IPE]);
+	kfree(icp_hw_mgr.devices[CAM_ICP_DEV_A5]);
+	mutex_destroy(&icp_hw_mgr.hw_mgr_mutex);
+	for (i = 0; i < CAM_ICP_CTX_MAX; i++)
+		mutex_destroy(&icp_hw_mgr.ctx_data[i].ctx_mutex);
 }

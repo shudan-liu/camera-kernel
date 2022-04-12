@@ -2543,11 +2543,15 @@ static int cam_cci_core_process_write_array_sync_cmd(struct v4l2_subdev *sd,
 			return rc;
 		}
 
-		copy_from_user(wr_array,
+		rc = copy_from_user(wr_array,
 		(void __user *)
 		(cci_cmd.cmd.wr_sync.wr_cfg[i].wr_array),
 		cci_cmd.cmd.wr_sync.wr_cfg[i].count *
 		sizeof(struct ais_sensor_i2c_wr_payload));
+		if (rc < 0) {
+			CAM_ERR(CAM_CCI, "Failed Copying from user");
+			return rc;
+		}
 
 		cci_ctrl.cfg.cci_wr_sync.wr_cfg[i].wr_array = wr_array;
 

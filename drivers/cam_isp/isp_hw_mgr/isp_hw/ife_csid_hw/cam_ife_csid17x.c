@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2019, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,6 +19,7 @@
 #include "cam_ife_csid175.h"
 #include "cam_ife_csid175_200.h"
 #include "cam_ife_csid_dev.h"
+#include "ais_main.h"
 
 #define CAM_CSID_DRV_NAME                    "csid_17x"
 #define CAM_CSID_VERSION_V170                 0x10070000
@@ -55,7 +58,7 @@ static const struct of_device_id cam_ife_csid17x_dt_match[] = {
 
 MODULE_DEVICE_TABLE(of, cam_ife_csid17x_dt_match);
 
-static struct platform_driver cam_ife_csid17x_driver = {
+struct platform_driver cam_ife_csid17x_driver = {
 	.probe = cam_ife_csid_probe,
 	.remove = cam_ife_csid_remove,
 	.driver = {
@@ -66,17 +69,15 @@ static struct platform_driver cam_ife_csid17x_driver = {
 	},
 };
 
-static int __init cam_ife_csid17x_init_module(void)
+int cam_ife_csid17x_init_module(void)
 {
 	return platform_driver_register(&cam_ife_csid17x_driver);
 }
 
-static void __exit cam_ife_csid17x_exit_module(void)
+void cam_ife_csid17x_exit_module(void)
 {
 	platform_driver_unregister(&cam_ife_csid17x_driver);
 }
 
-module_init(cam_ife_csid17x_init_module);
-module_exit(cam_ife_csid17x_exit_module);
 MODULE_DESCRIPTION("CAM IFE_CSID17X driver");
 MODULE_LICENSE("GPL v2");

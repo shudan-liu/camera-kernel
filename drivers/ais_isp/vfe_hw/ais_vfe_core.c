@@ -447,9 +447,9 @@ void ais_isp_hw_get_timestamp(struct ais_isp_timestamp *time_stamp)
 
 	ktime_get_boottime_ts64(&ts);
 	time_stamp->mono_time.tv_sec    = ts.tv_sec;
-	time_stamp->mono_time.tv_usec   = ts.tv_nsec/1000;
+	time_stamp->mono_time.tv_nsec   = ts.tv_nsec;
 	time_stamp->time_usecs =  ts.tv_sec * 1000000 +
-				time_stamp->mono_time.tv_usec;
+				(time_stamp->mono_time.tv_nsec / NSEC_PER_USEC);
 }
 
 

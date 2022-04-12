@@ -1538,7 +1538,7 @@ static int cam_fd_mgr_hw_dump(void *hw_mgr_priv,
 	struct cam_hw_dump_args *dump_args = hw_dump_args;
 	struct cam_fd_mgr_frame_request *frame_req, *req_temp;
 	uint64_t diff;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 	int rc = 0;
 	struct cam_fd_hw_mgr_ctx *hw_ctx =
 		(struct cam_fd_hw_mgr_ctx *)dump_args->ctxt_to_hw_map;
@@ -1568,17 +1568,17 @@ hw_dump:
 		CAM_INFO(CAM_FD, "No Error req %lld %ld:%06ld %ld:%06ld",
 			dump_args->request_id,
 			frame_req->submit_timestamp.tv_sec,
-			frame_req->submit_timestamp.tv_usec,
+			frame_req->submit_timestamp.tv_nsec/NSEC_PER_USEC,
 			cur_time.tv_sec,
-			cur_time.tv_usec);
+			cur_time.tv_nsec/NSEC_PER_USEC);
 		return 0;
 	}
 	CAM_INFO(CAM_FD, "Error req %lld %ld:%06ld %ld:%06ld",
 		dump_args->request_id,
 		frame_req->submit_timestamp.tv_sec,
-		frame_req->submit_timestamp.tv_usec,
+		frame_req->submit_timestamp.tv_nsec/NSEC_PER_USEC,
 		cur_time.tv_sec,
-		cur_time.tv_usec);
+		cur_time.tv_nsec/NSEC_PER_USEC);
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&fd_dump_args.cpu_addr, &fd_dump_args.buf_len);
 	if (!fd_dump_args.cpu_addr || !fd_dump_args.buf_len || rc) {
@@ -1604,9 +1604,9 @@ hw_dump:
 	start = addr;
 	*addr++ = frame_req->request_id;
 	*addr++ = frame_req->submit_timestamp.tv_sec;
-	*addr++ = frame_req->submit_timestamp.tv_usec;
+	*addr++ = frame_req->submit_timestamp.tv_nsec / NSEC_PER_USEC;
 	*addr++ = cur_time.tv_sec;
-	*addr++ = cur_time.tv_usec;
+	*addr++ = cur_time.tv_nsec / NSEC_PER_USEC;
 	hdr->size = hdr->word_size * (addr - start);
 	dump_args->offset += hdr->size +
 		sizeof(struct cam_fd_hw_dump_header);

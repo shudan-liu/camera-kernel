@@ -154,7 +154,9 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 		CAM_ERR(CAM_CORE, "cam_register_subdev() failed for dev: %s",
 			sd->name);
 		goto err;
-	}
+	} else
+		CAM_DBG(CAM_CORE, "cam_register_subdev() success for dev: %s",
+			sd->name);
 	platform_set_drvdata(sd->pdev, sd);
 	return rc;
 err:

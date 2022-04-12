@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, 2020-2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018, 2020-2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -27,6 +29,7 @@
 #include "cam_node.h"
 #include "cam_debug_util.h"
 #include "cam_smmu_api.h"
+#include "ais_main.h"
 
 #define AIS_IFE_SUBDEVICE_EVENT_MAX 30
 
@@ -496,6 +499,10 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 {
 	struct ais_ife_dev  *p_ife_dev;
 	struct v4l2_event event = {};
+	struct ais_ife_event_data_without_batch_mode_support
+				evt_data_one_frame = {};
+	struct ais_ife_event_data_without_batch_mode_support
+				*p_evt_data_one_frame = &evt_data_one_frame;
 
 	p_ife_dev = (struct ais_ife_dev *)priv;
 
@@ -505,10 +512,48 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d",
-		p_ife_dev->hw_idx, evt_data->msg.type);
+	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d boot_ts %llu",
+		p_ife_dev->hw_idx, evt_data->msg.type, evt_data->msg.boot_ts);
 
+/* Following code is a workaround as reserved field of struct v4l2_event
+ * is not enabled currently
+ */
+	p_evt_data_one_frame->type = evt_data->msg.type;
+	p_evt_data_one_frame->idx = evt_data->msg.idx;
+	p_evt_data_one_frame->path = evt_data->msg.path;
+	p_evt_data_one_frame->boot_ts = evt_data->msg.boot_ts;
+	if (evt_data->msg.type == AIS_IFE_MSG_FRAME_DONE) {
+		if (evt_data->u.frame_msg.num_batch_frames == 1) {
+			p_evt_data_one_frame->u.frame_msg.hw_ts = evt_data->u.frame_msg.hw_ts[0];
+			p_evt_data_one_frame->u.frame_msg.ts = evt_data->u.frame_msg.ts;
+			p_evt_data_one_frame->u.frame_msg.frame_id =
+							evt_data->u.frame_msg.frame_id[0];
+			p_evt_data_one_frame->u.frame_msg.buf_idx = evt_data->u.frame_msg.buf_idx;
+		} else {
+			CAM_ERR(CAM_ISP, "Batch mode support is not enabled on kernel 5.15");
+			return -EINVAL;
+		}
+	} else if (evt_data->msg.type == AIS_IFE_MSG_SOF) {
+		p_evt_data_one_frame->u.sof_msg.hw_ts = evt_data->u.sof_msg.hw_ts;
+		p_evt_data_one_frame->u.sof_msg.frame_id = evt_data->u.sof_msg.frame_id;
+	} else
+		/* AIS_IFE_MSG_OUTPUT_WARNING, AIS_IFE_MSG_OUTPUT_ERROR,
+		 * AIS_IFE_MSG_CSID_WARNING, AIS_IFE_MSG_CSID_ERROR
+		 */
+		p_evt_data_one_frame->u.err_msg.reserved = evt_data->u.err_msg.reserved;
 
+	if (sizeof(*p_evt_data_one_frame) > sizeof(event.u.data)) {
+		CAM_ERR(CAM_ISP, "IFE Callback struct too large (%d)!",
+			sizeof(*p_evt_data_one_frame));
+		return -EINVAL;
+	}
+
+	/* Queue the event */
+	memcpy(event.u.data, (void *)p_evt_data_one_frame,
+				sizeof(*p_evt_data_one_frame));
+
+/*----workaround ends----*/
+/*
 	if (sizeof(evt_data->u) > sizeof(event.u.data)) {
 		CAM_ERR(CAM_ISP, "IFE Msg struct too large (%d)!",
 			sizeof(evt_data->u));
@@ -520,10 +565,11 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 			sizeof(evt_data->msg));
 		return -EINVAL;
 	}
-
+*/
 	/* Queue the event */
-	memcpy(event.u.data, (void *)&evt_data->u, sizeof(evt_data->u));
+/*	memcpy(event.u.data, (void *)&evt_data->u, sizeof(evt_data->u));
 	memcpy(event.reserved, (void *)&evt_data->msg, sizeof(evt_data->msg));
+*/
 	event.id = V4L_EVENT_ID_AIS_IFE;
 	event.type = V4L_EVENT_TYPE_AIS_IFE;
 	v4l2_event_queue(p_ife_dev->cam_sd.sd.devnode, &event);
@@ -548,15 +594,16 @@ static void ais_ife_dev_iommu_fault_handler(
 		p_ife_dev->hw_idx, iova, domain->type);
 }
 
-static int ais_ife_dev_remove(struct platform_device *pdev)
+static void ais_ife_dev_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
 {
-	int rc = 0;
 	struct ais_ife_dev  *p_ife_dev;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	p_ife_dev = platform_get_drvdata(pdev);
 	if (!p_ife_dev) {
 		CAM_ERR(CAM_ISP, "IFE device is NULL");
-		return 0;
+		return;
 	}
 
 	/* clean up resources */
@@ -565,14 +612,15 @@ static int ais_ife_dev_remove(struct platform_device *pdev)
 	v4l2_set_subdevdata(&(p_ife_dev->cam_sd.sd), NULL);
 	devm_kfree(&pdev->dev, p_ife_dev);
 
-	return rc;
 }
 
-static int ais_ife_dev_probe(struct platform_device *pdev)
+static int ais_ife_dev_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc = -1;
 	struct ais_ife_dev *p_ife_dev = NULL;
 	struct ais_isp_hw_init_args hw_init = {};
+	struct platform_device *pdev = to_platform_device(dev);
 
 	/* Create IFE control structure */
 	p_ife_dev = devm_kzalloc(&pdev->dev,
@@ -652,7 +700,7 @@ static int ais_ife_dev_probe(struct platform_device *pdev)
 		goto secure_fail;
 	}
 
-	CAM_INFO(CAM_ISP, "IFE%d probe complete", p_ife_dev->hw_idx);
+	CAM_DBG(CAM_ISP, "IFE%d component bound successfully", p_ife_dev->hw_idx);
 
 	platform_set_drvdata(pdev, p_ife_dev);
 
@@ -710,6 +758,29 @@ static int ais_ife_init_subdev_params(struct ais_ife_dev *p_ife_dev)
 	return rc;
 }
 
+static const struct component_ops ais_ife_dev_component_ops = {
+	.bind = ais_ife_dev_component_bind,
+	.unbind = ais_ife_dev_component_unbind,
+};
+
+static int ais_ife_dev_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ISP, "Adding IFE dev component");
+	rc = component_add(&pdev->dev, &ais_ife_dev_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ISP, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+static int ais_ife_dev_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &ais_ife_dev_component_ops);
+	return 0;
+}
+
 static const struct of_device_id ais_ife_dt_match[] = {
 	{
 		.compatible = "qcom,ais-ife"
@@ -717,7 +788,7 @@ static const struct of_device_id ais_ife_dt_match[] = {
 	{}
 };
 
-static struct platform_driver ife_driver = {
+struct platform_driver ife_driver = {
 	.probe = ais_ife_dev_probe,
 	.remove = ais_ife_dev_remove,
 	.driver = {
@@ -728,17 +799,15 @@ static struct platform_driver ife_driver = {
 	},
 };
 
-static int __init ais_ife_dev_init_module(void)
+int ais_ife_dev_init_module(void)
 {
 	return platform_driver_register(&ife_driver);
 }
 
-static void __exit ais_ife_dev_exit_module(void)
+void ais_ife_dev_exit_module(void)
 {
 	platform_driver_unregister(&ife_driver);
 }
 
-module_init(ais_ife_dev_init_module);
-module_exit(ais_ife_dev_exit_module);
 MODULE_DESCRIPTION("AIS IFE driver");
 MODULE_LICENSE("GPL v2");

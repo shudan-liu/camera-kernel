@@ -216,6 +216,8 @@ int cam_virtual_cdm_probe(struct platform_device *pdev)
 	int rc;
 	struct cam_cpas_register_params cpas_parms;
 
+	CAM_DBG(CAM_CDM, "virtual cdm probe");
+
 	cdm_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!cdm_hw_intf)
 		return -ENOMEM;

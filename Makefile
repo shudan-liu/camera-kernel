@@ -1,86 +1,19 @@
-# SPDX-License-Identifier: GPL-2.0-only
+# Makefile for use with Android's kernel/build system
 
-# auto-detect subdirs
-ifeq ($(CONFIG_ARCH_KONA), y)
-include $(srctree)/techpack/camera/config/konacamera.conf
-endif
+KBUILD_OPTIONS += CAMERA_KERNEL_ROOT=$(shell pwd)
+KBUILD_OPTIONS += KERNEL_ROOT=$(ROOT_DIR)/$(KERNEL_DIR)
+KBUILD_OPTIONS += MODNAME=ais
 
-ifeq ($(CONFIG_ARCH_LITO), y)
-include $(srctree)/techpack/camera/config/litocamera.conf
-endif
+all: modules
 
-ifeq ($(CONFIG_ARCH_BENGAL), y)
-include $(srctree)/techpack/camera/config/bengalcamera.conf
-endif
+modules dtbs:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
 
-ifeq ($(CONFIG_ARCH_LAHAINA), y)
-include $(srctree)/techpack/camera/config/lahainacamera.conf
-endif
+modules_install:
+	$(MAKE) M=$(M) -C $(KERNEL_SRC) modules_install
 
-ifeq ($(CONFIG_ARCH_KONA), y)
-LINUXINCLUDE    += \
-		-include $(srctree)/techpack/camera/config/konacameraconf.h
-endif
+#install_headers:
+#	$(MAKE) --no-builtin-rules ARCH=$(ARCH) -C $(KERNEL_SRC) headers_install
 
-ifeq ($(CONFIG_ARCH_LITO), y)
-LINUXINCLUDE    += \
-		-include $(srctree)/techpack/camera/config/litocameraconf.h
-endif
-
-ifeq ($(CONFIG_ARCH_BENGAL), y)
-LINUXINCLUDE    += \
-		-include $(srctree)/techpack/camera/config/bengalcameraconf.h
-endif
-
-ifeq ($(CONFIG_ARCH_LAHAINA), y)
-LINUXINCLUDE    += \
-		-include $(srctree)/techpack/camera/config/lahainacameraconf.h
-endif
-
-
-ifeq (y, $(findstring y, $(CONFIG_ARCH_SA8155) $(CONFIG_ARCH_SA6155) $(CONFIG_ARCH_SA8195)))
-include $(srctree)/techpack/ais/config/hanacamera.conf
-endif
-
-ifeq (y, $(findstring y, $(CONFIG_ARCH_SA8155) $(CONFIG_ARCH_SA6155) $(CONFIG_ARCH_SA8195)))
-LINUXINCLUDE += \
-		-include $(srctree)/techpack/ais/config/hanacameraconf.h
-endif
-
-ifeq ($(CONFIG_ARCH_DIREWOLF), y)
-include $(srctree)/techpack/ais/config/direwolfcamera.conf
-endif
-
-ifeq ($(CONFIG_ARCH_DIREWOLF), y)
-LINUXINCLUDE += \
-		-include $(srctree)/techpack/ais/config/direwolfcameraconf.h
-endif
-
-ifeq ($(CONFIG_QTI_QUIN_GVM), y)
-include $(srctree)/techpack/ais/config/hanagvmcamera.conf
-endif
-
-ifeq ($(CONFIG_QTI_QUIN_GVM), y)
-LINUXINCLUDE += \
-		-include $(srctree)/techpack/ais/config/hanagvmcameraconf.h
-endif
-
-
-ifeq (y, $(findstring y, $(CONFIG_MSM_AIS) $(CONFIG_V4L2_LOOPBACK_V2)))
-# Use USERINCLUDE when you must reference the UAPI directories only.
-USERINCLUDE = -I$(srctree)/techpack/ais/include/uapi/ais
-
-# Use LINUXINCLUDE when you must reference the include/ directory.
-# Needed to be compatible with the O= option
-LINUXINCLUDE += \
-                -I$(srctree)/techpack/ais/include/uapi/ais \
-                -I$(srctree)/techpack/ais/include \
-                -I$(srctree) \
-                -I$(srctree)/include
-obj-y += drivers/
-
-else
-$(info Target not found)
-endif
-
-
+clean:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean

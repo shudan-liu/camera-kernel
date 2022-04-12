@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -17,13 +19,15 @@
 #include "ais_ife_csid_dev.h"
 #include "ais_ife_csid_hw_intf.h"
 #include "cam_debug_util.h"
+#include "ais_main.h"
 
 static struct cam_hw_intf *ais_ife_csid_hw_list[AIS_IFE_CSID_HW_RES_MAX] = {
 	NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL};
 
 static char csid_dev_name[8];
 
-int ais_ife_csid_probe(struct platform_device *pdev)
+static int ais_ife_csid_dev_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 
 	struct cam_hw_intf             *csid_hw_intf;
@@ -33,8 +37,9 @@ int ais_ife_csid_probe(struct platform_device *pdev)
 	struct ais_ife_csid_hw_info    *csid_hw_data = NULL;
 	uint32_t                        csid_dev_idx;
 	int                             rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
 
-	CAM_INFO(CAM_ISP, "probe called");
+	CAM_DBG(CAM_ISP, "CSID component bind called");
 
 	csid_hw_intf = kzalloc(sizeof(*csid_hw_intf), GFP_KERNEL);
 	if (!csid_hw_intf) {
@@ -65,7 +70,7 @@ int ais_ife_csid_probe(struct platform_device *pdev)
 		goto free_dev;
 	}
 
-	CAM_INFO(CAM_ISP, "CSID%d probe called", csid_dev_idx);
+	CAM_DBG(CAM_ISP, "CSID%d component bind called", csid_dev_idx);
 
 	memset(csid_dev_name, 0, sizeof(csid_dev_name));
 	snprintf(csid_dev_name, sizeof(csid_dev_name),
@@ -90,7 +95,7 @@ int ais_ife_csid_probe(struct platform_device *pdev)
 		goto free_dev;
 
 	platform_set_drvdata(pdev, csid_dev);
-	CAM_INFO(CAM_ISP, "CSID:%d probe successful",
+	CAM_DBG(CAM_ISP, "CSID:%d component bound successful",
 		csid_hw_intf->hw_idx);
 
 	if (csid_hw_intf->hw_idx < AIS_IFE_CSID_HW_RES_MAX)
@@ -110,11 +115,13 @@ err:
 	return rc;
 }
 
-int ais_ife_csid_remove(struct platform_device *pdev)
+static void ais_ife_csid_dev_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	struct ais_ife_csid_hw         *csid_dev = NULL;
 	struct cam_hw_intf             *csid_hw_intf;
 	struct cam_hw_info             *csid_hw_info;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	csid_dev = (struct ais_ife_csid_hw *)platform_get_drvdata(pdev);
 	csid_hw_intf = csid_dev->hw_intf;
@@ -129,7 +136,6 @@ int ais_ife_csid_remove(struct platform_device *pdev)
 	kfree(csid_dev);
 	kfree(csid_hw_info);
 	kfree(csid_hw_intf);
-	return 0;
 }
 
 int ais_ife_csid_hw_init(struct cam_hw_intf **ife_csid_hw,
@@ -153,4 +159,27 @@ int ais_ife_csid_hw_init(struct cam_hw_intf **ife_csid_hw,
 	}
 
 	return rc;
+}
+
+static const struct component_ops ais_ife_csid_dev_component_ops = {
+	.bind = ais_ife_csid_dev_component_bind,
+	.unbind = ais_ife_csid_dev_component_unbind,
+};
+
+int ais_ife_csid_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ISP, "Adding CSID dev component");
+	rc = component_add(&pdev->dev, &ais_ife_csid_dev_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ISP, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+int ais_ife_csid_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &ais_ife_csid_dev_component_ops);
+	return 0;
 }

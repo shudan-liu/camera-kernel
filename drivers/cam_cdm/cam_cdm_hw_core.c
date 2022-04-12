@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -28,6 +30,7 @@
 #include "cam_cdm_soc.h"
 #include "cam_io_util.h"
 #include "cam_hw_cdm170_reg.h"
+#include "ais_main.h"
 
 #define CAM_HW_CDM_CPAS_0_NAME "qcom,cam170-cpas-cdm0"
 #define CAM_HW_CDM_IPE_0_NAME "qcom,cam170-ipe0-cdm"
@@ -73,27 +76,14 @@ static int cam_hw_cdm_bl_fifo_pending_bl_rb(struct cam_hw_info *cdm_hw,
 
 static int cam_hw_cdm_create_debugfs_entry(void)
 {
-	int rc = 0;
-
 	debugfs_entry.dentry = debugfs_create_dir("camera_cdm", NULL);
 	if (!debugfs_entry.dentry)
 		return -ENOMEM;
 
-	if (!debugfs_create_bool("dump_register",
-		0644,
-		debugfs_entry.dentry,
-		&debugfs_entry.dump_register)) {
-		CAM_ERR(CAM_CDM,
-			"failed to create dump_register entry");
-		rc = -ENOMEM;
-		goto err;
-	}
+	debugfs_create_bool("dump_register", 0644,
+		debugfs_entry.dentry, &debugfs_entry.dump_register);
 
-	return rc;
-err:
-	debugfs_remove_recursive(debugfs_entry.dentry);
-	debugfs_entry.dentry = NULL;
-	return rc;
+	return 0;
 }
 
 static int cam_hw_cdm_enable_bl_done_irq(struct cam_hw_info *cdm_hw,
@@ -798,7 +788,8 @@ int cam_hw_cdm_deinit(void *hw_priv,
 	return rc;
 }
 
-static int cam_hw_cdm_probe(struct platform_device *pdev)
+static int cam_hw_cdm_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc;
 	struct cam_hw_info *cdm_hw = NULL;
@@ -808,6 +799,7 @@ static int cam_hw_cdm_probe(struct platform_device *pdev)
 	struct cam_cpas_register_params cpas_parms;
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	cdm_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!cdm_hw_intf)
@@ -994,7 +986,7 @@ static int cam_hw_cdm_probe(struct platform_device *pdev)
 	mutex_unlock(&cdm_hw->hw_mutex);
 	cam_hw_cdm_create_debugfs_entry();
 
-	CAM_DBG(CAM_CDM, "CDM%d probe successful", cdm_hw_intf->hw_idx);
+	CAM_DBG(CAM_CDM, "CDM%d component bound successfully", cdm_hw_intf->hw_idx);
 
 	return rc;
 
@@ -1036,17 +1028,19 @@ release_mem:
 	return rc;
 }
 
-static int cam_hw_cdm_remove(struct platform_device *pdev)
+static void cam_hw_cdm_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc = -EBUSY;
 	struct cam_hw_info *cdm_hw = NULL;
 	struct cam_hw_intf *cdm_hw_intf = NULL;
 	struct cam_cdm *cdm_core = NULL;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	cdm_hw_intf = platform_get_drvdata(pdev);
 	if (!cdm_hw_intf) {
 		CAM_ERR(CAM_CDM, "Failed to get dev private data");
-		return rc;
+		return;
 	}
 
 	cdm_hw = cdm_hw_intf->hw_priv;
@@ -1054,7 +1048,7 @@ static int cam_hw_cdm_remove(struct platform_device *pdev)
 		CAM_ERR(CAM_CDM,
 			"Failed to get hw private data for type=%d idx=%d",
 			cdm_hw_intf->hw_type, cdm_hw_intf->hw_idx);
-		return rc;
+		return;
 	}
 
 	cdm_core = cdm_hw->core_info;
@@ -1062,26 +1056,35 @@ static int cam_hw_cdm_remove(struct platform_device *pdev)
 		CAM_ERR(CAM_CDM,
 			"Failed to get hw core data for type=%d idx=%d",
 			cdm_hw_intf->hw_type, cdm_hw_intf->hw_idx);
-		return rc;
+		return;
 	}
 
 	if (cdm_hw->open_count != 0) {
 		CAM_ERR(CAM_CDM, "Hw open count invalid type=%d idx=%d cnt=%d",
 			cdm_hw_intf->hw_type, cdm_hw_intf->hw_idx,
 			cdm_hw->open_count);
-		return rc;
+		return;
 	}
 
-	rc = cam_hw_cdm_deinit(cdm_hw, NULL, 0);
+	if (cdm_hw->hw_state == CAM_HW_STATE_POWER_UP) {
+		rc = cam_hw_cdm_deinit(cdm_hw, NULL, 0);
+		if (rc) {
+			CAM_ERR(CAM_CDM, "Deinit failed for hw");
+			return;
+		}
+	}
+
+	rc = cam_cdm_intf_deregister_hw_cdm(cdm_hw_intf,
+		cdm_hw->soc_info.soc_private, CAM_HW_CDM, cdm_core->index);
 	if (rc) {
-		CAM_ERR(CAM_CDM, "Deinit failed for hw");
-		return rc;
+		CAM_ERR(CAM_CDM,
+			"HW_CDM interface deregistration failed: rd: %d", rc);
 	}
 
 	rc = cam_cpas_unregister_client(cdm_core->cpas_handle);
 	if (rc) {
 		CAM_ERR(CAM_CDM, "CPAS unregister failed");
-		return rc;
+		return;
 	}
 
 	if (cam_soc_util_release_platform_resource(&cdm_hw->soc_info))
@@ -1100,11 +1103,32 @@ static int cam_hw_cdm_remove(struct platform_device *pdev)
 	kfree(cdm_hw_intf);
 	kfree(cdm_hw->core_info);
 	kfree(cdm_hw);
+}
 
+static const struct component_ops cam_hw_cdm_component_ops = {
+	.bind = cam_hw_cdm_component_bind,
+	.unbind = cam_hw_cdm_component_unbind,
+};
+
+int cam_hw_cdm_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_CDM, "Adding HW CDM component");
+	rc = component_add(&pdev->dev, &cam_hw_cdm_component_ops);
+	if (rc)
+		CAM_ERR(CAM_CDM, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+int cam_hw_cdm_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &cam_hw_cdm_component_ops);
 	return 0;
 }
 
-static struct platform_driver cam_hw_cdm_driver = {
+struct platform_driver cam_hw_cdm_driver = {
 	.probe = cam_hw_cdm_probe,
 	.remove = cam_hw_cdm_remove,
 	.driver = {
@@ -1115,17 +1139,15 @@ static struct platform_driver cam_hw_cdm_driver = {
 	},
 };
 
-static int __init cam_hw_cdm_init_module(void)
+int cam_hw_cdm_init_module(void)
 {
 	return platform_driver_register(&cam_hw_cdm_driver);
 }
 
-static void __exit cam_hw_cdm_exit_module(void)
+void cam_hw_cdm_exit_module(void)
 {
 	platform_driver_unregister(&cam_hw_cdm_driver);
 }
 
-module_init(cam_hw_cdm_init_module);
-module_exit(cam_hw_cdm_exit_module);
 MODULE_DESCRIPTION("MSM Camera HW CDM driver");
 MODULE_LICENSE("GPL v2");

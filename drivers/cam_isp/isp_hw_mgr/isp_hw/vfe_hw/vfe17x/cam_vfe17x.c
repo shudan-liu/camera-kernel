@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2019, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +20,7 @@
 #include "cam_vfe_hw_intf.h"
 #include "cam_vfe_core.h"
 #include "cam_vfe_dev.h"
+#include "ais_main.h"
 
 static const struct of_device_id cam_vfe_dt_match[] = {
 	{
@@ -44,7 +47,7 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, cam_vfe_dt_match);
 
-static struct platform_driver cam_vfe_driver = {
+struct platform_driver cam_vfe_driver = {
 	.probe = cam_vfe_probe,
 	.remove = cam_vfe_remove,
 	.driver = {
@@ -55,17 +58,15 @@ static struct platform_driver cam_vfe_driver = {
 	},
 };
 
-static int __init cam_vfe_init_module(void)
+int cam_vfe_init_module(void)
 {
 	return platform_driver_register(&cam_vfe_driver);
 }
 
-static void __exit cam_vfe_exit_module(void)
+void cam_vfe_exit_module(void)
 {
 	platform_driver_unregister(&cam_vfe_driver);
 }
 
-module_init(cam_vfe_init_module);
-module_exit(cam_vfe_exit_module);
 MODULE_DESCRIPTION("CAM VFE17X driver");
 MODULE_LICENSE("GPL v2");

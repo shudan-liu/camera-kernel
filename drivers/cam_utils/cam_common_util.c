@@ -56,38 +56,26 @@ uint32_t cam_common_util_remove_duplicate_arr(int32_t *arr, uint32_t num)
 	return wr_idx;
 }
 
-uint64_t cam_common_util_get_time_diff(struct timeval *t1, struct timeval *t2)
+uint64_t cam_common_util_get_time_diff(struct timespec64 *t1, struct timespec64 *t2)
 {
 	uint64_t diff = 0;
 
 	diff = (t1->tv_sec - t2->tv_sec) * 1000000 +
-		    (t1->tv_usec - t2->tv_usec);
+		    ((t1->tv_nsec - t2->tv_nsec) / NSEC_PER_USEC);
 	return diff;
 }
 
 
-#ifndef AUTO_CAMERA_KERNEL5_4
-void cam_common_util_get_curr_timestamp(struct timeval *time_stamp)
-{
-	struct timespec ts;
-
-	get_monotonic_boottime(&ts);
-	time_stamp->tv_sec    = ts.tv_sec;
-	time_stamp->tv_usec   = ts.tv_nsec/1000;
-}
-
-#else
-void cam_common_util_get_curr_timestamp(struct timeval *time_stamp)
+void cam_common_util_get_curr_timestamp(struct timespec64 *time_stamp)
 {
 	ktime_t   cur_time;
-	struct timespec ts;
+	struct timespec64 ts;
 
 	cur_time = ktime_get();
 
-	ts = ktime_to_timespec(cur_time);
+	ts = ktime_to_timespec64(cur_time);
 
 	time_stamp->tv_sec    = ts.tv_sec;
-	time_stamp->tv_usec   = ts.tv_nsec/1000;
+	time_stamp->tv_nsec   = ts.tv_nsec;
 }
 
-#endif

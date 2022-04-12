@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2021, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -19,6 +21,8 @@
 #include "cam_sync_util.h"
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
+#include "cam_compat.h"
+#include "ais_main.h"
 
 struct sync_device *sync_dev;
 
@@ -1121,21 +1125,18 @@ static int cam_sync_create_debugfs(void)
 		return -ENOMEM;
 	}
 
-	if (!debugfs_create_bool("trigger_cb_without_switch",
-		0644, sync_dev->dentry,
-		&trigger_cb_without_switch)) {
-		CAM_ERR(CAM_SYNC,
-			"failed to create trigger_cb_without_switch entry");
-		return -ENOMEM;
-	}
+	debugfs_create_bool("trigger_cb_without_switch", 0644,
+		sync_dev->dentry, &trigger_cb_without_switch);
 
 	return 0;
 }
 
-static int cam_sync_probe(struct platform_device *pdev)
+static int cam_sync_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc;
 	int idx;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	sync_dev = kzalloc(sizeof(*sync_dev), GFP_KERNEL);
 	if (!sync_dev)
@@ -1166,14 +1167,13 @@ static int cam_sync_probe(struct platform_device *pdev)
 
 	strlcpy(sync_dev->vdev->name, CAM_SYNC_NAME,
 				sizeof(sync_dev->vdev->name));
-	sync_dev->vdev->release  = video_device_release;
+	sync_dev->vdev->release  = video_device_release_empty;
 	sync_dev->vdev->fops     = &cam_sync_v4l2_fops;
 	sync_dev->vdev->ioctl_ops = &g_cam_sync_ioctl_ops;
 	sync_dev->vdev->minor     = -1;
 	sync_dev->vdev->device_caps = V4L2_CAP_VIDEO_CAPTURE;
-	sync_dev->vdev->vfl_type  = VFL_TYPE_GRABBER;
-	rc = video_register_device(sync_dev->vdev,
-		VFL_TYPE_GRABBER, -1);
+	sync_dev->vdev->vfl_type  = VFL_TYPE_VIDEO;
+	rc = video_register_device(sync_dev->vdev, VFL_TYPE_VIDEO, -1);
 	if (rc < 0)
 		goto v4l2_fail;
 
@@ -1201,6 +1201,7 @@ static int cam_sync_probe(struct platform_device *pdev)
 
 	trigger_cb_without_switch = false;
 	cam_sync_create_debugfs();
+	CAM_DBG(CAM_SYNC, "Component bound successfully");
 
 	return rc;
 
@@ -1209,6 +1210,7 @@ v4l2_fail:
 register_fail:
 	cam_sync_media_controller_cleanup(sync_dev);
 mcinit_fail:
+	video_unregister_device(sync_dev->vdev);
 	video_device_release(sync_dev->vdev);
 vdev_fail:
 	mutex_destroy(&sync_dev->table_lock);
@@ -1216,16 +1218,39 @@ vdev_fail:
 	return rc;
 }
 
-static int cam_sync_remove(struct platform_device *pdev)
+static void cam_sync_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	v4l2_device_unregister(sync_dev->vdev->v4l2_dev);
 	cam_sync_media_controller_cleanup(sync_dev);
+	video_unregister_device(sync_dev->vdev);
 	video_device_release(sync_dev->vdev);
 	debugfs_remove_recursive(sync_dev->dentry);
 	sync_dev->dentry = NULL;
 	kfree(sync_dev);
 	sync_dev = NULL;
+}
 
+static const struct component_ops cam_sync_component_ops = {
+	.bind = cam_sync_component_bind,
+	.unbind = cam_sync_component_unbind,
+};
+
+static int cam_sync_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_SYNC, "Adding Sync component");
+	rc = component_add(&pdev->dev, &cam_sync_component_ops);
+	if (rc)
+		CAM_ERR(CAM_SYNC, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+static int cam_sync_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &cam_sync_component_ops);
 	return 0;
 }
 
@@ -1234,7 +1259,7 @@ static struct platform_device cam_sync_device = {
 	.id = -1,
 };
 
-static struct platform_driver cam_sync_driver = {
+struct platform_driver cam_sync_driver = {
 	.probe = cam_sync_probe,
 	.remove = cam_sync_remove,
 	.driver = {
@@ -1244,9 +1269,10 @@ static struct platform_driver cam_sync_driver = {
 	},
 };
 
-static int __init cam_sync_init(void)
+int cam_sync_init(void)
 {
 	int rc;
+
 
 	rc = platform_device_register(&cam_sync_device);
 	if (rc)
@@ -1255,7 +1281,7 @@ static int __init cam_sync_init(void)
 	return platform_driver_register(&cam_sync_driver);
 }
 
-static void __exit cam_sync_exit(void)
+void cam_sync_exit(void)
 {
 	int idx;
 
@@ -1266,7 +1292,5 @@ static void __exit cam_sync_exit(void)
 	kfree(sync_dev);
 }
 
-module_init(cam_sync_init);
-module_exit(cam_sync_exit);
 MODULE_DESCRIPTION("Camera sync driver");
 MODULE_LICENSE("GPL v2");

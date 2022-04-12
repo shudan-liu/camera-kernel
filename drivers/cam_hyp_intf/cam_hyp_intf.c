@@ -508,17 +508,15 @@ static struct platform_driver cam_hyp_intf_driver = {
 	},
 };
 
-static int __init cam_hyp_intf_init_module(void)
+int cam_hyp_intf_init_module(void)
 {
 	return platform_driver_register(&cam_hyp_intf_driver);
 }
 
-static void __exit cam_hyp_intf_exit_module(void)
+void cam_hyp_intf_exit_module(void)
 {
 	platform_driver_unregister(&cam_hyp_intf_driver);
 }
 
-module_init(cam_hyp_intf_init_module);
-module_exit(cam_hyp_intf_exit_module);
 MODULE_DESCRIPTION("MSM Camera Hypervisor Interface");
 MODULE_LICENSE("GPL v2");

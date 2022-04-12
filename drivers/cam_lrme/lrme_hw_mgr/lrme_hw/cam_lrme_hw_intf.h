@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2019, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -105,7 +107,7 @@ struct cam_lrme_frame_request {
 	struct cam_lrme_device    *hw_device;
 	struct cam_hw_update_entry hw_update_entries[CAM_LRME_MAX_HW_ENTRIES];
 	uint32_t                   num_hw_update_entries;
-	struct timeval             submit_timestamp;
+	struct timespec64          submit_timestamp;
 };
 
 /**
@@ -217,5 +219,16 @@ struct cam_lrme_hw_dump_args {
 	uint64_t  request_id;
 	size_t    buf_len;
 };
+
+/**
+ * @brief : API to register LRME hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_lrme_hw_init_module(void);
+
+/**
+ * @brief : API to remove LRME Hw from platform framework.
+ */
+void cam_lrme_hw_exit_module(void);
 
 #endif /* _CAM_LRME_HW_INTF_H_ */

@@ -20,4 +20,15 @@ irqreturn_t ais_ife_csid_irq(int irq_num, void *data);
 int ais_ife_csid_probe(struct platform_device *pdev);
 int ais_ife_csid_remove(struct platform_device *pdev);
 
+/**
+ * @brief : API to register CSID hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int ais_ife_csid17x_init_module(void);
+
+/**
+ * @brief : API to remove CSID Hw from platform framework.
+ */
+void ais_ife_csid17x_exit_module(void);
+
 #endif /*_AIS_IFE_CSID_DEV_H_ */

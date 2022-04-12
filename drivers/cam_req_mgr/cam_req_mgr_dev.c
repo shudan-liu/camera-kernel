@@ -1,4 +1,6 @@
-/* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2016-2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -72,8 +74,8 @@ mdev_fail:
 
 static void cam_media_device_cleanup(void)
 {
-	media_entity_cleanup(&g_dev.video->entity);
 	media_device_unregister(g_dev.v4l2_dev->mdev);
+	media_device_cleanup(g_dev.v4l2_dev->mdev);
 	kfree(g_dev.v4l2_dev->mdev);
 	g_dev.v4l2_dev->mdev = NULL;
 }
@@ -573,13 +575,13 @@ static int cam_video_device_setup(void)
 
 	strlcpy(g_dev.video->name, "cam-req-mgr",
 		sizeof(g_dev.video->name));
-	g_dev.video->release = video_device_release;
+	g_dev.video->release = video_device_release_empty;
 	g_dev.video->fops = &g_cam_fops;
 	g_dev.video->ioctl_ops = &g_cam_ioctl_ops;
 	g_dev.video->minor = -1;
-	g_dev.video->vfl_type = VFL_TYPE_GRABBER;
+	g_dev.video->vfl_type = VFL_TYPE_VIDEO;
 	g_dev.video->device_caps = V4L2_CAP_VIDEO_CAPTURE;
-	rc = video_register_device(g_dev.video, VFL_TYPE_GRABBER, -1);
+	rc = video_register_device(g_dev.video, VFL_TYPE_VIDEO, -1);
 	if (rc) {
 		CAM_ERR(CAM_CRM, "video_register_device failed rc=%d",rc);
 		goto v4l2_fail;
@@ -628,16 +630,12 @@ EXPORT_SYMBOL(cam_req_mgr_notify_message);
 
 static void cam_video_device_cleanup(void)
 {
+	media_entity_cleanup(&g_dev.video->entity);
 	video_unregister_device(g_dev.video);
 	video_device_release(g_dev.video);
 	g_dev.video = NULL;
 }
 
-void cam_register_subdev_fops(struct v4l2_file_operations *fops)
-{
-	*fops = v4l2_subdev_fops;
-}
-EXPORT_SYMBOL(cam_register_subdev_fops);
 
 bool cam_req_mgr_is_open(void)
 {
@@ -673,14 +671,6 @@ int cam_register_subdev(struct cam_subdev *csd)
 	}
 
 	mutex_lock(&g_dev.dev_lock);
-	if ((g_dev.subdev_nodes_created) &&
-		(csd->sd_flags & V4L2_SUBDEV_FL_HAS_DEVNODE)) {
-		CAM_ERR(CAM_CRM,
-			"dynamic node is not allowed, name: %s, type :%d",
-			csd->name, csd->ent_function);
-		rc = -EINVAL;
-		goto reg_fail;
-	}
 
 	sd = &csd->sd;
 	v4l2_subdev_init(sd, csd->ops);
@@ -693,6 +683,14 @@ int cam_register_subdev(struct cam_subdev *csd)
 	sd->entity.pads = NULL;
 	sd->entity.function = csd->ent_function;
 
+	if (csd->subdev_node_created) {
+		CAM_ERR(CAM_CRM,
+			"dynamic node is not allowed, name: %s, type :%d",
+			csd->name, csd->ent_function);
+		rc = -EINVAL;
+		goto reg_fail;
+	}
+
 	rc = v4l2_device_register_subdev(g_dev.v4l2_dev, sd);
 	if (rc) {
 		CAM_ERR(CAM_CRM, "register subdev failed");
@@ -701,7 +699,21 @@ int cam_register_subdev(struct cam_subdev *csd)
 	else {
 		CAM_DBG(CAM_CRM, "register subdev %s type %d succeed", csd->name, csd->ent_function);
 	}
+
+	rc = v4l2_device_register_subdev_nodes(g_dev.v4l2_dev);
+	if (rc) {
+		CAM_ERR(CAM_CRM, "Failed to register subdev node: %s, rc: %d",
+			sd->name, rc);
+		goto reg_fail;
+	}
+
+	if (sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE) {
+		sd->entity.name = video_device_node_name(sd->devnode);
+		CAM_DBG(CAM_CRM, "created node :%s", sd->entity.name);
+	}
+	csd->subdev_node_created = true;
 	g_dev.count++;
+
 
 reg_fail:
 	mutex_unlock(&g_dev.dev_lock);
@@ -725,29 +737,16 @@ int cam_unregister_subdev(struct cam_subdev *csd)
 }
 EXPORT_SYMBOL(cam_unregister_subdev);
 
-static int cam_req_mgr_remove(struct platform_device *pdev)
+static int cam_req_mgr_component_master_bind(struct device *dev)
 {
-	cam_req_mgr_core_device_deinit();
-	cam_req_mgr_util_deinit();
-	cam_media_device_cleanup();
-	cam_video_device_cleanup();
-	cam_v4l2_device_cleanup();
-	mutex_destroy(&g_dev.dev_lock);
-	g_dev.state = false;
-	g_dev.subdev_nodes_created = false;
+	int rc = 0;
 
-	return 0;
-}
-
-static int cam_req_mgr_probe(struct platform_device *pdev)
-{
-	int rc;
-
-	rc = cam_v4l2_device_setup(&pdev->dev);
+	CAM_DBG(CAM_CRM, "Master bind called");
+	rc = cam_v4l2_device_setup(dev);
 	if (rc)
 		return rc;
 
-	rc = cam_media_device_setup(&pdev->dev);
+	rc = cam_media_device_setup(dev);
 	if (rc)
 		goto media_setup_fail;
 
@@ -758,7 +757,6 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 	g_dev.open_cnt = 0;
 	mutex_init(&g_dev.cam_lock);
 	spin_lock_init(&g_dev.cam_eventq_lock);
-	g_dev.subdev_nodes_created = false;
 	mutex_init(&g_dev.dev_lock);
 
 	rc = cam_req_mgr_util_init();
@@ -773,7 +771,6 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 		goto req_mgr_core_fail;
 	}
 
-	g_dev.state = true;
 
 	if (g_cam_req_mgr_timer_cachep == NULL) {
 		g_cam_req_mgr_timer_cachep = kmem_cache_create("crm_timer",
@@ -788,8 +785,22 @@ static int cam_req_mgr_probe(struct platform_device *pdev)
 				g_cam_req_mgr_timer_cachep->name);
 	}
 
+	CAM_DBG(CAM_CRM, "All probes done, binding slave components");
+	g_dev.state = true;
+	rc = component_bind_all(dev, NULL);
+	if (rc) {
+		CAM_ERR(CAM_CRM,
+			"Error in binding all components rc: %d, Camera initialization failed!",
+			rc);
+		goto req_mgr_device_deinit;
+	}
+	CAM_INFO(CAM_CRM,
+		"All components bound successfully, AIS camera driver initialized");
+
 	return rc;
 
+req_mgr_device_deinit:
+	cam_req_mgr_core_device_deinit();
 req_mgr_core_fail:
 	cam_req_mgr_util_deinit();
 req_mgr_util_fail:
@@ -800,6 +811,63 @@ video_setup_fail:
 	cam_media_device_cleanup();
 media_setup_fail:
 	cam_v4l2_device_cleanup();
+	g_dev.state = false;
+	return rc;
+}
+
+static void cam_req_mgr_component_master_unbind(struct device *dev)
+{
+	CAM_DBG(CAM_CRM, "Master unbind called");
+	/* Unbinding all slave components first */
+	component_unbind_all(dev, NULL);
+
+	/* Now proceed with unbinding master */
+	cam_req_mgr_core_device_deinit();
+	cam_req_mgr_util_deinit();
+	cam_media_device_cleanup();
+	cam_video_device_cleanup();
+	cam_v4l2_device_cleanup();
+	mutex_destroy(&g_dev.dev_lock);
+	g_dev.state = false;
+}
+
+static const struct component_master_ops cam_req_mgr_component_master_ops = {
+	.bind = cam_req_mgr_component_master_bind,
+	.unbind = cam_req_mgr_component_master_unbind,
+};
+
+static int cam_req_mgr_remove(struct platform_device *pdev)
+{
+	component_master_del(&pdev->dev, &cam_req_mgr_component_master_ops);
+	return 0;
+}
+
+static int cam_req_mgr_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+	struct component_match *match_list = NULL;
+	struct device *dev = &pdev->dev;
+
+	rc = camera_component_match_add_drivers(dev, &match_list);
+	if (rc) {
+		CAM_ERR(CAM_CRM,
+			"Unable to match components, probe failed rc: %d",
+			rc);
+		goto end;
+	}
+
+	/* Supply match_list to master for handing over control */
+	rc = component_master_add_with_match(dev,
+		&cam_req_mgr_component_master_ops, match_list);
+	if (rc) {
+		CAM_ERR(CAM_CRM,
+			"Unable to add master, probe failed rc: %d",
+			rc);
+		goto end;
+	} else
+		CAM_DBG(CAM_CRM, "CRM probe done");
+
+end:
 	return rc;
 }
 
@@ -836,7 +904,7 @@ static const struct dev_pm_ops cam_pm_ops = {
 	.resume = &cam_pm_resume,
 };
 
-static struct platform_driver cam_req_mgr_driver = {
+struct platform_driver cam_req_mgr_driver = {
 	.probe = cam_req_mgr_probe,
 	.remove = cam_req_mgr_remove,
 	.driver = {
@@ -848,62 +916,16 @@ static struct platform_driver cam_req_mgr_driver = {
 	},
 };
 
-static int cam_dev_mgr_create_subdev_nodes(void)
-{
-	int rc;
-	struct v4l2_subdev *sd;
-
-	if (!g_dev.v4l2_dev)
-		return -EINVAL;
-
-	if (g_dev.state != true) {
-		CAM_ERR(CAM_CRM, "camera root device not ready yet");
-		return -ENODEV;
-	}
-
-	mutex_lock(&g_dev.dev_lock);
-	if (g_dev.subdev_nodes_created)	{
-		rc = -EEXIST;
-		goto create_fail;
-	}
-
-	rc = v4l2_device_register_subdev_nodes(g_dev.v4l2_dev);
-	if (rc) {
-		CAM_ERR(CAM_CRM, "failed to register the sub devices");
-		goto create_fail;
-	}
-
-	list_for_each_entry(sd, &g_dev.v4l2_dev->subdevs, list) {
-		if (!(sd->flags & V4L2_SUBDEV_FL_HAS_DEVNODE))
-			continue;
-		sd->entity.name = video_device_node_name(sd->devnode);
-		CAM_DBG(CAM_CRM, "created node :%s", sd->entity.name);
-	}
-
-	g_dev.subdev_nodes_created = true;
-
-create_fail:
-	mutex_unlock(&g_dev.dev_lock);
-	return rc;
-}
-
-static int __init cam_req_mgr_init(void)
+int cam_req_mgr_init(void)
 {
 	return platform_driver_register(&cam_req_mgr_driver);
 }
+EXPORT_SYMBOL(cam_req_mgr_init);
 
-static int __init cam_req_mgr_late_init(void)
-{
-	return cam_dev_mgr_create_subdev_nodes();
-}
-
-static void __exit cam_req_mgr_exit(void)
+void cam_req_mgr_exit(void)
 {
 	platform_driver_unregister(&cam_req_mgr_driver);
 }
 
-module_init(cam_req_mgr_init);
-late_initcall(cam_req_mgr_late_init);
-module_exit(cam_req_mgr_exit);
 MODULE_DESCRIPTION("Camera Request Manager");
 MODULE_LICENSE("GPL v2");

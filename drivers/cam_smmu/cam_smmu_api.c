@@ -1,4 +1,6 @@
-/* Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2014-2021, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -29,6 +31,7 @@
 #include "cam_compat.h"
 #include "cam_smmu_api.h"
 #include "cam_debug_util.h"
+#include "ais_main.h"
 
 #define SHARED_MEM_POOL_GRANULARITY 16
 
@@ -299,26 +302,15 @@ static void cam_smmu_page_fault_work(struct work_struct *work)
 
 static int cam_smmu_create_debugfs_entry(void)
 {
-	int rc = 0;
 
 	smmu_dentry = debugfs_create_dir("camera_smmu", NULL);
 	if (!smmu_dentry)
 		return -ENOMEM;
 
-	if (!debugfs_create_bool("cam_smmu_fatal",
-		0644,
-		smmu_dentry,
-		&smmu_fatal_flag)) {
-		CAM_ERR(CAM_SMMU, "failed to create cam_smmu_fatal entry");
-		rc = -ENOMEM;
-		goto err;
-	}
+	debugfs_create_bool("cam_smmu_fatal", 0644,
+		smmu_dentry, &smmu_fatal_flag);
 
-	return rc;
-err:
-	debugfs_remove_recursive(smmu_dentry);
-	smmu_dentry = NULL;
-	return rc;
+	return 0;
 }
 
 static void cam_smmu_print_user_list(int idx)
@@ -3245,13 +3237,6 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 		}
 
 		cb->state = CAM_SMMU_ATTACH;
-		iommu_cb_set.non_fatal_fault = smmu_fatal_flag;
-		if (iommu_domain_set_attr(cb->domain,
-			DOMAIN_ATTR_NON_FATAL_FAULTS,
-			&iommu_cb_set.non_fatal_fault) < 0) {
-			CAM_ERR(CAM_SMMU,
-				"Error: failed to set non fatal fault attribute");
-		}
 
 	} else {
 		CAM_ERR(CAM_SMMU, "Context bank does not have IO region");
@@ -3524,15 +3509,132 @@ cb_init_fail:
 	return rc;
 }
 
+static int cam_smmu_fw_dev_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	icp_fw.fw_dev = &pdev->dev;
+	icp_fw.fw_kva = NULL;
+	icp_fw.fw_hdl = 0;
+
+	CAM_DBG(CAM_SMMU, "FW dev component bound successfully");
+	return 0;
+}
+
+static void cam_smmu_fw_dev_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	CAM_DBG(CAM_SMMU, "Unbinding component: %s", pdev->name);
+}
+
+static const struct component_ops cam_smmu_fw_dev_component_ops = {
+	.bind = cam_smmu_fw_dev_component_bind,
+	.unbind = cam_smmu_fw_dev_component_unbind,
+};
+
+static int cam_smmu_cb_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	int rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
+
+	rc = cam_populate_smmu_context_banks(dev, CAM_ARM_SMMU);
+	if (rc < 0) {
+		CAM_ERR(CAM_SMMU, "Error: populating context banks");
+		cam_smmu_release_cb(pdev);
+		return -ENOMEM;
+	}
+
+	CAM_DBG(CAM_SMMU, "CB component bound successfully");
+	return 0;
+}
+
+static void cam_smmu_cb_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	CAM_DBG(CAM_SMMU, "Unbinding component: %s", pdev->name);
+}
+
+static const struct component_ops cam_smmu_cb_component_ops = {
+	.bind = cam_smmu_cb_component_bind,
+	.unbind = cam_smmu_cb_component_unbind,
+};
+
+static int cam_smmu_cb_qsmmu_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	int rc = 0;
+
+	rc = cam_populate_smmu_context_banks(dev, CAM_QSMMU);
+	if (rc < 0) {
+		CAM_ERR(CAM_SMMU, "Failed in populating context banks");
+		return -ENOMEM;
+	}
+
+	CAM_DBG(CAM_SMMU, "QSMMU CB component bound successfully");
+	return 0;
+}
+
+static void cam_smmu_cb_qsmmu_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	CAM_DBG(CAM_SMMU, "Unbinding component: %s", pdev->name);
+}
+
+static const struct component_ops cam_smmu_cb_qsmmu_component_ops = {
+	.bind = cam_smmu_cb_qsmmu_component_bind,
+	.unbind = cam_smmu_cb_qsmmu_component_unbind,
+};
+
+static int cam_smmu_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	INIT_WORK(&iommu_cb_set.smmu_work, cam_smmu_page_fault_work);
+	mutex_init(&iommu_cb_set.payload_list_lock);
+	INIT_LIST_HEAD(&iommu_cb_set.payload_list);
+
+	CAM_DBG(CAM_SMMU, "Main component bound successfully");
+	return 0;
+}
+
+static void cam_smmu_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct platform_device *pdev = to_platform_device(dev);
+
+	/* release all the context banks and memory allocated */
+	cam_smmu_reset_iommu_table(CAM_SMMU_TABLE_DEINIT);
+	if (dev && dev->dma_parms) {
+		devm_kfree(dev, dev->dma_parms);
+		dev->dma_parms = NULL;
+	}
+
+	cam_smmu_release_cb(pdev);
+}
+
+static const struct component_ops cam_smmu_component_ops = {
+	.bind = cam_smmu_component_bind,
+	.unbind = cam_smmu_component_unbind,
+};
+
 static int cam_smmu_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct device *dev = &pdev->dev;
 
+	dev->dma_parms = NULL;
+	CAM_DBG(CAM_SMMU, "Adding SMMU component: %s", pdev->name);
 	if (of_device_is_compatible(dev->of_node, "qcom,msm-cam-smmu")) {
 		rc = cam_alloc_smmu_context_banks(dev);
 		if (rc < 0) {
-			CAM_ERR(CAM_SMMU, "Error: allocating context banks");
+			CAM_ERR(CAM_SMMU, "Failed in allocating context banks");
 			return -ENOMEM;
 		}
 
@@ -3542,53 +3644,52 @@ static int cam_smmu_probe(struct platform_device *pdev)
 		if (rc < 0) {
 			CAM_ERR(CAM_SMMU, "Error: populating devices");
 		} else {
-			INIT_WORK(&iommu_cb_set.smmu_work, cam_smmu_page_fault_work);
-			mutex_init(&iommu_cb_set.payload_list_lock);
-			INIT_LIST_HEAD(&iommu_cb_set.payload_list);
+			rc = component_add(&pdev->dev, &cam_smmu_component_ops);
 		}
-	}
-	else if (of_device_is_compatible(dev->of_node, "qcom,msm-cam-smmu-cb")) {
-		rc = cam_populate_smmu_context_banks(dev, CAM_ARM_SMMU);
-		if (rc < 0) {
-			CAM_ERR(CAM_SMMU, "Error: populating context banks");
-			cam_smmu_release_cb(pdev);
-			return -ENOMEM;
-		}
-		return rc;
-	}
-	else if (of_device_is_compatible(dev->of_node, "qcom,qsmmu-cam-cb")) {
-		rc = cam_populate_smmu_context_banks(dev, CAM_QSMMU);
-		if (rc < 0) {
-			CAM_ERR(CAM_SMMU, "Error: populating context banks");
-			return -ENOMEM;
-		}
-		return rc;
-	}
-	else if (of_device_is_compatible(dev->of_node, "qcom,msm-cam-smmu-fw-dev")) {
-		icp_fw.fw_dev = &pdev->dev;
-		icp_fw.fw_kva = NULL;
-		icp_fw.fw_hdl = 0;
-		return rc;
-	}
-	else {
-		CAM_ERR(CAM_SMMU, "unsupported SMMU dev node");
-		return -1;
+	} else if (of_device_is_compatible(dev->of_node,
+		"qcom,msm-cam-smmu-cb")) {
+		rc = component_add(&pdev->dev, &cam_smmu_cb_component_ops);
+	} else if (of_device_is_compatible(dev->of_node, "qcom,qsmmu-cam-cb")) {
+		rc = component_add(&pdev->dev,
+			&cam_smmu_cb_qsmmu_component_ops);
+	} else if (of_device_is_compatible(dev->of_node,
+		"qcom,msm-cam-smmu-fw-dev")) {
+		rc = component_add(&pdev->dev, &cam_smmu_fw_dev_component_ops);
+	} else {
+		CAM_ERR(CAM_SMMU, "Unrecognized child device: %s", pdev->name);
+		rc = -ENODEV;
 	}
 
+	if (rc < 0)
+		CAM_ERR(CAM_SMMU, "failed to add component rc: %d", rc);
 
 	return rc;
 }
 
 static int cam_smmu_remove(struct platform_device *pdev)
 {
-	/* release all the context banks and memory allocated */
-	cam_smmu_reset_iommu_table(CAM_SMMU_TABLE_DEINIT);
-	if (of_device_is_compatible(pdev->dev.of_node, "qcom,msm-cam-smmu"))
-		cam_smmu_release_cb(pdev);
+	struct device *dev = &pdev->dev;
+
+	CAM_DBG(CAM_SMMU, "Removing SMMU component: %s", pdev->name);
+	if (of_device_is_compatible(dev->of_node, "qcom,msm-cam-smmu")) {
+		component_del(&pdev->dev, &cam_smmu_component_ops);
+	} else if (of_device_is_compatible(dev->of_node,
+		"qcom,msm-cam-smmu-cb")) {
+		component_del(&pdev->dev, &cam_smmu_cb_component_ops);
+	} else if (of_device_is_compatible(dev->of_node, "qcom,qsmmu-cam-cb")) {
+		component_del(&pdev->dev, &cam_smmu_cb_qsmmu_component_ops);
+	} else if (of_device_is_compatible(dev->of_node,
+		"qcom,msm-cam-smmu-fw-dev")) {
+		component_del(&pdev->dev, &cam_smmu_fw_dev_component_ops);
+	} else {
+		CAM_ERR(CAM_SMMU, "Unrecognized child device: %s", pdev->name);
+		return -ENODEV;
+	}
+
 	return 0;
 }
 
-static struct platform_driver cam_smmu_driver = {
+struct platform_driver cam_smmu_driver = {
 	.probe = cam_smmu_probe,
 	.remove = cam_smmu_remove,
 	.driver = {
@@ -3599,18 +3700,16 @@ static struct platform_driver cam_smmu_driver = {
 	},
 };
 
-static int __init cam_smmu_init_module(void)
+int cam_smmu_init_module(void)
 {
 	cam_smmu_create_debugfs_entry();
 	return platform_driver_register(&cam_smmu_driver);
 }
 
-static void __exit cam_smmu_exit_module(void)
+void cam_smmu_exit_module(void)
 {
 	platform_driver_unregister(&cam_smmu_driver);
 }
 
-module_init(cam_smmu_init_module);
-module_exit(cam_smmu_exit_module);
 MODULE_DESCRIPTION("MSM Camera SMMU driver");
 MODULE_LICENSE("GPL v2");

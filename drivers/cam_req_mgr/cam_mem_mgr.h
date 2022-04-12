@@ -1,4 +1,6 @@
-/* Copyright (c) 2016-2019, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2016-2019, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -15,6 +17,9 @@
 
 #include <linux/mutex.h>
 #include <linux/dma-buf.h>
+#if IS_REACHABLE(CONFIG_DMABUF_HEAPS)
+#include <linux/dma-heap.h>
+#endif
 #include <media/cam_req_mgr.h>
 #include "cam_mem_mgr_api.h"
 
@@ -67,12 +72,25 @@ struct cam_mem_buf_queue {
  * @bitmap: bitmap of the mem mgr utility
  * @bits: max bits of the utility
  * @bufq: array of buffers
+ * @system_heap: Handle to system heap
+ * @system_uncached_heap: Handle to system uncached heap
+ * @camera_heap: Handle to camera heap
+ * @camera_uncached_heap: Handle to camera uncached heap
+ * @secure_display_heap: Handle to secure display heap
  */
 struct cam_mem_table {
 	struct mutex m_lock;
 	void *bitmap;
 	size_t bits;
 	struct cam_mem_buf_queue bufq[CAM_MEM_BUFQ_MAX];
+#if IS_REACHABLE(CONFIG_DMABUF_HEAPS)
+	struct dma_heap *system_heap;
+	struct dma_heap *system_uncached_heap;
+	struct dma_heap *camera_heap;
+	struct dma_heap *camera_uncached_heap;
+	struct dma_heap *secure_display_heap;
+	struct dma_heap *secure_pixel_heap;
+#endif
 };
 
 /**

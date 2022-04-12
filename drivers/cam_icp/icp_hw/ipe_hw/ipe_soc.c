@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -109,6 +111,15 @@ int cam_ipe_init_soc_resources(struct cam_hw_soc_info *soc_info,
 		return rc;
 
 	return rc;
+}
+
+void cam_ipe_deinit_soc_resources(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+
+	rc = cam_soc_util_release_platform_resource(soc_info);
+	if (rc)
+		CAM_WARN(CAM_ICP, "release platform resources fail");
 }
 
 int cam_ipe_enable_soc_resources(struct cam_hw_soc_info *soc_info)

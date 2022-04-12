@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018, 2021-2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +39,7 @@
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_debug_util.h"
 #include "cam_smmu_api.h"
+#include "ais_main.h"
 
 #define CAM_ICP_DEV_NAME        "cam-icp"
 
@@ -162,12 +165,14 @@ static const struct v4l2_subdev_internal_ops cam_icp_subdev_internal_ops = {
 	.close = cam_icp_subdev_close,
 };
 
-static int cam_icp_probe(struct platform_device *pdev)
+static int cam_icp_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc = 0, i = 0;
 	struct cam_node *node;
 	struct cam_hw_mgr_intf *hw_mgr_intf;
 	int iommu_hdl = -1;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	if (!pdev) {
 		CAM_ERR(CAM_ICP, "pdev is NULL");
@@ -187,7 +192,8 @@ static int cam_icp_probe(struct platform_device *pdev)
 
 	hw_mgr_intf = kzalloc(sizeof(*hw_mgr_intf), GFP_KERNEL);
 	if (!hw_mgr_intf) {
-		rc = -EINVAL;
+		rc = -ENOMEM;
+		CAM_ERR(CAM_ICP, "Memory allocation fail");
 		goto hw_alloc_fail;
 	}
 
@@ -221,7 +227,7 @@ static int cam_icp_probe(struct platform_device *pdev)
 	g_icp_dev.open_cnt = 0;
 	mutex_init(&g_icp_dev.icp_lock);
 
-	CAM_DBG(CAM_ICP, "ICP probe complete");
+	CAM_DBG(CAM_ICP, "Component bound successfully");
 
 	return rc;
 
@@ -236,39 +242,57 @@ probe_fail:
 	return rc;
 }
 
-static int cam_icp_remove(struct platform_device *pdev)
+static void cam_icp_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int i;
 	struct v4l2_subdev *sd;
-	struct cam_subdev *subdev;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	if (!pdev) {
 		CAM_ERR(CAM_ICP, "pdev is NULL");
-		return -ENODEV;
+		return;
 	}
 
 	sd = platform_get_drvdata(pdev);
 	if (!sd) {
 		CAM_ERR(CAM_ICP, "V4l2 subdev is NULL");
-		return -ENODEV;
-	}
-
-	subdev = v4l2_get_subdevdata(sd);
-	if (!subdev) {
-		CAM_ERR(CAM_ICP, "cam subdev is NULL");
-		return -ENODEV;
+		return;
 	}
 
 	for (i = 0; i < CAM_ICP_CTX_MAX; i++)
 		cam_icp_context_deinit(&g_icp_dev.ctx_icp[i]);
+
+	cam_icp_hw_mgr_deinit();
 	cam_node_deinit(g_icp_dev.node);
 	cam_subdev_remove(&g_icp_dev.sd);
 	mutex_destroy(&g_icp_dev.icp_lock);
+}
 
+static const struct component_ops cam_icp_component_ops = {
+	.bind = cam_icp_component_bind,
+	.unbind = cam_icp_component_unbind,
+};
+
+static int cam_icp_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ICP, "Adding ICP component");
+	rc = component_add(&pdev->dev, &cam_icp_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ICP, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+static int cam_icp_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &cam_icp_component_ops);
 	return 0;
 }
 
-static struct platform_driver cam_icp_driver = {
+struct platform_driver cam_icp_driver = {
 	.probe = cam_icp_probe,
 	.remove = cam_icp_remove,
 	.driver = {
@@ -279,16 +303,15 @@ static struct platform_driver cam_icp_driver = {
 	},
 };
 
-static int __init cam_icp_init_module(void)
+int cam_icp_init_module(void)
 {
 	return platform_driver_register(&cam_icp_driver);
 }
 
-static void __exit cam_icp_exit_module(void)
+void cam_icp_exit_module(void)
 {
 	platform_driver_unregister(&cam_icp_driver);
 }
-module_init(cam_icp_init_module);
-module_exit(cam_icp_exit_module);
+
 MODULE_DESCRIPTION("MSM ICP driver");
 MODULE_LICENSE("GPL v2");

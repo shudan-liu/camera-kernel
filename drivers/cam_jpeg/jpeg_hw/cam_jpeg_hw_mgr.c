@@ -1052,7 +1052,7 @@ static int cam_jpeg_mgr_hw_dump(void *hw_mgr_priv, void *dump_hw_args)
 	struct cam_jpeg_hw_mgr *hw_mgr = hw_mgr_priv;
 	struct cam_jpeg_hw_ctx_data *ctx_data = NULL;
 	struct cam_jpeg_hw_cfg_req *p_cfg_req = NULL;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 	uint32_t dev_type;
 	uint64_t diff;
 	uint64_t *addr, *start;
@@ -1091,9 +1091,9 @@ hw_dump:
 			"No error req %lld %ld:%06ld %ld:%06ld",
 			dump_args->request_id,
 			p_cfg_req->submit_timestamp.tv_sec,
-			p_cfg_req->submit_timestamp.tv_usec,
+			p_cfg_req->submit_timestamp.tv_nsec/NSEC_PER_USEC,
 			cur_time.tv_sec,
-			cur_time.tv_usec);
+			cur_time.tv_nsec/NSEC_PER_USEC);
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		return 0;
 	}
@@ -1101,9 +1101,9 @@ hw_dump:
 		"Error req %lld %ld:%06ld %ld:%06ld",
 		dump_args->request_id,
 		p_cfg_req->submit_timestamp.tv_sec,
-		p_cfg_req->submit_timestamp.tv_usec,
+		p_cfg_req->submit_timestamp.tv_nsec/NSEC_PER_USEC,
 		cur_time.tv_sec,
-		cur_time.tv_usec);
+		cur_time.tv_nsec/NSEC_PER_USEC);
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
 		&jpeg_dump_args.cpu_addr, &jpeg_dump_args.buf_len);
 	if (!jpeg_dump_args.cpu_addr || !jpeg_dump_args.buf_len || rc) {
@@ -1129,9 +1129,9 @@ hw_dump:
 	start = addr;
 	*addr++ = dump_args->request_id;
 	*addr++ = p_cfg_req->submit_timestamp.tv_sec;
-	*addr++ = p_cfg_req->submit_timestamp.tv_usec;
+	*addr++ = p_cfg_req->submit_timestamp.tv_nsec/NSEC_PER_USEC;
 	*addr++ = cur_time.tv_sec;
-	*addr++ = cur_time.tv_usec;
+	*addr++ = cur_time.tv_nsec/NSEC_PER_USEC;
 	hdr->size = hdr->word_size * (addr - start);
 	dump_args->offset += hdr->size +
 		sizeof(struct cam_jpeg_hw_dump_header);

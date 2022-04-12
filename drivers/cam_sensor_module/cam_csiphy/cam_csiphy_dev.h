@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -131,13 +133,13 @@ struct csiphy_reg_parms_t {
 };
 
 /**
- * struct intf_params
+ * struct csiphy_intf_params
  * @device_hdl: Device Handle
  * @session_hdl: Session Handle
  * @ops: KMD operations
  * @crm_cb: Callback API pointers
  */
-struct intf_params {
+struct csiphy_intf_params {
 	int32_t device_hdl[CSIPHY_MAX_INSTANCES];
 	int32_t session_hdl[CSIPHY_MAX_INSTANCES];
 	int32_t link_hdl[CSIPHY_MAX_INSTANCES];
@@ -302,7 +304,7 @@ struct csiphy_device {
 	uint8_t num_irq_registers;
 	struct cam_subdev v4l2_dev_str;
 	struct cam_csiphy_param csiphy_info;
-	struct intf_params bridge_intf;
+	struct csiphy_intf_params bridge_intf;
 	uint32_t clk_lane;
 	uint32_t acquire_count;
 	uint32_t start_dev_count;
@@ -313,4 +315,14 @@ struct csiphy_device {
 	uint64_t csiphy_cpas_cp_reg_mask[CSIPHY_MAX_INSTANCES];
 };
 
+/**
+ * @brief : API to register CSIPHY hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int32_t cam_csiphy_init_module(void);
+
+/**
+ * @brief : API to remove CSIPHY Hw from platform framework.
+ */
+void cam_csiphy_exit_module(void);
 #endif /* _CAM_CSIPHY_DEV_H_ */

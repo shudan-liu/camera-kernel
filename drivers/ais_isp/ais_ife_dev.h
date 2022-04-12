@@ -44,4 +44,16 @@ struct ais_ife_dev {
 	int32_t open_cnt;
 };
 
+/**
+ * @brief : API to register IFE HW to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int ais_ife_dev_init_module(void);
+
+/**
+ * @brief : API to remove IFE HW from platform framework.
+ */
+void ais_ife_dev_exit_module(void);
+
+
 #endif /* _AIS_IFE_DEV_H_ */

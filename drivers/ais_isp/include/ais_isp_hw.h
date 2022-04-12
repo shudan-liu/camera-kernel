@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -69,8 +71,8 @@ struct ais_irq_controller_reg_info {
  * @time_usecs:         time in micro seconds
  */
 struct ais_isp_timestamp {
-	struct timeval          mono_time;
-	struct timeval          vt_time;
+	struct timespec64       mono_time;
+	struct timespec64       vt_time;
 	uint64_t                ticks;
 	uint64_t                time_usecs;
 };
@@ -540,6 +542,48 @@ struct ais_ife_event_data {
 		struct ais_ife_sof_msg sof_msg;
 		struct ais_ife_error_msg err_msg;
 		struct ais_ife_frame_msg frame_msg;
+	} u;
+};
+
+/**
+ * struct ais_ife_frame_msg
+ *
+ * @brief Frame done event message
+ *
+ * @hw_ts : SOF HW timestamp
+ * @ts :    SOF timestamp
+ * @frame_id : frame count
+ * @buf_idx : buffer index
+ */
+struct ais_ife_one_frame_msg {
+	uint64_t  hw_ts;
+	uint64_t  ts;
+	uint32_t  frame_id;
+	uint32_t  buf_idx;
+};
+
+/**
+ * struct ais_ife_frame_msg
+ *
+ * @brief Frame done event message
+ *
+ * @type :   message type
+ * @idx :    IFE idx
+ * @path :   input/output path
+ * @reserved: reserved for alignment
+ * @reserved1: reserved for alignment
+ * @boot_ts : event timestamp
+ * @u       : event message
+ */
+struct ais_ife_event_data_without_batch_mode_support {
+	uint64_t  boot_ts;
+	uint8_t   type;
+	uint8_t   idx;
+	uint8_t   path;
+	union {
+		struct ais_ife_sof_msg sof_msg;
+		struct ais_ife_error_msg err_msg;
+		struct ais_ife_one_frame_msg frame_msg;
 	} u;
 };
 

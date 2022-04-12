@@ -62,7 +62,7 @@ static void __cam_isp_ctx_update_event_record(
 {
 	int iterator = 0;
 	struct cam_isp_ctx_req  *req_isp;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 
 	switch (event) {
 	case CAM_ISP_CTX_EVENT_EPOCH:
@@ -90,15 +90,15 @@ static void __cam_isp_ctx_update_event_record(
 			req->request_id;
 		req_isp->event_timestamp[event].tv_sec =
 			cur_time.tv_sec;
-		req_isp->event_timestamp[event].tv_usec =
-			cur_time.tv_usec;
+		req_isp->event_timestamp[event].tv_nsec =
+			cur_time.tv_nsec;
 	} else {
 		ctx_isp->event_record[event][iterator].req_id = 0;
 	}
 	ctx_isp->event_record[event][iterator].timestamp.tv_sec =
 		cur_time.tv_sec;
-	ctx_isp->event_record[event][iterator].timestamp.tv_usec =
-		cur_time.tv_usec;
+	ctx_isp->event_record[event][iterator].timestamp.tv_nsec =
+		cur_time.tv_nsec;
 }
 
 static void __cam_isp_ctx_dump_event_record(
@@ -138,7 +138,7 @@ static void __cam_isp_ctx_dump_event_record(
 			record  = &ctx_isp->event_record[i][index];
 			*addr++ = record->req_id;
 			*addr++ = record->timestamp.tv_sec;
-			*addr++ = record->timestamp.tv_usec;
+			*addr++ = record->timestamp.tv_nsec / NSEC_PER_USEC;
 		}
 		hdr->size = hdr->word_size * (addr - start);
 		*offset += hdr->size +
@@ -2228,7 +2228,7 @@ static int __cam_isp_ctx_dump_in_top_state(struct cam_context *ctx,
 	struct cam_hw_dump_args dump_args;
 	struct cam_isp_context *ctx_isp;
 	uint64_t diff = 0;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 	int rc = 0;
 	uintptr_t cpu_addr = 0x0;
 	size_t buf_len = 0;
@@ -2293,9 +2293,9 @@ hw_dump:
 		*addr++ = req_isp->event_timestamp
 			[CAM_ISP_CTX_EVENT_APPLY].tv_sec;
 		*addr++ = req_isp->event_timestamp
-			[CAM_ISP_CTX_EVENT_APPLY].tv_usec;
+			[CAM_ISP_CTX_EVENT_APPLY].tv_nsec / NSEC_PER_USEC;
 		*addr++ = cur_time.tv_sec;
-		*addr++ = cur_time.tv_usec;
+		*addr++ = cur_time.tv_nsec / NSEC_PER_USEC;
 		hdr->size = hdr->word_size * (addr - start);
 		dump_info->offset += hdr->size +
 			sizeof(struct cam_isp_context_dump_header);

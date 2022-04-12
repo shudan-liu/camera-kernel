@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -18,6 +20,7 @@
 #include "ais_vfe_hw_intf.h"
 #include "ais_vfe_core.h"
 #include "ais_vfe_dev.h"
+#include "ais_main.h"
 
 static const struct of_device_id ais_vfe_dt_match[] = {
 	{
@@ -44,7 +47,7 @@ static const struct of_device_id ais_vfe_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ais_vfe_dt_match);
 
-static struct platform_driver ais_vfe_driver = {
+struct platform_driver ais_vfe_driver = {
 	.probe = ais_vfe_probe,
 	.remove = ais_vfe_remove,
 	.driver = {
@@ -55,17 +58,15 @@ static struct platform_driver ais_vfe_driver = {
 	},
 };
 
-static int __init ais_vfe_init_module(void)
+int ais_vfe_init_module(void)
 {
 	return platform_driver_register(&ais_vfe_driver);
 }
 
-static void __exit ais_vfe_exit_module(void)
+void ais_vfe_exit_module(void)
 {
 	platform_driver_unregister(&ais_vfe_driver);
 }
 
-module_init(ais_vfe_init_module);
-module_exit(ais_vfe_exit_module);
 MODULE_DESCRIPTION("AIS VFE17X driver");
 MODULE_LICENSE("GPL v2");
