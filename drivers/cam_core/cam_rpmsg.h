@@ -11,6 +11,13 @@
 #include <linux/bitfield.h>
 #include <linux/rpmsg.h>
 
+#define CAM_ADD_REG_VAL_PAIR(buf_array, index, offset, val)    \
+        do {                                                   \
+		CAM_DBG(CAM_ISP, "buf %px idx %d offset %03x", buf_array, (index), (offset)); \
+                buf_array[(index)++] = (offset);               \
+                buf_array[(index)++] = (val);                  \
+        } while (0)
+
 typedef int (*cam_rpmsg_recv_cb)(struct rpmsg_device *rpdev, void *data,
 	int len, void *priv, unsigned int src);
 
@@ -18,15 +25,15 @@ typedef int (*cam_rpmsg_recv_cb)(struct rpmsg_device *rpdev, void *data,
 #define CAM_RPMSG_HANDLE_JPEG           1
 #define CAM_RPMSG_HANDLE_MAX            2
 
+#define CAM_SLAVE_HW_CSID               0
+#define CAM_SLAVE_HW_VFE                1
+
 /*
  * struct cam_slave_pkt_hdr - describes header for camera slave
- * version           : 4 bits
- * processing_engine : 2 bits
- * level             : 1 bit
- * sub_system        : 5 bits
- * reserved          : 3 bits
- * payload_length    : 16 bits, Does not include header size
- * last              : 1 bit
+ * version           : 7 bits
+ * direction         : 1 bits
+ * num_packet        : 8 bit
+ * packet_sz         : 16 bits
  */
 struct cam_slave_pkt_hdr {
 	uint32_t raw;
@@ -34,39 +41,84 @@ struct cam_slave_pkt_hdr {
 
 #define CAM_RPMSG_V1                             1
 
-#define CAM_RPMSG_SLAVE_HDR_MASK_VERSION         GENMASK(3, 0)
-#define CAM_RPMSG_SLAVE_HDR_MASK_PENGINE         GENMASK(5, 4)
-#define CAM_RPMSG_SLAVE_HDR_MASK_LEVEL           BIT(6)
-#define CAM_RPMSG_SLAVE_HDR_MASK_SUB_SYS         GENMASK(11, 7)
-#define CAM_RPMSG_SLAVE_HDR_MASK_PAYLOAD_LEN     GENMASK(30, 15)
-#define CAM_RPMSG_SLAVE_HDR_MASK_IS_LAST         BIT(31)
+#define CAM_CDM_TYPE_REG_CONT                    3
+#define CAM_CDM_TYPE_REG_RAND                    4
+#define CAM_CDM_TYPE_SW_DMI32                    76
+#define CAM_CDM_MASK_TYPE                        GENMASK(31, 24)
+#define CAM_CDM_MASK_SIZE                        GENMASK(15, 0)
+#define CAM_CDM_MASK_REG_CONT_OFFSET             GENMASK(23, 0)
+#define CAM_CDM_MASK_REG_RAND_OFFSET             GENMASK(23, 0)
+#define CAM_CDM_MASK_SW_DMI32_SEL                GENMASK(31, 24)
+#define CAM_CDM_MASK_SW_DMI32_OFFSET             GENMASK(23, 0)
+#define CAM_CDM_GET_TYPE(ptr) \
+	FIELD_GET(CAM_CDM_MASK_TYPE, *(ptr))
+#define CAM_CDM_GET_SIZE(ptr) \
+	FIELD_GET(CAM_CDM_MASK_SIZE, *(ptr))
+#define CAM_CDM_GET_REG_CONT_OFFSET(ptr) \
+	FIELD_GET(CAM_CDM_MASK_REG_CONT_OFFSET, *(ptr))
+#define CAM_CDM_GET_REG_RAND_OFFSET(ptr) \
+	FIELD_GET(CAM_CDM_MASK_REG_RAND_OFFSET, *(ptr))
+#define CAM_CDM_GET_SW_DMI32_SEL(ptr) \
+	FIELD_GET(CAM_CDM_MASK_SW_DMI32_SEL, *(ptr))
+#define CAM_CDM_GET_SW_DMI32_OFFSET(ptr) \
+	FIELD_GET(CAM_CDM_MASK_SW_DMI32_OFFSET, *(ptr))
+#define CAM_CDM_SET_TYPE(ptr, val) \
+	(*(ptr) |= FIELD_PREP(CAM_CDM_MASK_TYPE, (val)))
+#define CAM_CDM_SET_SIZE(ptr, val) \
+	(*(ptr) |= FIELD_PREP(CAM_CDM_MASK_SIZE, (val)))
+#define CAM_CDM_SET_REG_CONT_OFFSET(ptr, val) \
+	(*(ptr) |= FIELD_PREP(CAM_CDM_MASK_REG_CONT_OFFSET, (val)))
+#define CAM_CDM_SET_REG_RAND_OFFSET(ptr, val) \
+	(*(ptr) |= FIELD_PREP(CAM_CDM_MASK_REG_RAND_OFFSET, (val)))
+
+#define CAM_CDM_GET_PAYLOAD_SIZE(type, num_entries)                                 \
+	({                                                                          \
+		int cdm_payload_size = 0;                                           \
+                                                                                    \
+		switch(type) {                                                      \
+			case CAM_CDM_TYPE_REG_CONT:                                 \
+				cdm_payload_size = (num_entries + 2) * 4;           \
+			break;                                                      \
+			case CAM_CDM_TYPE_REG_RAND:                                 \
+				cdm_payload_size = (num_entries * 2 + 1) * 4;       \
+			break;                                                      \
+			case CAM_CDM_TYPE_SW_DMI32:                                 \
+				cdm_payload_size = ((num_entries + 1) / 4 + 3) * 4; \
+			break;                                                      \
+			default:                                                    \
+				CAM_INFO(CAM_RPMSG, "Invalid CDM Type %d", type);   \
+				cdm_payload_size = INT_MAX;                         \
+		}                                                                   \
+		CAM_DBG(CAM_RPMSG, "cdm type %d, size %d", type,                    \
+				cdm_payload_size);                                  \
+		cdm_payload_size;                                                   \
+	})
+
+#define CAM_RPMSG_SLAVE_HDR_MASK_VERSION         GENMASK(6, 0)
+#define CAM_RPMSG_SLAVE_HDR_MASK_DIRECTION       BIT(7)
+#define CAM_RPMSG_SLAVE_HDR_MASK_NUM_PACKET      GENMASK(15, 8)
+#define CAM_RPMSG_SLAVE_HDR_MASK_PACKET_SZ       GENMASK(31, 16)
 
 #define CAM_RPMSG_SLAVE_GET_HDR_VERSION(hdr) \
-	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_VERSION, hdr->raw)
-#define CAM_RPMSG_SLAVE_GET_HDR_PENGINE(hdr) \
-	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_PENGINE, hdr->raw)
-#define CAM_RPMSG_SLAVE_GET_HDR_LEVEL(hdr)   \
-	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_LEVEL, hdr->raw)
-#define CAM_RPMSG_SLAVE_GET_HDR_SUB_SYS(hdr) \
-	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_SUB_SYS, hdr->raw)
-#define CAM_RPMSG_SLAVE_GET_HDR_PAYLOAD_LEN(hdr) \
-	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_PAYLOAD_LEN, hdr->raw)
-#define CAM_RPMSG_SLAVE_GET_HDR_IS_LAST(hdr) \
-	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_IS_LAST, hdr->raw)
+	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_VERSION, (hdr)->raw)
+#define CAM_RPMSG_SLAVE_GET_HDR_DIRECTION(hdr) \
+	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_DIRECTION, (hdr)->raw)
+#define CAM_RPMSG_SLAVE_GET_HDR_NUM_PACKET(hdr) \
+	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_NUM_PACKET, (hdr)->raw)
+#define CAM_RPMSG_SLAVE_GET_HDR_PACKET_SZ(hdr) \
+	FIELD_GET(CAM_RPMSG_SLAVE_HDR_MASK_PACKET_SZ, (hdr)->raw)
 
 #define CAM_RPMSG_SLAVE_SET_HDR_VERSION(hdr, val) \
-	(hdr->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_VERSION, val))
-#define CAM_RPMSG_SLAVE_SET_HDR_PENGINE(hdr, val) \
-	(hdr->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_PENGINE, val))
-#define CAM_RPMSG_SLAVE_SET_HDR_LEVEL(hdr, val)   \
-	(hdr->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_LEVEL, val))
-#define CAM_RPMSG_SLAVE_SET_HDR_SUB_SYS(hdr, val) \
-	(hdr->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_SUB_SYS, val))
-#define CAM_RPMSG_SLAVE_SET_HDR_PAYLOAD_LEN(hdr, val) \
-	(hdr->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_PAYLOAD_LEN, val))
-#define CAM_RPMSG_SLAVE_SET_HDR_IS_LAST(hdr, val) \
-	(hdr->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_IS_LAST, val))
-
+	((hdr)->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_VERSION, (val)))
+#define CAM_RPMSG_SLAVE_SET_HDR_DIRECTION(hdr, val) \
+	((hdr)->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_DIRECTION, (val)))
+#define CAM_RPMSG_SLAVE_SET_HDR_NUM_PACKET(hdr, val) \
+	((hdr)->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_NUM_PACKET, (val)))
+#define CAM_RPMSG_SLAVE_SET_HDR_PACKET_SZ(hdr, val) \
+	do {                                                                          \
+		(hdr)->raw &= ~CAM_RPMSG_SLAVE_HDR_MASK_PACKET_SZ;                    \
+		((hdr)->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_HDR_MASK_PACKET_SZ, (val)));\
+	} while(0)
 
 #define CAM_RPMSG_DIR_MASTER_TO_SLAVE                        0x0
 #define CAM_RPMSG_DIR_SLAVE_TO_MASTER                        0x1
@@ -116,7 +168,7 @@ struct cam_slave_pkt_hdr {
 #define ERR_TYPE_SLAVE_RECOVERY            2
 
 /*
- * slave payload
+ * slave payload - describes payload for camera slave
  * type     : 8 bits
  * size     : 16 bits      Does not include payload size
  * reserved : 8 bits
@@ -125,23 +177,24 @@ struct cam_rpmsg_slave_payload_desc {
 	uint32_t raw;
 };
 
-#define CAM_RPMSG_SLAVE_PAYLOAD_MASK_TYPE GENMASK(6, 0)
-#define CAM_RPMSG_SLAVE_PAYLOAD_MASK_DIR  BIT(7)
+#define CAM_RPMSG_SLAVE_PAYLOAD_MASK_TYPE GENMASK(7, 0)
 #define CAM_RPMSG_SLAVE_PAYLOAD_MASK_SIZE GENMASK(23, 8)
+#define CAM_RPMSG_SLAVE_PAYLOAD_MASK_RES  GENMASK(31, 24)
 
 #define CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(payload) \
-	FIELD_GET(CAM_RPMSG_SLAVE_PAYLOAD_MASK_TYPE, payload->raw)
-#define CAM_RPMSG_SLAVE_GET_PAYLOAD_DIR(payload)  \
-	FIELD_GET(CAM_RPMSG_SLAVE_PAYLOAD_MASK_DIR, payload->raw)
+	FIELD_GET(CAM_RPMSG_SLAVE_PAYLOAD_MASK_TYPE, (payload)->raw)
 #define CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(payload) \
-	FIELD_GET(CAM_RPMSG_SLAVE_PAYLOAD_MASK_SIZE, payload->raw)
+	FIELD_GET(CAM_RPMSG_SLAVE_PAYLOAD_MASK_SIZE, (payload)->raw)
+#define CAM_RPMSG_SLAVE_GET_PAYLOAD_RES(payload) \
+		FIELD_GET(CAM_RPMSG_SLAVE_PAYLOAD_MASK_RES, (payload)->raw)
 
 #define CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(payload, val) \
-	(payload->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_PAYLOAD_MASK_TYPE, val))
-#define CAM_RPMSG_SLAVE_SET_PAYLOAD_DIR(payload, val)  \
-	(payload->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_PAYLOAD_MASK_DIR, val))
+	((payload)->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_PAYLOAD_MASK_TYPE, (val)))
 #define CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(payload, val) \
-	(payload->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_PAYLOAD_MASK_SIZE, val))
+	do {                                                                              \
+		(payload)->raw &= ~CAM_RPMSG_SLAVE_PAYLOAD_MASK_SIZE;                     \
+		((payload)->raw |= FIELD_PREP(CAM_RPMSG_SLAVE_PAYLOAD_MASK_SIZE, (val))); \
+	} while(0)
 
 #define CAM_RPMSG_SLAVE_CLIENT_SYSTEM    0
 #define CAM_RPMSG_SLAVE_CLIENT_ISP       1
@@ -184,6 +237,155 @@ struct cam_rpmsg_instance_data {
 	struct rpmsg_device *rpdev;
 	struct blocking_notifier_head status_change_notify;
 };
+
+/* struct cam_rpmsg_isp_acq_payload
+ *
+ * @hdr        : packet header
+ * @phdr       : payload header
+ * @version    : packet version
+ * @sensor_id  : sensor id
+ */
+struct cam_rpmsg_isp_acq_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	uint32_t version;
+	uint32_t sensor_id;
+};
+
+/* struct cam_rpmsg_isp_rel_payload
+ *
+ * @hdr        : packet header
+ * @phdr       : payload header
+ * @version    : packet version
+ * @sensor_id  : sensor id
+ */
+struct cam_rpmsg_isp_rel_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	uint32_t version;
+	uint32_t sensor_id;
+};
+
+/* struct cam_rpmsg_isp_start_payload
+ *
+ * @hdr        : packet header
+ * @phdr       : payload header
+ * @version    : packet version
+ * @sensor_id  : sensor id
+ */
+struct cam_rpmsg_isp_start_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	uint32_t version;
+	uint32_t sensor_id;
+};
+
+/* struct cam_rpmsg_isp_stop_payload
+ *
+ * @hdr        : packet header
+ * @phdr       : payload header
+ * @version    : packet version
+ * @sensor_id  : sensor id
+ */
+struct cam_rpmsg_isp_stop_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	uint32_t version;
+	uint32_t sensor_id;
+};
+
+/* struct cam_rpmsg_system_ping_payload
+ *
+ * @hdr        : packet header
+ * @phdr       : payload header
+ * @version    : packet version
+ * @sensor_id  : sequence
+ */
+struct cam_rpmsg_system_ping_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	// uint32_t version;
+	// uint32_t sequence;
+};
+
+/* struct cam_rpmsg_isp_err_payload
+ *
+ * @phdr       : payload header
+ * @version    : packet version
+ * @sensor_id  : sensor id
+ */
+struct cam_rpmsg_isp_err_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	uint32_t version;
+	uint32_t err_type;
+	uint32_t sensor_id;
+	uint32_t size;
+	uint8_t  errDesc[1];
+};
+
+struct cam_rpmsg_isp_init_pipeline_cfg {
+	uint32_t size;
+	uint32_t sensor_mode;
+	struct cam_rpmsg_vcdt {
+		uint32_t vc;
+		uint32_t dt;
+	}vcdt[4];
+	uint32_t num_ports;
+	struct cam_rpmsg_out_port {
+		uint32_t type;
+		uint32_t width;
+		uint32_t height;
+		uint32_t format;
+	}out_port[1];
+};
+
+struct cam_rpmsg_isp_init_cfg_payload {
+	struct cam_slave_pkt_hdr hdr;
+	struct cam_rpmsg_slave_payload_desc phdr;
+	uint16_t major_ver;
+	uint16_t minor_ver;
+	uint32_t sensor_id;
+	uint32_t num_sensor_mode;
+	struct cam_rpmsg_isp_init_pipeline_cfg cfg[1];
+};
+
+struct cam_rpmsg_isp_init_hw_cfg {
+	uint32_t hw_id;
+	uint32_t size;
+};
+
+/**
+ * @brief     : send isp acquire packet
+ * @sensor_id : sensor id
+ *
+ * @return zero on success or error code
+ */
+int cam_rpmsg_isp_send_acq(uint32_t sensor_id);
+
+/**
+ * @brief     : send isp release packet
+ * @sensor_id : sensor id
+ *
+ * @return zero on success or error code
+ */
+int cam_rpmsg_isp_send_rel(uint32_t sensor_id);
+
+/**
+ * @brief     : send isp start packet
+ * @sensor_id : sensor id
+ *
+ * @return zero on success or error code
+ */
+int cam_rpmsg_isp_send_start(uint32_t sensor_id);
+
+/**
+ * @brief     : send isp stop packet
+ * @sensor_id : sensor id
+ *
+ * @return zero on success or error code
+ */
+int cam_rpmsg_isp_send_stop(uint32_t sensor_id);
 
 /**
  * @prief : Request handle for JPEG/SLAVE rpmsg
