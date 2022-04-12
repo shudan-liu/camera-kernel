@@ -25,6 +25,8 @@
 #define MAX_SETTINGS 200
 #define MAX_STREAMS  4
 
+#define MAX_CSIPHY_SETTINGS 200
+
 typedef uint32_t virtual_channel;
 
 enum sensor_stream_type {
@@ -227,22 +229,76 @@ struct probe_payload {
 };
 
 /**
- * struct phy_info - Explains about the phy information
+ * phy_info - Explains about the remote phy information
  *
- * @vt                          :    phy version
- * @phy_index                   :    phy index
- * @num_lanes                   :    number of lanes in phy
- * @phy_type                    :    type of phy used
- * @combo_mode                  :    phy used in combo mode or not
- * @lane_mask                   :    lane mask
+ * @phy_id       :  Phy HW id
+ * @phy_type     :  Phy type (CPHY/DPHY)
+ * @combo_mode   :  Is phy connected in combo mode
+ * @lane_count   :  Number of phy lanes
+ * @lane_assign  :  Assignment of phy lanes
  */
 struct phy_info {
-	enum        version_type           vt;
-	uint16_t    phy_index;
-	uint16_t    num_lanes;
-	enum        phy_type               pt;
+	uint32_t    phy_id;
+	enum        phy_type               phy_type;
 	bool        combo_mode;
-	uint16_t    lane_mask;
+	uint16_t    lane_count;
+	uint16_t    lane_assign;
+};
+
+/**
+ * phy_reg_setting - Explains about the PHY register info
+ *
+ * @reg_addr  :  Register address
+ * @reg_data  :  Register value
+ * @delay     :  Delay in us
+ */
+struct phy_reg_setting {
+	uint32_t reg_addr;
+	uint32_t reg_data;
+	uint32_t delay;
+};
+
+/**
+ * phy_reg_config - Explains about the PHY register settings sequence
+ *
+ * @num_settings  :  Number of reg settings
+ * @reg_settings  :  Reg settings
+ */
+struct phy_reg_config {
+	uint32_t                num_settings;
+	struct phy_reg_setting  *reg_settings;
+};
+
+/**
+ * phy_header - Header for the remote phy payload
+ *
+ * @hpkt_header    :  Packet header for helios
+ * @hpkt_preamble  :  Preamble header for helios
+ * @version        :  Packet version
+ * @size           :  Packet size
+ */
+struct phy_header {
+	struct cam_slave_pkt_hdr             hpkt_header;
+	struct cam_rpmsg_slave_payload_desc  hpkt_preamble;
+	uint8_t                              version;
+	uint32_t                             size;
+};
+
+/**
+ * phy_payload - Remote phy payload
+ *
+ * @phy_header          :  Header
+ * @phy_id              :  Phy HW id
+ * @phy_lane_en_config  :  Phy lane enable reg config
+ * @phy_lane_config     :  Phy lane reg config
+ * @phy_reset_config    :  Phy reset config
+ */
+struct phy_payload {
+	struct phy_header header;
+	uint32_t phy_id;
+	struct phy_reg_config phy_lane_en_config;
+	struct phy_reg_config phy_lane_config;
+	struct phy_reg_config phy_reset_config;
 };
 
 /**
@@ -251,13 +307,13 @@ struct phy_info {
  * @vt                          :    version
  * @sensor_id                   :    id of the sensor probed by slave
  * @status                      :    probe status
- * @phy_information             :    the phy information
+ * @phy_info                    :    the phy information
  */
 struct sensor_probe_response {
 	enum     version_type           vt;
 	uint8_t                         sensor_id;
 	enum     probe_status           status;
-	struct   phy_info               phy_information;
+	struct   phy_info               phy_info;
 };
 
 /**
@@ -552,7 +608,6 @@ struct host_dest_camera_init_payload_v2 {
 	uint32_t                     init_setting_count;
 } __packed;
 
-
 enum {
 	SENSORLITE_CMD_TYPE_PROBE           = 1,
 	SENSORLITE_CMD_TYPE_SLAVEDESTINIT   = 2,
@@ -575,5 +630,8 @@ enum {
 #define HCM_PKT_OPCODE_SENSOR_START_DEV       (HCM_PKT_OPCODE_SENSOR_BASE + 0xA)
 #define HCM_PKT_OPCODE_SENSOR_STOP_DEV        (HCM_PKT_OPCODE_SENSOR_BASE + 0xB)
 #define HCM_PKT_OPCODE_SENSOR_ERROR           (HCM_PKT_OPCODE_SENSOR_BASE + 0xC)
+
+#define HCM_PKT_OPCODE_CSIPHY_BASE            0x40
+#define HCM_PKT_OPCODE_CSIPHY_INIT_CONFIG     (HCM_PKT_OPCODE_CSIPHY_BASE + 0x2)
 
 #endif

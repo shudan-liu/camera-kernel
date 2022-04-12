@@ -230,6 +230,20 @@ struct cam_csiphy_query_cap {
 } __attribute__((packed));
 
 /**
+ * struct cam_csiphy_query_cap - capabilities info for remote csiphy
+ *
+ * @slot_info        :  Indicates about the slotId or cell Index
+ * @version          :  CSIphy version
+ *                      as clock lane
+ * @reserved
+ */
+struct cam_csiphy_remote_query_cap {
+	__u32            slot_info;
+	__u32            version;
+	__u32            reserved;
+} __attribute__((packed));
+
+/**
  * struct cam_actuator_query_cap - capabilities info for actuator
  *
  * @slot_info        :  Indicates about the slotId or cell Index
@@ -652,6 +666,24 @@ struct cam_sensorlite_acquire_dev {
 	__u64    info_handle;
 } __attribute__((packed));
 
+/**
+ * cam_csiphy_remote_info      : Provides cmdbuffer structre
+ * @reserved
+ * @lane_assign           	   : Lanes sensor will be using
+ * @lane_cnt              	   : Total number of lanes
+ * @combo_mode                 : Indicates the device mode of operation
+ * @csiphy_3phase              : Details whether 3Phase / 2Phase operation
+ * @phy_id                     : phy index
+ *
+ */
+struct cam_csiphy_remote_info {
+	__u32    phy_id;
+	__u32    reserved;
+	__u16    lane_assign;
+	__u16    lane_cnt;
+	__u32    combo_mode;
+	__u16    csiphy_3phase;
+} __attribute__((packed));
 
 /**
  * cam_sensor_streamon_dev : StreamOn command for the sensor

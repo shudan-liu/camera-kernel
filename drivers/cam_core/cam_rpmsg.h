@@ -74,6 +74,7 @@ struct cam_slave_pkt_hdr {
 #define CAM_RPMSG_SLAVE_PACKET_BASE_SYSTEM                   0x0
 #define CAM_RPMSG_SLAVE_PACKET_BASE_ISP                      0x20
 #define CAM_RPMSG_SLAVE_PACKET_BASE_SENSOR                   0x40
+#define CAM_RPMSG_SLAVE_PACKET_BASE_PHY                      0x50
 
 #define CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED     \
 	(CAM_RPMSG_SLAVE_PACKET_BASE_SYSTEM + 0x0)
@@ -103,6 +104,11 @@ struct cam_slave_pkt_hdr {
 	(CAM_RPMSG_SLAVE_PACKET_BASE_SENSOR + 0)
 #define CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_MAX        \
 	(CAM_RPMSG_SLAVE_PACKET_BASE_SENSOR + 0x19)
+
+#define CAM_RPMSG_SLAVE_PACKET_TYPE_PHY_UNUSED     \
+	(CAM_RPMSG_SLAVE_PACKET_BASE_PHY + 0)
+#define CAM_RPMSG_SLAVE_PACKET_TYPE_PHY_MAX        \
+	(CAM_RPMSG_SLAVE_PACKET_BASE_PHY + 0x19)
 
 #define PACKET_VERSION_1                   1
 
@@ -140,7 +146,8 @@ struct cam_rpmsg_slave_payload_desc {
 #define CAM_RPMSG_SLAVE_CLIENT_SYSTEM    0
 #define CAM_RPMSG_SLAVE_CLIENT_ISP       1
 #define CAM_RPMSG_SLAVE_CLIENT_SENSOR    2
-#define CAM_RPMSG_SLAVE_CLIENT_MAX       3
+#define CAM_RPMSG_SLAVE_CLIENT_PHY       3
+#define CAM_RPMSG_SLAVE_CLIENT_MAX       4
 
 /** struct cam_rpmsg_slave_cbs - slave client callback
  *
