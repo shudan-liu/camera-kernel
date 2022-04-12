@@ -2258,3 +2258,9 @@ smmu_get_failed:
 
 	return rc;
 }
+
+int cam_jpeg_hw_mgr_deinit(void)
+{
+	debugfs_remove_recursive(g_jpeg_hw_mgr.dentry);
+	return 0;
+}
