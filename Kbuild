@@ -215,6 +215,10 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_cci/cam_cci_dev.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_core.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_soc.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_dev.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_core.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_soc.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_pkt_utils.o \
 	drivers/cam_sensor_module/cam_tpg/cam_tpg_dev.o \
 	drivers/cam_sensor_module/cam_tpg/cam_tpg_core.o \
 	drivers/cam_sensor_module/cam_tpg/tpg_hw/tpg_hw.o \

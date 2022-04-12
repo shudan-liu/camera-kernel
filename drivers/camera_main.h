@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef CAMERA_MAIN_H
@@ -36,6 +37,7 @@ extern struct platform_driver cam_sensor_platform_driver;
 extern struct platform_driver cam_eeprom_platform_driver;
 extern struct platform_driver cam_ois_platform_driver;
 extern struct platform_driver cam_tpg_driver;
+extern struct platform_driver cam_sensor_lite_driver;
 extern struct i2c_driver cam_actuator_i2c_driver;
 extern struct i2c_driver cam_flash_i2c_driver;
 extern struct i2c_driver cam_ois_i2c_driver;
@@ -112,6 +114,7 @@ static struct platform_driver *const cam_component_platform_drivers[] = {
 	&cam_eeprom_platform_driver,
 	&cam_ois_platform_driver,
 	&cam_tpg_driver,
+	&cam_sensor_lite_driver,
 #if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2) || \
 	IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
 	&cam_flash_platform_driver,
