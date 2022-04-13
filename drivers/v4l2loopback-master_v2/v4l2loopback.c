@@ -1937,6 +1937,7 @@ static int vidioc_streamon(struct file *file,
 					msecs_to_jiffies(START_TIMEOUT));
 		if (rc) {
 			rc = data->qcarcam_ctrl_ret;
+			data->is_streaming = 1;
 			if (data->qcarcam_ctrl_ret == 0)
 				dev->stream_status = 1;
 		} else {
