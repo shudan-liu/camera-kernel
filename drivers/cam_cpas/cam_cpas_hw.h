@@ -15,7 +15,7 @@
 #include "cam_soc_bus.h"
 
 #define CAM_CPAS_INFLIGHT_WORKS              5
-#define CAM_CPAS_MAX_CLIENTS                 50
+#define CAM_CPAS_MAX_CLIENTS                 55
 #define CAM_CPAS_MAX_AXI_PORTS               6
 #define CAM_CPAS_MAX_TREE_LEVELS             4
 #define CAM_CPAS_MAX_RT_WR_NIU_NODES         10
