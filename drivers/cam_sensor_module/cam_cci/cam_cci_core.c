@@ -2078,9 +2078,6 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 	case MSM_CCI_RELEASE:
 		mutex_lock(&cci_dev->init_mutex);
 		rc = cam_cci_release(sd);
-		/* return success if release fail with -EINVAL */
-		if (-EINVAL == rc)
-			rc = 0;
 		mutex_unlock(&cci_dev->init_mutex);
 		break;
 	case MSM_CCI_I2C_READ_BURST:
@@ -2106,7 +2103,11 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 		rc = -ENOIOCTLCMD;
 	}
 
-	cci_ctrl->status = rc;
+	/* return success if release fail with -EINVAL */
+	if ((MSM_CCI_RELEASE == cci_ctrl->cmd) && (-EINVAL == rc))
+		cci_ctrl->status = 0;
+	else
+		cci_ctrl->status = rc;
 
 	return rc;
 }

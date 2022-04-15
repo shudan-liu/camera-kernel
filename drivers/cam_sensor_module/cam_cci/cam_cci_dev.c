@@ -222,6 +222,7 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			base + CCI_RESET_CMD_ADDR);
 	}
 	if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_ERROR_BMSK) {
+		struct cam_cci_master_info *cci_master_info;
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_NACK_ERROR_BMSK)
 			CAM_DBG(CAM_CCI, "Base:%pK, M0 NACK ERROR: 0x%x",
@@ -236,8 +237,20 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 				base, irq_status0);
 		cam_io_w_mb(CCI_M0_HALT_REQ_RMSK, base + CCI_HALT_REQ_ADDR);
 		complete(&cci_dev->cci_master_info[MASTER_0].rd_done);
+
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q0_NACK_ERROR_BMSK) {
+			cci_master_info = &cci_dev->cci_master_info[MASTER_0];
+			complete(&cci_master_info->report_q[QUEUE_0]);
+		}
+
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q1_NACK_ERROR_BMSK) {
+			cci_master_info = &cci_dev->cci_master_info[MASTER_0];
+			complete(&cci_master_info->report_q[QUEUE_1]);
+		}
+
 	}
 	if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
+		struct cam_cci_master_info *cci_master_info;
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_NACK_ERROR_BMSK)
 			CAM_ERR(CAM_CCI, "Base:%pK, M1 NACK ERROR: 0x%x",
@@ -252,6 +265,15 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 				base, irq_status0);
 		cam_io_w_mb(CCI_M1_HALT_REQ_RMSK, base + CCI_HALT_REQ_ADDR);
 		complete(&cci_dev->cci_master_info[MASTER_1].rd_done);
+
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_Q0_NACK_ERROR_BMSK) {
+			cci_master_info = &cci_dev->cci_master_info[MASTER_1];
+			complete(&cci_master_info->report_q[QUEUE_0]);
+		}
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_Q1_NACK_ERROR_BMSK) {
+			cci_master_info = &cci_dev->cci_master_info[MASTER_1];
+			complete(&cci_master_info->report_q[QUEUE_1]);
+		}
 	}
 
 	cam_io_w_mb(irq_status0, base + CCI_IRQ_CLEAR_0_ADDR);
