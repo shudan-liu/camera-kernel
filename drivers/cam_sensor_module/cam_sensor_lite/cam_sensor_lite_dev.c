@@ -23,7 +23,7 @@ static void cam_sensor_lite_subdev_handle_message(
 	uint32_t data_idx;
 
 	switch (message_type) {
-	case CAM_SUBDEV_MESSAGE_IRQ_ERR:
+	case CAM_SUBDEV_MESSAGE_REG_DUMP:
 		data_idx = *(uint32_t *)data;
 		CAM_INFO(CAM_SENSOR_LITE, "subdev index : %d Sensor Lite index: %d",
 				sensor_lite_dev->soc_info.index, data_idx);
