@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -488,7 +489,8 @@ static irqreturn_t bridge_irq(int irq_num, void *dev)
 	return IRQ_HANDLED;
 }
 
-static int32_t cam_sensor_get_intr_gpio(int32_t* gpio_num, struct cam_sensor_ctrl_t *s_ctrl, uint32_t idx)
+static int32_t cam_sensor_get_intr_gpio(int32_t *gpio_num,
+	struct cam_sensor_ctrl_t *s_ctrl, uint32_t idx)
 {
 	int32_t num = of_get_named_gpio(s_ctrl->soc_info.dev->of_node,
 		"sensor-intr-gpios", idx);
@@ -496,7 +498,7 @@ static int32_t cam_sensor_get_intr_gpio(int32_t* gpio_num, struct cam_sensor_ctr
 	if (num < 0) {
 		CAM_ERR(CAM_SENSOR,
 				"sensor-intr-gpios not provided in device tree");
-		return -1;
+		return -EINVAL;
 	}
 
 	if (gpio_num)
@@ -2016,7 +2018,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		}
 	}
 
-	rc = cam_sensor_core_power_up(power_info, soc_info);
+	rc = cam_sensor_util_power_up(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);
 		return rc;
