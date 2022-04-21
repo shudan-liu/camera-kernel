@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -43,9 +44,6 @@
 
 /* Max number of sof irq's triggered in case of SOF freeze */
 #define CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX 12
-
-/* Max CSI Rx irq error count threshold value */
-#define CAM_IFE_CSID_MAX_IRQ_ERROR_COUNT               100
 
 #define CAM_IFE_CSID_VER1_STATUS_MAX_NUM 32
 
@@ -3352,8 +3350,7 @@ static int cam_ife_csid_ver1_sof_irq_debug(
 			csid_hw->rx_cfg.phy_sel);
 
 	cam_subdev_notify_message(CAM_CSIPHY_DEVICE_TYPE,
-			CAM_SUBDEV_MESSAGE_IRQ_ERR,
-			(void *)&data_idx);
+		CAM_SUBDEV_MESSAGE_REG_DUMP, (void *)&data_idx);
 
 	return 0;
 }
@@ -4071,7 +4068,7 @@ static int cam_ife_csid_ver1_rx_bottom_half_handler(
 		if (csid_hw->flags.fatal_err_detected) {
 			event_type |= CAM_ISP_HW_ERROR_CSID_FATAL;
 			cam_subdev_notify_message(CAM_CSIPHY_DEVICE_TYPE,
-					CAM_SUBDEV_MESSAGE_IRQ_ERR,
+					CAM_SUBDEV_MESSAGE_REG_DUMP,
 					(void *)&data_idx);
 		}
 
