@@ -319,9 +319,6 @@ static int cam_soc_util_get_clk_level_to_apply(
 
 int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 {
-	int rc;
-	int cpu_num;
-
 	if (!soc_info) {
 		CAM_ERR(CAM_UTIL, "Invalid arguments");
 		return -EINVAL;
@@ -332,24 +329,6 @@ int cam_soc_util_irq_enable(struct cam_hw_soc_info *soc_info)
 		return -ENODEV;
 	}
 
-	cpu_num = num_active_cpus();
-	/*
-	 * By default, irq will be handled on cpu0,
-	 * bind ife/ife-lite irq to different cpu
-	 * that could reduce the ife/ife-lite irq delay
-	 */
-	if (!strcmp(soc_info->irq_name, "ife") ||
-		!strcmp(soc_info->irq_name, "ife-lite")) {
-		if ((soc_info->index + 1) < cpu_num) {
-			rc = irq_set_affinity(soc_info->irq_line->start,
-				cpumask_of(soc_info->index + 1));
-			if (rc < 0)
-				CAM_ERR(CAM_UTIL,
-					"%s irq bind cpu%d failed",
-					soc_info->irq_name,
-					soc_info->index + 1);
-		}
-	}
 	enable_irq(soc_info->irq_line->start);
 
 	return 0;
@@ -383,20 +362,6 @@ long cam_soc_util_get_clk_round_rate(struct cam_hw_soc_info *soc_info,
 
 	return clk_round_rate(soc_info->clk[clk_index], clk_rate);
 }
-
-#ifndef AUTO_CAMERA_KERNEL5_4
-int cam_soc_util_set_clk_flags(struct cam_hw_soc_info *soc_info,
-	uint32_t clk_index, unsigned long flags)
-{
-	if (!soc_info || (clk_index >= soc_info->num_clk)) {
-		CAM_ERR(CAM_UTIL, "Invalid input params %pK, %d",
-			soc_info, clk_index);
-		return -EINVAL;
-	}
-
-	return clk_set_flags(soc_info->clk[clk_index], flags);
-}
-#endif
 
 /**
  * cam_soc_util_set_clk_rate()

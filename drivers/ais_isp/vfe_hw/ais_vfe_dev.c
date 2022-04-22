@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -14,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/mod_devicetable.h>
 #include <linux/of_device.h>
+#include <linux/component.h>
 #include "ais_vfe_dev.h"
 #include "ais_vfe_core.h"
 #include "ais_vfe_soc.h"
@@ -24,7 +27,8 @@ static struct cam_hw_intf *ais_vfe_hw_list[AIS_VFE_HW_NUM_MAX] = {
 
 static char vfe_dev_name[8];
 
-int ais_vfe_probe(struct platform_device *pdev)
+static int ais_vfe_dev_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	struct cam_hw_info                *vfe_hw = NULL;
 	struct cam_hw_intf                *vfe_hw_intf = NULL;
@@ -32,8 +36,9 @@ int ais_vfe_probe(struct platform_device *pdev)
 	struct ais_vfe_hw_core_info       *core_info = NULL;
 	struct ais_vfe_hw_info            *hw_info = NULL;
 	int                                rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
 
-	CAM_INFO(CAM_ISP, "Probe called");
+	CAM_DBG(CAM_ISP, "VFE component bind called");
 
 	vfe_hw_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!vfe_hw_intf) {
@@ -71,7 +76,7 @@ int ais_vfe_probe(struct platform_device *pdev)
 	vfe_hw_intf->hw_ops.process_cmd = ais_vfe_process_cmd;
 	vfe_hw_intf->hw_type = AIS_ISP_HW_TYPE_VFE;
 
-	CAM_INFO(CAM_ISP, "Probe called for VFE%d", vfe_hw_intf->hw_idx);
+	CAM_DBG(CAM_ISP, "Component bind called for VFE%d", vfe_hw_intf->hw_idx);
 
 	platform_set_drvdata(pdev, vfe_hw_intf);
 
@@ -120,7 +125,7 @@ int ais_vfe_probe(struct platform_device *pdev)
 	ais_vfe_init_hw(vfe_hw, NULL, 0);
 	ais_vfe_deinit_hw(vfe_hw, NULL, 0);
 
-	CAM_DBG(CAM_ISP, "VFE%d probe successful", vfe_hw_intf->hw_idx);
+	CAM_DBG(CAM_ISP, "VFE%d component bound successfully", vfe_hw_intf->hw_idx);
 
 	return rc;
 
@@ -137,17 +142,19 @@ end:
 	return rc;
 }
 
-int ais_vfe_remove(struct platform_device *pdev)
+static void ais_vfe_dev_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	struct cam_hw_info                *vfe_hw = NULL;
 	struct cam_hw_intf                *vfe_hw_intf = NULL;
 	struct ais_vfe_hw_core_info       *core_info = NULL;
 	int                                rc = 0;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	vfe_hw_intf = platform_get_drvdata(pdev);
 	if (!vfe_hw_intf) {
 		CAM_ERR(CAM_ISP, "Error! No data in pdev");
-		return -EINVAL;
+		return;
 	}
 
 	CAM_DBG(CAM_ISP, "type %d index %d",
@@ -159,14 +166,12 @@ int ais_vfe_remove(struct platform_device *pdev)
 	vfe_hw = vfe_hw_intf->hw_priv;
 	if (!vfe_hw) {
 		CAM_ERR(CAM_ISP, "Error! HW data is NULL");
-		rc = -ENODEV;
 		goto free_vfe_hw_intf;
 	}
 
 	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
 	if (!core_info) {
 		CAM_ERR(CAM_ISP, "Error! core data NULL");
-		rc = -EINVAL;
 		goto deinit_soc;
 	}
 
@@ -189,7 +194,6 @@ deinit_soc:
 free_vfe_hw_intf:
 	kfree(vfe_hw_intf);
 
-	return rc;
 }
 
 int ais_vfe_hw_init(struct cam_hw_intf **vfe_hw,
@@ -220,4 +224,27 @@ int ais_vfe_hw_init(struct cam_hw_intf **vfe_hw,
 		rc = -ENODEV;
 	}
 	return rc;
+}
+
+static const struct component_ops ais_vfe_dev_component_ops = {
+	.bind = ais_vfe_dev_component_bind,
+	.unbind = ais_vfe_dev_component_unbind,
+};
+
+int ais_vfe_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ISP, "Adding VFE dev component");
+	rc = component_add(&pdev->dev, &ais_vfe_dev_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ISP, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+int ais_vfe_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &ais_vfe_dev_component_ops);
+	return 0;
 }

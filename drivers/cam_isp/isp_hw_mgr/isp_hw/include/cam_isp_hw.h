@@ -33,10 +33,11 @@
  * @time_usecs:         time in micro seconds
  */
 struct cam_isp_timestamp {
-	struct timeval          mono_time;
-	struct timeval          vt_time;
+	struct timespec64       mono_time;
+	struct timespec64       vt_time;
 	uint64_t                ticks;
 	uint64_t                time_usecs;
+
 };
 
 /*

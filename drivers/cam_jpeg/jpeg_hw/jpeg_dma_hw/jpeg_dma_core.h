@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2018, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -49,4 +51,14 @@ int cam_jpeg_dma_process_cmd(void *device_priv, uint32_t cmd_type,
 	void *cmd_args, uint32_t arg_size);
 irqreturn_t cam_jpeg_dma_irq(int irq_num, void *data);
 
+/**
+ * @brief : API to register JPEG DMA hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_jpeg_dma_init_module(void);
+
+/**
+ * @brief : API to remove JPEG DMA Hw from platform framework.
+ */
+void cam_jpeg_dma_exit_module(void);
 #endif /* CAM_JPEG_DMA_CORE_H */

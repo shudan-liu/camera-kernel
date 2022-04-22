@@ -62,7 +62,7 @@ uint32_t cam_common_util_remove_duplicate_arr(int32_t *array,
  *
  * @return:                differnce in usecs
  */
-uint64_t cam_common_util_get_time_diff(struct timeval *t1, struct timeval *t2);
+uint64_t cam_common_util_get_time_diff(struct timespec64 *t1, struct timespec64 *t2);
 
 /**
  * cam_comomon_util_get_curr_timestamp()
@@ -73,5 +73,5 @@ uint64_t cam_common_util_get_time_diff(struct timeval *t1, struct timeval *t2);
  *
  * @return:               void
  */
-void cam_common_util_get_curr_timestamp(struct timeval *time_stamp);
+void cam_common_util_get_curr_timestamp(struct timespec64 *time_stamp);
 #endif /* _CAM_COMMON_UTIL_H_ */

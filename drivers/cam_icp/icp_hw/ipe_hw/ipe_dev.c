@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018, 2021-2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,6 +26,7 @@
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
+#include "ais_main.h"
 
 static struct cam_ipe_device_hw_info cam_ipe_hw_info[] = {
 	{
@@ -65,7 +68,8 @@ static int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-static int cam_ipe_probe(struct platform_device *pdev)
+static int cam_ipe_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	struct cam_hw_info            *ipe_dev = NULL;
 	struct cam_hw_intf            *ipe_dev_intf = NULL;
@@ -76,6 +80,7 @@ static int cam_ipe_probe(struct platform_device *pdev)
 	struct cam_cpas_query_cap query;
 	uint32_t cam_caps;
 	uint32_t hw_idx;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	of_property_read_u32(pdev->dev.of_node,
 		"cell-index", &hw_idx);
@@ -111,7 +116,7 @@ static int cam_ipe_probe(struct platform_device *pdev)
 	ipe_dev_intf->hw_ops.process_cmd = cam_ipe_process_cmd;
 	ipe_dev_intf->hw_type = CAM_ICP_DEV_IPE;
 
-	CAM_DBG(CAM_ICP, "type %d index %d",
+	CAM_DBG(CAM_ICP, "IPE component bind type %d index %d",
 		ipe_dev_intf->hw_type,
 		ipe_dev_intf->hw_idx);
 
@@ -164,10 +169,53 @@ static int cam_ipe_probe(struct platform_device *pdev)
 	spin_lock_init(&ipe_dev->hw_lock);
 	init_completion(&ipe_dev->hw_complete);
 
-	CAM_DBG(CAM_ICP, "IPE%d probe successful",
+	CAM_DBG(CAM_ICP, "IPE:%d component bound successfully",
 		ipe_dev_intf->hw_idx);
 
 	return rc;
+}
+
+static void cam_ipe_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct cam_hw_info            *ipe_dev = NULL;
+	struct cam_hw_intf            *ipe_dev_intf = NULL;
+	struct cam_ipe_device_core_info   *core_info = NULL;
+	struct platform_device *pdev = to_platform_device(dev);
+
+	CAM_DBG(CAM_ICP, "Unbinding component: %s", pdev->name);
+	ipe_dev_intf = platform_get_drvdata(pdev);
+	ipe_dev = ipe_dev_intf->hw_priv;
+	core_info = (struct cam_ipe_device_core_info *)ipe_dev->core_info;
+	cam_cpas_unregister_client(core_info->cpas_handle);
+	cam_ipe_deinit_soc_resources(&ipe_dev->soc_info);
+	kfree(ipe_dev->core_info);
+	kfree(ipe_dev);
+	kfree(ipe_dev_intf);
+}
+
+
+static const struct component_ops cam_ipe_component_ops = {
+	.bind = cam_ipe_component_bind,
+	.unbind = cam_ipe_component_unbind,
+};
+
+int cam_ipe_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ICP, "Adding IPE component");
+	rc = component_add(&pdev->dev, &cam_ipe_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ICP, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+static int cam_ipe_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &cam_ipe_component_ops);
+	return 0;
 }
 
 static const struct of_device_id cam_ipe_dt_match[] = {
@@ -179,8 +227,9 @@ static const struct of_device_id cam_ipe_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, cam_ipe_dt_match);
 
-static struct platform_driver cam_ipe_driver = {
+struct platform_driver cam_ipe_driver = {
 	.probe = cam_ipe_probe,
+	.remove = cam_ipe_remove,
 	.driver = {
 		.name = "cam-ipe",
 		.owner = THIS_MODULE,
@@ -189,17 +238,15 @@ static struct platform_driver cam_ipe_driver = {
 	},
 };
 
-static int __init cam_ipe_init_module(void)
+int cam_ipe_init_module(void)
 {
 	return platform_driver_register(&cam_ipe_driver);
 }
 
-static void __exit cam_ipe_exit_module(void)
+void cam_ipe_exit_module(void)
 {
 	platform_driver_unregister(&cam_ipe_driver);
 }
 
-module_init(cam_ipe_init_module);
-module_exit(cam_ipe_exit_module);
 MODULE_DESCRIPTION("CAM IPE driver");
 MODULE_LICENSE("GPL v2");

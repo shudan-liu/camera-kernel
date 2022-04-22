@@ -77,7 +77,7 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 	struct cam_lrme_core *lrme_core =
 		(struct cam_lrme_core *)lrme_hw->core_info;
 	struct cam_lrme_frame_request *req = NULL;
-	struct timeval cur_time;
+	struct timespec64 cur_time;
 	uint64_t diff = 0;
 	char *dst;
 	uint64_t *addr, *start;
@@ -109,18 +109,18 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 		CAM_INFO(CAM_LRME, "No error req %lld %ld:%06ld %ld:%06ld",
 			dump_args->request_id,
 			req->submit_timestamp.tv_sec,
-			req->submit_timestamp.tv_usec,
+			req->submit_timestamp.tv_nsec/NSEC_PER_USEC,
 			cur_time.tv_sec,
-			cur_time.tv_usec);
+			cur_time.tv_nsec/NSEC_PER_USEC);
 		mutex_unlock(&lrme_hw->hw_mutex);
 		return 0;
 	}
 	CAM_INFO(CAM_LRME, "Error req %lld %ld:%06ld %ld:%06ld",
 		dump_args->request_id,
 		req->submit_timestamp.tv_sec,
-		req->submit_timestamp.tv_usec,
+		req->submit_timestamp.tv_nsec/NSEC_PER_USEC,
 		cur_time.tv_sec,
-		cur_time.tv_usec);
+		cur_time.tv_nsec/NSEC_PER_USEC);
 	remain_len = dump_args->buf_len - dump_args->offset;
 	min_len =  2 * (sizeof(struct cam_lrme_hw_dump_header) +
 		    CAM_LRME_HW_DUMP_TAG_MAX_LEN);
@@ -139,9 +139,9 @@ static int cam_lrme_hw_dump(struct cam_hw_info *lrme_hw,
 	start = addr;
 	*addr++ = req->req_id;
 	*addr++ = req->submit_timestamp.tv_sec;
-	*addr++ = req->submit_timestamp.tv_usec;
+	*addr++ = req->submit_timestamp.tv_nsec/NSEC_PER_USEC;
 	*addr++ = cur_time.tv_sec;
-	*addr++ = cur_time.tv_usec;
+	*addr++ = cur_time.tv_nsec/NSEC_PER_USEC;
 	hdr->size = hdr->word_size * (addr - start);
 	dump_args->offset += hdr->size +
 		sizeof(struct cam_lrme_hw_dump_header);

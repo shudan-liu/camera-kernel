@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2017-2021, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -322,5 +322,17 @@ static inline struct v4l2_subdev *cam_cci_get_subdev(int cci_dev_index)
 }
 #endif
 
+/**
+ * @brief : API to register CCI hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_cci_init_module(void);
+
+/**
+ * @brief : API to remove CCI Hw from platform framework.
+ */
+void cam_cci_exit_module(void);
+#define VIDIOC_MSM_CCI_CFG \
+	_IOWR('V', BASE_VIDIOC_PRIVATE + 23, struct cam_cci_ctrl)
 
 #endif /* _CAM_CCI_DEV_H_ */

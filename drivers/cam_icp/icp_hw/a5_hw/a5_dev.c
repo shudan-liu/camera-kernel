@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018, 2021-2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -24,11 +26,12 @@
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
+#include "ais_main.h"
 
-static struct a5_soc_info cam_a5_soc_info;
+struct a5_soc_info cam_a5_soc_info;
 EXPORT_SYMBOL(cam_a5_soc_info);
 
-static struct cam_a5_device_hw_info cam_a5_hw_info = {
+struct cam_a5_device_hw_info cam_a5_hw_info = {
 	.hw_ver = 0x0,
 	.nsec_reset = 0x4,
 	.a5_control = 0x8,
@@ -107,7 +110,8 @@ static int cam_a5_register_cpas(struct cam_hw_soc_info *soc_info,
 	return rc;
 }
 
-static int cam_a5_probe(struct platform_device *pdev)
+static int cam_a5_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc = 0;
 	struct cam_hw_info *a5_dev = NULL;
@@ -115,6 +119,7 @@ static int cam_a5_probe(struct platform_device *pdev)
 	const struct of_device_id *match_dev = NULL;
 	struct cam_a5_device_core_info *core_info = NULL;
 	struct cam_a5_device_hw_info *hw_info = NULL;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	a5_dev_intf = kzalloc(sizeof(struct cam_hw_intf), GFP_KERNEL);
 	if (!a5_dev_intf)
@@ -184,11 +189,12 @@ static int cam_a5_probe(struct platform_device *pdev)
 	spin_lock_init(&a5_dev->hw_lock);
 	init_completion(&a5_dev->hw_complete);
 
-	CAM_DBG(CAM_ICP, "A5%d probe successful",
+	CAM_DBG(CAM_ICP, "A5:%d component bound successfully",
 		a5_dev_intf->hw_idx);
 	return 0;
 
 cpas_reg_failed:
+	cam_a5_deinit_soc_resources(&a5_dev->soc_info);
 init_soc_failure:
 match_err:
 	kfree(a5_dev->core_info);
@@ -198,6 +204,50 @@ a5_dev_alloc_failure:
 	kfree(a5_dev_intf);
 
 	return rc;
+
+}
+
+static void cam_a5_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	struct cam_hw_info *a5_dev = NULL;
+	struct cam_hw_intf *a5_dev_intf = NULL;
+	struct cam_a5_device_core_info *core_info = NULL;
+	struct platform_device *pdev = to_platform_device(dev);
+
+	a5_dev_intf = platform_get_drvdata(pdev);
+	a5_dev = a5_dev_intf->hw_priv;
+	core_info = (struct cam_a5_device_core_info *)a5_dev->core_info;
+	cam_cpas_unregister_client(core_info->cpas_handle);
+	cam_a5_deinit_soc_resources(&a5_dev->soc_info);
+	memset(&cam_a5_soc_info, 0, sizeof(struct a5_soc_info));
+	kfree(a5_dev->core_info);
+	a5_dev->core_info = NULL;
+	kfree(a5_dev);
+	kfree(a5_dev_intf);
+}
+
+static const struct component_ops cam_a5_component_ops = {
+	.bind = cam_a5_component_bind,
+	.unbind = cam_a5_component_unbind,
+};
+
+int cam_a5_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ICP, "Adding A5 component");
+	rc = component_add(&pdev->dev, &cam_a5_component_ops);
+	if (rc)
+		CAM_ERR(CAM_ICP, "failed to add component rc: %d", rc);
+
+	return rc;
+}
+
+static int cam_a5_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &cam_a5_component_ops);
+	return 0;
 }
 
 static const struct of_device_id cam_a5_dt_match[] = {
@@ -209,8 +259,9 @@ static const struct of_device_id cam_a5_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, cam_a5_dt_match);
 
-static struct platform_driver cam_a5_driver = {
+struct platform_driver cam_a5_driver = {
 	.probe = cam_a5_probe,
+	.remove = cam_a5_remove,
 	.driver = {
 		.name = "cam-a5",
 		.owner = THIS_MODULE,
@@ -219,17 +270,15 @@ static struct platform_driver cam_a5_driver = {
 	},
 };
 
-static int __init cam_a5_init_module(void)
+int cam_a5_init_module(void)
 {
 	return platform_driver_register(&cam_a5_driver);
 }
 
-static void __exit cam_a5_exit_module(void)
+void cam_a5_exit_module(void)
 {
 	platform_driver_unregister(&cam_a5_driver);
 }
 
-module_init(cam_a5_init_module);
-module_exit(cam_a5_exit_module);
 MODULE_DESCRIPTION("CAM A5 driver");
 MODULE_LICENSE("GPL v2");

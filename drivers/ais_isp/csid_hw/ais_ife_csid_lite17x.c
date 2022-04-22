@@ -14,6 +14,7 @@
 #include "ais_ife_csid_lite17x.h"
 #include "ais_ife_csid_core.h"
 #include "ais_ife_csid_dev.h"
+#include "ais_main.h"
 
 #define CAM_CSID_LITE_DRV_NAME                    "ais-csid_lite"
 
@@ -34,7 +35,7 @@ static const struct of_device_id ais_ife_csid_lite_dt_match[] = {
 };
 MODULE_DEVICE_TABLE(of, ais_ife_csid_lite_dt_match);
 
-static struct platform_driver ais_ife_csid_lite_driver = {
+struct platform_driver ais_ife_csid_lite_driver = {
 	.probe = ais_ife_csid_probe,
 	.remove = ais_ife_csid_remove,
 	.driver = {
@@ -45,17 +46,15 @@ static struct platform_driver ais_ife_csid_lite_driver = {
 	},
 };
 
-static int __init ais_ife_csid_lite_init_module(void)
+int ais_ife_csid_lite_init_module(void)
 {
 	return platform_driver_register(&ais_ife_csid_lite_driver);
 }
 
-static void __exit ais_ife_csid_lite_exit_module(void)
+void ais_ife_csid_lite_exit_module(void)
 {
 	platform_driver_unregister(&ais_ife_csid_lite_driver);
 }
 
-module_init(ais_ife_csid_lite_init_module);
-module_exit(ais_ife_csid_lite_exit_module);
 MODULE_DESCRIPTION("CAM IFE_CSID_LITE driver");
 MODULE_LICENSE("GPL v2");

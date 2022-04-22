@@ -20,7 +20,7 @@
 #include <linux/version.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
-#include <linux/time.h>
+#include <linux/time64.h>
 #include <linux/module.h>
 #include <linux/videodev2.h>
 #include <linux/sched.h>
@@ -1723,9 +1723,13 @@ static int vidioc_qbuf(struct file *file,
 
 		CAM_DBG(CAM_V4L2, "[dev %s] output QBUF index: %d",
 				dev->vdev->name, index);
-		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0)
-			cam_common_util_get_curr_timestamp(&b->buffer.timestamp);
-		else
+		if (buf->timestamp.tv_sec == 0 && buf->timestamp.tv_usec == 0) {
+			struct timespec64 ts;
+
+			cam_common_util_get_curr_timestamp(&ts);
+			b->buffer.timestamp.tv_sec = ts.tv_sec;
+			b->buffer.timestamp.tv_usec = ts.tv_nsec / NSEC_PER_USEC;
+		} else
 			b->buffer.timestamp = buf->timestamp;
 
 		b->buffer.sequence = buf->sequence;
@@ -2726,6 +2730,7 @@ static void init_buffers(struct v4l2_streamdata *data)
 	int i;
 	int buffer_size;
 	int bytesused;
+	struct timespec64 ts;
 
 	MARK();
 	buffer_size = data->buffer_size;
@@ -2750,7 +2755,9 @@ static void init_buffers(struct v4l2_streamdata *data)
 		data->buffers[i].state = V4L2L_BUF_USER_ACQUIRED;
 		data->buffers[i].ext.batch_num = 0;
 
-		cam_common_util_get_curr_timestamp(&b->timestamp);
+		cam_common_util_get_curr_timestamp(&ts);
+		b->timestamp.tv_sec = ts.tv_sec;
+		b->timestamp.tv_usec = ts.tv_nsec / NSEC_PER_USEC;
 	}
 
 	MARK();
@@ -2834,7 +2841,7 @@ static void init_vdev(struct video_device *vdev, int nr)
 	vdev->tvnorms      = V4L2_STD_ALL;
 #endif /* V4L2LOOPBACK_WITH_STD */
 
-	vdev->vfl_type     = VFL_TYPE_GRABBER;
+	vdev->vfl_type     = VFL_TYPE_VIDEO;
 	vdev->fops         = &v4l2_loopback_fops;
 	vdev->ioctl_ops    = &v4l2_loopback_ioctl_ops;
 	vdev->release      = &video_device_release;
@@ -3027,7 +3034,7 @@ static void free_devices(void)
 	}
 }
 
-static int __init v4l2loopback_init_module(void)
+int v4l2loopback_init_module(void)
 {
 	int ret;
 	int i;
@@ -3100,7 +3107,7 @@ static int __init v4l2loopback_init_module(void)
 
 		/* register the device -> it creates /dev/video* */
 		if (video_register_device(devs[i]->vdev,
-					VFL_TYPE_GRABBER, video_nr[i]) < 0) {
+					VFL_TYPE_VIDEO, video_nr[i]) < 0) {
 			video_device_release(devs[i]->vdev);
 			CAM_ERR(CAM_V4L2,
 			"v4l2loopback: failed video_register_device()");
@@ -3110,8 +3117,6 @@ static int __init v4l2loopback_init_module(void)
 		v4l2loopback_create_sysfs(devs[i]->vdev);
 	}
 
-	CAM_INFO(CAM_V4L2, "module installed");
-
 	CAM_INFO(CAM_V4L2, "v4l2loopback driver version %d.%d.%d loaded",
 			(V4L2LOOPBACK_VERSION_CODE >> 16) & 0xff,
 			(V4L2LOOPBACK_VERSION_CODE >>  8) & 0xff,
@@ -3120,7 +3125,7 @@ static int __init v4l2loopback_init_module(void)
 	return 0;
 }
 
-static void v4l2loopback_cleanup_module(void)
+void v4l2loopback_cleanup_module(void)
 {
 	MARK();
 	/* unregister the device -> it deletes /dev/video* */
@@ -3128,8 +3133,6 @@ static void v4l2loopback_cleanup_module(void)
 	CAM_INFO(CAM_V4L2, "module removed");
 }
 
-late_initcall(v4l2loopback_init_module);
-module_exit(v4l2loopback_cleanup_module);
 MODULE_DESCRIPTION("AIS V4L2LOOPBACK driver");
 MODULE_LICENSE("GPL v2");
 

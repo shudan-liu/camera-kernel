@@ -1,4 +1,6 @@
-/* Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2014-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -398,5 +400,16 @@ int cam_smmu_dealloc_qdss(int32_t smmu_hdl);
  */
 int cam_smmu_get_io_region_info(int32_t smmu_hdl,
 	dma_addr_t *iova, size_t *len);
+
+/**
+ * @brief : API to register SMMU hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_smmu_init_module(void);
+
+/**
+ * @brief : API to remove SMMU Hw from platform framework.
+ */
+void cam_smmu_exit_module(void);
 
 #endif /* _CAM_SMMU_API_H_ */

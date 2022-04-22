@@ -12,8 +12,6 @@
 
 #include <linux/module.h>
 
-//#include <dt-bindings/msm/msm-camera.h>
-
 #include "cam_compat.h"
 #include "cam_csiphy_core.h"
 #include "cam_csiphy_dev.h"
@@ -683,7 +681,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 {
 	struct csiphy_device *csiphy_dev =
 		(struct csiphy_device *)phy_dev;
-	struct intf_params   *bridge_intf = NULL;
+	struct csiphy_intf_params   *bridge_intf = NULL;
 	struct cam_control   *cmd = (struct cam_control *)arg;
 	int32_t              rc = 0;
 

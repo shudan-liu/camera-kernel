@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2020, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -44,7 +46,7 @@
 #define CDBG(fmt, args...) pr_debug(fmt, ##args)
 #endif
 
-#define SENSOR_DRIVER_I2C "i2c_camera"
+#define SENSOR_DRIVER_I2C "cam-i2c-sensor"
 #define CAMX_SENSOR_DEV_NAME "cam-sensor-driver"
 
 enum cam_sensor_state_t {
@@ -55,14 +57,14 @@ enum cam_sensor_state_t {
 };
 
 /**
- * struct intf_params
+ * struct sensor_intf_params
  * @device_hdl: Device Handle
  * @session_hdl: Session Handle
  * @link_hdl: Link Handle
  * @ops: KMD operations
  * @crm_cb: Callback API pointers
  */
-struct intf_params {
+struct sensor_intf_params {
 	int32_t device_hdl;
 	int32_t session_hdl;
 	int32_t link_hdl;
@@ -121,7 +123,7 @@ struct cam_sensor_ctrl_t {
 	uint8_t sensor_probe_data_type;
 	struct i2c_data_settings i2c_data;
 	struct  cam_sensor_query_cap sensor_info;
-	struct intf_params bridge_intf;
+	struct sensor_intf_params bridge_intf;
 	uint32_t streamon_count;
 	uint32_t streamoff_count;
 	int bob_reg_index;
@@ -131,5 +133,16 @@ struct cam_sensor_ctrl_t {
 	struct cam_sensor_intr_t s_intr[AIS_MAX_INTR_GPIO];
 	bool no_lpm_mode_enabled;
 };
+
+/**
+ * @brief : API to register SENSOR hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_sensor_driver_init(void);
+
+/**
+ * @brief : API to remove SENSOR Hw from platform framework.
+ */
+void cam_sensor_driver_exit(void);
 
 #endif /* _CAM_SENSOR_DEV_H_ */

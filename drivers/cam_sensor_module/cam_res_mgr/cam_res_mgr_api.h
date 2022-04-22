@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2018, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -144,5 +146,16 @@ int cam_res_mgr_gpio_set_value(unsigned int gpio, int value);
  * @return None
  */
 void cam_res_mgr_shared_clk_config(bool value);
+
+/**
+ * @brief : API to register RES_MGR to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_res_mgr_init(void);
+
+/**
+ * @brief : API to remove RES_MGR from platform framework.
+ */
+void cam_res_mgr_exit(void);
 
 #endif /* __CAM_RES_MGR_API_H__ */

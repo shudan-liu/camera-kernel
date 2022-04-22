@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2018, The Linux Foundation. All rights reserved.
+// SPDX-License-Identifier: GPL-2.0-only
+/*
+ * Copyright (c) 2017-2018, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -23,6 +25,7 @@
 #include "cam_jpeg_dev.h"
 #include "cam_debug_util.h"
 #include "cam_smmu_api.h"
+#include "ais_main.h"
 
 #define CAM_JPEG_DEV_NAME "cam-jpeg"
 
@@ -102,32 +105,15 @@ static const struct v4l2_subdev_internal_ops cam_jpeg_subdev_internal_ops = {
 	.open = cam_jpeg_subdev_open,
 };
 
-static int cam_jpeg_dev_remove(struct platform_device *pdev)
-{
-	int rc;
-	int i;
-
-	for (i = 0; i < CAM_CTX_MAX; i++) {
-		rc = cam_jpeg_context_deinit(&g_jpeg_dev.ctx_jpeg[i]);
-		if (rc)
-			CAM_ERR(CAM_JPEG, "JPEG context %d deinit failed %d",
-				i, rc);
-	}
-
-	rc = cam_subdev_remove(&g_jpeg_dev.sd);
-	if (rc)
-		CAM_ERR(CAM_JPEG, "Unregister failed %d", rc);
-
-	return rc;
-}
-
-static int cam_jpeg_dev_probe(struct platform_device *pdev)
+static int cam_jpeg_dev_component_bind(struct device *dev,
+	struct device *master_dev, void *data)
 {
 	int rc;
 	int i;
 	struct cam_hw_mgr_intf hw_mgr_intf;
 	struct cam_node *node;
 	int iommu_hdl = -1;
+	struct platform_device *pdev = to_platform_device(dev);
 
 	g_jpeg_dev.sd.internal_ops = &cam_jpeg_subdev_internal_ops;
 	rc = cam_subdev_probe(&g_jpeg_dev.sd, pdev, CAM_JPEG_DEV_NAME,
@@ -169,7 +155,7 @@ static int cam_jpeg_dev_probe(struct platform_device *pdev)
 
 	mutex_init(&g_jpeg_dev.jpeg_mutex);
 
-	CAM_INFO(CAM_JPEG, "Camera JPEG probe complete");
+	CAM_DBG(CAM_JPEG, "Camera JPEG component bound successfully");
 
 	return rc;
 
@@ -184,7 +170,49 @@ err:
 	return rc;
 }
 
-static struct platform_driver jpeg_driver = {
+static void cam_jpeg_dev_component_unbind(struct device *dev,
+	struct device *master_dev, void *data)
+{
+	int rc;
+	int i;
+
+	for (i = 0; i < CAM_CTX_MAX; i++) {
+		rc = cam_jpeg_context_deinit(&g_jpeg_dev.ctx_jpeg[i]);
+		if (rc)
+			CAM_ERR(CAM_JPEG, "JPEG context %d deinit failed %d",
+				i, rc);
+	}
+
+	rc = cam_subdev_remove(&g_jpeg_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_JPEG, "Unregister failed %d", rc);
+}
+
+static const struct component_ops cam_jpeg_dev_component_ops = {
+	.bind = cam_jpeg_dev_component_bind,
+	.unbind = cam_jpeg_dev_component_unbind,
+};
+
+static int cam_jpeg_dev_remove(struct platform_device *pdev)
+{
+	component_del(&pdev->dev, &cam_jpeg_dev_component_ops);
+	return 0;
+}
+
+static int cam_jpeg_dev_probe(struct platform_device *pdev)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_JPEG, "Adding JPEG component");
+	rc = component_add(&pdev->dev, &cam_jpeg_dev_component_ops);
+	if (rc)
+		CAM_ERR(CAM_JPEG, "failed to add component rc: %d", rc);
+
+	return rc;
+
+}
+
+struct platform_driver jpeg_driver = {
 	.probe = cam_jpeg_dev_probe,
 	.remove = cam_jpeg_dev_remove,
 	.driver = {
@@ -195,17 +223,15 @@ static struct platform_driver jpeg_driver = {
 	},
 };
 
-static int __init cam_jpeg_dev_init_module(void)
+int cam_jpeg_dev_init_module(void)
 {
 	return platform_driver_register(&jpeg_driver);
 }
 
-static void __exit cam_jpeg_dev_exit_module(void)
+void cam_jpeg_dev_exit_module(void)
 {
 	platform_driver_unregister(&jpeg_driver);
 }
 
-module_init(cam_jpeg_dev_init_module);
-module_exit(cam_jpeg_dev_exit_module);
 MODULE_DESCRIPTION("MSM JPEG driver");
 MODULE_LICENSE("GPL v2");

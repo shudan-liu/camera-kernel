@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2019, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -31,6 +33,8 @@
 
 #define DEFINE_MSM_MUTEX(mutexname) \
 	static struct mutex mutexname = __MUTEX_INITIALIZER(mutexname)
+
+#define OIS_DRIVER_I2C "cam-i2c-ois"
 
 enum cam_ois_state {
 	CAM_OIS_INIT,
@@ -131,4 +135,14 @@ struct cam_ois_ctrl_t {
 	struct cam_ois_opcode opcode;
 };
 
+/**
+ * @brief : API to register OIS hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_ois_driver_init(void);
+
+/**
+ * @brief : API to remove OIS Hw from platform framework.
+ */
+void cam_ois_driver_exit(void);
 #endif /*_CAM_OIS_DEV_H_ */

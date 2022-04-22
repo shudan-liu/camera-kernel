@@ -319,4 +319,15 @@ static const struct ais_ife_csid_reg_offset ais_ife_csid_lite_17x_reg_offset = {
 	.tpg_reg = &ais_ife_csid_lite_17x_tpg_reg_offset,
 };
 
+/**
+ * @brief : API to register CSID lite hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int ais_ife_csid_lite_init_module(void);
+
+/**
+ * @brief : API to remove CSID lite Hw from platform framework.
+ */
+void ais_ife_csid_lite_exit_module(void);
+
 #endif /*_AIS_IFE_CSID_LITE17X_H_ */

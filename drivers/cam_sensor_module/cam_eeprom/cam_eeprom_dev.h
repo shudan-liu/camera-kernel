@@ -1,4 +1,6 @@
-/* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+/* SPDX-License-Identifier: GPL-2.0-only */
+/*
+ * Copyright (c) 2017-2019, 2022, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -37,6 +39,8 @@
 #define MSM_EEPROM_MEMORY_MAP_MAX_SIZE         80
 #define MSM_EEPROM_MAX_MEM_MAP_CNT             16
 #define MSM_EEPROM_MEM_MAP_PROPERTIES_CNT      8
+
+#define EEPROM_DRIVER_I2C "cam-i2c-eeprom"
 
 enum cam_eeprom_state {
 	CAM_EEPROM_INIT,
@@ -187,5 +191,16 @@ struct cam_eeprom_ctrl_t {
 
 int32_t cam_eeprom_update_i2c_info(struct cam_eeprom_ctrl_t *e_ctrl,
 	struct cam_eeprom_i2c_info_t *i2c_info);
+
+/**
+ * @brief : API to register EEPROM hw to platform framework.
+ * @return struct platform_device pointer on success, or ERR_PTR() on error.
+ */
+int cam_eeprom_driver_init(void);
+
+/**
+ * @brief : API to remove EEPROM Hw from platform framework.
+ */
+void cam_eeprom_driver_exit(void);
 
 #endif /*_CAM_EEPROM_DEV_H_ */
