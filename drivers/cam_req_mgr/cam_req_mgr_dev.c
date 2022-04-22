@@ -14,6 +14,8 @@
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/highmem.h>
+#include <linux/types.h>
+#include <linux/rwsem.h>
 
 #include <mm/slab.h>
 
@@ -36,6 +38,8 @@
 
 static struct cam_req_mgr_device g_dev;
 struct kmem_cache *g_cam_req_mgr_timer_cachep;
+
+DECLARE_RWSEM(rwsem_lock);
 
 static int cam_media_device_setup(struct device *dev)
 {
@@ -102,9 +106,27 @@ static void cam_v4l2_device_cleanup(void)
 	g_dev.v4l2_dev = NULL;
 }
 
+void cam_req_mgr_rwsem_read_op(enum cam_subdev_rwsem lock)
+{
+	if (lock == CAM_SUBDEV_LOCK)
+		down_read(&rwsem_lock);
+	else if (lock == CAM_SUBDEV_UNLOCK)
+		up_read(&rwsem_lock);
+}
+
+static void cam_req_mgr_rwsem_write_op(enum cam_subdev_rwsem lock)
+{
+	if (lock == CAM_SUBDEV_LOCK)
+		down_write(&rwsem_lock);
+	else if (lock == CAM_SUBDEV_UNLOCK)
+		up_write(&rwsem_lock);
+}
+
 static int cam_req_mgr_open(struct file *filep)
 {
 	int rc;
+
+	cam_req_mgr_rwsem_write_op(CAM_SUBDEV_LOCK);
 
 	mutex_lock(&g_dev.cam_lock);
 
@@ -134,12 +156,14 @@ static int cam_req_mgr_open(struct file *filep)
 	}
 
 	mutex_unlock(&g_dev.cam_lock);
+	cam_req_mgr_rwsem_write_op(CAM_SUBDEV_UNLOCK);
 	return rc;
 
 mem_mgr_init_fail:
 	v4l2_fh_release(filep);
 end:
 	mutex_unlock(&g_dev.cam_lock);
+	cam_req_mgr_rwsem_write_op(CAM_SUBDEV_UNLOCK);
 	return rc;
 }
 
@@ -165,10 +189,17 @@ static int cam_req_mgr_close(struct file *filep)
 	struct v4l2_fh *vfh = filep->private_data;
 	struct v4l2_subdev_fh *subdev_fh = to_v4l2_subdev_fh(vfh);
 
+	CAM_WARN(CAM_CRM,
+		"release invoked associated userspace process has died, open_cnt: %d",
+		g_dev.open_cnt);
+
+	cam_req_mgr_rwsem_write_op(CAM_SUBDEV_LOCK);
+
 	mutex_lock(&g_dev.cam_lock);
 
 	if (g_dev.open_cnt <= 0) {
 		mutex_unlock(&g_dev.cam_lock);
+		cam_req_mgr_rwsem_write_op(CAM_SUBDEV_UNLOCK);
 		return -EINVAL;
 	}
 
@@ -201,6 +232,8 @@ static int cam_req_mgr_close(struct file *filep)
 	}
 
 	mutex_unlock(&g_dev.cam_lock);
+
+	cam_req_mgr_rwsem_write_op(CAM_SUBDEV_UNLOCK);
 
 	return 0;
 }
@@ -605,6 +638,24 @@ void cam_register_subdev_fops(struct v4l2_file_operations *fops)
 	*fops = v4l2_subdev_fops;
 }
 EXPORT_SYMBOL(cam_register_subdev_fops);
+
+bool cam_req_mgr_is_open(void)
+{
+	bool crm_status = false;
+
+	mutex_lock(&g_dev.cam_lock);
+	crm_status = g_dev.open_cnt ? true : false;
+	mutex_unlock(&g_dev.cam_lock);
+
+	return crm_status;
+}
+EXPORT_SYMBOL(cam_req_mgr_is_open);
+
+bool cam_req_mgr_is_shutdown(void)
+{
+	return g_dev.shutdown_state;
+}
+EXPORT_SYMBOL(cam_req_mgr_is_shutdown);
 
 int cam_register_subdev(struct cam_subdev *csd)
 {
