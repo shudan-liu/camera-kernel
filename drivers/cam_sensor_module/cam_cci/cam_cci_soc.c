@@ -21,7 +21,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	struct cci_device *cci_dev;
 	enum cci_i2c_master_t master = c_ctrl->cci_info->cci_i2c_master;
 	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote;
+	struct cam_axi_vote axi_vote = {0};
 	struct cam_hw_soc_info *soc_info = NULL;
 	void __iomem *base = NULL;
 
@@ -56,15 +56,11 @@ int cam_cci_init(struct v4l2_subdev *sd,
 
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_SVS_VOTE;
-	axi_vote.compressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.compressed_bw_ab = CAM_CPAS_DEFAULT_AXI_BW;
-	axi_vote.uncompressed_bw = CAM_CPAS_DEFAULT_AXI_BW;
-
+	/* Axi bus voting not required for CCI */
 	rc = cam_cpas_start(cci_dev->cpas_handle,
 		&ahb_vote, &axi_vote);
 	if (rc != 0)
 		CAM_ERR(CAM_CCI, "CPAS start failed");
-
 	cam_cci_get_clk_rates(cci_dev, c_ctrl);
 
 	/* Re-initialize the completion */
