@@ -21,8 +21,6 @@
 	CAM_DBG(CAM_RPMSG, "in_irq %d, in_task %d, in_interrupt %d",\
 			in_irq(), in_task(), in_interrupt())
 
-#define SLAVE_PKT_HDR_SIZE sizeof(struct cam_slave_pkt_hdr)
-#define SLAVE_PKT_PLD_SIZE sizeof(struct cam_rpmsg_slave_payload_desc)
 static int state;
 static int slave_pkt_dump = 0;
 

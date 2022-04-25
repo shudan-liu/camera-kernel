@@ -540,6 +540,12 @@ int32_t __cam_sensor_lite_handle_probe(
 	}
 
 	for (i = 0; i < pkt->num_cmd_buf; i++) {
+		struct sensor_power_setting *pwr_on  = NULL;
+		struct sensor_power_setting *pwr_off = NULL;
+		ssize_t pwr_on_cmd_size              = 0;
+		ssize_t pwr_off_cmd_size             = 0;
+		struct probe_payload_v2 *probe       = NULL;
+
 		if (!(cmd_desc[i].length))
 			continue;
 		rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
@@ -565,94 +571,89 @@ int32_t __cam_sensor_lite_handle_probe(
 			goto end;
 		}
 
-		cmd_buf = (uint32_t *)cmd_buf1;
+		cmd_buf  = (uint32_t *)cmd_buf1;
 		cmd_buf += cmd_desc[i].offset/4;
-		ptr     = (void *) cmd_buf;
-#define FAKE_PROBE_RESPONSE 1
-		if (FAKE_PROBE_RESPONSE) {
-			struct sensor_power_setting *pwr_on  = NULL;
-			struct sensor_power_setting *pwr_off = NULL;
-			ssize_t pwr_on_cmd_size                 = 0;
-			ssize_t pwr_off_cmd_size                = 0;
-			struct probe_payload_v2 *probe = (struct probe_payload_v2 *) ptr;
+		ptr      = (void *) cmd_buf;
+		probe    = (struct probe_payload_v2 *) ptr;
 
-			if (probe->header.tag != SENSORLITE_CMD_TYPE_PROBE) {
-				// invalid probe cmd received
-				// return from this place
-			}
-			pwr_on_cmd_size = sizeof(struct sensor_lite_acquire_cmd) +
-						(sizeof(struct sensor_power_setting) *
-						probe->power_up_settings_size);
+		if (probe->header.tag != SENSORLITE_CMD_TYPE_PROBE)
+			return -EINVAL;
+		pwr_on_cmd_size = sizeof(struct sensor_lite_acquire_cmd) +
+					(sizeof(struct sensor_power_setting) *
+					probe->power_up_settings_size);
 
-			sensor_lite_dev->acquire_cmd = kzalloc(pwr_on_cmd_size, GFP_KERNEL);
-			if (!sensor_lite_dev->acquire_cmd) {
-				CAM_ERR(CAM_SENSOR_LITE,
-						"Could not allocate the memory for acquire_cmd");
-				return -ENOMEM;
-			}
+		sensor_lite_dev->acquire_cmd = kzalloc(pwr_on_cmd_size, GFP_KERNEL);
+		if (!sensor_lite_dev->acquire_cmd) {
+			CAM_ERR(CAM_SENSOR_LITE,
+					"Could not allocate the memory for acquire_cmd");
+			return -ENOMEM;
+		}
 
-			sensor_lite_dev->acquire_cmd->power_settings_offset =
-				sizeof(struct sensor_lite_acquire_cmd);
-			sensor_lite_dev->acquire_cmd->power_settings_size   =
-				probe->power_up_settings_size;
+		sensor_lite_dev->acquire_cmd->power_settings_offset =
+			sizeof(struct sensor_lite_acquire_cmd);
+		sensor_lite_dev->acquire_cmd->power_settings_size   =
+			probe->power_up_settings_size;
 
-			pwr_on = (struct sensor_power_setting *)(
-					(uint8_t *)sensor_lite_dev->acquire_cmd +
-					sizeof(struct sensor_lite_acquire_cmd));
-			pwr_off_cmd_size = sizeof(struct sensor_lite_release_cmd) +
-						(sizeof(struct sensor_power_setting) *
-						probe->power_down_settings_size);
-			/* free during RELEASE_DEV */
-			sensor_lite_dev->release_cmd = kzalloc(pwr_off_cmd_size, GFP_KERNEL);
-			if (!sensor_lite_dev->release_cmd) {
-				CAM_ERR(CAM_SENSOR_LITE,
-						"Could not allocate the memory for acquire_cmd");
-				kfree(sensor_lite_dev->acquire_cmd);
-				sensor_lite_dev->acquire_cmd = NULL;
-				return -ENOMEM;
-			}
+		pwr_on = (struct sensor_power_setting *)(
+				(uint8_t *)sensor_lite_dev->acquire_cmd +
+				sizeof(struct sensor_lite_acquire_cmd));
+		pwr_off_cmd_size = sizeof(struct sensor_lite_release_cmd) +
+					(sizeof(struct sensor_power_setting) *
+					probe->power_down_settings_size);
+		/* free during RELEASE_DEV */
+		sensor_lite_dev->release_cmd = kzalloc(pwr_off_cmd_size, GFP_KERNEL);
+		if (!sensor_lite_dev->release_cmd) {
+			CAM_ERR(CAM_SENSOR_LITE,
+					"Could not allocate the memory for acquire_cmd");
+			kfree(sensor_lite_dev->acquire_cmd);
+			sensor_lite_dev->acquire_cmd = NULL;
+			return -ENOMEM;
+		}
 
-			/* initialize headers for acquire command */
-			sensor_lite_dev->acquire_cmd->header.version = 0x1;
-			sensor_lite_dev->acquire_cmd->header.tag     =
-				HCM_PKT_OPCODE_SENSOR_ACQUIRE;
-			sensor_lite_dev->acquire_cmd->header.size    =
-				pwr_on_cmd_size;
-			__set_slave_pkt_headers(&(sensor_lite_dev->acquire_cmd->header),
-					HCM_PKT_OPCODE_SENSOR_ACQUIRE);
+		/* initialize headers for acquire command */
+		sensor_lite_dev->acquire_cmd->header.version = 0x1;
+		sensor_lite_dev->acquire_cmd->header.tag     =
+			HCM_PKT_OPCODE_SENSOR_ACQUIRE;
+		sensor_lite_dev->acquire_cmd->header.size    =
+			pwr_on_cmd_size;
+		__set_slave_pkt_headers(&(sensor_lite_dev->acquire_cmd->header),
+				HCM_PKT_OPCODE_SENSOR_ACQUIRE);
 
-			/* initialize headers for release command */
-			sensor_lite_dev->release_cmd->header.version = 0x1;
-			sensor_lite_dev->release_cmd->header.tag     =
-				HCM_PKT_OPCODE_SENSOR_RELEASE;
-			sensor_lite_dev->release_cmd->header.size    =
-				pwr_off_cmd_size;
-			__set_slave_pkt_headers(&(sensor_lite_dev->release_cmd->header),
-					HCM_PKT_OPCODE_SENSOR_RELEASE);
+		/* initialize headers for release command */
+		sensor_lite_dev->release_cmd->header.version = 0x1;
+		sensor_lite_dev->release_cmd->header.tag     =
+			HCM_PKT_OPCODE_SENSOR_RELEASE;
+		sensor_lite_dev->release_cmd->header.size    =
+			pwr_off_cmd_size;
+		__set_slave_pkt_headers(&(sensor_lite_dev->release_cmd->header),
+				HCM_PKT_OPCODE_SENSOR_RELEASE);
 
-			sensor_lite_dev->release_cmd->power_settings_offset =
-				sizeof(struct sensor_lite_release_cmd);
-			sensor_lite_dev->release_cmd->power_settings_size   =
-				probe->power_down_settings_size;
-			pwr_off = (struct sensor_power_setting *)(
-					(uint8_t *)sensor_lite_dev->release_cmd +
-					sizeof(struct sensor_lite_release_cmd));
-			__copy_pwr_settings(pwr_on,
-					probe,
-					probe->power_up_settings_offset,
-					probe->power_up_settings_size,
-					probe->header.size);
+		sensor_lite_dev->release_cmd->power_settings_offset =
+			sizeof(struct sensor_lite_release_cmd);
+		sensor_lite_dev->release_cmd->power_settings_size   =
+			probe->power_down_settings_size;
+		pwr_off = (struct sensor_power_setting *)(
+				(uint8_t *)sensor_lite_dev->release_cmd +
+				sizeof(struct sensor_lite_release_cmd));
+		__copy_pwr_settings(pwr_on,
+				probe,
+				probe->power_up_settings_offset,
+				probe->power_up_settings_size,
+				probe->header.size);
 
-			__copy_pwr_settings(pwr_off,
-					probe,
-					probe->power_down_settings_offset,
-					probe->power_down_settings_size,
-					probe->header.size);
+		__copy_pwr_settings(pwr_off,
+				probe,
+				probe->power_down_settings_offset,
+				probe->power_down_settings_size,
+				probe->header.size);
 
 		}
+
+#ifdef __HELIOS_ENABLED__
+		rc = __send_probe_pkt(sensor_lite_dev, ptr);
+#endif
 		__set_slave_pkt_headers(ptr, HCM_PKT_OPCODE_SENSOR_PROBE);
 		__dump_probe_cmd(ptr);
-	}
 end:
 	return rc;
 }

@@ -7,6 +7,7 @@
 
 #define SENSOR_LITE_INFO(fmt, args...) CAM_INFO(CAM_SENSOR_LITE, fmt, ##args)
 #define SENSOR_LITE_DBG(fmt, args...)  CAM_DBG(CAM_SENSOR_LITE, fmt, ##args)
+#define PROBE_RESPONSE_TIMEOUT 150
 
 void __dump_slave_pkt_headers(
 		struct sensor_lite_header *header)
@@ -439,6 +440,73 @@ int __dump_release_cmd(
 	return 0;
 }
 
+int __dump_probe_response(struct sensor_probe_response *pr)
+{
+	CAM_INFO(CAM_SENSOR_LITE, "VT          : %d",
+			pr->vt);
+	CAM_INFO(CAM_SENSOR_LITE, "SID         : %d",
+			pr->sensor_id);
+	CAM_INFO(CAM_SENSOR_LITE, "STATUS      : %d",
+			pr->status);
+	CAM_INFO(CAM_SENSOR_LITE, "PID         : %d",
+			pr->phy_info.phy_index);
+	CAM_INFO(CAM_SENSOR_LITE, "PTYPE       : %d",
+			pr->phy_info.pt);
+	CAM_INFO(CAM_SENSOR_LITE, "COMBOMODE   : %d",
+			pr->phy_info.combo_mode);
+	CAM_INFO(CAM_SENSOR_LITE, "LANE_COUNT  : %d",
+			pr->phy_info.num_lanes);
+	return 0;
+}
+
+int __send_probe_pkt(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct sensor_lite_header *header)
+{
+	int rc = 0;
+	int handle;
+	unsigned long rem_jiffies;
+
+	reinit_completion(&(sensor_lite_dev->complete));
+	if (header->tag != SENSORLITE_CMD_TYPE_PROBE) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid command received to send");
+		return -EINVAL;
+	}
+
+	memset(&sensor_lite_dev->probe_info, 0, sizeof(struct sensor_probe_response));
+	sensor_lite_dev->probe_info.status = PROBE_FAILURE;
+
+	handle = cam_rpmsg_get_handle("helios");
+	__set_slave_pkt_headers(header, HCM_PKT_OPCODE_SENSOR_PROBE);
+	rc = cam_rpmsg_send(handle, header, header->size);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR_LITE, "rpmsg send failed for probe packet");
+		goto err;
+	}
+
+	CAM_INFO(CAM_SENSOR_LITE, "Waiting for probe response packet");
+	rem_jiffies = wait_for_completion_timeout(
+			&(sensor_lite_dev->complete),
+			msecs_to_jiffies(PROBE_RESPONSE_TIMEOUT));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		CAM_ERR(CAM_RPMSG, "probe response timed out %d\n", rc);
+		goto err;
+	}
+
+	/* Got probe response before timeout */
+	if (sensor_lite_dev->probe_info.status == PROBE_SUCCESS) {
+		CAM_INFO(CAM_SENSOR_LITE, "Probe success %d",
+				sensor_lite_dev->soc_info.index);
+		__dump_probe_response(&sensor_lite_dev->probe_info);
+	} else {
+		rc = -ETIMEDOUT;
+		CAM_ERR(CAM_SENSOR_LITE, "Probe Failed for: %d",
+				sensor_lite_dev->soc_info.index);
+	}
+err:
+	return rc;
+}
 
 int __send_pkt(
 	struct sensor_lite_header *header)

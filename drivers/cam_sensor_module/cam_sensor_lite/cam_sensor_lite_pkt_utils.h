@@ -8,6 +8,7 @@
 
 #include <linux/module.h>
 #include "cam_debug_util.h"
+#include "cam_sensor_lite_dev.h"
 #include "cam_rpmsg.h"
 #include <cam_sensor_lite_ext_headers.h>
 
@@ -44,6 +45,10 @@ void __dump_slave_pkt_headers(
 		struct sensor_lite_header *header);
 
 int __send_pkt(
+	struct sensor_lite_header *header);
+
+int __send_probe_pkt(
+	struct sensor_lite_device *sensor_lite_dev,
 	struct sensor_lite_header *header);
 
 #endif

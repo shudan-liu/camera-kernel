@@ -106,7 +106,7 @@ enum i2c_command_type {
  * @delay            :    delay in us
  */
 struct i2c_commands {
-	enum i2c_command_type        cmd_type;
+	uint16_t                     cmd_type;
 	uint16_t                     reg_addr;
 	uint16_t                     reg_value;
 	uint16_t                     delay;
@@ -124,6 +124,7 @@ struct probe_command {
 	uint16_t                   command_tag;
 	uint16_t                   reserved;
 	uint16_t                   num_commands;
+	uint16_t                   reserved1;
 	struct   i2c_commands      i2c_command;
 } __packed;
 
@@ -152,11 +153,11 @@ struct camera_slave_info {
  * @data                        :
  */
 struct sensor_power_setting {
-	enum                        camera_power_seq_type seq_type;
-	unsigned short              seq_val;
-	long                        config_val;
-	unsigned short              delay;
-	void                        *data[10];
+	uint32_t                    seq_type;
+	uint32_t                    seq_val;
+	uint32_t                    config_val;
+	uint32_t                    delay;
+	uint32_t                    data[10];
 } __packed;
 
 
@@ -207,26 +208,6 @@ struct probe_payload_v2 {
 	uint32_t                     power_down_settings_size;
 }  __packed;
 
-/**
- * struct probe_payload - Explains about the payload packet configuration
- *
- * @version                     :    version
- * @power_up_setting            :    contains power up setting info
- * @power_up_setting_size       :    power up setting info size
- * @slave_info                  :    contains slave information
- * @probe_cmd                   :    configuration of probe command
- * @power_down_setting          :    contains power down setting info
- * @power_down_setting_size     :    power down setting info size
- */
-struct probe_payload {
-	uint8_t                                version;
-	struct   sensor_power_setting      power_up_setting;
-	uint16_t                               power_up_setting_size;
-	struct   camera_slave_info         slave_info;
-	struct   probe_command                 probe_cmd;
-	struct   sensor_power_setting      power_down_setting;
-	uint16_t                               power_down_setting_size;
-};
 
 /**
  * phy_info - Explains about the remote phy information
@@ -239,11 +220,12 @@ struct probe_payload {
  */
 struct phy_info {
 	uint32_t    phy_id;
-	enum        phy_type               phy_type;
-	bool        combo_mode;
-	uint16_t    lane_count;
 	uint16_t    lane_assign;
-};
+	uint16_t    lane_count;
+	uint32_t    combo_mode;
+	uint16_t    phy_type;
+	uint16_t    sensor_physical_id;
+} __packed;
 
 /**
  * phy_reg_setting - Explains about the PHY register info
@@ -280,7 +262,7 @@ struct phy_reg_config {
 struct phy_header {
 	struct cam_slave_pkt_hdr             hpkt_header;
 	struct cam_rpmsg_slave_payload_desc  hpkt_preamble;
-	uint8_t                              version;
+	uint32_t                             version;
 	uint32_t                             size;
 };
 
@@ -301,6 +283,16 @@ struct phy_payload {
 	struct phy_reg_config phy_reset_config;
 };
 
+struct phy_probe_info {
+	uint16_t vt;
+	uint16_t phy_index;
+	uint16_t num_lanes;
+	uint8_t  pt;
+	uint8_t  combo_mode;
+	uint16_t lane_mask;
+	uint16_t reserved;
+} __packed;
+
 /**
  * struct sensor_probe_response - Explains about the sensor probe entry
  *
@@ -310,10 +302,10 @@ struct phy_payload {
  * @phy_info                    :    the phy information
  */
 struct sensor_probe_response {
-	enum     version_type           vt;
+	uint16_t                        vt;
 	uint8_t                         sensor_id;
-	enum     probe_status           status;
-	struct   phy_info               phy_info;
+	uint8_t                         status;
+	struct   phy_probe_info         phy_info;
 };
 
 /**
@@ -323,7 +315,8 @@ struct sensor_probe_response {
  * @probe_entry                 :    sensor probe entry configuration
  */
 struct probe_response_packet {
-	enum     version_type                   vt;
+	uint16_t                                vt;
+	uint16_t                                reserved;
 	struct   sensor_probe_response          probe_response;
 };
 
@@ -345,7 +338,7 @@ struct reg_setting {
 	uint32_t    reg_data_type;
 	uint32_t    reg_addr_type;
 	uint32_t    delay;
-	enum        operation_type operation;
+	uint32_t    operation;
 };
 
 /**
@@ -462,7 +455,7 @@ struct sensorlite_stream_configuration {
 	uint32_t                         dt;
 	struct frame_dimension           fd;
 	uint32_t                         bit_width;
-	enum sensor_stream_type          stream_type;
+	uint32_t                         stream_type;
 	uint32_t                         stream_configuration_id;
 } __packed;
 
@@ -488,9 +481,10 @@ struct sensorlite_stream_information {
  */
 struct sensorlite_resolution_cmd {
 	struct sensor_lite_header            header;
+	uint32_t                             sensor_id;
 	struct sensorlite_stream_information stream_info;
 	double                               frame_rate;
-	enum sensorlite_mode_identifier      mode_id;
+	uint32_t                             mode_id;
 	uint32_t                             mode_settings_offset;
 	uint32_t                             mode_settings_count;
 } __packed;
@@ -565,13 +559,14 @@ struct sensor_lite_release_cmd {
 
 struct sensor_lite_start_stop_cmd {
 	struct sensor_lite_header        header;
+	uint32_t                         sensor_id;
 	uint32_t                         start_stop_settings_offset;
 	uint32_t                         start_stop_settings_size;
 } __packed;
 
 struct slave_dest_camera_init_payload {
 	struct sensor_lite_header        header;
-	uint8_t                          sensor_physical_id;
+	uint32_t                         sensor_physical_id;
 	struct sensor_lite_exposure_info expInfo;
 	uint32_t                         resolution_data_offset;
 	uint32_t                         resolution_data_count;
@@ -602,7 +597,7 @@ struct slave_dest_camera_init_payload {
  */
 struct host_dest_camera_init_payload_v2 {
 	struct sensor_lite_header    header;
-	uint8_t                      sensor_physical_id;
+	uint32_t                     sensor_physical_id;
 	struct  vc_mapping           vc_map;
 	uint32_t                     init_setting_offset;
 	uint32_t                     init_setting_count;
@@ -619,19 +614,5 @@ enum {
 	SENSORLITE_CMD_TYPE_START           = 8,
 	SENSORLITE_CMD_TYPE_STOP            = 9
 };
-
-#define HCM_PKT_OPCODE_SENSOR_BASE            0x30
-#define HCM_PKT_OPCODE_SENSOR_PROBE           (HCM_PKT_OPCODE_SENSOR_BASE + 0x2)
-#define HCM_PKT_OPCODE_SENSOR_PROBE_RESPONSE  (HCM_PKT_OPCODE_SENSOR_BASE + 0x3)
-#define HCM_PKT_OPCODE_SENSOR_ACQUIRE         (HCM_PKT_OPCODE_SENSOR_BASE + 0x6)
-#define HCM_PKT_OPCODE_SENSOR_RELEASE         (HCM_PKT_OPCODE_SENSOR_BASE + 0x7)
-#define HCM_PKT_OPCODE_SENSOR_INIT            (HCM_PKT_OPCODE_SENSOR_BASE + 0x8)
-#define HCM_PKT_OPCODE_SENSOR_CONFIG          (HCM_PKT_OPCODE_SENSOR_BASE + 0x9)
-#define HCM_PKT_OPCODE_SENSOR_START_DEV       (HCM_PKT_OPCODE_SENSOR_BASE + 0xA)
-#define HCM_PKT_OPCODE_SENSOR_STOP_DEV        (HCM_PKT_OPCODE_SENSOR_BASE + 0xB)
-#define HCM_PKT_OPCODE_SENSOR_ERROR           (HCM_PKT_OPCODE_SENSOR_BASE + 0xC)
-
-#define HCM_PKT_OPCODE_CSIPHY_BASE            0x40
-#define HCM_PKT_OPCODE_CSIPHY_INIT_CONFIG     (HCM_PKT_OPCODE_CSIPHY_BASE + 0x2)
 
 #endif

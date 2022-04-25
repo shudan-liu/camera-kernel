@@ -70,6 +70,9 @@ struct sensor_lite_device {
 	struct sensor_lite_start_stop_cmd     *start_cmd;
 	struct sensor_lite_start_stop_cmd     *stop_cmd;
 
+	struct completion                     complete;
+	struct cam_req_mgr_core_workq         *workq;
+	struct sensor_probe_response          probe_info;
 };
 
 /**

@@ -12,7 +12,11 @@
 #include "cam_req_mgr_dev.h"
 #include <media/cam_sensor.h>
 #include "camera_main.h"
+#include "cam_rpmsg.h"
 #include <dt-bindings/msm-camera.h>
+#include <cam_sensor_lite_ext_headers.h>
+
+#define CAM_SENSOR_LITE_RPMSG_WORKQ_NUM_TASK 10
 
 static void cam_sensor_lite_subdev_handle_message(
 		struct v4l2_subdev *sd,
@@ -27,7 +31,21 @@ static void cam_sensor_lite_subdev_handle_message(
 		data_idx = *(uint32_t *)data;
 		CAM_INFO(CAM_SENSOR_LITE, "subdev index : %d Sensor Lite index: %d",
 				sensor_lite_dev->soc_info.index, data_idx);
-				break;
+		break;
+	case CAM_SUBDEV_MESSAGE_PROBE_RES: {
+		struct probe_response_packet *pkt =
+			(struct probe_response_packet *)data;
+		uint32_t sensor_id =  pkt->probe_response.sensor_id;
+
+		if (sensor_lite_dev->soc_info.index == sensor_id) {
+			CAM_INFO(CAM_SENSOR_LITE, "probe response received for : %d", sensor_id);
+			memcpy(&sensor_lite_dev->probe_info,
+					&(pkt->probe_response),
+					sizeof(struct sensor_probe_response));
+			complete(&sensor_lite_dev->complete);
+		}
+		break;
+	}
 	default:
 		break;
 	}
@@ -199,8 +217,11 @@ static int cam_sensor_lite_component_bind(struct device *dev,
 		CAM_SD_CLOSE_MEDIUM_PRIORITY;
 
 	rc = cam_register_subdev(&(sensor_lite_dev->v4l2_dev_str));
-	if (rc < 0)
+	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR_LITE, "cam_register_subdev Failed rc: %d", rc);
+		kfree(sensor_lite_dev);
+		return rc;
+	}
 
 	platform_set_drvdata(pdev, &(sensor_lite_dev->v4l2_dev_str.sd));
 
@@ -212,12 +233,28 @@ static int cam_sensor_lite_component_bind(struct device *dev,
 	sensor_lite_dev->release_cmd      = NULL;
 	sensor_lite_dev->start_cmd        = NULL;
 	sensor_lite_dev->stop_cmd         = NULL;
+
+	init_completion(&(sensor_lite_dev->complete));
 	return rc;
 }
 
 static void cam_sensor_lite_component_unbind(struct device *dev,
 	struct device *master_dev, void *data)
 {
+	struct platform_device *pdev               =
+		to_platform_device(dev);
+	struct sensor_lite_device *sensor_lite_dev =
+		platform_get_drvdata(pdev);
+	int    rc                                  = 0;
+
+	rc = cam_unregister_subdev(&(sensor_lite_dev->v4l2_dev_str));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR_LITE, "sensor_lite[%d] unregister failed",
+				sensor_lite_dev->soc_info.index);
+	}
+
+	kfree(sensor_lite_dev);
+	return;
 }
 
 const static struct component_ops cam_sensor_lite_component_ops = {
@@ -261,8 +298,100 @@ struct platform_driver cam_sensor_lite_driver = {
 	},
 };
 
+static struct cam_req_mgr_core_workq *sensor_lite_rpmsg_workq;
+
+static void sensor_lite_recv_workq(struct work_struct *work)
+{
+	cam_req_mgr_process_workq(work);
+}
+
+static int sensor_lite_rpmsg_recv_worker(void *priv, void *data)
+{
+	struct cam_rpmsg_slave_payload_desc *pkt = NULL;
+
+	if (!data) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid data pointer");
+		return -EINVAL;
+	}
+
+	pkt = (struct cam_rpmsg_slave_payload_desc *)(data);
+	switch (CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(pkt)) {
+	case HCM_PKT_OPCODE_SENSOR_PROBE_RESPONSE:
+	{
+		if ((CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(pkt) - SLAVE_PKT_PLD_SIZE) !=
+			      sizeof(struct probe_response_packet)) {
+			CAM_ERR(CAM_SENSOR_LITE,
+					"received probe response packet of invalid size");
+			goto exit_1;
+		}
+		cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
+			CAM_SUBDEV_MESSAGE_PROBE_RES,
+			(void *)((uint8_t *)data + SLAVE_PKT_PLD_SIZE));
+		break;
+	}
+	default:
+		CAM_ERR(CAM_RPMSG, "Unexpected pkt type %x, len %d",
+			CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(pkt),
+			CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(pkt));
+
+	}
+exit_1:
+	kfree(data);
+
+	return 0;
+}
+
+
+static int sensor_lite_recv_irq_cb(void *cookie, void *data, int len)
+{
+	struct crm_workq_task *task;
+	void *payload;
+	int rc = 0;
+
+	/* called in interrupt context */
+	payload = kzalloc(len, GFP_ATOMIC);
+	if (!payload) {
+		CAM_ERR(CAM_RPMSG, "Failed to alloc payload");
+		return -ENOMEM;
+	}
+	memcpy(payload, data, len);
+
+	task = cam_req_mgr_workq_get_task(sensor_lite_rpmsg_workq);
+	if (task == NULL) {
+		rc = -EINVAL;
+		goto err_exit1;
+	}
+
+	task->payload = payload;
+	task->process_cb = sensor_lite_rpmsg_recv_worker;
+	rc = cam_req_mgr_workq_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+	if (rc) {
+		CAM_ERR(CAM_RPMSG, "failed to enqueue task rc %d", rc);
+		goto err_exit1;
+	}
+
+	return rc;
+
+err_exit1:
+	kfree(payload);
+	return rc;
+}
+
 int32_t cam_sensor_lite_init_module(void)
 {
+
+	struct cam_rpmsg_slave_cbs sensor_lite_rpmsg_cb;
+
+	cam_req_mgr_workq_create("cam_rpmsg_sensor_wq",
+			CAM_SENSOR_LITE_RPMSG_WORKQ_NUM_TASK,
+			&(sensor_lite_rpmsg_workq), CRM_WORKQ_USAGE_IRQ,
+			CAM_WORKQ_FLAG_HIGH_PRIORITY,
+			sensor_lite_recv_workq);
+
+	sensor_lite_rpmsg_cb.cookie = NULL;
+	sensor_lite_rpmsg_cb.recv   = sensor_lite_recv_irq_cb;
+	cam_rpmsg_subscribe_slave_callback(CAM_RPMSG_SLAVE_CLIENT_SENSOR,
+			sensor_lite_rpmsg_cb);
 	return platform_driver_register(&cam_sensor_lite_driver);
 }
 
