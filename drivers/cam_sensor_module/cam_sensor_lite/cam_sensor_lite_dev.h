@@ -40,6 +40,9 @@ struct sensor_lite_crm_intf_params {
 	int32_t device_hdl;
 	int32_t session_hdl;
 	int32_t link_hdl;
+	struct cam_req_mgr_kmd_ops ops;
+	struct cam_req_mgr_crm_cb *crm_cb;
+	uint32_t enable_crm;
 };
 
 enum cam_sensor_lite_state {
@@ -74,6 +77,8 @@ struct sensor_lite_device {
 	struct cam_req_mgr_core_workq         *workq;
 	struct sensor_probe_response          probe_info;
 	uint32_t                              phy_id;
+	uint32_t                              dump_en;
+	uint32_t                              type;
 };
 
 /**

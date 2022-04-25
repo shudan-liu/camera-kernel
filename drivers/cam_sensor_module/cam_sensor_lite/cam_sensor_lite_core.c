@@ -18,6 +18,10 @@
 #include "cam_rpmsg.h"
 #include "cam_sensor_lite_pkt_utils.h"
 
+#define WITH_CRM_MASK  0x1
+#define HOST_DEST_CAM  0x1
+#define SLAVE_DEST_CAM 0x2
+
 void cam_sensor_lite_shutdown(
 	struct sensor_lite_device *sensor_lite_dev)
 {
@@ -34,6 +38,164 @@ void cam_sensor_lite_shutdown(
 	sensor_lite_dev->stop_cmd = NULL;
 }
 
+int cam_sensor_lite_publish_dev_info(
+	struct cam_req_mgr_device_info *info)
+{
+	int rc = 0;
+	struct sensor_lite_device *sensor_lite_dev = NULL;
+
+	if (!info) {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"Invalid crm info handle");
+		return -EINVAL;
+	}
+
+	sensor_lite_dev = (struct sensor_lite_device *)
+		cam_get_device_priv(info->dev_hdl);
+
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"Device data is NULL");
+		return -EINVAL;
+	}
+
+	info->dev_id = CAM_REQ_MGR_DEVICE_SENSOR_LITE;
+	strlcpy(info->name, CAM_SENSOR_LITE_NAME, sizeof(info->name));
+	/* Hard code for now */
+	info->p_delay = 1;
+	info->trigger = CAM_TRIGGER_POINT_SOF;
+
+	CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE PD delay:%d", info->p_delay);
+	return rc;
+}
+
+int cam_sensor_lite_setup_link(
+	struct cam_req_mgr_core_dev_link_setup *link)
+{
+	struct sensor_lite_device *sensor_lite_dev = NULL;
+
+	if (!link) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid link.");
+		return -EINVAL;
+	}
+
+	sensor_lite_dev = (struct sensor_lite_device *)
+		cam_get_device_priv(link->dev_hdl);
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Device data is NULL");
+		return -EINVAL;
+	}
+
+	mutex_lock(&sensor_lite_dev->mutex);
+	if (link->link_enable) {
+		sensor_lite_dev->crm_intf.link_hdl = link->link_hdl;
+		sensor_lite_dev->crm_intf.crm_cb = link->crm_cb;
+		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] CRM enable link done",
+				sensor_lite_dev->soc_info.index);
+	} else {
+		sensor_lite_dev->crm_intf.link_hdl = -1;
+		sensor_lite_dev->crm_intf.crm_cb = NULL;
+		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] CRM disable link done",
+				sensor_lite_dev->soc_info.index);
+	}
+	mutex_unlock(&sensor_lite_dev->mutex);
+	return 0;
+}
+
+static int cam_sensor_lite_apply_req(
+	struct cam_req_mgr_apply_request *apply)
+{
+	int rc = 0;
+	struct sensor_lite_device *sensor_lite_dev = NULL;
+
+	if (!apply) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid parameters");
+		return -EINVAL;
+	}
+	CAM_INFO(CAM_SENSOR_LITE, "Got Apply request from crm %lld",
+			apply->request_id);
+
+	sensor_lite_dev = (struct sensor_lite_device *)
+		cam_get_device_priv(apply->dev_hdl);
+
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Device data is NULL");
+		return -EINVAL;
+	}
+
+	/*TODO: apply request from crm */
+	return rc;
+}
+
+static int cam_sensor_lite_notify_frame_skip(
+	struct cam_req_mgr_apply_request *apply)
+{
+	CAM_DBG(CAM_SENSOR_LITE, "Got Skip frame from crm");
+	return 0;
+}
+
+static int cam_sensor_lite_flush_req(
+	struct cam_req_mgr_flush_request *flush)
+{
+	CAM_DBG(CAM_SENSOR_LITE, "Got Flush request from crm");
+	return 0;
+}
+
+static int cam_sensor_lite_process_crm_evt(
+	struct cam_req_mgr_link_evt_data *event)
+{
+	struct sensor_lite_device *sensor_lite_dev = NULL;
+
+	if (!event) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid argument");
+		return -EINVAL;
+	}
+
+	sensor_lite_dev = cam_get_device_priv(event->dev_hdl);
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid dev_hdl");
+		return -EINVAL;
+	}
+
+	switch (event->evt_type) {
+	case CAM_REQ_MGR_LINK_EVT_SOF_FREEZE:
+		CAM_DBG(CAM_SENSOR_LITE, "Sof freeze detected");
+		break;
+	default:
+		CAM_DBG(CAM_SENSOR_LITE, "Got crm event notification: %d", event->evt_type);
+		break;
+	}
+	return 0;
+}
+
+static int cam_sensor_lite_dump_req(
+	struct cam_req_mgr_dump_info *dump_info)
+{
+	CAM_DBG(CAM_SENSOR_LITE, "Got dump request from CRM");
+	return 0;
+}
+
+int sensor_lite_crm_intf_init(
+	struct sensor_lite_device *sensor_lite_dev)
+{
+	if (sensor_lite_dev == NULL)
+		return -EINVAL;
+
+	sensor_lite_dev->crm_intf.device_hdl = -1;
+	sensor_lite_dev->crm_intf.link_hdl = -1;
+	sensor_lite_dev->crm_intf.ops.get_dev_info = cam_sensor_lite_publish_dev_info;
+	sensor_lite_dev->crm_intf.ops.link_setup = cam_sensor_lite_setup_link;
+	sensor_lite_dev->crm_intf.ops.apply_req = cam_sensor_lite_apply_req;
+	sensor_lite_dev->crm_intf.ops.notify_frame_skip =
+		cam_sensor_lite_notify_frame_skip;
+	sensor_lite_dev->crm_intf.ops.flush_req = cam_sensor_lite_flush_req;
+	sensor_lite_dev->crm_intf.ops.process_evt = cam_sensor_lite_process_crm_evt;
+	sensor_lite_dev->crm_intf.ops.dump_req = cam_sensor_lite_dump_req;
+	sensor_lite_dev->crm_intf.enable_crm = 0;
+
+	return 0;
+}
+
 static int __cam_sensor_lite_handle_acquire_dev(
 	struct sensor_lite_device *sensor_lite_dev,
 	struct cam_sensorlite_acquire_dev *acquire)
@@ -48,7 +210,8 @@ static int __cam_sensor_lite_handle_acquire_dev(
 	}
 
 	if (sensor_lite_dev->state != CAM_SENSOR_LITE_STATE_INIT) {
-		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] not in right state[%d] to acquire",
+		CAM_ERR(CAM_SENSOR_LITE,
+				"SENSOR_LITE[%d] not in right state[%d] to acquire",
 				sensor_lite_dev->soc_info.index, sensor_lite_dev->state);
 		rc = -EINVAL;
 		goto exit;
@@ -62,6 +225,12 @@ static int __cam_sensor_lite_handle_acquire_dev(
 	crm_intf_params.priv = sensor_lite_dev;
 	crm_intf_params.dev_id = CAM_SENSOR_LITE;
 
+	/* add crm callbacks only in case of with crm is enabled */
+	if (acquire->info_handle & WITH_CRM_MASK) {
+		sensor_lite_dev->crm_intf.enable_crm = 1;
+		crm_intf_params.ops = &sensor_lite_dev->crm_intf.ops;
+	}
+	sensor_lite_dev->type = HOST_DEST_CAM;
 	acquire->device_handle =
 		cam_create_device_hdl(&crm_intf_params);
 	sensor_lite_dev->crm_intf.device_hdl  = acquire->device_handle;
@@ -70,8 +239,8 @@ static int __cam_sensor_lite_handle_acquire_dev(
 	CAM_INFO(CAM_SENSOR_LITE,
 			"SENSOR_LITE[%d] Acquire Device done",
 			sensor_lite_dev->soc_info.index);
-
-	__send_pkt(&(sensor_lite_dev->acquire_cmd->header));
+	__send_pkt(sensor_lite_dev,
+			&(sensor_lite_dev->acquire_cmd->header));
 exit:
 	return rc;
 }
@@ -130,19 +299,19 @@ static int __cam_sensor_lite_handle_release_dev(
 		cam_destroy_device_hdl(sensor_lite_dev->crm_intf.device_hdl);
 		sensor_lite_dev->crm_intf.device_hdl  = -1;
 		sensor_lite_dev->crm_intf.session_hdl = -1;
-
+		sensor_lite_dev->crm_intf.enable_crm  = 0;
 		kfree(sensor_lite_dev->start_cmd);
 		sensor_lite_dev->start_cmd = NULL;
 		kfree(sensor_lite_dev->stop_cmd);
 		sensor_lite_dev->stop_cmd = NULL;
-
 		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] Release Done.",
 				sensor_lite_dev->soc_info.index);
 		sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_INIT;
 	}
 
 
-	__send_pkt(&(sensor_lite_dev->release_cmd->header));
+	__send_pkt(sensor_lite_dev,
+		&(sensor_lite_dev->release_cmd->header));
 	return rc;
 }
 
@@ -185,6 +354,34 @@ static int __cam_sensor_lite_handle_stop_cmd(
 	return rc;
 }
 
+static int __cam_sensor_lite_handle_perframe(
+	struct sensor_lite_device         *sensor_lite_dev,
+	struct sensor_lite_perframe_cmd   *cmd,
+	uint64_t                          request_id)
+{
+	int rc = 0;
+	struct cam_req_mgr_add_request add_req = {0};
+
+	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
+			(sensor_lite_dev->crm_intf.enable_crm)) {
+		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
+		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
+		add_req.req_id   = request_id;
+		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
+					sensor_lite_dev->soc_info.index,
+					sensor_lite_dev->crm_intf.enable_crm,
+					request_id);
+	}
+	__send_pkt(sensor_lite_dev,
+			(struct sensor_lite_header *)cmd);
+	return rc;
+}
+
+
 static int cam_sensor_lite_validate_cmd_descriptor(
 	struct sensor_lite_device *sensor_lite_dev,
 	struct cam_cmd_buf_desc *cmd_desc,
@@ -203,7 +400,7 @@ static int cam_sensor_lite_validate_cmd_descriptor(
 	rc = cam_mem_get_cpu_buf(cmd_desc->mem_handle,
 		&generic_ptr, &len_of_buff);
 	if (rc < 0) {
-		CAM_ERR(CAM_TPG,
+		CAM_ERR(CAM_SENSOR_LITE,
 			"Failed to get cmd buf Mem address : %d", rc);
 		return rc;
 	}
@@ -219,40 +416,52 @@ static int cam_sensor_lite_validate_cmd_descriptor(
 		goto end;
 	}
 
-	if (len_of_buff < cmd_header->size)
+	if (len_of_buff < cmd_header->size) {
 		CAM_ERR(CAM_SENSOR_LITE, "Cmd header size mismatch");
+		rc = -EINVAL;
+		goto end;
+	}
 
-	switch (cmd_header->tag) {
-	case SENSORLITE_CMD_TYPE_HOSTDESTINIT:
-		__set_slave_pkt_headers(cmd_header, HCM_PKT_OPCODE_SENSOR_INIT);
-		__send_pkt(cmd_header);
-	break;
-	case SENSORLITE_CMD_TYPE_SLAVEDESTINIT:
-		__set_slave_pkt_headers(cmd_header, HCM_PKT_OPCODE_SENSOR_INIT);
-		__send_pkt(cmd_header);
-	break;
-	case SENSORLITE_CMD_TYPE_RESOLUTIONINFO:
-		__set_slave_pkt_headers(cmd_header, HCM_PKT_OPCODE_SENSOR_CONFIG);
-		__send_pkt(cmd_header);
-	break;
-	case SENSORLITE_CMD_TYPE_PERFRAME:
-		__set_slave_pkt_headers(cmd_header, HCM_PKT_OPCODE_SENSOR_CONFIG);
-		__send_pkt(cmd_header);
-	break;
-	case SENSORLITE_CMD_TYPE_START:
-		__cam_sensor_lite_handle_start_cmd(sensor_lite_dev,
-				(struct sensor_lite_start_stop_cmd *)cmd_header);
-	break;
-	case SENSORLITE_CMD_TYPE_STOP:
-		__cam_sensor_lite_handle_stop_cmd(sensor_lite_dev,
-				(struct sensor_lite_start_stop_cmd *)cmd_header);
-		break;
-	default:
-		CAM_INFO(CAM_SENSOR_LITE,
-				"invalid packet tag received ignore for now %d", cmd_header->tag);
-		break;
+	*cmd_type = cmd_header->tag;
+	*cmd_addr = (uintptr_t)cmd_header;
+
+	if ((cmd_header->tag <= SENSORLITE_CMD_TYPE_INVALID) ||
+			(cmd_header->tag >= SENSORLITE_CMD_TYPE_MAX)) {
+		rc = -EINVAL;
 	}
 end:
+	return rc;
+}
+
+
+static int cam_sensor_lite_handle_nop(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct cam_packet *packet)
+{
+	int rc = 0;
+	struct cam_req_mgr_add_request add_req = {0};
+
+	if ((sensor_lite_dev == NULL) ||
+			(packet == NULL)) {
+		return -EINVAL;
+	}
+
+	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
+			(sensor_lite_dev->crm_intf.enable_crm)) {
+		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
+		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
+		add_req.req_id   = packet->header.request_id;
+		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
+				sensor_lite_dev->soc_info.index,
+				sensor_lite_dev->crm_intf.enable_crm,
+				packet->header.request_id);
+	}
+
 	return rc;
 }
 
@@ -267,9 +476,8 @@ static int cam_sensor_lite_cmd_buf_parse(
 		return -EINVAL;
 
 	for (i = 0; i < packet->num_cmd_buf; i++) {
-		uint32_t cmd_type = -1;
+		uint32_t  cmd_type = -1;
 		uintptr_t cmd_addr;
-
 		cmd_desc = (struct cam_cmd_buf_desc *)
 			((uint32_t *)&packet->payload +
 			(packet->cmd_buf_offset / 4) +
@@ -283,6 +491,34 @@ static int cam_sensor_lite_cmd_buf_parse(
 		if (rc < 0)
 			goto end;
 
+		switch (cmd_type) {
+		case SENSORLITE_CMD_TYPE_SLAVEDESTINIT:
+			sensor_lite_dev->type = SLAVE_DEST_CAM;
+		case SENSORLITE_CMD_TYPE_HOSTDESTINIT:
+		case SENSORLITE_CMD_TYPE_RESOLUTIONINFO:
+			__send_pkt(sensor_lite_dev,
+					(struct sensor_lite_header *)cmd_addr);
+			break;
+		case SENSORLITE_CMD_TYPE_START:
+			__cam_sensor_lite_handle_start_cmd(sensor_lite_dev,
+				(struct sensor_lite_start_stop_cmd *)cmd_addr);
+			break;
+		case SENSORLITE_CMD_TYPE_STOP:
+			__cam_sensor_lite_handle_stop_cmd(sensor_lite_dev,
+				(struct sensor_lite_start_stop_cmd *)cmd_addr);
+			break;
+		case SENSORLITE_CMD_TYPE_PERFRAME: {
+			__cam_sensor_lite_handle_perframe(sensor_lite_dev,
+				(struct sensor_lite_perframe_cmd *)cmd_addr,
+				packet->header.request_id);
+			break;
+		}
+		default:
+			CAM_INFO(CAM_SENSOR_LITE,
+				"invalid packet tag received ignore for now %d",
+				((struct sensor_lite_header *)cmd_addr)->tag);
+			break;
+		}
 	}
 end:
 	return rc;
@@ -346,6 +582,14 @@ static int cam_sensor_lite_packet_parse(
 		}
 		break;
 	}
+	case CAM_SENSOR_LITE_PACKET_OPCODE_NOP: {
+		rc = cam_sensor_lite_handle_nop(sensor_lite_dev, csl_packet);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR_LITE, "Handle NOP packet failed");
+			goto end;
+		}
+		break;
+	}
 	case CAM_SENSOR_LITE_PACKET_OPCODE_PROBE_V2: {
 		break;
 	}
@@ -365,7 +609,6 @@ static int __cam_sensor_lite_handle_start_dev(
 	struct cam_start_stop_dev_cmd *start)
 {
 	int rc = 0;
-	struct sensor_lite_header start_cmd = {0};
 
 	if (!start || !sensor_lite_dev)
 		return -EINVAL;
@@ -395,15 +638,20 @@ static int __cam_sensor_lite_handle_start_dev(
 				sensor_lite_dev->soc_info.index);
 	}
 
-	/* if slave camera */
-	start_cmd.version = 0x1;
-	start_cmd.tag     = SENSORLITE_CMD_TYPE_START;
-	start_cmd.size    = sizeof(start_cmd);
-	__set_slave_pkt_headers(&(start_cmd), HCM_PKT_OPCODE_SENSOR_START_DEV);
-	__dump_slave_pkt_headers(&start_cmd);
+	if (sensor_lite_dev->type == HOST_DEST_CAM) {
+		if (sensor_lite_dev->start_cmd != NULL) {
+			__send_pkt(sensor_lite_dev,
+				&(sensor_lite_dev->start_cmd->header));
+		} else {
+			CAM_ERR(CAM_SENSOR_LITE,
+					"START CMD not received from user space");
+			rc = -EINVAL;
+		}
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"STARTDEV not expected for SLAVE Dest cam");
+	}
 
-	/* if host dest camea */
-	/* send the cached stream on*/
 	return rc;
 }
 
@@ -412,7 +660,6 @@ static int __cam_sensor_lite_handle_stop_dev(
 	struct cam_start_stop_dev_cmd *stop)
 {
 	int rc = 0;
-	struct sensor_lite_header stop_cmd = {0};
 
 	if (!stop || !sensor_lite_dev)
 		return -EINVAL;
@@ -442,15 +689,19 @@ static int __cam_sensor_lite_handle_stop_dev(
 				sensor_lite_dev->soc_info.index);
 	}
 
-	/* Do this in case of slave destination camera */
-	stop_cmd.version = 0x1;
-	stop_cmd.tag     = HCM_PKT_OPCODE_SENSOR_STOP_DEV;
-	stop_cmd.size    = sizeof(stop_cmd);
-	__set_slave_pkt_headers(&(stop_cmd), HCM_PKT_OPCODE_SENSOR_STOP_DEV);
-	__dump_slave_pkt_headers(&stop_cmd);
+	if (sensor_lite_dev->type == HOST_DEST_CAM) {
+		if (sensor_lite_dev->stop_cmd != NULL) {
+			__send_pkt(sensor_lite_dev,
+				&(sensor_lite_dev->stop_cmd->header));
+		} else {
+			CAM_ERR(CAM_SENSOR_LITE, "stop cmd not received from UMD");
+			rc = -EINVAL;
+		}
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"STOP_DEV not expected for SLAVE Dest cam");
+	}
 
-	/* if host destination camera */
-	/* we need to send cached stream off packet */
 	return rc;
 }
 
@@ -549,6 +800,7 @@ int32_t __cam_sensor_lite_handle_probe(
 
 		if (!(cmd_desc[i].length))
 			continue;
+
 		rc = cam_mem_get_cpu_buf(cmd_desc[i].mem_handle,
 			&cmd_buf1, &len);
 		if (rc < 0) {
@@ -648,13 +900,9 @@ int32_t __cam_sensor_lite_handle_probe(
 				probe->power_down_settings_size,
 				probe->header.size);
 
-		}
+	}
 
-#ifdef __HELIOS_ENABLED__
-		rc = __send_probe_pkt(sensor_lite_dev, ptr);
-#endif
-		__set_slave_pkt_headers(ptr, HCM_PKT_OPCODE_SENSOR_PROBE);
-		__dump_probe_cmd(ptr);
+	rc = __send_probe_pkt(sensor_lite_dev, ptr);
 end:
 	return rc;
 }

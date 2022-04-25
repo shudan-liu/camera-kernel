@@ -604,6 +604,7 @@ struct host_dest_camera_init_payload_v2 {
 } __packed;
 
 enum {
+	SENSORLITE_CMD_TYPE_INVALID         = 0,
 	SENSORLITE_CMD_TYPE_PROBE           = 1,
 	SENSORLITE_CMD_TYPE_SLAVEDESTINIT   = 2,
 	SENSORLITE_CMD_TYPE_HOSTDESTINIT    = 3,
@@ -612,7 +613,8 @@ enum {
 	SENSORLITE_CMD_TYPE_DEBUG           = 6,
 	SENSORLITE_CMD_TYPE_PERFRAME        = 7,
 	SENSORLITE_CMD_TYPE_START           = 8,
-	SENSORLITE_CMD_TYPE_STOP            = 9
+	SENSORLITE_CMD_TYPE_STOP            = 9,
+	SENSORLITE_CMD_TYPE_MAX             = 0xA,
 };
 
 #endif

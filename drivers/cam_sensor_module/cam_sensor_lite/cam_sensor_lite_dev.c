@@ -16,7 +16,10 @@
 #include <dt-bindings/msm-camera.h>
 #include <cam_sensor_lite_ext_headers.h>
 
+#define SENSOR_LITE_DEBUG_FILE_NAME_SIZE     27
 #define CAM_SENSOR_LITE_RPMSG_WORKQ_NUM_TASK 10
+
+static struct dentry *debugfs_root;
 
 static void cam_sensor_lite_subdev_handle_message(
 		struct v4l2_subdev *sd,
@@ -171,6 +174,75 @@ static const struct v4l2_subdev_internal_ops sensor_lite_subdev_intern_ops = {
 	.close = cam_sensor_lite_subdev_close,
 };
 
+static int cam_sensor_lite_get_debug(void *data, u64 *val)
+{
+	struct sensor_lite_device *sensor_lite_dev =
+		(struct sensor_lite_device *)data;
+
+	if (val == NULL || sensor_lite_dev == NULL) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid argument");
+		return -EINVAL;
+	}
+	*val = sensor_lite_dev->dump_en;
+
+	return 0;
+}
+
+static int cam_sensor_lite_set_debug(void *data, u64 val)
+{
+	struct sensor_lite_device *sensor_lite_dev =
+		(struct sensor_lite_device *)data;
+
+	if (sensor_lite_dev == NULL) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid argument");
+		return -EINVAL;
+	}
+	sensor_lite_dev->dump_en = val;
+
+	return 0;
+}
+
+DEFINE_DEBUGFS_ATTRIBUTE(cam_sensor_lite_debug,
+	cam_sensor_lite_get_debug,
+	cam_sensor_lite_set_debug, "%16llu\n");
+
+static int cam_sensor_lite_create_debugfs_entry(
+	struct sensor_lite_device *sensor_lite_dev)
+{
+	int rc = 0;
+	struct dentry *dbgfileptr = NULL;
+	char   debug_file[SENSOR_LITE_DEBUG_FILE_NAME_SIZE] = {0};
+
+	if (!debugfs_root) {
+		dbgfileptr = debugfs_create_dir("cam_sensor_lite", NULL);
+		if (!dbgfileptr) {
+			CAM_ERR(CAM_SENSOR_LITE, "debugfs directory creation fail");
+			rc = -ENOENT;
+			goto end;
+		}
+		debugfs_root = dbgfileptr;
+	}
+	sensor_lite_dev->dump_en = 0;
+
+	snprintf(debug_file,
+			SENSOR_LITE_DEBUG_FILE_NAME_SIZE,
+			"sensorlite%d_enable_dump",
+			sensor_lite_dev->soc_info.index);
+
+	dbgfileptr = debugfs_create_file(debug_file, 0644,
+			debugfs_root, sensor_lite_dev, &cam_sensor_lite_debug);
+	if (IS_ERR(dbgfileptr)) {
+		if (PTR_ERR(dbgfileptr) == -ENODEV)
+			CAM_WARN(CAM_SENSOR_LITE, "DebugFS not enabled");
+		else {
+			rc = PTR_ERR(dbgfileptr);
+			goto end;
+		}
+	}
+end:
+	return rc;
+}
+
 static int cam_sensor_lite_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
@@ -219,22 +291,28 @@ static int cam_sensor_lite_component_bind(struct device *dev,
 	rc = cam_register_subdev(&(sensor_lite_dev->v4l2_dev_str));
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR_LITE, "cam_register_subdev Failed rc: %d", rc);
-		kfree(sensor_lite_dev);
-		return rc;
+		goto err_exit_1;
 	}
 
 	platform_set_drvdata(pdev, &(sensor_lite_dev->v4l2_dev_str.sd));
+	sensor_lite_crm_intf_init(sensor_lite_dev);
 
 	/* Non real time device */
-	sensor_lite_dev->ops.get_dev_info = NULL;
-	sensor_lite_dev->ops.link_setup   = NULL;
-	sensor_lite_dev->ops.apply_req    = NULL;
 	sensor_lite_dev->acquire_cmd      = NULL;
 	sensor_lite_dev->release_cmd      = NULL;
 	sensor_lite_dev->start_cmd        = NULL;
 	sensor_lite_dev->stop_cmd         = NULL;
 
 	init_completion(&(sensor_lite_dev->complete));
+
+	rc = cam_sensor_lite_create_debugfs_entry(sensor_lite_dev);
+	if (rc < 0)
+		goto err_exit_1;
+
+	return rc;
+
+err_exit_1:
+	kfree(sensor_lite_dev);
 	return rc;
 }
 

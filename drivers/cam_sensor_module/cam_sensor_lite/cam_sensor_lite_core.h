@@ -20,4 +20,7 @@ int cam_sensor_lite_core_cfg(
 int __dump_perframe_cmd(
 	struct sensor_lite_perframe_cmd *pf_packet);
 
+int sensor_lite_crm_intf_init(
+	struct sensor_lite_device *sensor_lite_dev);
+
 #endif
