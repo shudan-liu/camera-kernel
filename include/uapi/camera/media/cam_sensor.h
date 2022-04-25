@@ -614,6 +614,20 @@ struct cam_csiphy_acquire_dev_info {
 } __attribute__((packed));
 
 /**
+ * cam_csiphy_remote_acquire_dev_info : Information needed for
+ *                               csiphy remote at the time of acquire
+ * @phy_id                 : PHY HW id
+ * @sensor_physical_id     : Sensor physical id
+ * @reserved
+ *
+ */
+struct cam_csiphy_remote_acquire_dev_info {
+	__u32    phy_id;
+	__u32    sensor_physical_id;
+	__u32    reserved;
+} __attribute__((packed));
+
+/**
  * cam_sensor_acquire_dev : Updates sensor acuire cmd
  * @device_handle  :    Updates device handle
  * @session_handle :    Session handle for acquiring device
@@ -668,21 +682,22 @@ struct cam_sensorlite_acquire_dev {
 
 /**
  * cam_csiphy_remote_info      : Provides cmdbuffer structre
- * @reserved
- * @lane_assign           	   : Lanes sensor will be using
- * @lane_cnt              	   : Total number of lanes
+ * @phy_id                     : Phy HW index
+ * @lane_assign                : Lanes sensor will be using
+ * @lane_cnt                   : Total number of lanes
  * @combo_mode                 : Indicates the device mode of operation
  * @csiphy_3phase              : Details whether 3Phase / 2Phase operation
- * @phy_id                     : phy index
- *
+ * @sensor_physical_id         : Sensor physical id
+ * @reserved
  */
 struct cam_csiphy_remote_info {
 	__u32    phy_id;
-	__u32    reserved;
 	__u16    lane_assign;
 	__u16    lane_cnt;
 	__u32    combo_mode;
 	__u16    csiphy_3phase;
+	__u16    sensor_physical_id;
+	__u64    reserved;
 } __attribute__((packed));
 
 /**

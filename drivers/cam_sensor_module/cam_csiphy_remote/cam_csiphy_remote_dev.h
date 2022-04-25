@@ -118,9 +118,13 @@ struct csiphy_remote_ctrl_t {
 /**
  * cam_csiphy_remote_param
  * @hdl_data                   :  CSIPHY handle table
+ * @phy_id                     :  Phy ID
+ * @sensor_physical_id         :  Sensor physical ID
  */
 struct cam_csiphy_remote_param {
 	struct csiphy_remote_hdl_tbl      hdl_data;
+	uint32_t                          phy_id;
+	uint32_t                          sensor_physical_id;
 };
 
 /**
@@ -133,8 +137,7 @@ struct cam_csiphy_remote_param {
  * @csiphy_state               : HW state
  * @ctrl_reg                   : CSIPhy control registers
  * @v4l2_dev_str               : V4L2 related data
- * csiphy_info                 : Sensor-specific data
- * payload                     : Payload data
+ * @csiphy_info                : Sensor-specific data
  * @soc_info                   : SOC information
  * @ops                        : KMD operations
  * @crm_cb                     : Callback API pointers
@@ -148,10 +151,9 @@ struct csiphy_remote_device {
 	struct csiphy_remote_ctrl_t    *ctrl_reg;
 	struct cam_subdev              v4l2_dev_str;
 	struct cam_csiphy_remote_param csiphy_info[CSIPHY_MAX_INSTANCES_PER_PHY];
-	struct phy_payload             payload[CSIPHY_MAX_INSTANCES_PER_PHY];
 	struct cam_hw_soc_info         soc_info;
 	struct cam_req_mgr_kmd_ops     ops;
-	struct cam_req_mgr_crm_cb     *crm_cb;
+	struct cam_req_mgr_crm_cb      *crm_cb;
 };
 
 /**
