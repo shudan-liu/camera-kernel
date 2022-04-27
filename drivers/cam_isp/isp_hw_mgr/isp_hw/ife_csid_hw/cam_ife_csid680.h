@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_680_H_
@@ -562,7 +563,7 @@ static struct cam_ife_csid_ver2_path_reg_info
 		.debug_camif_1_addr               = 0x538,
 		.debug_camif_0_addr               = 0x53C,
 		.frm_drop_pattern_addr            = 0x540,
-		.frm_drop_period_addr             = 0x540,
+		.frm_drop_period_addr             = 0x544,
 		.irq_subsample_pattern_addr       = 0x548,
 		.irq_subsample_period_addr        = 0x54C,
 		.hcrop_addr                       = 0x550,

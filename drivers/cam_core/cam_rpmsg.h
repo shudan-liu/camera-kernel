@@ -11,11 +11,12 @@
 #include <linux/bitfield.h>
 #include <linux/rpmsg.h>
 
-#define CAM_ADD_REG_VAL_PAIR(buf_array, index, offset, val)    \
-        do {                                                   \
-		CAM_DBG(CAM_ISP, "buf %px idx %d offset %03x", buf_array, (index), (offset)); \
-                buf_array[(index)++] = (offset);               \
-                buf_array[(index)++] = (val);                  \
+#define CAM_ADD_REG_VAL_PAIR(buf_array, index, offset, val)     \
+        do {                                                    \
+		CAM_DBG(CAM_ISP, "idx %d offset %03x val %08x", \
+				(index), (offset), (val));      \
+                buf_array[(index)++] = (offset);                \
+                buf_array[(index)++] = (val);                   \
         } while (0)
 
 typedef int (*cam_rpmsg_recv_cb)(struct rpmsg_device *rpdev, void *data,

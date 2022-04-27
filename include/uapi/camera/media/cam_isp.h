@@ -134,6 +134,7 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_SFE_FE_CONFIG             25
 #define CAM_ISP_GENERIC_BLOB_TYPE_SFE_SCRATCH_BUF_CFG       26
 #define CAM_ISP_GENERIC_BLOB_TYPE_SFE_EXP_ORDER_CFG         27
+#define CAM_ISP_GENERIC_BLOB_TYPE_HYBRID_SENSOR_CFG         28
 
 #define CAM_ISP_VC_DT_CFG    4
 
@@ -184,6 +185,11 @@
 #define CAM_ISP_SFE_FS_MODE_EN                 BIT(5)
 #define CAM_ISP_SFE_SHDR_MODE_EN               BIT(6)
 #define CAM_ISP_AEB_MODE_EN                    BIT(7)
+
+#define CAM_ISP_ACQUIRE_TYPE_NONE              0
+#define CAM_ISP_ACQUIRE_TYPE_VIRTUAL           1
+#define CAM_ISP_ACQUIRE_TYPE_HYBRID            2
+#define CAM_ISP_ACQUIRE_TYPE_REAL              3
 
 /* ISP core cfg flag params */
 #define CAM_ISP_PARAM_CORE_CFG_HDR_MUX_SEL BIT(0)
@@ -514,6 +520,9 @@ struct cam_isp_in_port_info_v2 {
  * @feature_flag:               See the macros defined under feature flag above
  * @ife_res_1:                  payload for future use.
  * @ife_res_2:                  payload for future use.
+ * @acquire_type:               Acquire type Virtual, Real or Hybrid
+ * @sensor_id:                  Sensor id for pipeline
+ * @sensor_mode:                Sensor mode for specified sensor id
  * @data:                       payload that contains the output resources
  *
  */
@@ -550,6 +559,9 @@ struct cam_isp_in_port_info_v3 {
 	__u32                           feature_flag;
 	__u32                           ife_res_1;
 	__u32                           ife_res_2;
+	__u32                           acquire_type;
+	__u32                           sensor_id;
+	__u32                           sensor_mode;
 	struct cam_isp_out_port_info_v3 data[1];
 };
 
@@ -1179,6 +1191,40 @@ struct cam_isp_init_config {
 struct cam_isp_lcr_rdi_config {
 	__u32                                   res_id;
 	__u32                                   reserved[5];
+};
+
+#define CAM_VIRT_ISP_VC_DT_CFG                            10
+
+/*
+ * struct cam_sensor_hybrid_data
+ *
+ * @is_cphy:           is cphy or dphy sensor
+ * @phy_num:           which phy to use
+ * @num_lanes:         number of lanes
+ * @lane_cfg:          lane configuaration
+ * @is_epd_sensor:     1 if sensor is epd
+ * @vc_mode:           0 for 2 bit VC, 1 for full bit width VC
+ * @epd_mode:          1 if sensor is epd
+ * @decode_format:     Sensor data decode format
+ * @is_mipi_packed:    1 if sensor output is MIPI packed
+ * @plain_format:      Plane format
+ * @num_vcdt:          number of valid entries in vcdt array
+ * @vcdt:              array of vcdt
+ * @vc:                Virtual Channel
+ * @dt:                Data Type
+ */
+struct cam_ife_hybrid_sensor_data {
+	__u32 is_cphy;
+	__u32 phy_num;
+	__u32 num_lanes;
+	__u32 lane_cfg;
+	__u32 epd_mode;
+	__u32 decode_format;
+	__u32 num_vcdt;
+	struct vcdt {
+		__u32 vc;
+		__u32 dt;
+	}vcdt[CAM_VIRT_ISP_VC_DT_CFG];
 };
 
 #define CAM_ISP_ACQUIRE_COMMON_VER0         0x1000

@@ -14,6 +14,7 @@
 #include "cam_rpmsg.h"
 
 #include "cam_ife_csid_dev.h"
+#include "cam_ife_virt_csid_mod.h"
 #include "cam_vfe.h"
 #include "cam_sfe_dev.h"
 #include "cam_isp_dev.h"
@@ -106,7 +107,9 @@ static const struct camera_submodule_component camera_isp[] = {
 #ifdef CONFIG_SPECTRA_ISP
 	{&cam_ife_csid_init_module, &cam_ife_csid_exit_module},
 	{&cam_ife_csid_lite_init_module, &cam_ife_csid_lite_exit_module},
+	{&cam_ife_virt_csid_init_module, &cam_ife_virt_csid_exit_module},
 	{&cam_vfe_init_module, &cam_vfe_exit_module},
+	{&cam_virt_vfe_init_module, &cam_virt_vfe_exit_module},
 	{&cam_sfe_init_module, &cam_sfe_exit_module},
 	{&cam_isp_dev_init_module, &cam_isp_dev_exit_module},
 #endif

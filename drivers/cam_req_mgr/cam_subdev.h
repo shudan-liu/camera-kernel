@@ -19,8 +19,8 @@
 
 enum cam_subdev_message_type_t {
 	CAM_SUBDEV_MESSAGE_REG_DUMP = 0x1,
-	CAM_SUBDEV_MESSAGE_APPLY_CSIPHY_AUX,
-	CAM_SUBDEV_MESSAGE_PROBE_RES,
+	CAM_SUBDEV_MESSAGE_APPLY_CSIPHY_AUX = 0x2,
+	CAM_SUBDEV_MESSAGE_PROBE_RES = 0x3,
 };
 
 /* Enum for close sequence priority */

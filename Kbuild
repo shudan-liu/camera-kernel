@@ -130,6 +130,7 @@ camera-$(CONFIG_SPECTRA_ISP) += \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_common.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver1.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver2.o \
+	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_virt_csid_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_lite_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/sfe_hw/cam_sfe_soc.o \
@@ -158,6 +159,7 @@ camera-$(CONFIG_SPECTRA_ISP) += \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_fe_ver1.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_camif_lite_ver3.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe17x/cam_vfe.o \
+	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe17x/cam_virt_vfe.o \
 	drivers/cam_isp/isp_hw_mgr/cam_isp_hw_mgr.o \
 	drivers/cam_isp/isp_hw_mgr/cam_ife_hw_mgr.o \
 	drivers/cam_isp/cam_isp_dev.o \

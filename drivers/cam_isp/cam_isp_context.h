@@ -348,7 +348,9 @@ struct cam_isp_context {
 	uint32_t                              v4l2_event_sub_ids;
 	bool                                  aeb_enabled;
 	bool                                  do_internal_recovery;
-	uint32_t                              hybrid_acquire;
+	uint32_t                              acquire_type;
+	uint32_t                             *slave_pkt;
+	uint32_t                              pkt_offset;
 };
 
 /**

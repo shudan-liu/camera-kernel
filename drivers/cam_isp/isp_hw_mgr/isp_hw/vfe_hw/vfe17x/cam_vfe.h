@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_H_
@@ -17,4 +18,14 @@ int cam_vfe_init_module(void);
  */
 void cam_vfe_exit_module(void);
 
+/**
+ * @brief : API to register virtual VFE hw to platform framework.
+ * @return struct platform_device pointer on on success, or ERR_PTR() on error.
+ */
+int cam_virt_vfe_init_module(void);
+
+/**
+ * @brief : API to remove virtual VFE  Hw from platform framework.
+ */
+void cam_virt_vfe_exit_module(void);
 #endif /* _CAM_VFE_H_ */

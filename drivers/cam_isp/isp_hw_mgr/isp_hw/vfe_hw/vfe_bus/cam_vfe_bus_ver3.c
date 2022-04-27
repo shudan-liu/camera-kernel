@@ -27,6 +27,7 @@
 #include "cam_smmu_api.h"
 #include "cam_common_util.h"
 #include "cam_compat.h"
+#include "cam_rpmsg.h"
 
 static const char drv_name[] = "vfe_bus";
 
@@ -34,127 +35,12 @@ static const char drv_name[] = "vfe_bus";
 #define CAM_VFE_BUS_VER3_IRQ_REG1                1
 #define CAM_VFE_BUS_VER3_IRQ_MAX                 2
 
-#define CAM_VFE_BUS_VER3_PAYLOAD_MAX             256
-
 #define CAM_VFE_RDI_BUS_DEFAULT_WIDTH               0xFFFF
 #define CAM_VFE_RDI_BUS_DEFAULT_STRIDE              0xFFFF
-
-#define MAX_BUF_UPDATE_REG_NUM   \
-	((sizeof(struct cam_vfe_bus_ver3_reg_offset_bus_client) +  \
-	sizeof(struct cam_vfe_bus_ver3_reg_offset_ubwc_client))/4)
-#define MAX_REG_VAL_PAIR_SIZE    \
-	(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
-
-enum cam_vfe_bus_ver3_packer_format {
-	PACKER_FMT_VER3_PLAIN_128,
-	PACKER_FMT_VER3_PLAIN_8,
-	PACKER_FMT_VER3_PLAIN_8_ODD_EVEN,
-	PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10,
-	PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN,
-	PACKER_FMT_VER3_PLAIN_16_10BPP,
-	PACKER_FMT_VER3_PLAIN_16_12BPP,
-	PACKER_FMT_VER3_PLAIN_16_14BPP,
-	PACKER_FMT_VER3_PLAIN_16_16BPP,
-	PACKER_FMT_VER3_PLAIN_32,
-	PACKER_FMT_VER3_PLAIN_64,
-	PACKER_FMT_VER3_TP_10,
-	PACKER_FMT_VER3_MIPI10,
-	PACKER_FMT_VER3_MIPI12,
-	PACKER_FMT_VER3_MIPI14,
-	PACKER_FMT_VER3_MIPI20,
-	PACKER_FMT_VER3_PLAIN32_20BPP,
-	PACKER_FMT_VER3_MAX,
-};
 
 struct cam_vfe_bus_ver3_comp_grp_acquire_args {
 	enum cam_vfe_bus_ver3_comp_grp_type  comp_grp_id;
 	uint64_t                             composite_mask;
-};
-
-struct cam_vfe_bus_ver3_common_data {
-	uint32_t                                    core_index;
-	void __iomem                               *mem_base;
-	struct cam_hw_intf                         *hw_intf;
-	void                                       *bus_irq_controller;
-	void                                       *vfe_irq_controller;
-	void                                       *buf_done_controller;
-	void                                       *priv;
-	struct cam_vfe_bus_ver3_reg_offset_common  *common_reg;
-	uint32_t                                    io_buf_update[
-		MAX_REG_VAL_PAIR_SIZE];
-
-	struct cam_vfe_bus_irq_evt_payload          evt_payload[
-		CAM_VFE_BUS_VER3_PAYLOAD_MAX];
-	struct list_head                            free_payload_list;
-	spinlock_t                                  spin_lock;
-	struct mutex                                bus_mutex;
-	uint32_t                                    secure_mode;
-	uint32_t                                    num_sec_out;
-	uint32_t                                    addr_no_sync;
-	uint32_t                                    comp_done_shift;
-	uint32_t                                    supported_irq;
-	bool                                        comp_config_needed;
-	bool                                        is_lite;
-	bool                                        hw_init;
-	bool                                        support_consumed_addr;
-	bool                                        disable_ubwc_comp;
-	bool                                        init_irq_subscribed;
-	bool                                        disable_mmu_prefetch;
-	bool                                        support_tunneling;
-	cam_hw_mgr_event_cb_func                    event_cb;
-	int                        rup_irq_handle[CAM_VFE_BUS_VER3_SRC_GRP_MAX];
-	uint32_t                                    pack_align_shift;
-	uint32_t                                    max_bw_counter_limit;
-	uint32_t                                    no_tunnelingId_shift;
-	uint32_t                                    tunneling_overflow_shift;
-};
-
-struct cam_vfe_bus_ver3_wm_resource_data {
-	uint32_t             index;
-	struct cam_vfe_bus_ver3_common_data            *common_data;
-	struct cam_vfe_bus_ver3_reg_offset_bus_client  *hw_regs;
-
-	bool                 init_cfg_done;
-	bool                 hfr_cfg_done;
-
-	uint32_t             offset;
-	uint32_t             width;
-	uint32_t             height;
-	uint32_t             stride;
-	uint32_t             format;
-	enum cam_vfe_bus_ver3_packer_format pack_fmt;
-
-	uint32_t             burst_len;
-
-	uint32_t             en_ubwc;
-	bool                 ubwc_updated;
-	uint32_t             packer_cfg;
-	uint32_t             h_init;
-	uint32_t             ubwc_meta_addr;
-	uint32_t             ubwc_meta_cfg;
-	uint32_t             ubwc_mode_cfg;
-	uint32_t             ubwc_stats_ctrl;
-	uint32_t             ubwc_ctrl_2;
-
-	uint32_t             irq_subsample_period;
-	uint32_t             irq_subsample_pattern;
-	uint32_t             framedrop_period;
-	uint32_t             framedrop_pattern;
-
-	uint32_t             en_cfg;
-	uint32_t             is_dual;
-
-	uint32_t             ubwc_lossy_threshold_0;
-	uint32_t             ubwc_lossy_threshold_1;
-	uint32_t             ubwc_offset_lossy_variance;
-	uint32_t             ubwc_bandwidth_limit;
-	uint32_t             acquired_width;
-	uint32_t             acquired_height;
-	uint32_t             default_line_based;
-	bool                 use_wm_pack;
-
-	uint32_t             tunnel_id;
-	uint32_t             tunnel_en;
 };
 
 struct cam_vfe_bus_ver3_comp_grp_data {
@@ -171,34 +57,6 @@ struct cam_vfe_bus_ver3_comp_grp_data {
 	uint32_t                                     acquire_dev_cnt;
 	uint32_t                                     irq_trigger_cnt;
 	uint32_t                                     ubwc_static_ctrl;
-};
-
-struct cam_vfe_bus_ver3_vfe_out_data {
-	uint32_t                              out_type;
-	uint32_t                              source_group;
-	uint32_t                              buf_done_mask_shift;
-	struct cam_vfe_bus_ver3_common_data  *common_data;
-	struct cam_vfe_bus_ver3_priv         *bus_priv;
-
-	uint32_t                         num_wm;
-	struct cam_isp_resource_node    *wm_res;
-
-	struct cam_isp_resource_node    *comp_grp;
-	enum cam_isp_hw_sync_mode        dual_comp_sync_mode;
-	uint32_t                         dual_hw_alternate_vfe_id;
-	struct list_head                 vfe_out_list;
-
-	uint32_t                         is_master;
-	uint32_t                         is_dual;
-
-	uint32_t                         format;
-	uint32_t                         max_width;
-	uint32_t                         max_height;
-	struct cam_cdm_utils_ops        *cdm_util_ops;
-	uint32_t                         secure_mode;
-	void                            *priv;
-	uint32_t                         mid[CAM_VFE_BUS_VER3_MAX_MID_PER_PORT];
-	bool                             limiter_enabled;
 };
 
 struct cam_vfe_bus_ver3_priv {
@@ -1883,8 +1741,16 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 	struct cam_isp_resource_node    *comp_grp)
 {
 	struct cam_vfe_bus_ver3_comp_grp_data *rsrc_data = NULL;
-	struct cam_vfe_soc_private *vfe_soc_private = soc_info->soc_private;
+	struct cam_vfe_soc_private *vfe_soc_private = NULL;
+	uint32_t ubwc_static_ctrl[2];
+
 	int ddr_type = 0;
+
+	if (soc_info) {
+		vfe_soc_private = soc_info->soc_private;
+		ubwc_static_ctrl[0] = vfe_soc_private->ubwc_static_ctrl[0];
+		ubwc_static_ctrl[1] = vfe_soc_private->ubwc_static_ctrl[1];
+	}
 
 	rsrc_data = kzalloc(sizeof(struct cam_vfe_bus_ver3_comp_grp_data),
 		GFP_KERNEL);
@@ -1908,10 +1774,10 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 		if ((ddr_type == DDR_TYPE_LPDDR5) ||
 			(ddr_type == DDR_TYPE_LPDDR5X))
 			rsrc_data->ubwc_static_ctrl =
-				vfe_soc_private->ubwc_static_ctrl[1];
+				ubwc_static_ctrl[1];
 		else
 			rsrc_data->ubwc_static_ctrl =
-				vfe_soc_private->ubwc_static_ctrl[0];
+				ubwc_static_ctrl[0];
 	}
 
 	list_add_tail(&comp_grp->list, &ver3_bus_priv->free_comp_grp);
@@ -1999,9 +1865,9 @@ static int cam_vfe_bus_ver3_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	if ((vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_MAX) ||
 		(outmap_index >= ver3_bus_priv->num_out)) {
 		CAM_WARN(CAM_ISP,
-			"target does not support req res id :0x%x outtype:%d index:%d",
+			"target does not support req res id :0x%x outtype:%d index:%d num: %d",
 			out_acquire_args->out_port_info->res_type,
-			vfe_out_res_id, outmap_index);
+			vfe_out_res_id, outmap_index, ver3_bus_priv->num_out);
 		return -ENODEV;
 	}
 
@@ -3073,7 +2939,8 @@ static int cam_vfe_bus_ver3_subscribe_init_irq(
 		}
 	}
 
-	if (bus_priv->common_data.supported_irq & CAM_VFE_HW_IRQ_CAP_RUP) {
+	if (bus_priv->common_data.vfe_irq_controller &&
+			bus_priv->common_data.supported_irq & CAM_VFE_HW_IRQ_CAP_RUP) {
 		bus_priv->rup_irq_handle = cam_irq_controller_subscribe_irq(
 			bus_priv->common_data.vfe_irq_controller,
 			CAM_IRQ_PRIORITY_2,
@@ -4385,23 +4252,22 @@ int cam_vfe_bus_ver3_init(
 	struct cam_vfe_bus              *vfe_bus_local;
 	struct cam_vfe_bus_ver3_hw_info *ver3_hw_info = bus_hw_info;
 	struct cam_vfe_soc_private      *soc_private = NULL;
+	int                              is_lite = 0, index = -1;
 
 	CAM_DBG(CAM_ISP, "Enter");
 
-	if (!soc_info || !hw_intf || !bus_hw_info || !vfe_irq_controller) {
+	if (!hw_intf || !bus_hw_info) {
 		CAM_ERR(CAM_ISP,
 			"Inval_prms soc_info:%pK hw_intf:%pK hw_info%pK",
 			soc_info, hw_intf, bus_hw_info);
-		CAM_ERR(CAM_ISP, "controller: %pK", vfe_irq_controller);
 		rc = -EINVAL;
 		goto end;
 	}
 
-	soc_private = soc_info->soc_private;
-	if (!soc_private) {
-		CAM_ERR(CAM_ISP, "Invalid soc_private");
-		rc = -ENODEV;
-		goto end;
+	if (soc_info) {
+		soc_private = soc_info->soc_private;
+		is_lite = soc_private->is_ife_lite;
+		index = soc_info->index;
 	}
 
 	vfe_bus_local = kzalloc(sizeof(struct cam_vfe_bus), GFP_KERNEL);
@@ -4427,9 +4293,12 @@ int cam_vfe_bus_ver3_init(
 	bus_priv->max_out_res                    = ver3_hw_info->max_out_res;
 	bus_priv->common_data.num_sec_out        = 0;
 	bus_priv->common_data.secure_mode        = CAM_SECURE_MODE_NON_SECURE;
-	bus_priv->common_data.core_index         = soc_info->index;
-	bus_priv->common_data.mem_base           =
-		CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX);
+	bus_priv->common_data.core_index         = hw_intf->hw_idx;
+	if (soc_info)
+		bus_priv->common_data.mem_base   =
+			CAM_SOC_GET_REG_MAP_START(soc_info, VFE_CORE_BASE_IDX);
+	else
+		bus_priv->common_data.mem_base   = 0;
 	bus_priv->common_data.hw_intf            = hw_intf;
 	bus_priv->common_data.vfe_irq_controller = vfe_irq_controller;
 	bus_priv->common_data.common_reg         = &ver3_hw_info->common_reg;
@@ -4437,7 +4306,7 @@ int cam_vfe_bus_ver3_init(
 		ver3_hw_info->comp_done_shift;
 	bus_priv->common_data.hw_init            = false;
 
-	bus_priv->common_data.is_lite = soc_private->is_ife_lite;
+	bus_priv->common_data.is_lite = is_lite;
 	bus_priv->common_data.support_consumed_addr =
 		ver3_hw_info->support_consumed_addr;
 	bus_priv->common_data.support_tunneling =
@@ -4490,12 +4359,14 @@ int cam_vfe_bus_ver3_init(
 
 	mutex_init(&bus_priv->common_data.bus_mutex);
 
-	rc = cam_irq_controller_init(drv_name, bus_priv->common_data.mem_base,
-		&ver3_hw_info->common_reg.irq_reg_info,
-		&bus_priv->common_data.bus_irq_controller);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "Init bus_irq_controller failed");
-		goto free_vfe_out;
+	if (vfe_irq_controller) {
+		rc = cam_irq_controller_init(drv_name, bus_priv->common_data.mem_base,
+			&ver3_hw_info->common_reg.irq_reg_info,
+			&bus_priv->common_data.bus_irq_controller);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Init bus_irq_controller failed");
+			goto free_vfe_out;
+		}
 	}
 
 	INIT_LIST_HEAD(&bus_priv->free_comp_grp);

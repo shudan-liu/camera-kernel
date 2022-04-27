@@ -66,6 +66,7 @@
 #define V4L_EVENT_CAM_REQ_MGR_NODE_EVENT                                4
 #define V4L_EVENT_CAM_REQ_MGR_SOF_UNIFIED_TS                            5
 #define V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS                              6
+#define V4L_EVENT_CAM_REQ_MGR_SLAVE_ERROR                               7
 
 /* Slave status */
 #define CAM_REQ_MGR_SLAVE_UNKNOWN               0

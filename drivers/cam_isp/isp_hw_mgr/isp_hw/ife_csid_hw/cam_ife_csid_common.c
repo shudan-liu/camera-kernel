@@ -129,6 +129,8 @@ static int cam_ife_csid_validate_rdi_format(uint32_t in_format,
 		case CAM_FORMAT_PLAIN128:
 		case CAM_FORMAT_PLAIN16_10:
 		case CAM_FORMAT_PLAIN16_16:
+		case CAM_FORMAT_MIPI_RAW_8:
+		case CAM_FORMAT_PLAIN8:
 			break;
 		default:
 			rc = -EINVAL;

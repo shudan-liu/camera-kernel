@@ -321,8 +321,7 @@ int cam_rpmsg_slave_dump_pkt(void *pkt, size_t len)
 		}
 		break;
 		default:
-			WARN_ON_ONCE(1);
-			CAM_ERR(CAM_RPMSG,
+			CAM_WARN(CAM_RPMSG,
 				"Dump is not implemented for type %d",
 				CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(phdr));
 	}
