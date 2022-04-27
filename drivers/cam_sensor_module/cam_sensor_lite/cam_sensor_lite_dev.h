@@ -73,6 +73,7 @@ struct sensor_lite_device {
 	struct completion                     complete;
 	struct cam_req_mgr_core_workq         *workq;
 	struct sensor_probe_response          probe_info;
+	uint32_t                              phy_id;
 };
 
 /**

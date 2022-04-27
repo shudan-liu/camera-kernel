@@ -92,6 +92,7 @@ static int __cam_sensor_lite_handle_query_cap(
 			soc_info->index);
 	query->slot_info = soc_info->index;
 	query->version = 0x0;
+	query->csiphy_slot_id = sensor_lite_dev->phy_id;
 
 	return 0;
 }
