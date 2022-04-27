@@ -17,10 +17,6 @@
 
 #define CAM_SLAVE_CHANNEL_NAME "AH_CAM"
 
-#define LOG_CTX() \
-	CAM_DBG(CAM_RPMSG, "in_irq %d, in_task %d, in_interrupt %d",\
-			in_irq(), in_task(), in_interrupt())
-
 static int state;
 static int slave_pkt_dump = 0;
 
@@ -315,7 +311,7 @@ int cam_rpmsg_register_status_change_event(unsigned int handle,
 		return -EINVAL;
 
 	if (!nb->notifier_call) {
-		CAM_ERR(CAM_ISP, "Null notifier");
+		CAM_ERR(CAM_RPMSG, "Null notifier");
 		return -EINVAL;
 	}
 
@@ -371,13 +367,26 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	struct rpmsg_device *rpdev;
 	struct cam_slave_pkt_hdr *hdr = (struct cam_slave_pkt_hdr *)data;
 
+	if (handle >= CAM_RPMSG_HANDLE_MAX) {
+		CAM_ERR(CAM_RPMSG, "Invalid handle %d", handle);
+		return -EINVAL;
+	}
+
+	if(!data) {
+		CAM_ERR(CAM_RPMSG, "data is null");
+		return -EINVAL;
+	}
+
+	/* Data size should be multiple of 4 */
+	if (len && len & 0x3) {
+		CAM_ERR(CAM_RPMSG, "Invalid length %d", len);
+		return -EINVAL;
+	}
+
 	CAM_RPMSG_SLAVE_SET_HDR_VERSION(hdr, 1);
 	CAM_RPMSG_SLAVE_SET_HDR_DIRECTION(hdr, CAM_RPMSG_DIR_MASTER_TO_SLAVE);
 	CAM_RPMSG_SLAVE_SET_HDR_NUM_PACKET(hdr, 1);
 	CAM_RPMSG_SLAVE_SET_HDR_PACKET_SZ(hdr, len);
-
-	if (handle >= CAM_RPMSG_HANDLE_MAX)
-		return -EINVAL;
 
 	if (slave_pkt_dump) {
 		cam_rpmsg_slave_dump_pkt(data, len);
@@ -415,8 +424,8 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 	struct cam_rpmsg_slave_pvt *pvt =
 		(struct cam_rpmsg_slave_pvt *)idata->pvt;
 	struct cam_rpmsg_slave_cbs *cb = NULL;
+	int rc;
 
-	LOG_CTX();
 
 	if (len < (sizeof(struct cam_slave_pkt_hdr) +
 				sizeof(struct cam_rpmsg_slave_payload_desc))) {
@@ -438,11 +447,12 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 		payload = (struct cam_rpmsg_slave_payload_desc *)
 			((uintptr_t)data + processed);
 		cb = NULL;
+		rc = 0;
 		client = CAM_RPMSG_SLAVE_CLIENT_MAX;
 		payload_type = CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(payload);
 		payload_len = CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(payload);
 
-		CAM_DBG(CAM_ISP, "pld_type %d, pld_len %d", payload_type, payload_len);
+		CAM_DBG(CAM_RPMSG, "pld_type %d, pld_len %d", payload_type, payload_len);
 		if (payload_type >= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED &&
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_MAX) {
 			/* Hand off to system pkt handler */
@@ -455,6 +465,11 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_MAX) {
 			/* Hand off to SENSOR pkt handler */
 			client = CAM_RPMSG_SLAVE_CLIENT_SENSOR;
+		}else if (payload_type == CAM_RPMSG_SLAVE_PACKET_TYPE_DEBUG_LOG) {
+			char *log_str = (char *)&payload[1];
+			log_str[len - 8 - 1] = '\0';
+			CAM_INFO(CAM_RPMSG, "%s: %s", "HELIOS", log_str);
+			goto pkt_processed;
 		} else {
 			CAM_ERR(CAM_RPMSG, "Unexpected packet type %x len %d",
 					payload_type, payload_len);
@@ -472,13 +487,19 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 			CAM_ERR(CAM_RPMSG, "cbs not registered for client %d",
 					client);
 		} else if (!cb->recv) {
-			CAM_ERR(CAM_RPMSG, "recv not set for client %d",
-					client);
+			CAM_ERR(CAM_RPMSG, "recv not set for client %d, type %d",
+					client, payload_type);
 		} else {
-			cb->recv(cb->cookie, payload, payload_len);
+			rc = cb->recv(cb->cookie, payload, payload_len);
+			if (rc) {
+				CAM_ERR(CAM_RPMSG, "recv_cb failed rc %d", rc);
+				print_hex_dump(KERN_INFO, "cam_recv_dump:", DUMP_PREFIX_OFFSET, 16, 4,
+					payload, payload_len, 0);
+			}
 		}
 		spin_unlock_irqrestore(&idata->sp_lock, flag);
 
+pkt_processed:
 		processed += payload_len;
 	}
 
@@ -538,7 +559,6 @@ static int cam_rpmsg_slave_probe(struct rpmsg_device *rpdev)
 	unsigned long flag;
 
 	CAM_INFO(CAM_RPMSG, "src 0x%x -> dst 0x%x", rpdev->src, rpdev->dst);
-	LOG_CTX();
 
 	idata = &cam_rpdev_idata[CAM_RPMSG_HANDLE_SLAVE];
 	dev_set_drvdata(&rpdev->dev, idata);

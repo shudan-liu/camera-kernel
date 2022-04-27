@@ -127,6 +127,7 @@ struct cam_slave_pkt_hdr {
 #define CAM_RPMSG_SLAVE_PACKET_BASE_ISP                      0x20
 #define CAM_RPMSG_SLAVE_PACKET_BASE_SENSOR                   0x40
 #define CAM_RPMSG_SLAVE_PACKET_BASE_PHY                      0x50
+#define CAM_RPMSG_SLAVE_PACKET_BASE_DEBUG                    0x70
 
 #define CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED     \
 	(CAM_RPMSG_SLAVE_PACKET_BASE_SYSTEM + 0x0)
@@ -182,6 +183,9 @@ struct cam_slave_pkt_hdr {
 	(CAM_RPMSG_SLAVE_PACKET_BASE_PHY + 0x2)
 #define CAM_RPMSG_SLAVE_PACKET_TYPE_PHY_MAX           \
 	(CAM_RPMSG_SLAVE_PACKET_BASE_PHY + 0xF)
+
+#define CAM_RPMSG_SLAVE_PACKET_TYPE_DEBUG_LOG     \
+	(CAM_RPMSG_SLAVE_PACKET_BASE_DEBUG + 0)
 
 #define PACKET_VERSION_1                   1
 
