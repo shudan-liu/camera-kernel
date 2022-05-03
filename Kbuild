@@ -80,6 +80,7 @@ camera-y := \
 	drivers/cam_req_mgr/cam_req_mgr_workq.o \
 	drivers/cam_req_mgr/cam_req_mgr_timer.o \
 	drivers/cam_req_mgr/cam_req_mgr_debug.o \
+	drivers/cam_req_mgr/cam_fastrpc.o \
 	drivers/cam_utils/cam_soc_util.o \
 	drivers/cam_utils/cam_packet_util.o \
 	drivers/cam_utils/cam_debug_util.o \
