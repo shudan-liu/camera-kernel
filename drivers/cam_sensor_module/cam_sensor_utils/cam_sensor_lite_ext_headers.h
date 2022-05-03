@@ -212,11 +212,12 @@ struct probe_payload_v2 {
 /**
  * phy_info - Explains about the remote phy information
  *
- * @phy_id       :  Phy HW id
- * @phy_type     :  Phy type (CPHY/DPHY)
- * @combo_mode   :  Is phy connected in combo mode
- * @lane_count   :  Number of phy lanes
- * @lane_assign  :  Assignment of phy lanes
+ * @phy_id              :  Phy HW id
+ * @lane_assign         :  Assignment of phy lanes
+ * @lane_count          :  Number of phy lanes
+ * @combo_mode          :  Is phy connected in combo mode
+ * @phy_type            :  Phy type (CPHY/DPHY)
+ * @sensor_physical_id  :  Sensor physical id for this phy
  */
 struct phy_info {
 	uint32_t    phy_id;
@@ -225,7 +226,7 @@ struct phy_info {
 	uint32_t    combo_mode;
 	uint16_t    phy_type;
 	uint16_t    sensor_physical_id;
-} __packed;
+};
 
 /**
  * phy_reg_setting - Explains about the PHY register info
@@ -244,11 +245,11 @@ struct phy_reg_setting {
  * phy_reg_config - Explains about the PHY register settings sequence
  *
  * @num_settings  :  Number of reg settings
- * @reg_settings  :  Reg settings
+ * @offset        :  Offset of reg settings
  */
 struct phy_reg_config {
 	uint32_t                num_settings;
-	struct phy_reg_setting  *reg_settings;
+	uint32_t                offset;
 };
 
 /**
@@ -271,16 +272,40 @@ struct phy_header {
  *
  * @phy_header          :  Header
  * @phy_id              :  Phy HW id
+ * @sensor_physical_id  :  Sensor physical id
  * @phy_lane_en_config  :  Phy lane enable reg config
  * @phy_lane_config     :  Phy lane reg config
  * @phy_reset_config    :  Phy reset config
  */
 struct phy_payload {
-	struct phy_header header;
-	uint32_t phy_id;
+	struct phy_header     header;
+	uint32_t              phy_id;
+	uint32_t              sensor_physical_id;
 	struct phy_reg_config phy_lane_en_config;
 	struct phy_reg_config phy_lane_config;
 	struct phy_reg_config phy_reset_config;
+};
+
+struct phy_reg_settings {
+	uint32_t                  num_lane_en_settings;
+	struct   phy_reg_setting* lane_en;
+	uint32_t                  num_lane_settings;
+	struct   phy_reg_setting* lane;
+	uint32_t                  num_reset_settings;
+	struct   phy_reg_setting* reset;
+};
+
+/**
+ * phy_acq_payload - Remote phy dummy payload
+ *
+ * @phy_header          :  Header
+ * @phy_id              :  Phy HW id
+ * @sensor_physical_id  :  Sensor physical id
+ */
+struct phy_acq_payload {
+	struct phy_header header;
+	uint32_t          phy_id;
+	uint32_t          sensor_physical_id;
 };
 
 struct phy_probe_info {

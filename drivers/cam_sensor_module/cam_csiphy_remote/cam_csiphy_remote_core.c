@@ -17,8 +17,6 @@
 #include "cam_mem_mgr.h"
 #include "cam_rpmsg.h"
 
-#define IS_HELIOS_ENABLED false
-
 int32_t cam_csiphy_remote_get_instance_offset(
 	struct csiphy_remote_device *csiphy_dev,
 	int32_t dev_handle)
@@ -37,17 +35,10 @@ int32_t cam_csiphy_remote_get_instance_offset(
 static void cam_csiphy_remote_reset_phyconfig_param(struct csiphy_remote_device *csiphy_dev,
 	int32_t index)
 {
-	CAM_DBG(CAM_CSIPHY_REMOTE, "Resetting phyconfig param at index: %d", index);
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Resetting phyconfig param at index: %d", index);
 	csiphy_dev->csiphy_info[index].hdl_data.device_hdl = -1;
-
-	kfree(csiphy_dev->payload[index].phy_lane_en_config.reg_settings);
-	csiphy_dev->payload[index].phy_lane_en_config.reg_settings = NULL;
-
-	kfree(csiphy_dev->payload[index].phy_lane_config.reg_settings);
-	csiphy_dev->payload[index].phy_lane_config.reg_settings = NULL;
-
-	kfree(csiphy_dev->payload[index].phy_reset_config.reg_settings);
-	csiphy_dev->payload[index].phy_reset_config.reg_settings = NULL;
+	csiphy_dev->csiphy_info[index].phy_id              = 0;
+	csiphy_dev->csiphy_info[index].sensor_physical_id  = 0;
 }
 
 void cam_csiphy_remote_query_cap(struct csiphy_remote_device *csiphy_dev,
@@ -225,6 +216,7 @@ int32_t cam_csiphy_remote_cmd_buf_parser(struct csiphy_remote_device *csiphy_dev
 	phy_info->combo_mode = (cam_cmd_csiphy_info->combo_mode != 0);
 	phy_info->phy_type = cam_cmd_csiphy_info->csiphy_3phase ? CPHY : DPHY;
 	phy_info->phy_id = cam_cmd_csiphy_info->phy_id;
+	phy_info->sensor_physical_id = cam_cmd_csiphy_info->sensor_physical_id;
 
 	rc = cam_csiphy_remote_sanitize_lane_cnt(phy_info);
 	if (rc)
@@ -235,11 +227,13 @@ int32_t cam_csiphy_remote_cmd_buf_parser(struct csiphy_remote_device *csiphy_dev
 		csiphy_dev->hw_version,
 		csiphy_dev->soc_info.index);
 	CAM_INFO(CAM_CSIPHY_REMOTE,
-		"phy_type:%d, combo_mode:%d lane_count:%d, lane_assign:0x%x",
+		"phy_type:%d, combo_mode:%d lane_count:%d, lane_assign:0x%x, phy_id:%d, sensor_phy_id=%d",
 		phy_info->phy_type,
 		phy_info->combo_mode,
 		phy_info->lane_count,
-		phy_info->lane_assign);
+		phy_info->lane_assign,
+		phy_info->phy_id,
+		phy_info->sensor_physical_id);
 
 	return rc;
 }
@@ -248,20 +242,114 @@ int cam_csiphy_remote_set_payload_header(
 		struct phy_header *header,
 		uint32_t opcode)
 {
-	if (header == NULL)
-		return -EINVAL;
+	int rc = 0;
+
+	if (header == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "hdr is NULL");
+		rc = -EINVAL;
+		return rc;
+	}
 
 	CAM_RPMSG_SLAVE_SET_HDR_VERSION(&(header->hpkt_header), CAM_RPMSG_V1);
 	CAM_RPMSG_SLAVE_SET_HDR_DIRECTION(&(header->hpkt_header), CAM_RPMSG_DIR_MASTER_TO_SLAVE);
 	CAM_RPMSG_SLAVE_SET_HDR_NUM_PACKET(&(header->hpkt_header), 1);
-	CAM_RPMSG_SLAVE_SET_HDR_PACKET_SZ(&(header->hpkt_header), header->size - 4);
+	CAM_RPMSG_SLAVE_SET_HDR_PACKET_SZ(&(header->hpkt_header), header->size);
 	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&(header->hpkt_preamble), opcode);
-	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&(header->hpkt_preamble), header->size - 8);
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&(header->hpkt_preamble), header->size - sizeof(struct cam_slave_pkt_hdr));
+
+	return rc;
+}
+
+int32_t cam_csiphy_remote_prepare_acq_payload(
+	struct csiphy_remote_device *csiphy_dev,
+	int32_t index,
+	struct phy_acq_payload *payload)
+{
+	int rc = 0;
+
+	if (payload == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "NULL payload");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	payload->header.version = 0x1;
+	payload->header.size    = sizeof(struct phy_acq_payload);
+
+	payload->phy_id             = csiphy_dev->csiphy_info[index].phy_id;
+	payload->sensor_physical_id = csiphy_dev->csiphy_info[index].sensor_physical_id;
+
+	return rc;
+}
+
+int32_t cam_csiphy_remote_fill_payload(
+	struct phy_info         *phy_info,
+	struct phy_reg_settings *settings,
+	struct phy_payload      **p_payload)
+{
+	uint32_t                total_settings_size = 0;
+	ssize_t                 payload_size        = 0;
+	struct phy_payload      *payload            = NULL;
+
+	total_settings_size = settings->num_lane_en_settings +
+		settings->num_lane_settings + settings->num_reset_settings;
+
+	*p_payload = (struct phy_payload *)kzalloc(sizeof(struct phy_payload) + total_settings_size * sizeof(struct phy_reg_setting),
+		GFP_KERNEL);
+
+	payload = *p_payload;
+	if (payload == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "Failed to alloc PHY config packet");
+		return -ENOMEM;
+	}
+
+	/* PHY id */
+	payload->phy_id             = phy_info->phy_id;
+	payload->sensor_physical_id = phy_info->sensor_physical_id;
+
+	payload->phy_lane_en_config.num_settings = settings->num_lane_en_settings;
+	payload->phy_lane_config.num_settings = settings->num_lane_settings;
+	payload->phy_reset_config.num_settings = settings->num_reset_settings;
+
+	payload->phy_lane_en_config.offset = sizeof(struct phy_payload);
+	payload->phy_lane_config.offset =
+		payload->phy_lane_en_config.offset +
+		(sizeof(struct phy_reg_setting) * payload->phy_lane_en_config.num_settings);
+	payload->phy_reset_config.offset =
+		payload->phy_lane_config.offset +
+		(sizeof(struct phy_reg_setting) * payload->phy_lane_config.num_settings);
+
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Num settings: lane_en,lane,reset: %d,%d,%d",
+		payload->phy_lane_en_config.num_settings,
+		payload->phy_lane_config.num_settings,
+		payload->phy_reset_config.num_settings);
+
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Offsets: lane_en,lane,reset: 0x%x,0x%x,0x%x",
+		payload->phy_lane_en_config.offset,
+		payload->phy_lane_config.offset,
+		payload->phy_reset_config.offset);
+
+	memcpy((uint8_t *)payload + payload->phy_lane_en_config.offset, settings->lane_en,
+		(sizeof(struct phy_reg_setting) * payload->phy_lane_en_config.num_settings));
+	memcpy((uint8_t *)payload + payload->phy_lane_config.offset, settings->lane,
+		(sizeof(struct phy_reg_setting) * payload->phy_lane_config.num_settings));
+	memcpy((uint8_t *)payload + payload->phy_reset_config.offset, settings->reset,
+		(sizeof(struct phy_reg_setting) * payload->phy_reset_config.num_settings));
+
+	/* Set header */
+
+	payload_size = sizeof(struct phy_payload) +
+		(sizeof(struct phy_reg_setting) * payload->phy_lane_en_config.num_settings) +
+		(sizeof(struct phy_reg_setting) * payload->phy_lane_config.num_settings) +
+		(sizeof(struct phy_reg_setting) * payload->phy_reset_config.num_settings);
+
+	payload->header.version = 0x1;
+	payload->header.size    = payload_size;
 	return 0;
 }
 
-int32_t cam_csiphy_remote_prepare_payload(struct csiphy_remote_device *csiphy_dev,
-	struct phy_info *phy_info, int32_t offset)
+int32_t cam_csiphy_remote_get_reg_settings(struct csiphy_remote_device *csiphy_dev,
+	struct phy_info *phy_info, struct phy_reg_settings *reg_settings, int32_t offset)
 {
 	int32_t  rc = 0;
 	uint32_t lane_enable = 0;
@@ -277,14 +365,9 @@ int32_t cam_csiphy_remote_prepare_payload(struct csiphy_remote_device *csiphy_de
 	struct   csiphy_remote_reg_t *csiphy_reset_reg = NULL;
 	struct   csiphy_remote_reg_t (*reg_array)[MAX_SETTINGS_PER_LANE];
 	bool     is_3phase = false;
-	ssize_t  payload_size = 0;
-	struct   phy_payload *payload = &(csiphy_dev->payload[offset]);
 
 	if (phy_info->phy_type == CPHY)
 		is_3phase = true;
-
-	/* PHY id */
-	payload->phy_id = phy_info->phy_id;
 
 	/* Select reg settings */
 
@@ -353,55 +436,74 @@ int32_t cam_csiphy_remote_prepare_payload(struct csiphy_remote_device *csiphy_de
 	rst_size = csiphy_dev->ctrl_reg->csiphy_reg.csiphy_reset_array_size;
 
 	/* Fill reg settings */
+	reg_settings->num_lane_en_settings = 1;
+	reg_settings->num_lane_settings = cmn_size + lane_cfg_size * max_lanes;
+	reg_settings->num_reset_settings = rst_size;
 
-	payload->phy_lane_en_config.num_settings = 1;
-	payload->phy_lane_en_config.reg_settings = kcalloc(
-		1,
-		sizeof(struct phy_reg_setting),
-			GFP_KERNEL);
+	reg_settings->lane_en = NULL;
+	reg_settings->lane = NULL;
+	reg_settings->reset = NULL;
 
-	payload->phy_lane_config.num_settings = cmn_size + lane_cfg_size * max_lanes;
-	payload->phy_lane_config.reg_settings = kcalloc(
-		payload->phy_lane_config.num_settings,
+	reg_settings->lane_en = kcalloc(
+		reg_settings->num_lane_en_settings,
 		sizeof(struct phy_reg_setting),
-			GFP_KERNEL);
+		GFP_KERNEL);
+	if (reg_settings->lane_en == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "Lane_en alloc failed");
+		rc = -ENOMEM;
+		return rc;
+	}
 
-	payload->phy_reset_config.num_settings = rst_size;
-	payload->phy_reset_config.reg_settings = kcalloc(
-		rst_size,
+	reg_settings->lane = kcalloc(
+		reg_settings->num_lane_settings,
 		sizeof(struct phy_reg_setting),
-			GFP_KERNEL);
+		GFP_KERNEL);
+	if (reg_settings->lane == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "Lane alloc failed");
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	reg_settings->reset = kcalloc(
+		reg_settings->num_reset_settings,
+		sizeof(struct phy_reg_setting),
+		GFP_KERNEL);
+	if (reg_settings->reset == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "Reset alloc failed");
+		rc = -ENOMEM;
+		return rc;
+	}
 
 	for (i = 0; i < cmn_size; i++) {
 		csiphy_common_reg = &csiphy_dev->ctrl_reg->csiphy_common_reg[i];
 		switch (csiphy_common_reg->csiphy_param_type) {
 		case CSIPHY_REMOTE_LANE_ENABLE:
-			payload->phy_lane_en_config.reg_settings[0].reg_addr = csiphy_common_reg->reg_addr;
-			payload->phy_lane_en_config.reg_settings[0].reg_data = lane_enable;
-			payload->phy_lane_en_config.reg_settings[0].delay = csiphy_common_reg->delay;
+			reg_settings->lane_en[0].reg_addr = csiphy_common_reg->reg_addr;
+			reg_settings->lane_en[0].reg_data = lane_enable;
+			reg_settings->lane_en[0].delay = csiphy_common_reg->delay;
 			/* Exclude from lane cfg */
-			payload->phy_lane_config.num_settings--;
+			reg_settings->num_lane_settings--;
 			break;
 		case CSIPHY_REMOTE_DEFAULT_PARAMS:
-			payload->phy_lane_config.reg_settings[idx].reg_addr = csiphy_common_reg->reg_addr;
-			payload->phy_lane_config.reg_settings[idx].reg_data = csiphy_common_reg->reg_data;
-			payload->phy_lane_config.reg_settings[idx++].delay = csiphy_common_reg->delay;
+			reg_settings->lane[idx].reg_addr = csiphy_common_reg->reg_addr;
+			reg_settings->lane[idx].reg_data = csiphy_common_reg->reg_data;
+			reg_settings->lane[idx++].delay = csiphy_common_reg->delay;
 			break;
 		case CSIPHY_REMOTE_2PH_REGS:
 			if (!is_3phase) {
-				payload->phy_lane_config.reg_settings[idx].reg_addr = csiphy_common_reg->reg_addr;
-				payload->phy_lane_config.reg_settings[idx].reg_data = csiphy_common_reg->reg_data;
-				payload->phy_lane_config.reg_settings[idx++].delay = csiphy_common_reg->delay;
+				reg_settings->lane[idx].reg_addr = csiphy_common_reg->reg_addr;
+				reg_settings->lane[idx].reg_data = csiphy_common_reg->reg_data;
+				reg_settings->lane[idx++].delay = csiphy_common_reg->delay;
 			} else
-				payload->phy_lane_config.num_settings--;
+				reg_settings->num_lane_settings--;
 			break;
 		case CSIPHY_REMOTE_3PH_REGS:
 			if (is_3phase) {
-				payload->phy_lane_config.reg_settings[idx].reg_addr = csiphy_common_reg->reg_addr;
-				payload->phy_lane_config.reg_settings[idx].reg_data = csiphy_common_reg->reg_data;
-				payload->phy_lane_config.reg_settings[idx++].delay = csiphy_common_reg->delay;
-			} else 
-				payload->phy_lane_config.num_settings--;
+				reg_settings->lane[idx].reg_addr = csiphy_common_reg->reg_addr;
+				reg_settings->lane[idx].reg_data = csiphy_common_reg->reg_data;
+				reg_settings->lane[idx++].delay = csiphy_common_reg->delay;
+			} else
+				reg_settings->num_lane_settings--;
 			break;
 		default:
 			break;
@@ -409,16 +511,16 @@ int32_t cam_csiphy_remote_prepare_payload(struct csiphy_remote_device *csiphy_de
 	}
 
 	for (lane_pos = 0; lane_pos < max_lanes; lane_pos++) {
-		CAM_DBG(CAM_CSIPHY_REMOTE, "lane_pos: %d is configuring", lane_pos);
+		CAM_INFO(CAM_CSIPHY_REMOTE, "lane_pos: %d is configuring", lane_pos);
 		for (i = 0; i < lane_cfg_size; i++) {
 			switch (reg_array[lane_pos][i].csiphy_param_type) {
 			case CSIPHY_REMOTE_DEFAULT_PARAMS:
-				payload->phy_lane_config.reg_settings[idx].reg_addr = reg_array[lane_pos][i].reg_addr;
-				payload->phy_lane_config.reg_settings[idx].reg_data = reg_array[lane_pos][i].reg_data;
-				payload->phy_lane_config.reg_settings[idx++].delay = reg_array[lane_pos][i].delay;
+				reg_settings->lane[idx].reg_addr = reg_array[lane_pos][i].reg_addr;
+				reg_settings->lane[idx].reg_data = reg_array[lane_pos][i].reg_data;
+				reg_settings->lane[idx++].delay = reg_array[lane_pos][i].delay;
 			break;
 			default:
-				payload->phy_lane_config.num_settings--;
+				reg_settings->num_lane_settings--;
 			break;
 			}
 		}
@@ -431,11 +533,11 @@ int32_t cam_csiphy_remote_prepare_payload(struct csiphy_remote_device *csiphy_de
 		switch (csiphy_reset_reg->csiphy_param_type) {
 		case CSIPHY_REMOTE_LANE_ENABLE:
 		case CSIPHY_REMOTE_DEFAULT_PARAMS:
-			payload->phy_reset_config.reg_settings[idx].reg_addr =
+			reg_settings->reset[idx].reg_addr =
 				csiphy_reset_reg->reg_addr;
-			payload->phy_reset_config.reg_settings[idx].reg_data =
+			reg_settings->reset[idx].reg_data =
 				csiphy_reset_reg->reg_data;
-			payload->phy_reset_config.reg_settings[idx++].delay =
+			reg_settings->reset[idx++].delay =
 				csiphy_reset_reg->delay;
 			break;
 		default:
@@ -443,20 +545,6 @@ int32_t cam_csiphy_remote_prepare_payload(struct csiphy_remote_device *csiphy_de
 		}
 	}
 
-	/* Set header */
-
-	payload_size = sizeof(struct phy_payload) +
-		(sizeof(struct phy_reg_config) +
-			(sizeof(struct phy_reg_setting) * payload->phy_lane_en_config.num_settings)) +
-		(sizeof(struct phy_reg_config) +
-			(sizeof(struct phy_reg_setting) * payload->phy_lane_config.num_settings)) +
-		(sizeof(struct phy_reg_config) +
-			(sizeof(struct phy_reg_setting) * payload->phy_reset_config.num_settings));
-
-	payload->header.version = 0x1;
-	payload->header.size    = payload_size;
-
-	cam_csiphy_remote_set_payload_header(&(payload->header), HCM_PKT_OPCODE_CSIPHY_INIT_CONFIG);
 	return rc;
 
 reset_settings:
@@ -515,8 +603,10 @@ int cam_csiphy_remote_send_payload(
 {
 	int handle, rc = 0;
 
-	if (header == NULL)
+	if (header == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "phy hdr is NULL");
 		return -EINVAL;
+	}
 
 	handle = cam_rpmsg_get_handle("helios");
 	rc = cam_rpmsg_send(handle, header, header->size);
@@ -546,61 +636,37 @@ int cam_csiphy_remote_dump_payload_header(
 	return 0;
 }
 
-int cam_csiphy_remote_dump_payload_hex(
-	struct phy_payload *payload)
-{
-	print_hex_dump(KERN_INFO, "CAM_INFO: CAM-CSIPHY-REMOTE: phy_lane_en_config.reg_settings:",
-		DUMP_PREFIX_OFFSET,
-	    16, 1,
-		&(payload->phy_lane_en_config.reg_settings[0]),
-		payload->phy_lane_en_config.num_settings * sizeof(struct phy_reg_setting),
-		false);
-
-	print_hex_dump(KERN_INFO, "CAM_INFO: CAM-CSIPHY-REMOTE: phy_lane_config.reg_settings:",
-		DUMP_PREFIX_OFFSET,
-	    16, 1,
-		&(payload->phy_lane_config.reg_settings[0]),
-		payload->phy_lane_config.num_settings * sizeof(struct phy_reg_setting),
-		false);
-
-	print_hex_dump(KERN_INFO, "CAM_INFO: CAM-CSIPHY-REMOTE: phy_reset_config.reg_settings:",
-		DUMP_PREFIX_OFFSET,
-	    16, 1,
-		&(payload->phy_reset_config.reg_settings[0]),
-		payload->phy_reset_config.num_settings * sizeof(struct phy_reg_setting),
-		false);
-
-	return 0;
-}
-
 int cam_csiphy_remote_regdump(
-	struct phy_payload *payload)
+	struct phy_reg_settings *settings)
 {
 	int i = 0;
 
-	if (payload == NULL)
+	if (settings == NULL)
 		return -EINVAL;
 
-	CAM_DBG(CAM_CSIPHY_REMOTE, "Lane enable regdump:");
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Lane enable:%d",
+		settings->num_lane_en_settings);
 
-	for (i = 0; i < payload->phy_lane_en_config.num_settings; i++) {
-		CAM_DBG(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
-			payload->phy_lane_en_config.reg_settings[i].reg_addr,
-			payload->phy_lane_en_config.reg_settings[i].reg_data);
+	for (i = 0; i < settings->num_lane_en_settings; i++) {
+		CAM_INFO(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
+			settings->lane_en[i].reg_addr,
+			settings->lane_en[i].reg_data);
 	}
 
-	CAM_DBG(CAM_CSIPHY_REMOTE, "Lane regdump:");
-	for (i = 0; i < payload->phy_lane_config.num_settings; i++) {
-		CAM_DBG(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
-			payload->phy_lane_config.reg_settings[i].reg_addr,
-			payload->phy_lane_config.reg_settings[i].reg_data);
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Lane:%d",
+		settings->num_lane_settings);
+	for (i = 0; i < settings->num_lane_settings; i++) {
+		CAM_INFO(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
+			settings->lane[i].reg_addr,
+			settings->lane[i].reg_data);
 	}
 
-	CAM_DBG(CAM_CSIPHY_REMOTE, "Reset regdump:");
-	for (i = 0; i < payload->phy_reset_config.num_settings; i++) {
-		CAM_DBG(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
-			payload->phy_reset_config.reg_settings[i].reg_addr,
-			payload->phy_reset_config.reg_settings[i].reg_data);
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Reset:%d",
+		settings->num_reset_settings);
+	for (i = 0; i < settings->num_reset_settings; i++) {
+		CAM_INFO(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
+			settings->reset[i].reg_addr,
+			settings->reset[i].reg_data);
 	}
 
 	return 0;
@@ -610,13 +676,17 @@ int cam_csiphy_remote_dump_payload(
 	struct phy_payload *payload)
 {
 	int i = 0;
+	struct phy_reg_setting *settings;
 
-	if (payload == NULL)
+	if (payload == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "null payload");
 		return -EINVAL;
+	}
 
-	cam_csiphy_remote_dump_payload_header(&payload->header);
+	cam_csiphy_remote_dump_payload_header(&(payload->header));
 
 	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_id: %d", payload->phy_id);
+	CAM_INFO(CAM_CSIPHY_REMOTE, "sensor_physical_id: %d", payload->sensor_physical_id);
 
 	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_lane_en_config.num_settings: %d",
 		payload->phy_lane_en_config.num_settings);
@@ -625,35 +695,39 @@ int cam_csiphy_remote_dump_payload(
 	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_reset_config.num_settings: %d",
 		payload->phy_reset_config.num_settings);
 
+	settings = (struct phy_reg_setting *)((uint8_t *)payload + payload->phy_lane_en_config.offset);
+
 	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_lane_en_config.reg_settings:");
 
 	for (i = 0; i < payload->phy_lane_en_config.num_settings; i++) {
 		CAM_DBG(CAM_CSIPHY_REMOTE, "%d: reg_addr:0x%x reg_data:0x%x delay:%d",
 			i,
-			payload->phy_lane_en_config.reg_settings[i].reg_addr,
-			payload->phy_lane_en_config.reg_settings[i].reg_data,
-			payload->phy_lane_en_config.reg_settings[i].delay);
+			settings[i].reg_addr,
+			settings[i].reg_data,
+			settings[i].delay);
 	}
+
+	settings = (struct phy_reg_setting *)((uint8_t *)payload + payload->phy_lane_config.offset);
 
 	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_lane_config.reg_settings:");
 	for (i = 0; i < payload->phy_lane_config.num_settings; i++) {
 		CAM_DBG(CAM_CSIPHY_REMOTE, "%d: reg_addr:0x%x reg_data:0x%x delay:%d",
 			i,
-			payload->phy_lane_config.reg_settings[i].reg_addr,
-			payload->phy_lane_config.reg_settings[i].reg_data,
-			payload->phy_lane_config.reg_settings[i].delay);
+			settings[i].reg_addr,
+			settings[i].reg_data,
+			settings[i].delay);
 	}
+
+	settings = (struct phy_reg_setting *)((uint8_t *)payload + payload->phy_reset_config.offset);
 
 	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_reset_config.reg_settings:");
 	for (i = 0; i < payload->phy_reset_config.num_settings; i++) {
 		CAM_DBG(CAM_CSIPHY_REMOTE, "%d: reg_addr:0x%x reg_data:0x%x delay:%d",
 			i,
-			payload->phy_reset_config.reg_settings[i].reg_addr,
-			payload->phy_reset_config.reg_settings[i].reg_data,
-			payload->phy_reset_config.reg_settings[i].delay);
+			settings[i].reg_addr,
+			settings[i].reg_data,
+			settings[i].delay);
 	}
-
-	cam_csiphy_remote_dump_payload_hex(payload);
 
 	return 0;
 }
@@ -666,6 +740,7 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 	struct csiphy_remote_reg_parms_t *phy_reg;
 	struct cam_hw_soc_info *soc_info;
 	int32_t              rc = 0;
+	struct phy_acq_payload *acq_payload = NULL;
 
 	if (!csiphy_dev || !cmd) {
 		CAM_ERR(CAM_CSIPHY_REMOTE, "Invalid input args");
@@ -692,6 +767,8 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 		struct cam_sensorlite_acquire_dev csiphy_acq_dev;
 		int index;
 		struct cam_create_dev_hdl bridge_params;
+		struct cam_csiphy_remote_acquire_dev_info csiphy_acq_params;
+		int offset;
 
 		if ((csiphy_dev->acquire_count) &&
 			(csiphy_dev->acquire_count >=
@@ -707,6 +784,14 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 			sizeof(csiphy_acq_dev));
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY_REMOTE, "Failed copying from User");
+			goto release_mutex;
+		}
+
+		if (copy_from_user(&csiphy_acq_params,
+			u64_to_user_ptr(csiphy_acq_dev.info_handle),
+			sizeof(csiphy_acq_params))) {
+			CAM_ERR(CAM_CSIPHY,
+				"Failed copying from User");
 			goto release_mutex;
 		}
 
@@ -729,8 +814,16 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 			csiphy_acq_dev.device_handle;
 		csiphy_dev->csiphy_info[index].hdl_data.session_hdl =
 			csiphy_acq_dev.session_handle;
+		csiphy_dev->csiphy_info[index].phy_id = csiphy_acq_params.phy_id;
+		csiphy_dev->csiphy_info[index].sensor_physical_id =
+			csiphy_acq_params.sensor_physical_id;
 
-		CAM_DBG(CAM_CSIPHY_REMOTE, "Add dev_handle:0x%x at index: %d ",
+		CAM_INFO(CAM_CSIPHY_REMOTE,
+			"CAM_ACQUIRE_DEV: phy id:%d sensor id:%d",
+			csiphy_acq_params.phy_id,
+			csiphy_acq_params.sensor_physical_id);
+
+		CAM_INFO(CAM_CSIPHY_REMOTE, "Add dev_handle:0x%x at index: %d ",
 			csiphy_dev->csiphy_info[index].hdl_data.device_hdl,
 			index);
 		if (copy_to_user(u64_to_user_ptr(cmd->handle),
@@ -745,6 +838,37 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 
 		if (csiphy_dev->csiphy_state == CAM_CSIPHY_REMOTE_INIT)
 			csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_ACQUIRE;
+
+		offset = cam_csiphy_remote_get_instance_offset(csiphy_dev, csiphy_acq_dev.device_handle);
+		if (offset < 0 || offset >= CSIPHY_MAX_INSTANCES_PER_PHY) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "index is invalid: %d", offset);
+			goto release_mutex;
+		}
+
+		acq_payload = (struct phy_acq_payload *)kzalloc(sizeof(struct phy_acq_payload), GFP_KERNEL);
+		if (acq_payload == NULL) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload alloc failed");
+			rc = -ENOMEM;
+			goto release_mutex;
+		}
+
+		rc = cam_csiphy_remote_prepare_acq_payload(csiphy_dev, offset, acq_payload);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_set_payload_header(&(acq_payload->header), HCM_PKT_OPCODE_PHY_ACQUIRE);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload hdr error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_send_payload(&(acq_payload->header));
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload send error:%d", rc);
+			goto free_acq_payload;
+		}
 
 		CAM_INFO(CAM_CSIPHY_REMOTE,
 			"CAM_ACQUIRE_DEV: %u acquire_count: %d",
@@ -789,6 +913,31 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+		acq_payload = (struct phy_acq_payload *)kzalloc(sizeof(struct phy_acq_payload), GFP_KERNEL);
+		if (acq_payload == NULL) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload alloc failed");
+			rc = -ENOMEM;
+			goto release_mutex;
+		}
+
+		rc = cam_csiphy_remote_prepare_acq_payload(csiphy_dev, offset, acq_payload);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_set_payload_header(&(acq_payload->header), HCM_PKT_OPCODE_PHY_STOP_DEV);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload hdr error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_send_payload(&(acq_payload->header));
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload send error:%d", rc);
+			goto free_acq_payload;
+		}
+
 		csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_ACQUIRE;
 
 		CAM_INFO(CAM_CSIPHY_REMOTE,
@@ -822,6 +971,31 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+		acq_payload = (struct phy_acq_payload *)kzalloc(sizeof(struct phy_acq_payload), GFP_KERNEL);
+		if (acq_payload == NULL) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload alloc failed");
+			rc = -ENOMEM;
+			goto release_mutex;
+		}
+
+		rc = cam_csiphy_remote_prepare_acq_payload(csiphy_dev, offset, acq_payload);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_set_payload_header(&(acq_payload->header), HCM_PKT_OPCODE_PHY_RELEASE);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload hdr error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_send_payload(&(acq_payload->header));
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload send error:%d", rc);
+			goto free_acq_payload;
+		}
+
 		rc = cam_destroy_device_hdl(release.dev_handle);
 		if (rc < 0)
 			CAM_ERR(CAM_CSIPHY_REMOTE, "destroying the device hdl");
@@ -832,7 +1006,7 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 
 		if (csiphy_dev->acquire_count) {
 			csiphy_dev->acquire_count--;
-			CAM_DBG(CAM_CSIPHY_REMOTE, "Acquire_cnt: %d",
+			CAM_INFO(CAM_CSIPHY_REMOTE, "Acquire_cnt: %d",
 				csiphy_dev->acquire_count);
 		}
 
@@ -850,7 +1024,8 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 		int32_t offset = 0;
 		struct cam_config_dev_cmd config;
 		struct phy_info phy_in = {0};
-		struct phy_payload *payload;
+		struct phy_reg_settings reg_settings = {0};
+		struct phy_payload *payload = NULL;
 
 		if (copy_from_user(&config,
 			u64_to_user_ptr(cmd->handle),
@@ -870,19 +1045,57 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
-		rc = cam_csiphy_remote_prepare_payload(csiphy_dev, &phy_in, offset);
+		rc = cam_csiphy_remote_get_reg_settings(csiphy_dev, &phy_in, &reg_settings, offset);
 		if (rc < 0) {
-			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload creation failed: %d", rc);
-			goto release_mutex;
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Reg settings prepare failed: %d", rc);
+			goto free_payload;
 		}
 
-		payload = &(csiphy_dev->payload[offset]);
+		cam_csiphy_remote_regdump(&reg_settings);
+		rc = cam_csiphy_remote_fill_payload(&phy_in, &reg_settings, &payload);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload fill failed: %d", rc);
+			goto free_payload;
+		}
 
-		cam_csiphy_remote_regdump(payload);
-		cam_csiphy_remote_dump_payload(payload);
-#ifdef IS_HELIOS_ENABLED
-		cam_csiphy_remote_send_payload(&(payload->header));
-#endif
+		rc = cam_csiphy_remote_set_payload_header(&(payload->header), HCM_PKT_OPCODE_PHY_INIT_CONFIG);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload hdr error:%d", rc);
+			goto free_payload;
+		}
+
+		rc = cam_csiphy_remote_dump_payload(payload);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload dump failed:%d", rc);
+			goto free_payload;
+		}
+
+		rc = cam_csiphy_remote_send_payload(&(payload->header));
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload fill failed: %d", rc);
+			goto free_payload;
+		}
+
+free_payload:
+		if (reg_settings.lane_en != NULL) {
+			kfree(reg_settings.lane_en);
+			reg_settings.lane_en = NULL;
+		}
+
+		if (reg_settings.lane != NULL) {
+			kfree(reg_settings.lane);
+			reg_settings.lane = NULL;
+		}
+
+		if (reg_settings.reset != NULL) {
+			kfree(reg_settings.reset);
+			reg_settings.reset = NULL;
+		}
+
+		if (payload != NULL) {
+			kfree(payload);
+			payload = NULL;
+		}
 	}
 		break;
 	case CAM_START_DEV: {
@@ -906,6 +1119,31 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 
 		csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_START;
 
+		acq_payload = (struct phy_acq_payload *)kzalloc(sizeof(struct phy_acq_payload), GFP_KERNEL);
+		if (acq_payload == NULL) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload alloc failed");
+			rc = -ENOMEM;
+			goto release_mutex;
+		}
+
+		rc = cam_csiphy_remote_prepare_acq_payload(csiphy_dev, offset, acq_payload);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Acquire payload error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_set_payload_header(&(acq_payload->header), HCM_PKT_OPCODE_PHY_START_DEV);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload hdr error:%d", rc);
+			goto free_acq_payload;
+		}
+
+		rc = cam_csiphy_remote_send_payload(&(acq_payload->header));
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE, "Payload send error:%d", rc);
+			goto free_acq_payload;
+		}
+
 		CAM_INFO(CAM_CSIPHY_REMOTE,
 			"CAM_START_PHYDEV: %d, slot: %d",
 			soc_info->index,
@@ -921,8 +1159,13 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 	mutex_unlock(&csiphy_dev->mutex);
 	return rc;
 
+free_acq_payload:
+	if (acq_payload != NULL) {
+		kfree(acq_payload);
+		acq_payload = NULL;
+	}
+
 release_mutex:
 	mutex_unlock(&csiphy_dev->mutex);
-
 	return rc;
 }
