@@ -45,6 +45,7 @@ void __dump_slave_pkt_headers(
 		struct sensor_lite_header *header);
 
 int __send_pkt(
+	struct sensor_lite_device *sensor_lite_dev,
 	struct sensor_lite_header *header);
 
 int __send_probe_pkt(

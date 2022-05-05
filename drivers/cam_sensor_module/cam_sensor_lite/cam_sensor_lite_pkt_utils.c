@@ -508,16 +508,11 @@ err:
 	return rc;
 }
 
-int __send_pkt(
+int __dump_pkt(
+	struct sensor_lite_device *sensor_lite_dev,
 	struct sensor_lite_header *header)
 {
 	int rc = 0;
-#ifdef __HELIOS_ENABLED__
-	int handle;
-
-	handle = cam_rpmsg_get_handle("helios");
-	rc = cam_rpmsg_send(handle, header, header->size);
-#else
 	switch (header->tag) {
 	case SENSORLITE_CMD_TYPE_PROBE:
 		__dump_probe_cmd(
@@ -557,10 +552,59 @@ int __send_pkt(
 		__dump_release_cmd(
 			(struct sensor_lite_release_cmd *)header);
 		break;
-
 	default:
 		break;
 	}
-#endif
+
+	return rc;
+}
+
+int __send_pkt(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct sensor_lite_header *header)
+{
+	int rc = 0;
+	int handle;
+
+	CAM_INFO(CAM_SENSOR_LITE, "header->tag =  %d", header->tag);
+
+	switch (header->tag) {
+	case SENSORLITE_CMD_TYPE_PROBE:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_PROBE);
+		break;
+	case SENSORLITE_CMD_TYPE_SLAVEDESTINIT:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_INIT);
+		break;
+	case SENSORLITE_CMD_TYPE_HOSTDESTINIT:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_INIT);
+		break;
+	case SENSORLITE_CMD_TYPE_PERFRAME:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_CONFIG);
+		break;
+	case SENSORLITE_CMD_TYPE_START:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_START_DEV);
+		break;
+	case SENSORLITE_CMD_TYPE_STOP:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_STOP_DEV);
+		break;
+	case HCM_PKT_OPCODE_SENSOR_ACQUIRE:
+		break;
+	case HCM_PKT_OPCODE_SENSOR_RELEASE:
+		break;
+	default:
+		return -EINVAL;
+	}
+
+	if (sensor_lite_dev->dump_en == 1)
+		__dump_pkt(sensor_lite_dev, header);
+
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, header, header->size);
 	return rc;
 }
