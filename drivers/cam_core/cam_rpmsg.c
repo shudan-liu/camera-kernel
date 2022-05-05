@@ -681,7 +681,7 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 		payload_type = CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(payload);
 		payload_len = CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(payload);
 
-		CAM_DBG(CAM_RPMSG, "pld_type %d, pld_len %d", payload_type, payload_len);
+		CAM_DBG(CAM_RPMSG, "pld_type %x, pld_len %d", payload_type, payload_len);
 		if (payload_type >= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED &&
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_MAX) {
 			/* Hand off to system pkt handler */

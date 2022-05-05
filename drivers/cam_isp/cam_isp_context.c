@@ -1427,7 +1427,7 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 						(*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_FIRST_INDEX) & 0xFFFFFFFF);
 					ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
 						((*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_SECOND_INDEX) & CAM_ISP_SLAVE_MSB_MASK) << 32));
-					ev_timestamp.tracker_id = *kernel_buf_ptr & 0xFF;
+					ev_timestamp.tracker_id = *kernel_buf_ptr;
 				}
 				memset(&param, 0, sizeof(param));
 				param.sync_obj = req_isp->fence_map_out[i].sync_id;
@@ -5549,8 +5549,13 @@ static int __cam_isp_ctx_populate_pipeline_cfg(struct cam_context *ctx,
 	/* add 1 word for sensor mode */
 	*pkt_offset = *pkt_offset + sizeof(struct cam_rpmsg_vcdt) + 1;
 
-	cam_ife_hw_mgr_populate_out_ports(ctx_isp->hw_ctx, acq_type, slave_pkt,
+	if (acq_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL) {
+		cam_ife_hw_mgr_populate_out_ports(ctx_isp->hw_ctx, acq_type, slave_pkt,
 			pkt_offset);
+	} else {
+		/* Out port info not needed in HYBRID_ACQ */
+		slave_pkt[(*pkt_offset)++] = 0;
+	}
 	config_count_off = *pkt_offset; // hw_config_count
 	*pkt_offset = *pkt_offset + 1;
 
