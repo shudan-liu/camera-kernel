@@ -22,7 +22,8 @@ modules_install:
 	$(MAKE) M=$(M) -C $(KERNEL_SRC) modules_install
 
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
+	rm -f *.o *.ko *.mod.c *.mod.o *~ .*.cmd Module.symvers
+	rm -rf .tmp_versions
 
 headers_install:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) headers_install $(KBUILD_OPTIONS)

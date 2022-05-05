@@ -265,8 +265,18 @@ int cam_ife_csid_get_format_rdi(
 
 	/* Configure the out stream format types */
 	switch (out_format) {
-	case CAM_FORMAT_MIPI_RAW_6:
 	case CAM_FORMAT_MIPI_RAW_8:
+		if (mipi_unpacked ||
+				in_format == CAM_FORMAT_MIPI_RAW_10 ||
+				in_format == CAM_FORMAT_MIPI_RAW_12 ||
+				in_format == CAM_FORMAT_MIPI_RAW_14 ||
+				in_format == CAM_FORMAT_MIPI_RAW_16 ||
+				in_format == CAM_FORMAT_MIPI_RAW_20)
+			path_format->plain_fmt = 0x0;
+		else
+			path_format->packing_fmt = 0x1;
+		break;
+	case CAM_FORMAT_MIPI_RAW_6:
 	case CAM_FORMAT_YUV422:
 		if (mipi_unpacked)
 			path_format->plain_fmt = 0x0;

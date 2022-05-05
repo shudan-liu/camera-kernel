@@ -2547,7 +2547,7 @@ static int cam_ife_csid_ver2_in_port_validate(
 			csid_hw->rx_cfg.lane_num !=
 			reserve->in_port->lane_num) {
 			CAM_ERR(CAM_ISP,
-				"lane: num[%d %d] type[%d %d] cfg[%d %d]",
+				"hw_idx %d lane: num[%d %d] type[%d %d] cfg[%d %d]",
 				csid_hw->hw_intf->hw_idx,
 				csid_hw->rx_cfg.lane_num,
 				reserve->in_port->lane_num,
@@ -4955,6 +4955,9 @@ static int cam_ife_csid_ver2_set_csid_clock(
 		(struct cam_ife_csid_clock_update_args *)cmd_args;
 
 	csid_hw->clk_rate = clk_update->clk_rate;
+
+	CAM_DBG(CAM_ISP, "CSID[%u] set csid clock rate: 0x%x",
+		csid_hw->hw_intf->hw_idx, csid_hw->clk_rate);
 
 	return 0;
 }

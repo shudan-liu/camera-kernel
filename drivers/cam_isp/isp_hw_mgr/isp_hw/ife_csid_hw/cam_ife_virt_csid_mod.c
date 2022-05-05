@@ -163,6 +163,51 @@ int cam_ife_virt_csid_cid_reserve(struct cam_ife_csid_cid_data *cid_data,
 	return 0;
 }
 
+static int cam_ife_virt_csid_config_rx(
+	struct cam_ife_virt_csid        *csid_hw,
+	struct cam_csid_hw_reserve_resource_args  *reserve)
+{
+	csid_hw->rx_cfg.lane_cfg =
+		reserve->in_port->lane_cfg;
+	csid_hw->rx_cfg.lane_type =
+		reserve->in_port->lane_type;
+	csid_hw->rx_cfg.lane_num =
+		reserve->in_port->lane_num;
+	csid_hw->rx_cfg.dynamic_sensor_switch_en =
+		reserve->in_port->dynamic_sensor_switch_en;
+	if (reserve->in_port->epd_supported)
+		csid_hw->rx_cfg.epd_supported = 1;
+	csid_hw->rx_cfg.tpg_mux_sel = 0;
+	csid_hw->rx_cfg.phy_sel =
+		(reserve->in_port->res_type & 0xFF);
+	CAM_DBG(CAM_ISP,
+		"VCSID:%d Rx lane param: cfg:%u type:%u num:%u res:%u",
+		csid_hw->hw_intf->hw_idx,
+		reserve->in_port->lane_cfg, reserve->in_port->lane_type,
+		reserve->in_port->lane_num, reserve->in_port->res_type);
+
+	return 0;
+}
+
+int cam_ife_virt_csid_hw_cfg(
+	struct cam_ife_virt_csid *csid_hw,
+	struct cam_ife_csid_ver2_path_cfg *path_cfg,
+	struct cam_csid_hw_reserve_resource_args  *reserve,
+	uint32_t cid)
+{
+	int rc = 0;
+
+	rc = cam_ife_virt_csid_config_rx(csid_hw, reserve);
+
+	if (rc) {
+		CAM_ERR(CAM_ISP, "CSID[%d] rx config failed",
+			csid_hw->hw_intf->hw_idx);
+		return rc;
+	}
+	return rc;
+}
+
+
 int cam_ife_virt_csid_reserve(void *hw_priv, void *reserve_args, uint32_t arg_size)
 {
 	struct cam_ife_virt_csid        *csid_hw;
@@ -193,15 +238,6 @@ int cam_ife_virt_csid_reserve(void *hw_priv, void *reserve_args, uint32_t arg_si
 		return -EBUSY;
 	}
 
-	/*
-	rc = cam_ife_csid_ver2_in_port_validate(reserve, csid_hw);
-	if (rc) {
-		CAM_ERR(CAM_ISP, "VCSID %d Res_id %d port validation failed",
-			csid_hw->hw_intf->hw_idx, reserve->res_id);
-		return rc;
-	}
-	*/
-
 	path_cfg = (struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
 	if (!path_cfg) {
 		CAM_ERR(CAM_ISP,
@@ -220,6 +256,14 @@ int cam_ife_virt_csid_reserve(void *hw_priv, void *reserve_args, uint32_t arg_si
 		return rc;
 	}
 
+	rc = cam_ife_virt_csid_hw_cfg(csid_hw, path_cfg,
+		reserve, cid);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "VCSID[%d] res %d hw_cfg fail",
+			csid_hw->hw_intf->hw_idx, reserve->res_id);
+		goto release;
+	}
+
 	reserve->node_res = res;
 	csid_hw->flags.sfe_en = reserve->sfe_en;
 	csid_hw->flags.offline_mode = reserve->is_offline;
@@ -227,6 +271,11 @@ int cam_ife_virt_csid_reserve(void *hw_priv, void *reserve_args, uint32_t arg_si
 	CAM_DBG(CAM_ISP, "VCSID[%u] Resource[id: %d cid %d",
 		csid_hw->hw_intf->hw_idx, reserve->res_id, cid);
 	return 0;
+release:
+	cam_ife_csid_cid_release(&csid_hw->cid_data[cid],
+		csid_hw->hw_intf->hw_idx,
+		path_cfg->cid);
+	return rc;
 }
 
 int cam_ife_virt_csid_release(void *hw_priv, void *release_args, uint32_t arg_size)
@@ -281,14 +330,8 @@ int cam_ife_virt_csid_release(void *hw_priv, void *release_args, uint32_t arg_si
 
 	memset(path_cfg, 0, sizeof(*path_cfg));
 
-	/*if (csid_hw->counters.csi2_reserve_cnt)
-		csid_hw->counters.csi2_reserve_cnt--;
-
-	if (!csid_hw->counters.csi2_reserve_cnt) {
-	*/
 	memset(&csid_hw->rx_cfg, 0,
 		sizeof(struct cam_ife_csid_rx_cfg));
-	// }
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 end:
@@ -645,7 +688,6 @@ static int cam_ife_virt_csid_rx_capture_config(
 	dt  = csid_hw->cid_data[i].vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].dt;
 
 	csid_reg = (struct cam_ife_csid_ver2_reg_info *) csid_hw->core_info->csid_reg;
-	// soc_info = &csid_hw->hw_info->soc_info;
 
 	/* CAM_IFE_CSID_DEBUG_ENABLE_LONG_PKT_CAPTURE */
 	val |= ((1 << csid_reg->csi2_reg->capture_long_pkt_en_shift) |
@@ -948,6 +990,9 @@ int cam_ife_virt_csid_populate_regs(void *hw_priv, void *args, int arg_size)
 		val |= rx_cfg->phy_sel << csi2_reg->phy_num_shift;
 	}
 
+	CAM_DBG(CAM_ISP, "lane_cfg %x lane_num %x, lane_type %x phy_sel %x tpg_sel %d",
+			rx_cfg->lane_cfg, rx_cfg->lane_num, rx_cfg->lane_type, rx_cfg->phy_sel,
+			rx_cfg->tpg_mux_sel);
 	CAM_ADD_REG_VAL_PAIR(cdm_payload, *idx, csi2_reg->cfg0_addr, val);
 
 	val = 0;
@@ -1161,7 +1206,6 @@ int cam_ife_virt_csid_hw_probe_init(struct cam_hw_intf *hw_intf,
 	csid_hw->hw_info->hw_state = CAM_HW_STATE_POWER_DOWN;
 	mutex_init(&csid_hw->hw_info->hw_mutex);
 	spin_lock_init(&csid_hw->hw_info->hw_lock);
-	//spin_lock_init(&csid_hw->lock_state);
 
 	csid_hw->hw_intf->hw_ops.get_hw_caps = cam_ife_virt_csid_get_hw_caps;
 	csid_hw->hw_intf->hw_ops.init        = cam_ife_virt_csid_init_hw;
