@@ -319,6 +319,7 @@ struct v4l2_loopback_device {
 	atomic_t open_count;
 
 	int max_openers;
+	int stream_status;
 
 	struct mutex dev_mutex;
 
@@ -541,7 +542,7 @@ static struct v4l2_loopback_device *v4l2loopback_cd2dev(struct device *cd);
 /* device attributes */
 /* available via sysfs: /sys/devices/virtual/video4linux/video* */
 
-static ssize_t attr_show_maxopeners(struct device *cd,
+static ssize_t attr_show_stream_status(struct device *cd,
 		struct device_attribute *attr, char *buf)
 {
 	struct v4l2_loopback_device *dev = v4l2loopback_cd2dev(cd);
@@ -551,11 +552,11 @@ static ssize_t attr_show_maxopeners(struct device *cd,
 		return -EINVAL;
 	}
 
-	return scnprintf(buf, sizeof(dev->max_openers), "%d",
-			dev->max_openers);
+	return scnprintf(buf, sizeof(dev->stream_status), "%d",
+			dev->stream_status);
 }
 
-static ssize_t attr_store_maxopeners(struct device *cd,
+static ssize_t attr_store_stream_status(struct device *cd,
 		struct device_attribute *attr, const char *buf, size_t len)
 {
 	struct v4l2_loopback_device *dev = NULL;
@@ -571,24 +572,17 @@ static ssize_t attr_store_maxopeners(struct device *cd,
 		return -EINVAL;
 	}
 
-	if (dev->max_openers == curr)
+	if (dev->stream_status == curr)
 		return len;
 
-	if (dev->open_count.counter > curr) {
-		/* request to limit to less openers as are
-		 * currently attached to us
-		 */
-		return -EINVAL;
-	}
-
-	dev->max_openers = (int)curr;
+	dev->stream_status = (int)curr;
 
 	return len;
 }
 
 
-static DEVICE_ATTR(max_openers, 0644, attr_show_maxopeners,
-		attr_store_maxopeners);
+static DEVICE_ATTR(stream_status, 0644, attr_show_stream_status,
+		attr_store_stream_status);
 
 static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 {
@@ -597,7 +591,7 @@ static void v4l2loopback_remove_sysfs(struct video_device *vdev)
 	if (vdev) {
 		do {
 
-			V4L2_SYSFS_DESTROY(max_openers);
+			V4L2_SYSFS_DESTROY(stream_status);
 			/* ... */
 		} while (0);
 	}
@@ -619,7 +613,7 @@ static void v4l2loopback_create_sysfs(struct video_device *vdev)
 		return;
 	do {
 
-		V4L2_SYSFS_CREATE(max_openers);
+		V4L2_SYSFS_CREATE(stream_status);
 		/* ... */
 	} while (0);
 
@@ -1939,7 +1933,8 @@ static int vidioc_streamon(struct file *file,
 					msecs_to_jiffies(START_TIMEOUT));
 		if (rc) {
 			rc = data->qcarcam_ctrl_ret;
-			data->is_streaming = 1;
+			if (data->qcarcam_ctrl_ret == 0)
+				dev->stream_status = 1;
 		} else {
 			CAM_ERR(CAM_V4L2, "streamon fail, timeout %d", rc);
 			rc = -ETIMEDOUT;
@@ -2003,6 +1998,8 @@ static int vidioc_streamoff(struct file *file,
 						msecs_to_jiffies(STOP_TIMEOUT));
 			if (rc) {
 				rc = data->qcarcam_ctrl_ret;
+				if (data->qcarcam_ctrl_ret == 0)
+					dev->stream_status = 0;
 				CAM_INFO(CAM_V4L2, "clear list when streamoff");
 				mutex_lock(&data->outbufs_mutex);
 				list_for_each_entry_safe(pos, n,
@@ -2019,7 +2016,6 @@ static int vidioc_streamoff(struct file *file,
 				}
 				INIT_LIST_HEAD(&data->capbufs_list);
 				mutex_unlock(&data->capbufs_mutex);
-
 			} else {
 				CAM_ERR(CAM_V4L2, "streamoff fail, timeout %d", rc);
 				rc = -ETIMEDOUT;
@@ -2930,6 +2926,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->state = V4L2L_READY_FOR_OUTPUT;
 	dev->announce_all_caps = (!exclusive_caps[nr]);
 	dev->max_openers = max_openers;
+	dev->stream_status = 0;
 
 	ret = v4l2_ctrl_handler_init(hdl, 1);
 	if (ret)
