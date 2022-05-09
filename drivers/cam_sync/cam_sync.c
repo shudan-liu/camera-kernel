@@ -21,6 +21,7 @@
 #include "cam_req_mgr_workq.h"
 
 struct sync_device *sync_dev;
+struct sync_uid_info sync_uid_access;
 
 /*
  * Flag to determine whether to enqueue cb of a
@@ -91,17 +92,35 @@ int cam_sync_get_version(void) {
 }
 
 int cam_sync_register_callback(sync_callback cb_func,
-	void *userdata, int32_t sync_obj)
+	void *userdata, int32_t sync_var)
 {
 	struct sync_callback_info *sync_cb;
 	struct sync_table_row *row = NULL;
 	int status = 0;
+	uint32_t sync_obj, uid_validity;
+	uint16_t sync_uid;
+	int rc;
+
+	sync_obj = (uint32_t)sync_var & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)sync_var >> sync_uid_access.uidShift;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0 || !cb_func)
 		return -EINVAL;
 
 	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	row = sync_dev->sync_table + sync_obj;
+
+	uid_validity = cam_sync_check_uid_valid(sync_var);
+
+	if (uid_validity == SYNC_UID_NEW) {
+		rc = cam_sync_reinit_object(sync_dev->sync_table, sync_var);
+	} else if (uid_validity == SYNC_UID_OLD) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		CAM_ERR(CAM_SYNC, "Called for invalid fence, sync obj: %d, uid: %d",
+			sync_obj,
+			sync_uid);
+		return -EINVAL;
+	}
 
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
@@ -124,23 +143,25 @@ int cam_sync_register_callback(sync_callback cb_func,
 		(row->state == CAM_SYNC_STATE_SIGNALED_CANCEL)) &&
 		(!row->remaining)) {
 		if (trigger_cb_without_switch) {
-			CAM_DBG(CAM_SYNC, "Invoke callback for sync object:%s[%d]",
+			CAM_DBG(CAM_SYNC, "Invoke callback for sync object:%s[%d], sync_uid: %d",
 				row->name,
-				sync_obj);
+				sync_obj,
+				sync_uid);
 			status = row->state;
 			kfree(sync_cb);
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
-			cb_func(sync_obj, status, userdata);
+			cb_func(sync_var, status, userdata);
 		} else {
 			sync_cb->callback_func = cb_func;
 			sync_cb->cb_data = userdata;
-			sync_cb->sync_obj = sync_obj;
+			sync_cb->sync_obj = sync_var;
 			INIT_WORK(&sync_cb->cb_dispatch_work,
 				cam_sync_util_cb_dispatch);
 			sync_cb->status = row->state;
-			CAM_DBG(CAM_SYNC, "Enqueue callback for sync object:%s[%d]",
+			CAM_DBG(CAM_SYNC, "Enqueue callback for sync object:%s[%d], sync_uid: %d",
 				row->name,
-				sync_cb->sync_obj);
+				sync_cb->sync_obj,
+				sync_uid);
 			sync_cb->workq_scheduled_ts = ktime_get();
 			queue_work(sync_dev->work_queue,
 				&sync_cb->cb_dispatch_work);
@@ -152,7 +173,7 @@ int cam_sync_register_callback(sync_callback cb_func,
 
 	sync_cb->callback_func = cb_func;
 	sync_cb->cb_data = userdata;
-	sync_cb->sync_obj = sync_obj;
+	sync_cb->sync_obj = sync_var;
 	INIT_WORK(&sync_cb->cb_dispatch_work, cam_sync_util_cb_dispatch);
 	list_add_tail(&sync_cb->list, &row->callback_list);
 	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
@@ -161,17 +182,29 @@ int cam_sync_register_callback(sync_callback cb_func,
 }
 
 int cam_sync_deregister_callback(sync_callback cb_func,
-	void *userdata, int32_t sync_obj)
+	void *userdata, int32_t sync_var)
 {
 	struct sync_table_row *row = NULL;
 	struct sync_callback_info *sync_cb, *temp;
 	bool found = false;
+	uint32_t sync_obj;
+	uint16_t sync_uid;
+
+	sync_obj = (uint32_t)sync_var & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)sync_var >> sync_uid_access.uidShift;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
 
 	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	row = sync_dev->sync_table + sync_obj;
+
+	if (row->uid != sync_uid) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		CAM_ERR(CAM_SYNC, "deregister called for invalid fence, sync obj: %d, uid: %d",
+			sync_obj, sync_uid);
+		return -EINVAL;
+	}
 
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
@@ -182,9 +215,10 @@ int cam_sync_deregister_callback(sync_callback cb_func,
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_SYNC, "deregistered callback for sync object:%s[%d]",
+	CAM_DBG(CAM_SYNC, "deregistered callback for sync object:%s[%d], uid: %d",
 		row->name,
-		sync_obj);
+		sync_obj,
+		sync_uid);
 	list_for_each_entry_safe(sync_cb, temp, &row->callback_list, list) {
 		if (sync_cb->callback_func == cb_func &&
 			sync_cb->cb_data == userdata) {
@@ -206,45 +240,67 @@ int cam_sync_signal(struct cam_sync_signal_param *param,
 	struct sync_parent_info *parent_info, *temp_parent_info;
 	struct list_head parents_list;
 	int rc = 0;
+	uint32_t sync_obj, psync_obj, uid_validity;
+	int16_t sync_uid;
 
-	if (param->sync_obj >= CAM_SYNC_MAX_OBJS || param->sync_obj <= 0) {
+	sync_obj = param->sync_obj & sync_uid_access.fenceIdMask;
+	sync_uid = param->sync_obj >> sync_uid_access.uidShift;
+
+	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0) {
 		CAM_ERR(CAM_SYNC, "Error: Out of range sync obj (0 <= %d < %d)",
 			param->sync_obj, CAM_SYNC_MAX_OBJS);
 		return -EINVAL;
 	}
-	row = sync_dev->sync_table + param->sync_obj;
-	spin_lock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+	row = sync_dev->sync_table + sync_obj;
+	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
+
+	/* Check if it is a valid fence, i.e., either current fence uid or newer */
+	uid_validity = cam_sync_check_uid_valid(param->sync_obj);
+	if (uid_validity == SYNC_UID_NEW) {
+		rc = cam_sync_reinit_object(sync_dev->sync_table, param->sync_obj);
+	} else if (uid_validity == SYNC_UID_OLD) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		CAM_ERR(CAM_SYNC, "Signaling an old fence, sync obj: %d, uid: %d, state: %d",
+			sync_obj,
+			sync_uid,
+			param->status);
+		return -EINVAL;
+	}
+
 	if (row->state == CAM_SYNC_STATE_INVALID) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj = %s[%d]",
+			"Error: accessing an uninitialized sync obj = %s[%d], uid = %d",
 			row->name,
-			param->sync_obj);
+			sync_obj,
+			sync_uid);
 		return -EINVAL;
 	}
 
 	if (row->type == CAM_SYNC_TYPE_GROUP) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: Signaling a GROUP sync object = %s[%d]",
+			"Error: Signaling a GROUP sync object = %s[%d], uid = %d",
 			row->name,
-			param->sync_obj);
+			sync_obj,
+			sync_uid);
 		return -EINVAL;
 	}
 
 	if (row->state != CAM_SYNC_STATE_ACTIVE) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
-			"Error: Sync object already signaled sync_obj = %s[%d]",
+			"Error: Sync object already signaled sync_obj = %s[%d], uid = %d",
 			row->name,
-			param->sync_obj);
+			sync_obj,
+			sync_uid);
 		return -EALREADY;
 	}
 
 	if ((param->status != CAM_SYNC_STATE_SIGNALED_SUCCESS) &&
 		(param->status != CAM_SYNC_STATE_SIGNALED_ERROR) &&
 		(param->status != CAM_SYNC_STATE_SIGNALED_CANCEL)) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		CAM_ERR(CAM_SYNC,
 			"Error: signaling with undefined status = %d event reason = %u",
 			param->status, param->event_cause);
@@ -252,7 +308,7 @@ int cam_sync_signal(struct cam_sync_signal_param *param,
 	}
 
 	if (!atomic_dec_and_test(&row->ref_cnt)) {
-		spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		return 0;
 	}
 
@@ -262,10 +318,10 @@ int cam_sync_signal(struct cam_sync_signal_param *param,
 	/* copy parent list to local and release child lock */
 	INIT_LIST_HEAD(&parents_list);
 	list_splice_init(&row->parents_list, &parents_list);
-	spin_unlock_bh(&sync_dev->row_spinlocks[param->sync_obj]);
+	spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 
 	if (list_empty(&parents_list))
-		return 0;
+		goto signal_success_exit;
 
 	/*
 	 * Now iterate over all parents of this object and if they too need to
@@ -275,8 +331,9 @@ int cam_sync_signal(struct cam_sync_signal_param *param,
 		temp_parent_info,
 		&parents_list,
 		list) {
-		parent_row = sync_dev->sync_table + parent_info->sync_id;
-		spin_lock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
+		psync_obj = parent_info->sync_id & sync_uid_access.fenceIdMask;
+		parent_row = sync_dev->sync_table + psync_obj;
+		spin_lock_bh(&sync_dev->row_spinlocks[psync_obj]);
 		parent_row->remaining--;
 
 		rc = cam_sync_util_update_parent_state(
@@ -286,7 +343,7 @@ int cam_sync_signal(struct cam_sync_signal_param *param,
 			CAM_ERR(CAM_SYNC, "Invalid parent state %d",
 				parent_row->state);
 			spin_unlock_bh(
-				&sync_dev->row_spinlocks[parent_info->sync_id]);
+				&sync_dev->row_spinlocks[psync_obj]);
 			kfree(parent_info);
 			continue;
 		}
@@ -295,22 +352,25 @@ int cam_sync_signal(struct cam_sync_signal_param *param,
 		if (!parent_row->remaining)
 			cam_sync_util_dispatch_signaled_cb(param, time_stamp);
 
-		spin_unlock_bh(&sync_dev->row_spinlocks[parent_info->sync_id]);
+		spin_unlock_bh(&sync_dev->row_spinlocks[psync_obj]);
 		list_del_init(&parent_info->list);
 		kfree(parent_info);
 	}
 
+signal_success_exit:
 	return 0;
 }
 
-int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
+int cam_sync_merge(int32_t *sync_var, uint32_t num_objs, int32_t *merged_obj)
 {
 	int rc;
 	long idx = 0;
 	bool bit;
 	int i = 0;
+	uint32_t sync_obj;
+	uint16_t sync_uid;
 
-	if (!sync_obj || !merged_obj) {
+	if (!sync_var || !merged_obj) {
 		CAM_ERR(CAM_SYNC, "Invalid pointer(s)");
 		return -EINVAL;
 	}
@@ -320,17 +380,19 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 		return -EINVAL;
 	}
 
-	if (cam_common_util_remove_duplicate_arr(sync_obj, num_objs)
+	if (cam_common_util_remove_duplicate_arr(sync_var, num_objs)
 		!= num_objs) {
 		CAM_ERR(CAM_SYNC, "The obj list has duplicate fence");
 		return -EINVAL;
 	}
 
 	for (i = 0; i < num_objs; i++) {
-		rc = cam_sync_check_valid(sync_obj[i]);
+		sync_obj = (uint32_t)(sync_var[i]) & sync_uid_access.fenceIdMask;
+		sync_uid = (uint32_t)(sync_var[i]) >> sync_uid_access.uidShift;
+		rc = cam_sync_check_valid(sync_obj);
 		if (rc) {
 			CAM_ERR(CAM_SYNC, "Sync_obj[%d] %d valid check fail",
-				i, sync_obj[i]);
+				i, sync_obj);
 			return rc;
 		}
 	}
@@ -343,7 +405,7 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 
 	spin_lock_bh(&sync_dev->row_spinlocks[idx]);
 	rc = cam_sync_init_group_object(sync_dev->sync_table,
-		idx, sync_obj,
+		idx, sync_var,
 		num_objs);
 	if (rc < 0) {
 		CAM_ERR(CAM_SYNC, "Error: Unable to init row at idx = %ld",
@@ -359,9 +421,14 @@ int cam_sync_merge(int32_t *sync_obj, uint32_t num_objs, int32_t *merged_obj)
 	return 0;
 }
 
-int cam_sync_get_obj_ref(int32_t sync_obj)
+int cam_sync_get_obj_ref(int32_t sync_var)
 {
 	struct sync_table_row *row = NULL;
+	uint32_t sync_obj;
+	uint16_t sync_uid;
+
+	sync_obj = (uint32_t)sync_var & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)sync_var >> sync_uid_access.uidShift;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
@@ -381,33 +448,46 @@ int cam_sync_get_obj_ref(int32_t sync_obj)
 
 	atomic_inc(&row->ref_cnt);
 	spin_unlock(&sync_dev->row_spinlocks[sync_obj]);
-	CAM_DBG(CAM_SYNC, "get ref for obj %d", sync_obj);
+	CAM_DBG(CAM_SYNC, "get ref for obj %d, uid: %d", sync_obj, sync_uid);
 
 	return 0;
 }
 
-int cam_sync_put_obj_ref(int32_t sync_obj)
+int cam_sync_put_obj_ref(int32_t sync_var)
 {
 	struct sync_table_row *row = NULL;
+	uint32_t sync_obj;
+	uint16_t sync_uid;
+
+	sync_obj = (uint32_t)sync_var & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)sync_var >> sync_uid_access.uidShift;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
 
 	row = sync_dev->sync_table + sync_obj;
 	atomic_dec(&row->ref_cnt);
-	CAM_DBG(CAM_SYNC, "put ref for obj %d", sync_obj);
+	CAM_DBG(CAM_SYNC, "put ref for obj %d, row_state:%u, uid: %d",
+		sync_obj,
+		row->state,
+		sync_uid);
 
 	return 0;
 }
 
-int cam_sync_destroy(int32_t sync_obj)
+int cam_sync_destroy(int32_t sync_var)
 {
-	return cam_sync_deinit_object(sync_dev->sync_table, sync_obj);
+	return cam_sync_deinit_object(sync_dev->sync_table, sync_var);
 }
 
-int cam_sync_check_valid(int32_t sync_obj)
+int cam_sync_check_valid(int32_t sync_var)
 {
 	struct sync_table_row *row = NULL;
+	uint32_t sync_obj;
+	uint16_t sync_uid;
+
+	sync_obj = (uint32_t)sync_var & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)sync_var >> sync_uid_access.uidShift;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
@@ -431,11 +511,16 @@ int cam_sync_check_valid(int32_t sync_obj)
 	return 0;
 }
 
-int cam_sync_wait(int32_t sync_obj, uint64_t timeout_ms)
+int cam_sync_wait(int32_t sync_var, uint64_t timeout_ms)
 {
 	unsigned long timeleft;
 	int rc = -EINVAL;
 	struct sync_table_row *row = NULL;
+	uint32_t sync_obj;
+	uint16_t sync_uid;
+
+	sync_obj = (uint32_t)sync_var & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)sync_var >> sync_uid_access.uidShift;
 
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
@@ -444,9 +529,10 @@ int cam_sync_wait(int32_t sync_obj, uint64_t timeout_ms)
 
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
-			"Error: accessing an uninitialized sync obj = %s[%d]",
+			"Error: accessing an uninitialized sync obj = %s[%d], uid = %d",
 			row->name,
-			sync_obj);
+			sync_obj,
+			sync_uid);
 		return -EINVAL;
 	}
 
@@ -455,7 +541,10 @@ int cam_sync_wait(int32_t sync_obj, uint64_t timeout_ms)
 
 	if (!timeleft) {
 		CAM_ERR(CAM_SYNC,
-			"Error: timed out for sync obj = %s[%d]", row->name, sync_obj);
+			"Error: timed out for sync obj = %s[%d], uid = %d",
+			row->name,
+			sync_obj,
+			sync_uid);
 		rc = -ETIMEDOUT;
 	} else {
 		switch (row->state) {
@@ -464,8 +553,8 @@ int cam_sync_wait(int32_t sync_obj, uint64_t timeout_ms)
 		case CAM_SYNC_STATE_SIGNALED_ERROR:
 		case CAM_SYNC_STATE_SIGNALED_CANCEL:
 			CAM_ERR(CAM_SYNC,
-				"Error: Wait on invalid state = %d, obj = %d, name = %s",
-				row->state, sync_obj, row->name);
+				"Error: Wait on invalid state = %d, obj = %d, name = %s, uid = %d",
+				row->state, sync_obj, row->name, sync_uid);
 			rc = -EINVAL;
 			break;
 		case CAM_SYNC_STATE_SIGNALED_SUCCESS:
@@ -650,6 +739,8 @@ static int cam_sync_handle_register_user_payload(
 	struct sync_user_payload *temp_upayload_kernel;
 	uint32_t sync_obj;
 	struct sync_table_row *row = NULL;
+	uint16_t sync_uid;
+	uint32_t rc, uid_validity;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_userpayload_info))
 		return -EINVAL;
@@ -662,7 +753,8 @@ static int cam_sync_handle_register_user_payload(
 		k_ioctl->size))
 		return -EFAULT;
 
-	sync_obj = userpayload_info.sync_obj;
+	sync_obj = (uint32_t)userpayload_info.sync_obj & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)userpayload_info.sync_obj >> sync_uid_access.uidShift;
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
 
@@ -676,6 +768,18 @@ static int cam_sync_handle_register_user_payload(
 
 	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 	row =  sync_dev->sync_table + sync_obj;
+
+	uid_validity = cam_sync_check_uid_valid(userpayload_info.sync_obj);
+
+	if (uid_validity == SYNC_UID_NEW) {
+		rc = cam_sync_reinit_object(sync_dev->sync_table, userpayload_info.sync_obj);
+	} else if (uid_validity == SYNC_UID_OLD) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		CAM_ERR(CAM_SYNC, "Called for invalid fence, sync obj: %d, uid: %d",
+			sync_obj,
+			sync_uid);
+		return -EINVAL;
+	}
 
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
@@ -730,6 +834,7 @@ static int cam_sync_handle_deregister_user_payload(
 	struct sync_user_payload *user_payload_kernel, *temp;
 	uint32_t sync_obj;
 	struct sync_table_row *row = NULL;
+	uint16_t sync_uid;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_userpayload_info)) {
 		CAM_ERR(CAM_SYNC, "Incorrect ioctl size");
@@ -746,12 +851,21 @@ static int cam_sync_handle_deregister_user_payload(
 		k_ioctl->size))
 		return -EFAULT;
 
-	sync_obj = userpayload_info.sync_obj;
+	sync_obj = (uint32_t)userpayload_info.sync_obj & sync_uid_access.fenceIdMask;
+	sync_uid = (uint32_t)userpayload_info.sync_obj >> sync_uid_access.uidShift;
 	if (sync_obj >= CAM_SYNC_MAX_OBJS || sync_obj <= 0)
 		return -EINVAL;
 
 	spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
-	row =  sync_dev->sync_table + sync_obj;
+	row = sync_dev->sync_table + sync_obj;
+
+	if (row->uid != sync_uid) {
+		spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
+		CAM_ERR(CAM_SYNC, "deregister called for invalid fence, sync obj: %d, uid: %d",
+			sync_obj,
+			sync_uid);
+		return -EINVAL;
+	}
 
 	if (row->state == CAM_SYNC_STATE_INVALID) {
 		CAM_ERR(CAM_SYNC,
@@ -1193,6 +1307,8 @@ static int cam_sync_component_bind(struct device *dev,
 	int rc;
 	int idx;
 	struct platform_device *pdev = to_platform_device(dev);
+	uint32_t num_uid_bits;
+	const unsigned long max_uid = CAM_SYNC_MAX_UID;
 
 	sync_dev = kzalloc(sizeof(*sync_dev), GFP_KERNEL);
 	if (!sync_dev)
@@ -1260,6 +1376,11 @@ static int cam_sync_component_bind(struct device *dev,
 
 	trigger_cb_without_switch = false;
 	cam_sync_create_debugfs();
+	num_uid_bits = bitmap_weight(&max_uid, sizeof(sync_dev->sync_table->sync_id));
+	sync_uid_access.fenceIdMask =
+		(1 << ((sizeof(sync_dev->sync_table->sync_id) * 8) - num_uid_bits)) - 1;
+	sync_uid_access.uidShift = (sizeof(sync_dev->sync_table->sync_id) * 8) - num_uid_bits;
+	sync_uid_access.init_uid_val = max_uid << sync_uid_access.uidShift;
 #if IS_REACHABLE(CONFIG_MSM_GLOBAL_SYNX)
 	CAM_DBG(CAM_SYNC, "Registering with synx driver");
 	cam_sync_configure_synx_obj(&sync_dev->params);

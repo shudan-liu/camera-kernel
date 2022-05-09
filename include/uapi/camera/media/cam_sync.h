@@ -164,6 +164,9 @@
 #define CAM_SYNC_EVENT_BOOT_TIMESTAMP     4
 #define CAM_SYNC_EVENT_SLAVE_TIMESTAMP    6
 
+/* Fence re-use's max UID value*/
+#define CAM_SYNC_MAX_UID   15
+
 /**
  * struct cam_sync_ev_header - Event header for sync event notification
  *
