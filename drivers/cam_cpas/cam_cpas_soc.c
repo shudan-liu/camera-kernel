@@ -133,7 +133,8 @@ static int cam_cpas_util_path_type_to_idx(uint32_t *path_data_type)
 	return 0;
 }
 
-static int cam_cpas_update_camnoc_node(struct cam_cpas *cpas_core,
+static int cam_cpas_update_camnoc_node(struct cam_cpas_private_soc *soc_private,
+        struct cam_cpas *cpas_core,
 	struct device_node *curr_node,
 	struct cam_cpas_tree_node *cpas_node_ptr,
 	int *camnoc_idx)
@@ -145,28 +146,95 @@ static int cam_cpas_update_camnoc_node(struct cam_cpas *cpas_core,
 	camnoc_node = of_find_node_by_name(curr_node,
 			"qcom,axi-port-camnoc");
 	if (camnoc_node) {
-
-		if (*camnoc_idx >=
-			CAM_CPAS_MAX_AXI_PORTS) {
+		if (*camnoc_idx >= CAM_CPAS_MAX_AXI_PORTS) {
 			CAM_ERR(CAM_CPAS, "CAMNOC axi index overshoot %d",
 				*camnoc_idx);
 			return -EINVAL;
 		}
 
-		cpas_core->camnoc_axi_port[*camnoc_idx]
-			.axi_port_node = camnoc_node;
-		rc = of_property_read_string(
-			curr_node,
-			"qcom,axi-port-name",
-			&cpas_core->camnoc_axi_port[*camnoc_idx]
-			.axi_port_name);
+		cpas_core->camnoc_axi_port[*camnoc_idx].axi_port_node
+			= camnoc_node;
+		if (soc_private->bus_icc_based) {
+			struct of_phandle_args src_args = {0},
+				dst_args = {0};
 
-		if (rc) {
-			CAM_ERR(CAM_CPAS,
-				"fail to read camnoc-port-name rc=%d",
-				rc);
-			return rc;
+			rc = of_property_read_string(camnoc_node,
+				"interconnect-names",
+				&cpas_core->camnoc_axi_port[*camnoc_idx]
+				.bus_client.common_data.name);
+			if (rc) {
+				CAM_ERR(CAM_CPAS,
+					"failed to read interconnect-names rc=%d",
+					rc);
+				return rc;
+			}
+
+			rc = of_parse_phandle_with_args(
+				camnoc_node, "interconnects",
+				"#interconnect-cells", 0,
+				&src_args);
+			if (rc) {
+				CAM_ERR(CAM_CPAS,
+					"failed to read axi bus src info rc=%d",
+					rc);
+				return -EINVAL;
+			}
+
+			of_node_put(src_args.np);
+			if (src_args.args_count != 1) {
+				CAM_ERR(CAM_CPAS,
+					"Invalid number of axi src args: %d",
+					src_args.args_count);
+				return -EINVAL;
+			}
+
+			cpas_core->camnoc_axi_port[*camnoc_idx].bus_client
+			.common_data.src_id = src_args.args[0];
+
+			rc = of_parse_phandle_with_args(
+				camnoc_node, "interconnects",
+				"#interconnect-cells", 1,
+				&dst_args);
+			if (rc) {
+				CAM_ERR(CAM_CPAS,
+					"failed to read axi bus dst info rc=%d",
+					rc);
+				return -EINVAL;
+			}
+
+			of_node_put(dst_args.np);
+			if (dst_args.args_count != 1) {
+				CAM_ERR(CAM_CPAS,
+					"Invalid number of axi dst args: %d",
+					dst_args.args_count);
+				return -EINVAL;
+			}
+
+			cpas_core->camnoc_axi_port[*camnoc_idx].bus_client
+			.common_data.dst_id = dst_args.args[0];
+			cpas_core->camnoc_axi_port[*camnoc_idx].bus_client
+				.common_data.num_usecases = 2;
+		} else {
+
+			rc =  of_property_read_string(
+				curr_node, "qcom,axi-port-name",
+				&cpas_core->camnoc_axi_port[*camnoc_idx]
+				.bus_client.common_data.name);
+			if (rc) {
+				CAM_ERR(CAM_CPAS,
+					"failed to read camnoc-port-name rc=%d",
+					rc);
+				return rc;
+			}
 		}
+
+		cpas_core->camnoc_axi_port[*camnoc_idx].axi_port_name =
+			cpas_core->camnoc_axi_port[*camnoc_idx]
+				.bus_client.common_data.name;
+		cpas_core->camnoc_axi_port
+			[*camnoc_idx].ib_bw_voting_needed
+			= of_property_read_bool(curr_node,
+			"ib-bw-voting-needed");
 		cpas_node_ptr->camnoc_axi_port_idx = *camnoc_idx;
 		cpas_core->num_camnoc_axi_ports++;
 		(*camnoc_idx)++;
@@ -355,7 +423,7 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 			}
 
 			if (!soc_private->control_camnoc_axi_clk) {
-				rc = cam_cpas_update_camnoc_node(
+				rc = cam_cpas_update_camnoc_node( soc_private,
 					cpas_core, curr_node, curr_node_ptr,
 					&camnoc_idx);
 				if (rc) {
