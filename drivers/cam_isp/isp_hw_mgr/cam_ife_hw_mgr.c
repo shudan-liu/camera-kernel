@@ -359,45 +359,67 @@ static inline void cam_ife_mgr_free_cdm_cmd(
 	*cdm_cmd = NULL;
 }
 
-static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
-	void *hw_caps_args)
+static int cam_ife_mgr_get_hw_caps_common(void *hw_mgr_priv,
+	void *hw_caps_args, uint32_t version)
 {
 	int rc = 0;
 	int i;
 	struct cam_ife_hw_mgr             *hw_mgr = hw_mgr_priv;
 	struct cam_query_cap_cmd          *query = hw_caps_args;
 	struct cam_isp_query_cap_cmd       query_isp;
+	struct cam_isp_query_cap_cmd_v2    query_isp_v2;
 	struct cam_isp_dev_cap_info       *ife_full_hw_info = NULL;
 	struct cam_isp_dev_cap_info       *ife_lite_hw_info = NULL;
 	struct cam_isp_dev_cap_info       *csid_full_hw_info = NULL;
 	struct cam_isp_dev_cap_info       *csid_lite_hw_info = NULL;
 	struct cam_ife_csid_hw_caps       *ife_csid_caps = {0};
+	int                               *num_dev = NULL;
+	bool                               is_ife_full_hw = false;
+	bool                               is_ife_lite_hw = false;
+	bool                               is_csid_full_hw = false;
+	bool                               is_csid_lite_hw = false;
 
-	CAM_DBG(CAM_ISP, "enter");
-
-	if (copy_from_user(&query_isp,
-		u64_to_user_ptr(query->caps_handle),
-		sizeof(struct cam_isp_query_cap_cmd))) {
-		rc = -EFAULT;
-		return rc;
+	if (version == 0) {
+		if (copy_from_user(&query_isp, u64_to_user_ptr(query->caps_handle),
+			sizeof(struct cam_isp_query_cap_cmd))) {
+			rc = -EFAULT;
+			return rc;
+		}
+		query_isp.device_iommu.non_secure = hw_mgr->mgr_common.img_iommu_hdl;
+		query_isp.device_iommu.secure = hw_mgr->mgr_common.img_iommu_hdl_secure;
+		query_isp.cdm_iommu.non_secure = hw_mgr->mgr_common.cmd_iommu_hdl;
+		query_isp.cdm_iommu.secure = hw_mgr->mgr_common.cmd_iommu_hdl_secure;
+		query_isp.num_dev = 0;
+		ife_lite_hw_info = &query_isp.dev_caps[query_isp.num_dev];
+		ife_full_hw_info = &query_isp.dev_caps[query_isp.num_dev];
+		csid_lite_hw_info = &query_isp.dev_caps[query_isp.num_dev];
+		csid_full_hw_info = &query_isp.dev_caps[query_isp.num_dev];
+		num_dev = &query_isp.num_dev;
+	} else {
+		if (copy_from_user(&query_isp_v2, u64_to_user_ptr(query->caps_handle),
+			sizeof(struct cam_isp_query_cap_cmd_v2))) {
+			rc = -EFAULT;
+			return rc;
+		}
+		query_isp_v2.device_iommu.non_secure = hw_mgr->mgr_common.img_iommu_hdl;
+		query_isp_v2.device_iommu.secure = hw_mgr->mgr_common.img_iommu_hdl_secure;
+		query_isp_v2.cdm_iommu.non_secure = hw_mgr->mgr_common.cmd_iommu_hdl;
+		query_isp_v2.cdm_iommu.secure = hw_mgr->mgr_common.cmd_iommu_hdl_secure;
+		query_isp_v2.num_dev = 0;
+		ife_lite_hw_info = &query_isp_v2.dev_caps[query_isp_v2.num_dev];
+		ife_full_hw_info = &query_isp_v2.dev_caps[query_isp_v2.num_dev];
+		csid_lite_hw_info = &query_isp_v2.dev_caps[query_isp_v2.num_dev];
+		csid_full_hw_info = &query_isp_v2.dev_caps[query_isp_v2.num_dev];
+		num_dev = &query_isp_v2.num_dev;
 	}
-
-	query_isp.device_iommu.non_secure = hw_mgr->mgr_common.img_iommu_hdl;
-	query_isp.device_iommu.secure = hw_mgr->mgr_common.img_iommu_hdl_secure;
-	query_isp.cdm_iommu.non_secure = hw_mgr->mgr_common.cmd_iommu_hdl;
-	query_isp.cdm_iommu.secure = hw_mgr->mgr_common.cmd_iommu_hdl_secure;
-	query_isp.num_dev = 0;
 
 	for (i = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
 		if (!hw_mgr->ife_devices[i])
 			continue;
 
 		if (hw_mgr->ife_dev_caps[i].is_lite) {
-			if (ife_lite_hw_info == NULL) {
-				ife_lite_hw_info =
-					&query_isp.dev_caps[query_isp.num_dev];
-				query_isp.num_dev++;
-
+			if (!is_ife_lite_hw) {
+				ife_lite_hw_info = &ife_lite_hw_info[*num_dev];
 				ife_lite_hw_info->hw_type = CAM_ISP_HW_IFE_LITE;
 				ife_lite_hw_info->hw_version.major =
 					hw_mgr->ife_dev_caps[i].major;
@@ -407,16 +429,14 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 					hw_mgr->ife_dev_caps[i].incr;
 				ife_lite_hw_info->hw_version.reserved = 0;
 				ife_lite_hw_info->num_hw = 0;
+				(*num_dev)++;
+				is_ife_lite_hw = true;
 			}
-
 			ife_lite_hw_info->num_hw++;
 
 		} else {
-			if (ife_full_hw_info == NULL) {
-				ife_full_hw_info =
-					&query_isp.dev_caps[query_isp.num_dev];
-				query_isp.num_dev++;
-
+			if (!is_ife_full_hw) {
+				ife_full_hw_info = &ife_full_hw_info[*num_dev];
 				ife_full_hw_info->hw_type = CAM_ISP_HW_IFE;
 				ife_full_hw_info->hw_version.major =
 					hw_mgr->ife_dev_caps[i].major;
@@ -426,8 +446,9 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 					hw_mgr->ife_dev_caps[i].incr;
 				ife_full_hw_info->hw_version.reserved = 0;
 				ife_full_hw_info->num_hw = 0;
+				(*num_dev)++;
+				is_ife_full_hw = true;
 			}
-
 			ife_full_hw_info->num_hw++;
 		}
 	}
@@ -440,11 +461,8 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 			&hw_mgr->csid_hw_caps[i];
 
 		if (ife_csid_caps->is_lite) {
-			if (csid_lite_hw_info == NULL) {
-				csid_lite_hw_info =
-					&query_isp.dev_caps[query_isp.num_dev];
-				query_isp.num_dev++;
-
+			if (!is_csid_lite_hw) {
+				csid_lite_hw_info = &csid_lite_hw_info[*num_dev];
 				csid_lite_hw_info->hw_type =
 					CAM_ISP_HW_CSID_LITE;
 				csid_lite_hw_info->hw_version.major =
@@ -455,16 +473,13 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 					ife_csid_caps->version_incr;
 				csid_lite_hw_info->hw_version.reserved = 0;
 				csid_lite_hw_info->num_hw = 0;
+				(*num_dev)++;
+				is_csid_lite_hw = true;
 			}
-
 			csid_lite_hw_info->num_hw++;
-
 		} else {
-			if (csid_full_hw_info == NULL) {
-				csid_full_hw_info =
-					&query_isp.dev_caps[query_isp.num_dev];
-				query_isp.num_dev++;
-
+			if (!is_csid_full_hw) {
+				csid_full_hw_info = &csid_full_hw_info[*num_dev];
 				csid_full_hw_info->hw_type = CAM_ISP_HW_CSID;
 				csid_full_hw_info->hw_version.major =
 					ife_csid_caps->major_version;
@@ -474,17 +489,54 @@ static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
 					ife_csid_caps->version_incr;
 				csid_full_hw_info->hw_version.reserved = 0;
 				csid_full_hw_info->num_hw = 0;
+				(*num_dev)++;
+				is_csid_full_hw = true;
 			}
-
 			csid_full_hw_info->num_hw++;
 		}
 	}
 
-	if (copy_to_user(u64_to_user_ptr(query->caps_handle),
-		&query_isp, sizeof(struct cam_isp_query_cap_cmd)))
-		rc = -EFAULT;
+	if (version == 0) {
+		if (copy_to_user(u64_to_user_ptr(query->caps_handle),
+			&query_isp, sizeof(struct cam_isp_query_cap_cmd)))
+			rc = -EFAULT;
+	} else {
+		query_isp_v2.ispctx_queue_depth = CAM_IFE_CTX_MAX;
+		if (copy_to_user(u64_to_user_ptr(query->caps_handle),
+			&query_isp_v2, sizeof(struct cam_isp_query_cap_cmd_v2)))
+			rc = -EFAULT;
+	}
 
-	CAM_DBG(CAM_ISP, "exit rc :%d", rc);
+	return rc;
+}
+
+static int cam_ife_mgr_get_hw_caps(void *hw_mgr_priv,
+	void *hw_caps_args)
+{
+	int rc = 0;
+	uint32_t version = 0;
+
+	rc = cam_ife_mgr_get_hw_caps_common(hw_mgr_priv, hw_caps_args, version);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Device Query cap version:%d failed:%d", version, rc);
+
+	return rc;
+}
+
+static int cam_ife_mgr_get_hw_caps_v2(void *hw_mgr_priv,
+	void *hw_caps_args)
+{
+	int rc = 0;
+	uint32_t version;
+	struct cam_query_cap_cmd *query = hw_caps_args;
+
+	if (copy_from_user(&version, u64_to_user_ptr(query->caps_handle), sizeof(version))) {
+		rc = -EFAULT;
+		return rc;
+	}
+	rc = cam_ife_mgr_get_hw_caps_common(hw_mgr_priv, hw_caps_args, version);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Device Query cap version:%d failed:%d", version, rc);
 
 	return rc;
 }
@@ -14938,6 +14990,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	/* fill return structure */
 	hw_mgr_intf->hw_mgr_priv = &g_ife_hw_mgr;
 	hw_mgr_intf->hw_get_caps = cam_ife_mgr_get_hw_caps;
+	hw_mgr_intf->hw_get_caps_v2 = cam_ife_mgr_get_hw_caps_v2;
 	hw_mgr_intf->hw_acquire = cam_ife_mgr_acquire;
 	hw_mgr_intf->hw_start = cam_ife_mgr_start_hw;
 	hw_mgr_intf->hw_stop = cam_ife_mgr_stop_hw;
