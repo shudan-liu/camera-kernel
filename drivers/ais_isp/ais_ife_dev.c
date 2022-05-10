@@ -1,13 +1,6 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2017-2018, 2020-2021, The Linux Foundation. All rights reserved.
- *
- * This program is free software; you can redistribute it and/or modify
- * it under the terms of the GNU General Public License version 2 and
- * only version 2 as published by the Free Software Foundation.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -505,25 +498,19 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d",
-		p_ife_dev->hw_idx, evt_data->msg.type);
+	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d frameId %d structsize%d",
+		p_ife_dev->hw_idx, evt_data->msg.type,
+		evt_data->msg.frame_id, evt_data->msg.reserved);
 
-
-	if (sizeof(evt_data->u) > sizeof(event.u.data)) {
+	if (sizeof(struct ais_ife_event_data) > sizeof(event.u.data)) {
 		CAM_ERR(CAM_ISP, "IFE Msg struct too large (%d)!",
-			sizeof(evt_data->u));
-		return -EINVAL;
-	}
-
-	if (sizeof(evt_data->msg) > sizeof(event.reserved)) {
-		CAM_ERR(CAM_ISP, "IFE Msg union struct too large (%d)!",
-			sizeof(evt_data->msg));
+			sizeof(struct ais_ife_event_data));
 		return -EINVAL;
 	}
 
 	/* Queue the event */
-	memcpy(event.u.data, (void *)&evt_data->u, sizeof(evt_data->u));
-	memcpy(event.reserved, (void *)&evt_data->msg, sizeof(evt_data->msg));
+	memcpy(event.u.data, (void *)evt_data, sizeof(struct ais_ife_event_data));
+
 	event.id = V4L_EVENT_ID_AIS_IFE;
 	event.type = V4L_EVENT_TYPE_AIS_IFE;
 	v4l2_event_queue(p_ife_dev->cam_sd.sd.devnode, &event);
