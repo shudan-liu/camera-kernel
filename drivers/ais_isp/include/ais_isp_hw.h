@@ -476,11 +476,9 @@ struct ais_ife_rdi_get_timestamp_args {
  * @brief SOF event message
  *
  * @hw_ts :   HW timestamp
- * @frame_id : frame count
  */
 struct ais_ife_sof_msg {
 	uint64_t  hw_ts;
-	uint32_t  frame_id;
 };
 
 /**
@@ -501,14 +499,12 @@ struct ais_ife_error_msg {
  *
  * @hw_ts : SOF HW timestamp per batch
  * @ts :    SOF timestamp
- * @frame_id : frame count per batch
  * @buf_idx : buffer index
  * @num_batch_frames : number of batched frames
  */
 struct ais_ife_frame_msg {
 	uint64_t  hw_ts[4];
 	uint64_t  ts;
-	uint32_t  frame_id[4];
 	uint32_t  buf_idx;
 	uint32_t  num_batch_frames;
 };
@@ -527,25 +523,35 @@ enum ais_ife_msg_type {
 	AIS_IFE_MSG_CSID_ERROR
 };
 
+/**
+ * struct ais_ife_event_common_data
+ *
+ * @brief IFE events common fields
+ *
+ * @boot_ts :  event timestamp
+ * @frame_id : frame count
+ * @type     : message type
+ * @idx      : IFE idx
+ * @path     : input/output path
+ * @reserved : reserved for alignment; currently used to store size of
+ *             ais_ife_event_data just to check compatibility in userspace
+ */
 struct ais_ife_event_common_data {
 	uint64_t  boot_ts;
+	uint32_t  frame_id;
 	uint8_t   type;
 	uint8_t   idx;
 	uint8_t   path;
+	uint8_t   reserved;
 };
 
 /**
- * struct ais_ife_frame_msg
+ * struct ais_ife_event_data
  *
- * @brief Frame done event message
+ * @brief IFE events message
  *
- * @type :   message type
- * @idx :    IFE idx
- * @path :   input/output path
- * @reserved: reserved for alignment
- * @reserved1: reserved for alignment
- * @boot_ts : event timestamp
- * @u       : event message
+ * @msg : event common fields struct
+ * @u   : union for event message
  */
 struct ais_ife_event_data {
 	struct ais_ife_event_common_data msg;
@@ -554,48 +560,6 @@ struct ais_ife_event_data {
 		struct ais_ife_sof_msg sof_msg;
 		struct ais_ife_error_msg err_msg;
 		struct ais_ife_frame_msg frame_msg;
-	} u;
-};
-
-/**
- * struct ais_ife_frame_msg
- *
- * @brief Frame done event message
- *
- * @hw_ts : SOF HW timestamp
- * @ts :    SOF timestamp
- * @frame_id : frame count
- * @buf_idx : buffer index
- */
-struct ais_ife_one_frame_msg {
-	uint64_t  hw_ts;
-	uint64_t  ts;
-	uint32_t  frame_id;
-	uint32_t  buf_idx;
-};
-
-/**
- * struct ais_ife_frame_msg
- *
- * @brief Frame done event message
- *
- * @type :   message type
- * @idx :    IFE idx
- * @path :   input/output path
- * @reserved: reserved for alignment
- * @reserved1: reserved for alignment
- * @boot_ts : event timestamp
- * @u       : event message
- */
-struct ais_ife_event_data_without_batch_mode_support {
-	uint64_t  boot_ts;
-	uint8_t   type;
-	uint8_t   idx;
-	uint8_t   path;
-	union {
-		struct ais_ife_sof_msg sof_msg;
-		struct ais_ife_error_msg err_msg;
-		struct ais_ife_one_frame_msg frame_msg;
 	} u;
 };
 

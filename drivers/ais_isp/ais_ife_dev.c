@@ -491,10 +491,6 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 {
 	struct ais_ife_dev  *p_ife_dev;
 	struct v4l2_event event = {};
-	struct ais_ife_event_data_without_batch_mode_support
-				evt_data_one_frame = {};
-	struct ais_ife_event_data_without_batch_mode_support
-				*p_evt_data_one_frame = &evt_data_one_frame;
 
 	p_ife_dev = (struct ais_ife_dev *)priv;
 
@@ -504,64 +500,19 @@ static int ais_ife_dev_cb(void *priv, struct ais_ife_event_data *evt_data)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d boot_ts %llu",
-		p_ife_dev->hw_idx, evt_data->msg.type, evt_data->msg.boot_ts);
+	CAM_DBG(CAM_ISP, "IFE%d CALLBACK %d boot_ts %llu frameId %d structsize%d",
+		p_ife_dev->hw_idx, evt_data->msg.type, evt_data->msg.boot_ts,
+		evt_data->msg.frame_id, evt_data->msg.reserved);
 
-/* Following code is a workaround as reserved field of struct v4l2_event
- * is not enabled currently
- */
-	p_evt_data_one_frame->type = evt_data->msg.type;
-	p_evt_data_one_frame->idx = evt_data->msg.idx;
-	p_evt_data_one_frame->path = evt_data->msg.path;
-	p_evt_data_one_frame->boot_ts = evt_data->msg.boot_ts;
-	if (evt_data->msg.type == AIS_IFE_MSG_FRAME_DONE) {
-		if (evt_data->u.frame_msg.num_batch_frames == 1) {
-			p_evt_data_one_frame->u.frame_msg.hw_ts = evt_data->u.frame_msg.hw_ts[0];
-			p_evt_data_one_frame->u.frame_msg.ts = evt_data->u.frame_msg.ts;
-			p_evt_data_one_frame->u.frame_msg.frame_id =
-							evt_data->u.frame_msg.frame_id[0];
-			p_evt_data_one_frame->u.frame_msg.buf_idx = evt_data->u.frame_msg.buf_idx;
-		} else {
-			CAM_ERR(CAM_ISP, "Batch mode support is not enabled on kernel 5.15");
-			return -EINVAL;
-		}
-	} else if (evt_data->msg.type == AIS_IFE_MSG_SOF) {
-		p_evt_data_one_frame->u.sof_msg.hw_ts = evt_data->u.sof_msg.hw_ts;
-		p_evt_data_one_frame->u.sof_msg.frame_id = evt_data->u.sof_msg.frame_id;
-	} else
-		/* AIS_IFE_MSG_OUTPUT_WARNING, AIS_IFE_MSG_OUTPUT_ERROR,
-		 * AIS_IFE_MSG_CSID_WARNING, AIS_IFE_MSG_CSID_ERROR
-		 */
-		p_evt_data_one_frame->u.err_msg.reserved = evt_data->u.err_msg.reserved;
-
-	if (sizeof(*p_evt_data_one_frame) > sizeof(event.u.data)) {
-		CAM_ERR(CAM_ISP, "IFE Callback struct too large (%d)!",
-			sizeof(*p_evt_data_one_frame));
-		return -EINVAL;
-	}
-
-	/* Queue the event */
-	memcpy(event.u.data, (void *)p_evt_data_one_frame,
-				sizeof(*p_evt_data_one_frame));
-
-/*----workaround ends----*/
-/*
-	if (sizeof(evt_data->u) > sizeof(event.u.data)) {
+	if (sizeof(struct ais_ife_event_data) > sizeof(event.u.data)) {
 		CAM_ERR(CAM_ISP, "IFE Msg struct too large (%d)!",
-			sizeof(evt_data->u));
+			sizeof(struct ais_ife_event_data));
 		return -EINVAL;
 	}
 
-	if (sizeof(evt_data->msg) > sizeof(event.reserved)) {
-		CAM_ERR(CAM_ISP, "IFE Msg union struct too large (%d)!",
-			sizeof(evt_data->msg));
-		return -EINVAL;
-	}
-*/
 	/* Queue the event */
-/*	memcpy(event.u.data, (void *)&evt_data->u, sizeof(evt_data->u));
-	memcpy(event.reserved, (void *)&evt_data->msg, sizeof(evt_data->msg));
-*/
+	memcpy(event.u.data, (void *)evt_data, sizeof(struct ais_ife_event_data));
+
 	event.id = V4L_EVENT_ID_AIS_IFE;
 	event.type = V4L_EVENT_TYPE_AIS_IFE;
 	v4l2_event_queue(p_ife_dev->cam_sd.sd.devnode, &event);
