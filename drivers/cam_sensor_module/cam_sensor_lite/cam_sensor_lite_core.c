@@ -638,18 +638,13 @@ static int __cam_sensor_lite_handle_start_dev(
 				sensor_lite_dev->soc_info.index);
 	}
 
-	if (sensor_lite_dev->type == HOST_DEST_CAM) {
-		if (sensor_lite_dev->start_cmd != NULL) {
-			__send_pkt(sensor_lite_dev,
-				&(sensor_lite_dev->start_cmd->header));
-		} else {
-			CAM_ERR(CAM_SENSOR_LITE,
-					"START CMD not received from user space");
-			rc = -EINVAL;
-		}
+	if (sensor_lite_dev->start_cmd != NULL) {
+		__send_pkt(sensor_lite_dev,
+			&(sensor_lite_dev->start_cmd->header));
 	} else {
 		CAM_ERR(CAM_SENSOR_LITE,
-				"STARTDEV not expected for SLAVE Dest cam");
+				"START CMD not received from user space");
+		rc = -EINVAL;
 	}
 
 	return rc;
@@ -689,18 +684,14 @@ static int __cam_sensor_lite_handle_stop_dev(
 				sensor_lite_dev->soc_info.index);
 	}
 
-	if (sensor_lite_dev->type == HOST_DEST_CAM) {
-		if (sensor_lite_dev->stop_cmd != NULL) {
-			__send_pkt(sensor_lite_dev,
-				&(sensor_lite_dev->stop_cmd->header));
-		} else {
-			CAM_ERR(CAM_SENSOR_LITE, "stop cmd not received from UMD");
-			rc = -EINVAL;
-		}
+	if (sensor_lite_dev->stop_cmd != NULL) {
+		__send_pkt(sensor_lite_dev,
+			&(sensor_lite_dev->stop_cmd->header));
 	} else {
-		CAM_ERR(CAM_SENSOR_LITE,
-				"STOP_DEV not expected for SLAVE Dest cam");
+		CAM_ERR(CAM_SENSOR_LITE, "stop cmd not received from UMD");
+		rc = -EINVAL;
 	}
+
 
 	return rc;
 }
