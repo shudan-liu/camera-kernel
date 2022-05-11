@@ -2276,7 +2276,10 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 			rc = -EFAULT;
 			CAM_ERR(CAM_V4L2, "fail get count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS");
 		} else {
-			if (copy_from_user(&bufs,
+			if (bufs.nbufs > MAX_AIS_BUFFERS_NUM) {
+				rc = -EFAULT;
+				pr_err("invalid buffer count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
+			} else if (copy_from_user(&bufs,
 				u64_to_user_ptr(kcmd->payload),
 				sizeof(bufs.nbufs) + sizeof(int) * bufs.nbufs)) {
 				rc = -EFAULT;
