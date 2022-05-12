@@ -313,6 +313,7 @@ struct v4l2_loopback_device {
 	/* qcarcam open ret*/
 	int qcarcam_ctrl_ret;
 	struct completion open_complete;
+	struct completion close_complete;
 	struct v4l2_fh *open_ret_fh;
 
 	enum V4L2_LOOPBACK_STATE state;
@@ -431,7 +432,8 @@ static void send_v4l2_event(struct v4l2_loopback_opener *opener, unsigned int ty
 	event.id = cmd;
 	event.type = type;
 
-	v4l2_event_queue_fh(&opener->fh, &event);
+	if (opener)
+		v4l2_event_queue_fh(&opener->fh, &event);
 	CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
 		cmd);
 }
@@ -445,7 +447,8 @@ static void send_v4l2_event_ex(struct v4l2_loopback_opener *opener, unsigned int
 	event.type = type;
 	event.u.data[0] = data0;
 
-	v4l2_event_queue_fh(&opener->fh, &event);
+	if (opener)
+		v4l2_event_queue_fh(&opener->fh, &event);
 	CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
 		cmd);
 }
@@ -460,7 +463,8 @@ static void send_v4l2_event_ex1(struct v4l2_loopback_opener *opener, unsigned in
 	event.u.data[0] = data0;
 	event.u.data[1] = data1;
 
-	v4l2_event_queue_fh(&opener->fh, &event);
+	if (opener)
+		v4l2_event_queue_fh(&opener->fh, &event);
 	CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
 		cmd);
 }
@@ -2258,6 +2262,10 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		dev->open_ret_fh = fh;
 		complete(&dev->open_complete);
 		break;
+	case AIS_V4L2_OUTPUT_PRIV_CLOSE_RET:
+		dev->qcarcam_ctrl_ret = kcmd->ctrl_ret;
+		complete(&dev->close_complete);
+		break;
 	case AIS_V4L2_OUTPUT_PRIV_START_RET:
 		data->qcarcam_ctrl_ret = kcmd->ctrl_ret;
 		complete(&data->ctrl_complete);
@@ -2317,7 +2325,8 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 
 			event.u.data[0] = kcmd->param_type;
 			event.u.data[1] = kcmd->size;
-			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+			if (opener->connected_opener)
+				v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
 			CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_INPUT_SIGNAL : %d",
 				event.u.data[2]);
 		}
@@ -2335,7 +2344,8 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 
 			event.u.data[0] = kcmd->param_type;
 			event.u.data[1] = kcmd->size;
-			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+			if (opener->connected_opener)
+				v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
 			CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_ERROR :%d",
 				event.u.data[2]);
 		}
@@ -2352,7 +2362,8 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 			event.id = AIS_V4L2_EVENT_FRAME_DROP;
 			event.u.data[0] = kcmd->param_type;
 			event.u.data[1] = kcmd->size;
-			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+			if (opener->connected_opener)
+				v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
 			pr_debug("send AIS_V4L2_EVENT_FRAME_DROP :%d\n",
 				event.u.data[2]);
 		}
@@ -2609,6 +2620,7 @@ static int v4l2_loopback_close(struct file *file)
 	struct v4l2_streamdata *data;
 	int is_main = 0;
 	int is_writer = 0;
+	int rc = 0;
 
 	MARK();
 	opener = fh_to_opener(file->private_data);
@@ -2641,20 +2653,29 @@ static int v4l2_loopback_close(struct file *file)
 			CAM_WARN(CAM_V4L2, "invalid proxy close, state %d", dev->state);
 	} else if (is_writer) {
 		// todo: refine the close flow
-		if (opener->connected_opener) {
-			opener->connected_opener->connected_opener = NULL;
-			opener->connected_opener = NULL;
-			opener->connected_opener = NULL;
-		}
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
 		mutex_lock(&dev->dev_mutex);
 		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when close", dev->open_count.counter);
 		if (dev->state >= V4L2L_READY_FOR_CAPTURE) {
 			if (opener->connected_opener) {
-				opener->connected_opener->connected_opener = NULL;
+
 				send_v4l2_event(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
 					AIS_V4L2_CLOSE_INPUT);
+				rc = wait_for_completion_timeout(&dev->close_complete,
+						msecs_to_jiffies(CLOSE_TIMEOUT));
+				if (rc) {
+					if (!dev->qcarcam_ctrl_ret) {
+						CAM_INFO(CAM_V4L2, "app close succeed dev=%s",
+							dev->vdev->name);
+					} else {
+						CAM_ERR(CAM_V4L2, "app close fail dev=%s",
+							dev->vdev->name);
+					}
+				} else {
+					CAM_ERR(CAM_V4L2, "close fail dev=%s, timeout %d",
+					dev->vdev->name, rc);
+				}
 
 				atomic_dec(&dev->open_count);
 				if (dev->open_count.counter < max_openers)
@@ -2677,6 +2698,7 @@ static int v4l2_loopback_close(struct file *file)
 	v4l2_fh_exit(file->private_data);
 
 	kfree(opener);
+	opener = NULL;
 
 	MARK();
 
@@ -2948,6 +2970,7 @@ static int v4l2_loopback_init(struct v4l2_loopback_device *dev, int nr)
 	dev->v4l2_dev.ctrl_handler = hdl;
 
 	init_completion(&dev->open_complete);
+	init_completion(&dev->close_complete);
 
 	MARK();
 	return 0;
