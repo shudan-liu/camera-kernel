@@ -842,6 +842,8 @@ int32_t __cam_sensor_lite_handle_probe(
 			return -ENOMEM;
 		}
 
+		sensor_lite_dev->acquire_cmd->sensor_id             =
+			probe->sensor_physical_id;
 		sensor_lite_dev->acquire_cmd->power_settings_offset =
 			sizeof(struct sensor_lite_acquire_cmd);
 		sensor_lite_dev->acquire_cmd->power_settings_size   =
@@ -881,6 +883,8 @@ int32_t __cam_sensor_lite_handle_probe(
 		__set_slave_pkt_headers(&(sensor_lite_dev->release_cmd->header),
 				HCM_PKT_OPCODE_SENSOR_RELEASE);
 
+		sensor_lite_dev->release_cmd->sensor_id             =
+			probe->sensor_physical_id;
 		sensor_lite_dev->release_cmd->power_settings_offset =
 			sizeof(struct sensor_lite_release_cmd);
 		sensor_lite_dev->release_cmd->power_settings_size   =
