@@ -572,12 +572,14 @@ struct sensor_lite_perframe_cmd {
  */
 struct sensor_lite_acquire_cmd {
 	struct sensor_lite_header        header;
+	uint32_t                         sensor_id;
 	uint32_t                         power_settings_offset;
 	uint32_t                         power_settings_size;
 } __packed;
 
 struct sensor_lite_release_cmd {
 	struct sensor_lite_header        header;
+	uint32_t                         sensor_id;
 	uint32_t                         power_settings_offset;
 	uint32_t                         power_settings_size;
 } __packed;
