@@ -385,6 +385,12 @@ int __dump_slave_dest_init_cmd(
 			init->groupholdoff_settings_count,
 			init->header.size);
 
+	/* dump fsin settings */
+	__dump_reg_settings((void *)init,
+			init->fsin_settings_offset,
+			init->fsin_settings_count,
+			init->header.size);
+
 	/* dump resolutions */
 	__dump_resolutions(init,
 			init->resolution_data_offset,
@@ -490,7 +496,8 @@ int __send_probe_pkt(
 			msecs_to_jiffies(PROBE_RESPONSE_TIMEOUT));
 	if (!rem_jiffies) {
 		rc = -ETIMEDOUT;
-		CAM_ERR(CAM_RPMSG, "probe response timed out %d\n", rc);
+		CAM_ERR(CAM_SENSOR_LITE, "Probe response timed out for index: %d rc: %d\n",
+				sensor_lite_dev->soc_info.index, rc);
 		goto err;
 	}
 
