@@ -405,6 +405,32 @@ static int __cam_sensor_lite_handle_perframe(
 	return rc;
 }
 
+static int __cam_sensor_lite_handle_exposure_update(
+	struct sensor_lite_device         *sensor_lite_dev,
+	struct sensor_lite_exp_ctrl_cmd   *cmd,
+	uint64_t                          request_id)
+{
+	int rc = 0;
+	struct cam_req_mgr_add_request add_req = {0};
+
+	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
+			(sensor_lite_dev->crm_intf.enable_crm)) {
+		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
+		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
+		add_req.req_id   = request_id;
+		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
+					sensor_lite_dev->soc_info.index,
+					sensor_lite_dev->crm_intf.enable_crm,
+					request_id);
+	}
+	__send_pkt(sensor_lite_dev,
+			(struct sensor_lite_header *)cmd);
+	return rc;
+}
 
 static int cam_sensor_lite_validate_cmd_descriptor(
 	struct sensor_lite_device *sensor_lite_dev,
@@ -537,6 +563,12 @@ static int cam_sensor_lite_cmd_buf_parse(
 				packet->header.request_id);
 			break;
 		}
+		case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE: {
+			__cam_sensor_lite_handle_exposure_update(sensor_lite_dev,
+				(struct sensor_lite_exp_ctrl_cmd *)cmd_addr,
+				packet->header.request_id);
+			break;
+		}
 		default:
 			CAM_INFO(CAM_SENSOR_LITE,
 				"invalid packet tag received ignore for now %d",
@@ -593,6 +625,7 @@ static int cam_sensor_lite_packet_parse(
 			csl_packet->num_io_configs,
 			csl_packet->num_patches);
 	switch ((csl_packet->header.op_code & 0xFF)) {
+	case CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE:
 	case CAM_SENSOR_LITE_PACKET_OPCODE_INITIAL_CONFIG: {
 		if (csl_packet->num_cmd_buf <= 0) {
 			CAM_ERR(CAM_SENSOR_LITE, "Expecting atleast one command in Init packet");
