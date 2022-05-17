@@ -7,7 +7,7 @@
 
 #define SENSOR_LITE_INFO(fmt, args...) CAM_INFO(CAM_SENSOR_LITE, fmt, ##args)
 #define SENSOR_LITE_DBG(fmt, args...)  CAM_DBG(CAM_SENSOR_LITE, fmt, ##args)
-#define PROBE_RESPONSE_TIMEOUT 150
+#define PROBE_RESPONSE_TIMEOUT 500
 
 void __dump_slave_pkt_headers(
 		struct sensor_lite_header *header)
