@@ -1933,7 +1933,8 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (csiphy_dev->is_aggregator_rx)
-			csiphy_dev->session_max_device_support = CSIPHY_MAX_INSTANCES_PER_PHY;
+			csiphy_dev->session_max_device_support =
+				CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY;
 
 		bridge_params.ops = NULL;
 		bridge_params.session_hdl = csiphy_acq_dev.session_handle;

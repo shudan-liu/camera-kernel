@@ -278,7 +278,7 @@ int32_t cam_csiphy_parse_dt_info(struct platform_device *pdev,
 		is_regulator_enable_sync = 0;
 	}
 
-	if (!of_property_read_bool(soc_info->dev->of_node, "is-aggregator-rx"))
+	if (!of_property_read_bool(soc_info->dev->of_node, "aggregator-rx"))
 		csiphy_dev->is_aggregator_rx = false;
 	else
 		csiphy_dev->is_aggregator_rx = true;
