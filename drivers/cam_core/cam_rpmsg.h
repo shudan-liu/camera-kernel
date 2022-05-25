@@ -370,9 +370,15 @@ struct cam_rpmsg_slave_cbs {
 
 /** struct cam_rpmsg_slave_pvt - slave channel private data
  *
- * @cbs : slave client callback data
+ * @tx_dump : bool to enable/disable hexdump of slave tx packets
+ * @rx_dump : bool to enable/disable hexdump of slave rx packets
+ * @dentry  : directory entry of debugfs entries
+ * @cbs     : slave client callback data
  */
 struct cam_rpmsg_slave_pvt {
+	bool tx_dump;
+	bool rx_dump;
+	struct dentry *dentry;
 	struct cam_rpmsg_slave_cbs cbs[CAM_RPMSG_SLAVE_CLIENT_MAX];
 };
 
