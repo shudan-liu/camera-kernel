@@ -69,7 +69,7 @@
 #define CAM_IFE_CSID_BIN_QCFA                             BIT(1)
 #define CAM_IFE_CSID_BIN_VERTICAL                         BIT(2)
 
-#define CAM_IFE_CSID_WIDTH_FUSE_VAL_MAX			  4
+#define CAM_IFE_CSID_WIDTH_FUSE_VAL_MAX                   4
 
 /* enum for multiple mem base in some of the targets */
 enum cam_ife_csid_mem_base_id {

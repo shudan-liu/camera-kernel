@@ -1278,8 +1278,11 @@ int cam_isp_add_reg_update(
 				res->hw_intf->hw_priv,
 				CAM_ISP_HW_CMD_GET_REG_UPDATE, &get_regup,
 				sizeof(struct cam_isp_hw_get_cmd_update));
-			if (rc)
+			if (rc) {
+				CAM_ERR(CAM_ISP, "get_reg_update failed %ps",
+						res->hw_intf->hw_ops.process_cmd);
 				return rc;
+			}
 
 			CAM_DBG(CAM_ISP,
 				"Reg update added for res %d hw_id %d cdm_idx %d",

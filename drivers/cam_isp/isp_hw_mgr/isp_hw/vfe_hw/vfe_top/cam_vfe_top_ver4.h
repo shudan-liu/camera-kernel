@@ -15,6 +15,12 @@
 #define CAM_VFE_CAMIF_LITE_EVT_MAX                     256
 #define CAM_VFE_TOP_DBG_REG_MAX                        17
 
+struct cam_vfe_top_ver4_common_data {
+	struct cam_hw_intf                         *hw_intf;
+	struct cam_vfe_top_ver4_reg_offset_common  *common_reg;
+	struct cam_vfe_top_ver4_hw_info            *hw_info;
+};
+
 struct cam_vfe_top_ver4_reg_offset_common {
 	uint32_t hw_version;
 	uint32_t titan_version;
@@ -111,6 +117,63 @@ struct cam_vfe_top_ver4_debug_reg_info {
 	char     *clc_name;
 };
 
+enum cam_vfe_top_ver4_fsm_state {
+	VFE_TOP_VER4_FSM_SOF = 0,
+	VFE_TOP_VER4_FSM_EPOCH,
+	VFE_TOP_VER4_FSM_EOF,
+	VFE_TOP_VER4_FSM_MAX,
+};
+
+struct cam_vfe_mux_ver4_data {
+	void __iomem                                *mem_base;
+	struct cam_hw_soc_info                      *soc_info;
+	struct cam_hw_intf                          *hw_intf;
+	struct cam_vfe_top_ver4_reg_offset_common   *common_reg;
+	struct cam_vfe_top_common_cfg                cam_common_cfg;
+	struct cam_vfe_ver4_path_reg_data           *reg_data;
+	struct cam_vfe_top_ver4_priv                *top_priv;
+
+	cam_hw_mgr_event_cb_func             event_cb;
+	void                                *priv;
+	int                                  irq_err_handle;
+	int                                  irq_handle;
+	int                                  frame_irq_handle;
+	void                                *vfe_irq_controller;
+	struct cam_vfe_top_irq_evt_payload   evt_payload[CAM_VFE_CAMIF_EVT_MAX];
+	struct list_head                     free_payload_list;
+	spinlock_t                           spin_lock;
+
+	enum cam_isp_hw_sync_mode          sync_mode;
+	uint32_t                           dsp_mode;
+	uint32_t                           pix_pattern;
+	uint32_t                           first_pixel;
+	uint32_t                           first_line;
+	uint32_t                           last_pixel;
+	uint32_t                           last_line;
+	uint32_t                           hbi_value;
+	uint32_t                           vbi_value;
+	bool                               enable_sof_irq_debug;
+	uint32_t                           irq_debug_cnt;
+	uint32_t                           camif_debug;
+	uint32_t                           horizontal_bin;
+	uint32_t                           qcfa_bin;
+	uint32_t                           dual_hw_idx;
+	uint32_t                           is_dual;
+	uint32_t                           epoch_factor;
+	bool                               is_fe_enabled;
+	bool                               is_offline;
+	bool                               is_lite;
+	bool                               is_pixel_path;
+	bool                               sfe_binned_epoch_cfg;
+
+	struct timespec64                  sof_ts;
+	struct timespec64                  epoch_ts;
+	struct timespec64                  eof_ts;
+	struct timespec64                  error_ts;
+	enum cam_vfe_top_ver4_fsm_state    fsm_state;
+	uint32_t                           n_frame_irqs;
+};
+
 struct cam_vfe_top_ver4_hw_info {
 	struct cam_vfe_top_ver4_reg_offset_common  *common_reg;
 	struct cam_vfe_ver4_path_hw_info            vfe_full_hw_info;
@@ -153,6 +216,12 @@ int cam_vfe_top_ver4_init(struct cam_hw_soc_info     *soc_info,
 	void                                         *top_hw_info,
 	void                                         *vfe_irq_controller,
 	struct cam_vfe_top                          **vfe_top);
+
+int cam_vfe_populate_top(
+	struct cam_vfe_top_ver4_priv      *top_priv,
+	struct cam_isp_resource_node      *vfe_res,
+	uint32_t                          *reg_payload,
+	uint32_t                          *idx);
 
 int cam_vfe_top_ver4_deinit(struct cam_vfe_top      **vfe_top);
 

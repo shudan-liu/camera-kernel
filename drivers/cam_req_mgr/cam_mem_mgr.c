@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -26,6 +27,7 @@
 #include "cam_common_util.h"
 #include "cam_presil_hw_access.h"
 #include "cam_compat.h"
+#include "cam_fastrpc.h"
 
 #define CAM_MEM_SHARED_BUFFER_PAD_4K (4 * 1024)
 
@@ -288,9 +290,11 @@ int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 	}
 
 	idx = CAM_MEM_MGR_GET_HDL_IDX(buf_handle);
-	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
+	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
+		CAM_ERR(CAM_MEM,
+			"invalid idx %d for buf handle 0x%x", idx, buf_handle);
 		return -ENOENT;
-
+	}
 	if (!tbl.bufq[idx].active) {
 		CAM_ERR(CAM_MEM, "Buffer at idx=%d is already unmapped,",
 			idx);
@@ -502,11 +506,9 @@ static int cam_mem_mgr_get_dma_heaps(void)
 
 	tbl.secure_display_heap = dma_heap_find("qcom,display");
 	if (IS_ERR_OR_NULL(tbl.secure_display_heap)) {
-		rc = PTR_ERR(tbl.secure_display_heap);
-		CAM_ERR(CAM_MEM, "qcom,display heap not found, rc=%d",
-			rc);
+		CAM_INFO(CAM_MEM, "qcom,display heap not found, rc=%d",
+			PTR_ERR(tbl.secure_display_heap));
 		tbl.secure_display_heap = NULL;
-		goto put_heaps;
 	}
 
 	tbl.camera_heap = dma_heap_find("qcom,camera");
@@ -749,7 +751,6 @@ static int cam_mem_util_buffer_alloc(size_t len, uint32_t flags,
 	unsigned long *i_ino)
 {
 	int rc;
-	struct dma_buf *temp_dmabuf = NULL;
 
 	rc = cam_mem_util_get_dma_buf(len, flags, dmabuf, i_ino);
 	if (rc) {
@@ -758,6 +759,13 @@ static int cam_mem_util_buffer_alloc(size_t len, uint32_t flags,
 			len, flags);
 		return rc;
 	}
+
+	/*
+	 * increment the ref count so that ref count becomes 2 here
+	 * when we close fd, refcount becomes 1 and when we do
+	 * dmap_put_buf, ref count becomes 0 and memory will be freed.
+	 */
+	get_dma_buf(*dmabuf);
 
 	*fd = dma_buf_fd(*dmabuf, O_CLOEXEC);
 	if (*fd < 0) {
@@ -768,18 +776,6 @@ static int cam_mem_util_buffer_alloc(size_t len, uint32_t flags,
 
 	CAM_DBG(CAM_MEM, "Alloc success : len=%zu, *dmabuf=%pK, fd=%d, i_ino=%lu",
 		len, *dmabuf, *fd, *i_ino);
-
-	/*
-	 * increment the ref count so that ref count becomes 2 here
-	 * when we close fd, refcount becomes 1 and when we do
-	 * dmap_put_buf, ref count becomes 0 and memory will be freed.
-	 */
-	temp_dmabuf = dma_buf_get(*fd);
-	if (IS_ERR_OR_NULL(temp_dmabuf)) {
-		rc = PTR_ERR(temp_dmabuf);
-		CAM_ERR(CAM_MEM, "dma_buf_get failed, *fd=%d, i_ino=%lu, rc=%d", *fd, *i_ino, rc);
-		goto put_buf;
-	}
 
 	return rc;
 
@@ -809,6 +805,15 @@ static int cam_mem_util_check_alloc_flags(struct cam_mem_mgr_alloc_cmd *cmd)
 			"Kernel mapping and secure mode not allowed in no pixel mode");
 		return -EINVAL;
 	}
+
+	if ((cmd->flags & CAM_MEM_FLAG_NSP_ACCESS) &&
+		(cmd->flags & CAM_MEM_FLAG_KMD_ACCESS))
+	{
+		CAM_ERR(CAM_MEM,
+			"Kernel mapping and with nsp mapping not allowed");
+		return -EINVAL;
+	}
+
 	return 0;
 }
 
@@ -1039,6 +1044,13 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	cmd->out.fd = tbl.bufq[idx].fd;
 	cmd->out.vaddr = 0;
 
+	if (cmd->flags & CAM_MEM_FLAG_NSP_ACCESS)
+	{
+		cam_fastrpc_dev_map_dma(&tbl.bufq[idx],
+			true,
+			&cmd->out.vaddr);
+	}
+
 	CAM_DBG(CAM_MEM,
 		"fd=%d, flags=0x%x, num_hdl=%d, idx=%d, buf handle=%x, len=%zu, i_ino=%lu",
 		cmd->out.fd, cmd->flags, cmd->num_hdl, idx, cmd->out.buf_handle,
@@ -1106,7 +1118,8 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 
 	dmabuf = dma_buf_get(cmd->fd);
 	if (IS_ERR_OR_NULL((void *)(dmabuf))) {
-		CAM_ERR(CAM_MEM, "Failed to import dma_buf fd");
+		CAM_ERR(CAM_MEM, "Failed to import dma_buf fd %d, err %d",
+			cmd->fd, PTR_ERR(dmabuf));
 		return -EINVAL;
 	}
 
@@ -1396,6 +1409,10 @@ static int cam_mem_util_unmap(int32_t idx,
 		if (client == CAM_SMMU_MAPPING_KERNEL)
 			tbl.bufq[idx].dma_buf = NULL;
 	}
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_NSP_ACCESS)
+	{
+		cam_fastrpc_dev_unmap_dma(&tbl.bufq[idx]);
+	}
 
 	mutex_lock(&tbl.m_lock);
 	mutex_lock(&tbl.bufq[idx].q_lock);
@@ -1452,7 +1469,7 @@ int cam_mem_mgr_release(struct cam_mem_mgr_release_cmd *cmd)
 	}
 
 	if (!tbl.bufq[idx].active) {
-		CAM_ERR(CAM_MEM, "Released buffer state should be active");
+		CAM_ERR(CAM_MEM, "Released buffer state should be active idx %d", idx);
 		return -EINVAL;
 	}
 
@@ -1463,7 +1480,8 @@ int cam_mem_mgr_release(struct cam_mem_mgr_release_cmd *cmd)
 		return -EINVAL;
 	}
 
-	CAM_DBG(CAM_MEM, "Releasing hdl = %x, idx = %d", cmd->buf_handle, idx);
+	CAM_DBG(CAM_MEM, "Releasing hdl = %x, idx = %d, fd %x",
+		cmd->buf_handle, idx, tbl.bufq[idx].fd);
 	rc = cam_mem_util_unmap(idx, CAM_SMMU_MAPPING_USER);
 
 	return rc;

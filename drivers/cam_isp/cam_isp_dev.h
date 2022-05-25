@@ -30,6 +30,7 @@ struct cam_isp_dev {
 	int32_t                    open_cnt;
 	uint32_t                   isp_device_type;
 	int32_t                    max_context;
+	struct notifier_block      nb;
 };
 
 /**

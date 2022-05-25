@@ -422,6 +422,22 @@ struct cam_hw_cmd_args {
 };
 
 /**
+ * struct cam_virt_process_cmd - process command args for virtua HW
+ *
+ * @pkt:               Pointer to slave packet buffer
+ * @off:               Offset in slave pkt buffer
+ * @acquire_type:      Acquire type Virtual, Real or Hybrid
+ * @args:              Arguments to process command
+ *
+ */
+struct cam_virt_process_cmd {
+	uint32_t *pkt;
+	uint32_t *off;
+	uint32_t  acquire_type;
+	void     *args;
+};
+
+/**
  * struct cam_hw_mini_dump_args - Mini Dump arguments
  *
  * @start_addr:          Start address of buffer

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -19,6 +20,8 @@
 #include "cam_debug_util.h"
 #include "cam_smmu_api.h"
 #include "camera_main.h"
+#include "cam_rpmsg.h"
+#include "cam_req_mgr_dev.h"
 
 static struct cam_isp_dev g_isp_dev;
 
@@ -36,6 +39,49 @@ static void cam_isp_dev_iommu_fault_handler(struct cam_smmu_pf_info *pf_info)
 
 	for (i = 0; i < node->ctx_size; i++)
 		cam_context_dump_pf_info(&(node->ctx_list[i]), pf_info);
+}
+
+static int cam_isp_slave_status_update(struct notifier_block *nb,
+		unsigned long val, void *data)
+{
+	if (val == CAM_REQ_MGR_SLAVE_UP)
+		CAM_INFO(CAM_ISP, "slave connected");
+	else if (val == CAM_REQ_MGR_SLAVE_DOWN)
+		CAM_INFO(CAM_ISP, "slave disconnected");
+	else
+		CAM_ERR(CAM_ISP, "Unknown status %d", val);
+
+	return 0;
+}
+
+static int cam_isp_slave_recv_cb(void *cookie, void *data, int len)
+{
+	int pld_type, pld_sz, rc = -1;
+	struct cam_rpmsg_slave_payload_desc *pld = data;
+
+	pld_type = CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(pld);
+	pld_sz = CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(pld);
+	CAM_DBG(CAM_ISP, "Recv %d bytes, type %X", len, pld_type);
+
+	if (pld_type == CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_ERROR) {
+		struct cam_rpmsg_isp_err_payload *e_pld =
+			(struct cam_rpmsg_isp_err_payload *)pld;
+		struct cam_req_mgr_message msg = {0};
+
+		CAM_ERR(CAM_ISP, "type %d sensor_id %d sz %d",
+				e_pld->err_type, e_pld->sensor_id, e_pld->size);
+		if (cam_req_mgr_notify_message(&msg,
+			V4L_EVENT_CAM_REQ_MGR_SLAVE_ERROR,
+			e_pld->err_type))
+			CAM_ERR(CAM_ISP, "Error in notifying slave error %d",
+				e_pld->err_type);
+		rc = 0;
+	} else {
+		CAM_ERR(CAM_ISP, "Unknown pkt type %d", pld_type);
+		rc = -1;
+	}
+
+	return rc;
 }
 
 static const struct of_device_id cam_isp_dt_match[] = {
@@ -107,14 +153,14 @@ static const struct v4l2_subdev_internal_ops cam_isp_subdev_internal_ops = {
 static int cam_isp_dev_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
-	int rc = -1;
-	int i;
+	int                            rc = -1, i;
 	struct cam_hw_mgr_intf         hw_mgr_intf;
 	struct cam_node               *node;
 	const char                    *compat_str = NULL;
-	struct platform_device *pdev = to_platform_device(dev);
-
-	int iommu_hdl = -1;
+	struct platform_device        *pdev = to_platform_device(dev);
+	int                            handle = -1;
+	struct cam_rpmsg_slave_cbs     rpmsg_cbs = {0};
+	int                            iommu_hdl = -1;
 
 	rc = of_property_read_string_index(pdev->dev.of_node, "arch-compat", 0,
 		(const char **)&compat_str);
@@ -197,6 +243,12 @@ static int cam_isp_dev_component_bind(struct device *dev,
 		cam_isp_dev_iommu_fault_handler, node);
 
 	mutex_init(&g_isp_dev.isp_mutex);
+
+	g_isp_dev.nb.notifier_call = cam_isp_slave_status_update;
+	handle = cam_rpmsg_get_handle("helios");
+	cam_rpmsg_register_status_change_event(handle, &g_isp_dev.nb);
+	rpmsg_cbs.recv = cam_isp_slave_recv_cb;
+	cam_rpmsg_subscribe_slave_callback(CAM_RPMSG_SLAVE_CLIENT_ISP, rpmsg_cbs);
 
 	CAM_DBG(CAM_ISP, "Component bound successfully");
 

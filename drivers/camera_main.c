@@ -14,6 +14,7 @@
 #include "cam_rpmsg.h"
 
 #include "cam_ife_csid_dev.h"
+#include "cam_ife_virt_csid_mod.h"
 #include "cam_vfe.h"
 #include "cam_sfe_dev.h"
 #include "cam_isp_dev.h"
@@ -26,6 +27,8 @@
 #include "cam_eeprom_dev.h"
 #include "cam_ois_dev.h"
 #include "cam_tpg_dev.h"
+#include "cam_sensor_lite_dev.h"
+#include "cam_csiphy_remote_dev.h"
 #include "cam_flash_dev.h"
 
 #include "a5_core.h"
@@ -60,6 +63,11 @@
 #include "cam_tfe_csid.h"
 #include "cam_csid_ppi100.h"
 #include "camera_main.h"
+
+#include "cam_generated_h"
+
+const char camera_banner[] = "Camera-Banner: (" CAMERA_COMPILE_BY "@"
+	CAMERA_COMPILE_HOST ") (" CAMERA_COMPILE_TIME ")";
 
 #ifdef CONFIG_CAM_PRESIL
 extern int cam_presil_framework_dev_init_from_main(void);
@@ -99,7 +107,9 @@ static const struct camera_submodule_component camera_isp[] = {
 #ifdef CONFIG_SPECTRA_ISP
 	{&cam_ife_csid_init_module, &cam_ife_csid_exit_module},
 	{&cam_ife_csid_lite_init_module, &cam_ife_csid_lite_exit_module},
+	{&cam_ife_virt_csid_init_module, &cam_ife_virt_csid_exit_module},
 	{&cam_vfe_init_module, &cam_vfe_exit_module},
+	{&cam_virt_vfe_init_module, &cam_virt_vfe_exit_module},
 	{&cam_sfe_init_module, &cam_sfe_exit_module},
 	{&cam_isp_dev_init_module, &cam_isp_dev_exit_module},
 #endif
@@ -116,6 +126,8 @@ static const struct camera_submodule_component camera_sensor[] = {
 	{&cam_eeprom_driver_init, &cam_eeprom_driver_exit},
 	{&cam_ois_driver_init, &cam_ois_driver_exit},
 	{&cam_flash_init_module, &cam_flash_exit_module},
+	{&cam_sensor_lite_init_module, &cam_sensor_lite_exit_module},
+	{&cam_csiphy_remote_init_module, &cam_csiphy_remote_exit_module},
 #endif
 };
 
@@ -287,6 +299,7 @@ static int camera_init(void)
 	int rc;
 	uint i, j, num_inits;
 
+	CAM_INFO(CAM_UTIL, "%s", camera_banner);
 	rc = camera_verify_submodules();
 	if (rc)
 		goto end_init;

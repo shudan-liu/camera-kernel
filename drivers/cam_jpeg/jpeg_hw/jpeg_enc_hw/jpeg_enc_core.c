@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -81,7 +82,6 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 	axi_vote.axi_path[1].mnoc_ab_bw = JPEG_VOTE;
 	axi_vote.axi_path[1].mnoc_ib_bw = JPEG_VOTE;
 
-
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&ahb_vote, &axi_vote);
 	if (rc) {
@@ -89,7 +89,7 @@ int cam_jpeg_enc_init_hw(void *device_priv,
 		goto cpas_failed;
 	}
 
-	rc = cam_jpeg_enc_enable_soc_resources(soc_info);
+	rc = cam_jpeg_enc_enable_soc_resources(soc_info, 0);
 	if (rc) {
 		CAM_ERR(CAM_JPEG, "soc enable is failed %d", rc);
 		goto soc_failed;
@@ -150,7 +150,7 @@ int cam_jpeg_enc_deinit_hw(void *device_priv,
 	spin_lock_irqsave(&jpeg_enc_dev->hw_lock, flags);
 	jpeg_enc_dev->hw_state = CAM_HW_STATE_POWER_DOWN;
 	spin_unlock_irqrestore(&jpeg_enc_dev->hw_lock, flags);
-	rc = cam_jpeg_enc_disable_soc_resources(soc_info);
+	rc = cam_jpeg_enc_disable_soc_resources(soc_info, 0);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "soc disable failed %d", rc);
 

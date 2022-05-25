@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -33,6 +34,7 @@
 #define MAX_PHY_MSK_PER_REG 4
 
 static DEFINE_MUTEX(active_csiphy_cnt_mutex);
+static DEFINE_MUTEX(main_aon_selection);
 
 static int csiphy_onthego_reg_count;
 static unsigned int csiphy_onthego_regs[150];
@@ -43,12 +45,36 @@ struct g_csiphy_data {
 	void __iomem *base_address;
 	uint8_t is_3phase;
 	uint32_t cpas_handle;
+	uint64_t data_rate_aux_mask;
+	bool is_configured_for_main;
 	bool enable_aon_support;
 	struct cam_csiphy_aon_sel_params_t *aon_sel_param;
 };
 
 static struct g_csiphy_data g_phy_data[MAX_CSIPHY] = {{0, 0}};
 static int active_csiphy_hw_cnt;
+
+void cam_csiphy_update_auxiliary_mask(struct csiphy_device *csiphy_dev)
+{
+	if (!csiphy_dev) {
+		CAM_ERR(CAM_CSIPHY, "Invalid param");
+		return;
+	}
+
+	if (!g_phy_data[csiphy_dev->soc_info.index].is_3phase) {
+		CAM_INFO_RATE_LIMIT(CAM_CSIPHY, "2PH Sensor is connected to the PHY");
+		return;
+	}
+
+	g_phy_data[csiphy_dev->soc_info.index].data_rate_aux_mask |=
+			BIT_ULL(csiphy_dev->curr_data_rate_idx);
+
+	CAM_DBG(CAM_CSIPHY,
+		"CSIPHY[%u] configuring aux settings curr_data_rate_idx: %u curr_data_rate: %llu curr_aux_mask: 0x%lx",
+		csiphy_dev->soc_info.index, csiphy_dev->curr_data_rate_idx,
+		csiphy_dev->current_data_rate,
+		g_phy_data[csiphy_dev->soc_info.index].data_rate_aux_mask);
+}
 
 int32_t cam_csiphy_get_instance_offset(
 	struct csiphy_device *csiphy_dev,
@@ -73,6 +99,47 @@ int32_t cam_csiphy_get_instance_offset(
 	}
 
 	return i;
+}
+
+static int cam_csiphy_cpas_ops(
+	uint32_t cpas_handle, bool start)
+{
+	int rc = 0;
+	struct cam_ahb_vote ahb_vote;
+	struct cam_axi_vote axi_vote = {0};
+
+	if (start) {
+		ahb_vote.type = CAM_VOTE_ABSOLUTE;
+		ahb_vote.vote.level = CAM_LOWSVS_VOTE;
+		axi_vote.num_paths = 1;
+		axi_vote.axi_path[0].path_data_type =
+			CAM_AXI_PATH_DATA_ALL;
+		axi_vote.axi_path[0].transac_type =
+			CAM_AXI_TRANSACTION_WRITE;
+		axi_vote.axi_path[0].camnoc_bw =
+			CAM_CPAS_DEFAULT_AXI_BW;
+		axi_vote.axi_path[0].mnoc_ab_bw =
+			CAM_CPAS_DEFAULT_AXI_BW;
+		axi_vote.axi_path[0].mnoc_ib_bw =
+			CAM_CPAS_DEFAULT_AXI_BW;
+
+		rc = cam_cpas_start(cpas_handle,
+			&ahb_vote, &axi_vote);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d", rc);
+			return rc;
+		}
+		CAM_DBG(CAM_CSIPHY, "CPAS START");
+	} else {
+		rc = cam_cpas_stop(cpas_handle);
+		if (rc < 0) {
+			CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
+			return rc;
+		}
+		CAM_DBG(CAM_CSIPHY, "CPAS STOPPED");
+	}
+
+	return rc;
 }
 
 static void cam_csiphy_reset_phyconfig_param(struct csiphy_device *csiphy_dev,
@@ -816,10 +883,10 @@ static int cam_csiphy_cphy_data_rate_config(
 {
 	int i = 0;
 	int lane_idx = -1;
-	int data_rate_idx = -1;
+	uint8_t data_rate_idx;
 	uint64_t required_phy_data_rate = 0;
 	void __iomem *csiphybase = NULL;
-	ssize_t num_data_rates = 0;
+	uint8_t num_data_rates = 0;
 	struct data_rate_settings_t *settings_table = NULL;
 	struct csiphy_cphy_per_lane_info *per_lane = NULL;
 	uint32_t lane_enable = 0;
@@ -843,12 +910,9 @@ static int cam_csiphy_cphy_data_rate_config(
 	}
 
 	required_phy_data_rate = csiphy_device->csiphy_info[idx].data_rate;
-	csiphybase =
-		csiphy_device->soc_info.reg_map[0].mem_base;
-	settings_table =
-		csiphy_device->ctrl_reg->data_rates_settings_table;
-	num_data_rates =
-		settings_table->num_data_rate_settings;
+	csiphybase = csiphy_device->soc_info.reg_map[0].mem_base;
+	settings_table = csiphy_device->ctrl_reg->data_rates_settings_table;
+	num_data_rates = settings_table->num_data_rate_settings;
 	lane_cnt = csiphy_device->csiphy_info[idx].lane_cnt;
 
 	intermediate_var = csiphy_device->csiphy_info[idx].settle_time;
@@ -857,13 +921,10 @@ static int cam_csiphy_cphy_data_rate_config(
 	skew_cal_enable = csiphy_device->csiphy_info[idx].mipi_flags;
 
 	CAM_DBG(CAM_CSIPHY, "required data rate : %llu", required_phy_data_rate);
-	for (data_rate_idx = 0; data_rate_idx < num_data_rates;
-			data_rate_idx++) {
-		struct data_rate_reg_info_t *drate_settings =
-			settings_table->data_rate_settings;
+	for (data_rate_idx = 0; data_rate_idx < num_data_rates; data_rate_idx++) {
+		struct data_rate_reg_info_t *drate_settings = settings_table->data_rate_settings;
 		uint64_t supported_phy_bw = drate_settings[data_rate_idx].bandwidth;
-		ssize_t  num_reg_entries =
-			drate_settings[data_rate_idx].data_rate_reg_array_size;
+		ssize_t  num_reg_entries = drate_settings[data_rate_idx].data_rate_reg_array_size;
 
 		if ((required_phy_data_rate > supported_phy_bw) &&
 			(data_rate_idx < (num_data_rates - 1))) {
@@ -894,27 +955,21 @@ static int cam_csiphy_cphy_data_rate_config(
 			per_lane = &drate_settings[data_rate_idx].per_lane_info[lane_idx];
 
 			for (i = 0; i < num_reg_entries; i++) {
-				reg_addr = per_lane->csiphy_data_rate_regs[i]
-					.reg_addr;
-				reg_data = per_lane->csiphy_data_rate_regs[i]
-					.reg_data;
+				reg_addr = per_lane->csiphy_data_rate_regs[i].reg_addr;
+				reg_data = per_lane->csiphy_data_rate_regs[i].reg_data;
 				reg_param_type =
-					per_lane->csiphy_data_rate_regs[i]
-					.csiphy_param_type;
-				delay = per_lane->csiphy_data_rate_regs[i]
-					.delay;
+					per_lane->csiphy_data_rate_regs[i].csiphy_param_type;
+				delay = per_lane->csiphy_data_rate_regs[i].delay;
 				CAM_DBG(CAM_CSIPHY,
 					"param_type: %d writing reg : %x val : %x delay: %dus",
-					reg_param_type, reg_addr, reg_data,
-					delay);
+					reg_param_type, reg_addr, reg_data, delay);
+
 				switch (reg_param_type) {
 				case CSIPHY_DEFAULT_PARAMS:
-					cam_io_w_mb(reg_data,
-						csiphybase + reg_addr);
+					cam_io_w_mb(reg_data, csiphybase + reg_addr);
 				break;
 				case CSIPHY_SETTLE_CNT_LOWER_BYTE:
-					cam_io_w_mb(settle_cnt & 0xFF,
-						csiphybase + reg_addr);
+					cam_io_w_mb(settle_cnt & 0xFF, csiphybase + reg_addr);
 				break;
 				case CSIPHY_SETTLE_CNT_HIGHER_BYTE:
 					cam_io_w_mb((settle_cnt >> 8) & 0xFF,
@@ -922,8 +977,19 @@ static int cam_csiphy_cphy_data_rate_config(
 				break;
 				case CSIPHY_SKEW_CAL:
 				if (skew_cal_enable)
-					cam_io_w_mb(reg_data,
-						csiphybase + reg_addr);
+					cam_io_w_mb(reg_data, csiphybase + reg_addr);
+				break;
+				case CSIPHY_AUXILIARY_SETTING: {
+					uint32_t phy_idx = csiphy_device->soc_info.index;
+
+					if (g_phy_data[phy_idx].data_rate_aux_mask &
+						BIT_ULL(data_rate_idx)) {
+						cam_io_w_mb(reg_data, csiphybase + reg_addr);
+						CAM_DBG(CAM_CSIPHY,
+							"Writing new aux setting  reg_addr: 0x%x reg_val: 0x%x",
+							reg_addr, reg_data);
+					}
+				}
 				break;
 				default:
 					CAM_DBG(CAM_CSIPHY, "Do Nothing");
@@ -933,6 +999,8 @@ static int cam_csiphy_cphy_data_rate_config(
 					usleep_range(delay, delay + 5);
 			}
 		}
+
+		csiphy_device->curr_data_rate_idx = data_rate_idx;
 		break;
 	}
 
@@ -1341,75 +1409,51 @@ static int cam_csiphy_update_lane(
 }
 
 static int __csiphy_cpas_configure_for_main_or_aon(
-	bool get_access, uint32_t cpas_handle,
+	bool get_access, uint32_t phy_idx,
 	struct cam_csiphy_aon_sel_params_t *aon_sel_params)
 {
+	int rc = 0;
 	uint32_t aon_config = 0;
+	uint32_t cpas_handle = g_phy_data[phy_idx].cpas_handle;
+
+	if (get_access == g_phy_data[phy_idx].is_configured_for_main) {
+		CAM_DBG(CAM_CSIPHY, "Already Configured/Released for %s",
+			get_access ? "Main" : "AON");
+		return 0;
+	}
+
+	rc = cam_csiphy_cpas_ops(cpas_handle, true);
+	if (rc) {
+		CAM_ERR(CAM_CSIPHY, "voting CPAS: %d failed", rc);
+		return rc;
+	}
 
 	cam_cpas_reg_read(cpas_handle, CAM_CPAS_REG_CPASTOP,
 		aon_sel_params->aon_cam_sel_offset,
 		true, &aon_config);
 
-	if (get_access) {
+	if (get_access && !g_phy_data[phy_idx].is_configured_for_main) {
 		aon_config &= ~(aon_sel_params->cam_sel_mask |
 			aon_sel_params->mclk_sel_mask);
-		CAM_DBG(CAM_CSIPHY,
+		CAM_INFO(CAM_CSIPHY,
 			"Selecting MainCamera over AON Camera");
-	} else if (!get_access) {
+		g_phy_data[phy_idx].is_configured_for_main = true;
+	} else if (!get_access && g_phy_data[phy_idx].is_configured_for_main) {
 		aon_config |= (aon_sel_params->cam_sel_mask |
 			aon_sel_params->mclk_sel_mask);
-		CAM_DBG(CAM_CSIPHY,
+		CAM_INFO(CAM_CSIPHY,
 			"Releasing MainCamera to AON Camera");
+		g_phy_data[phy_idx].is_configured_for_main = false;
 	}
 
 	CAM_DBG(CAM_CSIPHY, "value of aon_config = %u", aon_config);
-	if (cam_cpas_reg_write(cpas_handle, CAM_CPAS_REG_CPASTOP,
+	rc = cam_cpas_reg_write(cpas_handle, CAM_CPAS_REG_CPASTOP,
 		aon_sel_params->aon_cam_sel_offset,
-		true, aon_config)) {
-		CAM_ERR(CAM_CSIPHY,
-				"CPAS AON sel register write failed");
-	}
+		true, aon_config);
+	if (rc)
+		CAM_ERR(CAM_CSIPHY, "CPAS AON sel register write failed");
 
-	return 0;
-}
-
-static int cam_csiphy_cpas_ops(
-	uint32_t cpas_handle, bool start)
-{
-	int rc = 0;
-	struct cam_ahb_vote ahb_vote;
-	struct cam_axi_vote axi_vote = {0};
-
-	if (start) {
-		ahb_vote.type = CAM_VOTE_ABSOLUTE;
-		ahb_vote.vote.level = CAM_LOWSVS_VOTE;
-		axi_vote.num_paths = 1;
-		axi_vote.axi_path[0].path_data_type =
-			CAM_AXI_PATH_DATA_ALL;
-		axi_vote.axi_path[0].transac_type =
-			CAM_AXI_TRANSACTION_WRITE;
-		axi_vote.axi_path[0].camnoc_bw =
-			CAM_CPAS_DEFAULT_AXI_BW;
-		axi_vote.axi_path[0].mnoc_ab_bw =
-			CAM_CPAS_DEFAULT_AXI_BW;
-		axi_vote.axi_path[0].mnoc_ib_bw =
-			CAM_CPAS_DEFAULT_AXI_BW;
-
-		rc = cam_cpas_start(cpas_handle,
-			&ahb_vote, &axi_vote);
-		if (rc < 0) {
-			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d", rc);
-			return rc;
-		}
-		CAM_DBG(CAM_CSIPHY, "CPAS START");
-	} else {
-		rc = cam_cpas_stop(cpas_handle);
-		if (rc < 0) {
-			CAM_ERR(CAM_CSIPHY, "de-voting CPAS: %d", rc);
-			return rc;
-		}
-		CAM_DBG(CAM_CSIPHY, "CPAS STOPPED");
-	}
+	cam_csiphy_cpas_ops(cpas_handle, false);
 
 	return rc;
 }
@@ -1459,31 +1503,17 @@ int cam_csiphy_util_update_aon_ops(
 	cpas_hdl = g_phy_data[phy_idx].cpas_handle;
 	aon_sel_params = g_phy_data[phy_idx].aon_sel_param;
 
-	rc = cam_csiphy_cpas_ops(cpas_hdl, true);
-	if (rc) {
-		if (rc == -EPERM) {
-			CAM_WARN(CAM_CSIPHY,
-				"CPHY: %d is already in start state");
-		} else {
-			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d failed", rc);
-			return rc;
-		}
-	}
+	mutex_lock(&main_aon_selection);
 
 	CAM_DBG(CAM_CSIPHY, "PHY idx: %d, AON_support is %s", phy_idx,
 		(get_access) ? "enable" : "disable");
+
 	rc = __csiphy_cpas_configure_for_main_or_aon(
-			get_access, cpas_hdl, aon_sel_params);
-	if (rc) {
-		CAM_ERR(CAM_CSIPHY, "Configuration for AON ops failed: rc: %d",
-			rc);
-		cam_csiphy_cpas_ops(cpas_hdl, false);
-		return rc;
-	}
+			get_access, phy_idx, aon_sel_params);
+	if (rc)
+		CAM_ERR(CAM_CSIPHY, "Configuration for AON ops failed: rc: %d", rc);
 
-	if (rc != -EPERM)
-		cam_csiphy_cpas_ops(cpas_hdl, false);
-
+	mutex_unlock(&main_aon_selection);
 	return rc;
 }
 
@@ -1902,6 +1932,9 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->session_max_device_support = 1;
 		}
 
+		if (csiphy_dev->is_aggregator_rx)
+			csiphy_dev->session_max_device_support = CSIPHY_MAX_INSTANCES_PER_PHY;
+
 		bridge_params.ops = NULL;
 		bridge_params.session_hdl = csiphy_acq_dev.session_handle;
 		bridge_params.v4l2_sub_dev_flag = 0;
@@ -2005,6 +2038,15 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (--csiphy_dev->start_dev_count) {
+			if (csiphy_dev->is_aggregator_rx) {
+				CAM_INFO(CAM_CSIPHY,
+					"CAM_STOP_PHYDEV: %d dev_cnt: %u, slot: %d",
+					soc_info->index,
+					csiphy_dev->start_dev_count,
+					offset);
+				goto release_mutex;
+			}
+
 			if (csiphy_dev->csiphy_info[offset].secure_mode)
 				cam_csiphy_notify_secure_mode(
 					csiphy_dev,
@@ -2191,6 +2233,16 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (csiphy_dev->start_dev_count) {
+			if (csiphy_dev->is_aggregator_rx) {
+				csiphy_dev->start_dev_count++;
+				CAM_INFO(CAM_CSIPHY,
+					"CAM_START_PHYDEV: %d dev_cnt: %u, slot: %d",
+					soc_info->index,
+					csiphy_dev->start_dev_count,
+					offset);
+				goto release_mutex;
+			}
+
 			clk_vote_level =
 				csiphy_dev->ctrl_reg->getclockvoting(
 					csiphy_dev, offset);
@@ -2429,6 +2481,8 @@ int cam_csiphy_register_baseaddress(struct csiphy_device *csiphy_dev)
 	g_phy_data[phy_idx].aon_sel_param =
 		csiphy_dev->ctrl_reg->csiphy_reg.aon_sel_params;
 	g_phy_data[phy_idx].enable_aon_support = false;
+	g_phy_data[phy_idx].is_configured_for_main = false;
+	g_phy_data[phy_idx].data_rate_aux_mask = 0;
 
 	return 0;
 }

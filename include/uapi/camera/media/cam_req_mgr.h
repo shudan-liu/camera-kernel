@@ -15,26 +15,28 @@
 
 #define CAM_REQ_MGR_VNODE_NAME "cam-req-mgr-devnode"
 
-#define CAM_DEVICE_TYPE_BASE      (MEDIA_ENT_F_OLD_BASE)
-#define CAM_VNODE_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE)
-#define CAM_SENSOR_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 1)
-#define CAM_IFE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 2)
-#define CAM_ICP_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 3)
-#define CAM_LRME_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 4)
-#define CAM_JPEG_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 5)
-#define CAM_FD_DEVICE_TYPE        (CAM_DEVICE_TYPE_BASE + 6)
-#define CAM_CPAS_DEVICE_TYPE      (CAM_DEVICE_TYPE_BASE + 7)
-#define CAM_CSIPHY_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 8)
-#define CAM_ACTUATOR_DEVICE_TYPE  (CAM_DEVICE_TYPE_BASE + 9)
-#define CAM_CCI_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 10)
-#define CAM_FLASH_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 11)
-#define CAM_EEPROM_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 12)
-#define CAM_OIS_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 13)
-#define CAM_CUSTOM_DEVICE_TYPE    (CAM_DEVICE_TYPE_BASE + 14)
-#define CAM_OPE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 15)
-#define CAM_TFE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 16)
-#define CAM_CRE_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 17)
-#define CAM_TPG_DEVICE_TYPE       (CAM_DEVICE_TYPE_BASE + 18)
+#define CAM_DEVICE_TYPE_BASE              (MEDIA_ENT_F_OLD_BASE)
+#define CAM_VNODE_DEVICE_TYPE             (CAM_DEVICE_TYPE_BASE)
+#define CAM_SENSOR_DEVICE_TYPE            (CAM_DEVICE_TYPE_BASE + 1)
+#define CAM_IFE_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 2)
+#define CAM_ICP_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 3)
+#define CAM_LRME_DEVICE_TYPE              (CAM_DEVICE_TYPE_BASE + 4)
+#define CAM_JPEG_DEVICE_TYPE              (CAM_DEVICE_TYPE_BASE + 5)
+#define CAM_FD_DEVICE_TYPE                (CAM_DEVICE_TYPE_BASE + 6)
+#define CAM_CPAS_DEVICE_TYPE              (CAM_DEVICE_TYPE_BASE + 7)
+#define CAM_CSIPHY_DEVICE_TYPE            (CAM_DEVICE_TYPE_BASE + 8)
+#define CAM_ACTUATOR_DEVICE_TYPE          (CAM_DEVICE_TYPE_BASE + 9)
+#define CAM_CCI_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 10)
+#define CAM_FLASH_DEVICE_TYPE             (CAM_DEVICE_TYPE_BASE + 11)
+#define CAM_EEPROM_DEVICE_TYPE            (CAM_DEVICE_TYPE_BASE + 12)
+#define CAM_OIS_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 13)
+#define CAM_CUSTOM_DEVICE_TYPE            (CAM_DEVICE_TYPE_BASE + 14)
+#define CAM_OPE_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 15)
+#define CAM_TFE_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 16)
+#define CAM_CRE_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 17)
+#define CAM_TPG_DEVICE_TYPE               (CAM_DEVICE_TYPE_BASE + 18)
+#define CAM_SENSORLITE_DEVICE_TYPE        (CAM_DEVICE_TYPE_BASE + 19)
+#define CAM_CSIPHY_REMOTE_DEVICE_TYPE     (CAM_DEVICE_TYPE_BASE + 20)
 
 /* sensor mode: streaming or fsync trigger base */
 #define CAM_REQ_MGR_LINK_STREAMING_TYPE      1
@@ -64,6 +66,7 @@
 #define V4L_EVENT_CAM_REQ_MGR_NODE_EVENT                                4
 #define V4L_EVENT_CAM_REQ_MGR_SOF_UNIFIED_TS                            5
 #define V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS                              6
+#define V4L_EVENT_CAM_REQ_MGR_SLAVE_ERROR                               7
 
 /* Slave status */
 #define CAM_REQ_MGR_SLAVE_UNKNOWN               0
@@ -319,6 +322,7 @@ struct cam_req_mgr_link_control {
 #define CAM_MEM_FLAG_DISABLE_DELAYED_UNMAP      (1<<13)
 #define CAM_MEM_FLAG_KMD_DEBUG_FLAG             (1<<14)
 #define CAM_MEM_FLAG_EVA_NOPIXEL                (1<<15)
+#define CAM_MEM_FLAG_NSP_ACCESS                 (1<<16)
 
 
 #define CAM_MEM_MMU_MAX_HANDLE                  16

@@ -12,7 +12,10 @@
 #include "cam_tasklet_util.h"
 #include "cam_isp_hw.h"
 
-#define CAM_ISP_HW_NUM_MAX                       10
+#define CAM_ISP_HW_NUM_MAX                       16
+
+#define CAM_ISP_IN_SENSOR_ID_UNKNOWN                     0xdeadbeef
+#define CAM_ISP_IN_SENSOR_MODE_UNKNOWN                   0xdeadbeef
 
 /**
  * struct cam_isp_hw_mgr_ctx - common acquired context for managers

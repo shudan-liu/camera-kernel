@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef CAM_JPEG_DMA_CORE_H
@@ -104,6 +105,7 @@ struct cam_jpeg_dma_device_core_info {
 	uint32_t pid[CAM_JPEG_HW_MAX_NUM_PID];
 	uint32_t rd_mid;
 	uint32_t wr_mid;
+	uint8_t  is_nsp_controlled;
 };
 
 int cam_jpeg_dma_init_hw(void *device_priv,

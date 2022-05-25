@@ -12,7 +12,7 @@
 #include "cam_ife_csid_hw_intf.h"
 #include "cam_cpas_api.h"
 
-#define CAM_VFE_HW_NUM_MAX            10
+#define CAM_VFE_HW_NUM_MAX            16
 
 #define VFE_CORE_BASE_IDX             0
 #define RT_BASE_IDX                   2
@@ -99,6 +99,7 @@ enum cam_vfe_reset_type {
  * @incr:        Increment revision number
  * @is_lite:     Flag to indicate Whether a full vfe or a Lite vfe
  * @secure_cdm   Flag to indicate whether its secure cdm or not
+ * @is_virt:     Flag to indicate Whether a HW is virtual or not
  */
 struct cam_vfe_hw_get_hw_cap {
 	uint32_t major;
@@ -106,6 +107,7 @@ struct cam_vfe_hw_get_hw_cap {
 	uint32_t incr;
 	bool     is_lite;
 	bool     secure_cdm;
+	bool     is_virtual;
 };
 
 /*

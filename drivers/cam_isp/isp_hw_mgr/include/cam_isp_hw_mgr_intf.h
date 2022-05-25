@@ -14,7 +14,7 @@
 #include "cam_hw_mgr_intf.h"
 
 /* MAX IFE instance */
-#define CAM_IFE_HW_NUM_MAX       10
+#define CAM_IFE_HW_NUM_MAX       16
 #define CAM_SFE_HW_NUM_MAX       2
 #define CAM_IFE_RDI_NUM_MAX      4
 #define CAM_SFE_RDI_NUM_MAX      5
@@ -357,6 +357,11 @@ enum cam_isp_hw_mgr_command {
 	CAM_ISP_HW_MGR_GET_LAST_CDM_DONE,
 	CAM_ISP_HW_MGR_CMD_PROG_DEFAULT_CFG,
 	CAM_ISP_HW_MGR_GET_SOF_TS,
+	CAM_ISP_HW_MGR_GET_ACQ_TYPE,
+	CAM_ISP_HW_MGR_GET_SENSOR_ID,
+	CAM_ISP_HW_MGR_POPULATE_VCDT,
+	CAM_ISP_HW_MGR_VIRT_ACQUIRE,
+	CAM_ISP_HW_MGR_VIRT_RELEASE,
 	CAM_ISP_HW_MGR_CMD_MAX,
 };
 
@@ -391,6 +396,8 @@ struct cam_isp_hw_cmd_args {
 			uint64_t                      prev;
 			uint64_t                      boot;
 		} sof_ts;
+		uint32_t                      acquire_type;
+		uint32_t                      sensor_id;
 	} u;
 };
 

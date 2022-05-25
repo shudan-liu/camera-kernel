@@ -17,16 +17,11 @@
 #include "cam_irq_controller.h"
 #include "cam_tasklet_util.h"
 #include "cam_cdm_intf_api.h"
+#include "cam_rpmsg.h"
 
 #define CAM_SHIFT_TOP_CORE_VER_4_CFG_DSP_EN            8
 #define CAM_VFE_CAMIF_IRQ_SOF_DEBUG_CNT_MAX            2
 #define CAM_VFE_LEN_LOG_BUF                            256
-
-struct cam_vfe_top_ver4_common_data {
-	struct cam_hw_intf                         *hw_intf;
-	struct cam_vfe_top_ver4_reg_offset_common  *common_reg;
-	struct cam_vfe_top_ver4_hw_info            *hw_info;
-};
 
 struct cam_vfe_top_ver4_priv {
 	struct cam_vfe_top_ver4_common_data common_data;
@@ -34,62 +29,6 @@ struct cam_vfe_top_ver4_priv {
 	atomic_t                            overflow_pending;
 	uint8_t                             log_buf[CAM_VFE_LEN_LOG_BUF];
 	uint32_t                            sof_cnt;
-};
-
-enum cam_vfe_top_ver4_fsm_state {
-	VFE_TOP_VER4_FSM_SOF = 0,
-	VFE_TOP_VER4_FSM_EPOCH,
-	VFE_TOP_VER4_FSM_EOF,
-	VFE_TOP_VER4_FSM_MAX,
-};
-
-struct cam_vfe_mux_ver4_data {
-	void __iomem                                *mem_base;
-	struct cam_hw_soc_info                      *soc_info;
-	struct cam_hw_intf                          *hw_intf;
-	struct cam_vfe_top_ver4_reg_offset_common   *common_reg;
-	struct cam_vfe_top_common_cfg                cam_common_cfg;
-	struct cam_vfe_ver4_path_reg_data           *reg_data;
-	struct cam_vfe_top_ver4_priv                *top_priv;
-
-	cam_hw_mgr_event_cb_func             event_cb;
-	void                                *priv;
-	int                                  irq_err_handle;
-	int                                  frame_irq_handle;
-	void                                *vfe_irq_controller;
-	struct cam_vfe_top_irq_evt_payload   evt_payload[CAM_VFE_CAMIF_EVT_MAX];
-	struct list_head                     free_payload_list;
-	spinlock_t                           spin_lock;
-
-	enum cam_isp_hw_sync_mode          sync_mode;
-	uint32_t                           dsp_mode;
-	uint32_t                           pix_pattern;
-	uint32_t                           first_pixel;
-	uint32_t                           first_line;
-	uint32_t                           last_pixel;
-	uint32_t                           last_line;
-	uint32_t                           hbi_value;
-	uint32_t                           vbi_value;
-	bool                               enable_sof_irq_debug;
-	uint32_t                           irq_debug_cnt;
-	uint32_t                           camif_debug;
-	uint32_t                           horizontal_bin;
-	uint32_t                           qcfa_bin;
-	uint32_t                           dual_hw_idx;
-	uint32_t                           is_dual;
-	uint32_t                           epoch_factor;
-	bool                               is_fe_enabled;
-	bool                               is_offline;
-	bool                               is_lite;
-	bool                               is_pixel_path;
-	bool                               sfe_binned_epoch_cfg;
-
-	struct timespec64                  sof_ts;
-	struct timespec64                  epoch_ts;
-	struct timespec64                  eof_ts;
-	struct timespec64                  error_ts;
-	enum cam_vfe_top_ver4_fsm_state    fsm_state;
-	uint32_t                           n_frame_irqs;
 };
 
 static int cam_vfe_top_ver4_get_path_port_map(struct cam_vfe_top_ver4_priv *top_priv,
@@ -727,9 +666,6 @@ int cam_vfe_top_ver4_reserve(void *device_priv,
 	top_priv = (struct cam_vfe_top_ver4_priv   *)device_priv;
 	args = (struct cam_vfe_acquire_args *)reserve_args;
 	acquire_args = &args->vfe_in;
-
-	CAM_DBG(CAM_ISP, "res id %d", acquire_args->res_id);
-
 
 	for (i = 0; i < top_priv->top_common.num_mux; i++) {
 		if (top_priv->top_common.mux_rsrc[i].res_id ==
@@ -1706,8 +1642,13 @@ int cam_vfe_res_mux_init(
 {
 	struct cam_vfe_mux_ver4_data           *vfe_priv = NULL;
 	struct cam_vfe_ver4_path_hw_info       *hw_info = vfe_hw_info;
-	struct cam_vfe_soc_private    *soc_priv = soc_info->soc_private;
-	int i;
+	struct cam_vfe_soc_private    *soc_priv = NULL;
+	int i, is_lite = 0;
+
+	if (soc_info && soc_info->soc_private) {
+		soc_priv = soc_info->soc_private;
+		is_lite = soc_priv->is_ife_lite;
+	}
 
 	vfe_priv = kzalloc(sizeof(struct cam_vfe_mux_ver4_data),
 		GFP_KERNEL);
@@ -1715,11 +1656,11 @@ int cam_vfe_res_mux_init(
 		return -ENOMEM;
 
 	vfe_res->res_priv     = vfe_priv;
-	vfe_priv->mem_base    = soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
+	vfe_priv->mem_base    = soc_info ? soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base : 0;
 	vfe_priv->common_reg  = hw_info->common_reg;
 	vfe_priv->reg_data    = hw_info->reg_data;
 	vfe_priv->hw_intf     = hw_intf;
-	vfe_priv->is_lite     = soc_priv->is_ife_lite;
+	vfe_priv->is_lite     = is_lite;
 	vfe_priv->soc_info    = soc_info;
 	vfe_priv->vfe_irq_controller = vfe_irq_controller;
 	vfe_priv->is_pixel_path = (vfe_res->res_id == CAM_ISP_HW_VFE_IN_CAMIF);

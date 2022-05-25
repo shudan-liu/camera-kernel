@@ -1501,6 +1501,63 @@ jpeg_release_ctx:
 	return rc;
 }
 
+int cam_jpeg_mgr_nsp_acquire_hw(uint32_t *iommu_hdl)
+{
+	int rc = 0, i = 0, j;
+	struct cam_jpeg_hw_mgr *hw_mgr = &g_jpeg_hw_mgr;
+	*iommu_hdl = hw_mgr->iommu_hdl;
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+
+	CAM_DBG(CAM_JPEG, "num nsp jpeg %d", hw_mgr->num_nsp_enc);
+	for (i = 0; i < hw_mgr->num_nsp_enc; i++) {
+		if (!hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]) {
+			CAM_ERR(CAM_JPEG, "nsp device not found for %d",i);
+			rc = -EFAULT;
+			goto jpeg_init_failed;
+		}
+		if (!hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_ops.init) {
+			CAM_ERR(CAM_JPEG, "hw op init null ");
+			rc = -EFAULT;
+			goto jpeg_init_failed;
+		}
+		rc = hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_ops.init(
+			hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_priv,
+			NULL,
+			0);
+		if (rc) {
+			CAM_ERR(CAM_JPEG, "init failed for enc i %d", i);
+			goto jpeg_init_failed;
+		}
+	}
+
+
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	CAM_DBG(CAM_JPEG, "NSP acquire success %d", i);
+
+	return rc;
+
+jpeg_init_failed:
+	for(j = i - 1; j >= 0; j--) {
+		if (!hw_mgr->devices[CAM_JPEG_DEV_ENC][i]->hw_ops.deinit) {
+			CAM_ERR(CAM_JPEG, "hw op deinit null ");
+			rc = -EFAULT;
+			continue;
+		}
+		rc = hw_mgr->devices[CAM_JPEG_DEV_ENC][i]->hw_ops.deinit(
+			hw_mgr->devices[CAM_JPEG_DEV_ENC][i]->hw_priv,
+			NULL,
+			0);
+		if (rc) {
+			CAM_ERR(CAM_JPEG, "deinit failed for enc i %d", i);
+			continue;
+		}
+	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	return rc;
+}
+
 static int cam_jpeg_mgr_get_hw_caps(void *hw_mgr_priv, void *hw_caps_args)
 {
 	int rc;
@@ -1617,9 +1674,12 @@ static int cam_jpeg_init_devices(struct device_node *of_node,
 	uint32_t *p_num_enc_dev,
 	uint32_t *p_num_dma_dev)
 {
-	int count, i, rc;
+	int count, i, j, rc;
 	uint32_t num_dev;
 	uint32_t num_dma_dev;
+	uint32_t num_nsp_dev = 0;
+	uint32_t num_nsp_dma_dev = 0;
+	uint32_t nsp_enc_idx = 0, nsp_dma_idx = 0;
 	const char *name = NULL;
 	struct device_node *child_node = NULL;
 	struct platform_device *child_pdev = NULL;
@@ -1660,7 +1720,6 @@ static int cam_jpeg_init_devices(struct device_node *of_node,
 		CAM_ERR(CAM_JPEG, "get num dma dev nodes failed %d", rc);
 		goto num_dma_failed;
 	}
-
 	g_jpeg_hw_mgr.devices[CAM_JPEG_DEV_DMA] = kzalloc(
 		sizeof(struct cam_hw_intf *) * num_dma_dev, GFP_KERNEL);
 	if (!g_jpeg_hw_mgr.devices[CAM_JPEG_DEV_DMA]) {
@@ -1668,56 +1727,95 @@ static int cam_jpeg_init_devices(struct device_node *of_node,
 		goto num_dma_failed;
 	}
 
+	rc = of_property_read_u32(of_node, "num-nsp-jpeg-enc", &num_nsp_dev);
+	if (rc) {
+		CAM_ERR(CAM_JPEG, "read num nsp enc devices failed %d", rc);
+	}
+	if (num_nsp_dev) {
+		g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_TYPE_ENC] = kzalloc(
+			sizeof(struct cam_hw_intf *) * num_nsp_dev, GFP_KERNEL);
+		g_jpeg_hw_mgr.num_nsp_enc = num_nsp_dev;
+		if (!g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_TYPE_ENC]) {
+			rc = -ENOMEM;
+			CAM_ERR(CAM_JPEG, "getting number of dma dev nodes failed");
+			goto num_enc_failed;
+		}
+	}
+
+	rc = of_property_read_u32(of_node, "num-nsp-jpeg-dma", &num_nsp_dma_dev);
+	if (rc) {
+		CAM_ERR(CAM_JPEG, "get num nsp dma dev nodes failed %d", rc);
+	}
+	if (num_nsp_dma_dev) {
+		g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_TYPE_DMA] = kzalloc(
+			sizeof(struct cam_hw_intf *) * num_nsp_dma_dev, GFP_KERNEL);
+		if (!g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_TYPE_DMA]) {
+			rc = -ENOMEM;
+			goto num_dma_failed;
+		}
+	}
 	for (i = 0; i < count; i++) {
-		rc = of_property_read_string_index(of_node, "compat-hw-name",
-			i, &name);
-		if (rc) {
-			CAM_ERR(CAM_JPEG, "getting dev object name failed");
-			goto compat_hw_name_failed;
-		}
+		child_node = NULL;
+		for (j = 0; j < (num_dev + num_nsp_dev); j++) {
+			rc = of_property_read_string_index(of_node, "compat-hw-name",
+				i, &name);
+			if (rc) {
+				CAM_ERR(CAM_JPEG, "getting dev object name failed");
+				goto compat_hw_name_failed;
+			}
+			if (child_node) of_node_get(child_node);
+			child_node = of_find_node_by_name(child_node, name);
+			if (!child_node) {
+				CAM_ERR(CAM_JPEG,
+					"error! Cannot find node in dtsi %s", name);
+				rc = -ENODEV;
+				goto compat_hw_name_failed;
+			}
+			child_pdev = of_find_device_by_node(child_node);
+			if (!child_pdev) {
+				CAM_ERR(CAM_JPEG, "failed to find device on bus %s",
+					child_node->name);
+				rc = -ENODEV;
+				of_node_put(child_node);
+				goto compat_hw_name_failed;
+			}
 
-		child_node = of_find_node_by_name(NULL, name);
-		if (!child_node) {
-			CAM_ERR(CAM_JPEG,
-				"error! Cannot find node in dtsi %s", name);
-			rc = -ENODEV;
-			goto compat_hw_name_failed;
-		}
+			child_dev_intf = (struct cam_hw_intf *)platform_get_drvdata(
+				child_pdev);
+			if (!child_dev_intf) {
+				CAM_ERR(CAM_JPEG, "no child device");
+				of_node_put(child_node);
+				rc = -ENODEV;
+				goto compat_hw_name_failed;
+			}
+			CAM_DBG(CAM_JPEG, "child_intf %pK type %d id %d",
+				child_dev_intf,
+				child_dev_intf->hw_type,
+				child_dev_intf->hw_idx);
 
-		child_pdev = of_find_device_by_node(child_node);
-		if (!child_pdev) {
-			CAM_ERR(CAM_JPEG, "failed to find device on bus %s",
-				child_node->name);
-			rc = -ENODEV;
+			if ((child_dev_intf->hw_type == CAM_JPEG_DEV_ENC &&
+				child_dev_intf->hw_idx >= num_dev) ||
+				(child_dev_intf->hw_type == CAM_JPEG_DEV_DMA &&
+				child_dev_intf->hw_idx >= num_dma_dev)) {
+				CAM_ERR(CAM_JPEG, "index out of range");
+				rc = -ENODEV;
+				goto compat_hw_name_failed;
+			}
+			if (child_dev_intf->hw_type == CAM_JPEG_DEV_ENC_NSP) {
+					g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_ENC]
+					[nsp_enc_idx] = child_dev_intf;
+					nsp_enc_idx++;
+			}
+			else if (child_dev_intf->hw_type == CAM_JPEG_DEV_DMA_NSP) {
+					g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_DMA]
+					[nsp_dma_idx] = child_dev_intf;
+					nsp_dma_idx++;
+			}
+			else
+				g_jpeg_hw_mgr.devices[child_dev_intf->hw_type]
+					[child_dev_intf->hw_idx] = child_dev_intf;
 			of_node_put(child_node);
-			goto compat_hw_name_failed;
 		}
-
-		child_dev_intf = (struct cam_hw_intf *)platform_get_drvdata(
-			child_pdev);
-		if (!child_dev_intf) {
-			CAM_ERR(CAM_JPEG, "no child device");
-			of_node_put(child_node);
-			rc = -ENODEV;
-			goto compat_hw_name_failed;
-		}
-		CAM_DBG(CAM_JPEG, "child_intf %pK type %d id %d",
-			child_dev_intf,
-			child_dev_intf->hw_type,
-			child_dev_intf->hw_idx);
-
-		if ((child_dev_intf->hw_type == CAM_JPEG_DEV_ENC &&
-			child_dev_intf->hw_idx >= num_dev) ||
-			(child_dev_intf->hw_type == CAM_JPEG_DEV_DMA &&
-			child_dev_intf->hw_idx >= num_dma_dev)) {
-			CAM_ERR(CAM_JPEG, "index out of range");
-			rc = -ENODEV;
-			goto compat_hw_name_failed;
-		}
-		g_jpeg_hw_mgr.devices[child_dev_intf->hw_type]
-			[child_dev_intf->hw_idx] = child_dev_intf;
-
-		of_node_put(child_node);
 	}
 
 	enc_hw = (struct cam_hw_info *)
@@ -2257,4 +2355,10 @@ smmu_get_failed:
 		mutex_destroy(&g_jpeg_hw_mgr.ctx_data[i].ctx_mutex);
 
 	return rc;
+}
+
+int cam_jpeg_hw_mgr_deinit(void)
+{
+	debugfs_remove_recursive(g_jpeg_hw_mgr.dentry);
+	return 0;
 }

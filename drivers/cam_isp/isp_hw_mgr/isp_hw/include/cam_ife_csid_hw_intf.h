@@ -11,7 +11,7 @@
 #include "cam_hw_intf.h"
 
 /* MAX IFE CSID instance */
-#define CAM_IFE_CSID_HW_NUM_MAX                        10
+#define CAM_IFE_CSID_HW_NUM_MAX                        16
 #define CAM_IFE_CSID_UDI_MAX                           3
 #define RT_BASE_IDX                                    2
 
@@ -77,6 +77,7 @@ enum cam_ife_csid_secondary_evt_type {
  * @global_reset_en:      flag to indicate if global reset is enabled
  * @rup_en:               flag to indicate if rup is on csid side
  * @only_master_rup:      flag to indicate if only master RUP
+ * @is_virt:              flag to indicate virtual HW
  */
 struct cam_ife_csid_hw_caps {
 	uint32_t      num_rdis;
@@ -89,6 +90,7 @@ struct cam_ife_csid_hw_caps {
 	bool          global_reset_en;
 	bool          rup_en;
 	bool          only_master_rup;
+	bool          is_virt;
 };
 
 struct cam_isp_out_port_generic_info {
@@ -151,6 +153,9 @@ struct cam_isp_in_port_generic_info {
 	bool                            sfe_binned_epoch_cfg;
 	bool                            epd_supported;
 	bool                            aeb_mode;
+	uint32_t                        acquire_type;
+	uint32_t                        sensor_id;
+	uint32_t                        sensor_mode;
 	struct cam_isp_out_port_generic_info    *data;
 };
 
@@ -199,7 +204,7 @@ struct cam_csid_secondary_evt_config {
  *                       acquire lite
  * @sfe_en:              Flag to indicate if SFE is enabled
  * @use_wm_pack:         [OUT]Flag to indicate if WM packing is to be used for packing
- *
+ * @is_virt:             flag to indicate virtual HW
  */
 struct cam_csid_hw_reserve_resource_args {
 	enum cam_isp_resource_type                res_type;
@@ -225,6 +230,7 @@ struct cam_csid_hw_reserve_resource_args {
 	bool                                      can_use_lite;
 	bool                                      sfe_en;
 	bool                                      use_wm_pack;
+	bool                                      is_virtual;
 };
 
 /**
@@ -247,6 +253,8 @@ enum cam_ife_csid_halt_mode {
 	CAM_CSID_HALT_MODE_SLAVE,
 	CAM_CSID_HALT_MODE_MAX,
 };
+
+extern struct cam_hw_intf *cam_ife_csid_hw_list[CAM_IFE_CSID_HW_NUM_MAX];
 
 /**
  * struct cam_ife_csid_hw_halt_args

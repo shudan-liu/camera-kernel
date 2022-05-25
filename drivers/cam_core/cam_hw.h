@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_HW_H_
@@ -43,6 +44,7 @@ struct cam_hw_info {
 	struct cam_hw_soc_info          soc_info;
 	void                           *node_info;
 	void                           *core_info;
+	bool                            is_virtual;
 
 #ifdef CONFIG_CAM_PRESIL
 	struct mutex                    presil_hw_lock;

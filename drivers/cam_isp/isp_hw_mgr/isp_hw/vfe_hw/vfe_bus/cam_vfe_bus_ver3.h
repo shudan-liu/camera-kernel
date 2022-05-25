@@ -10,12 +10,21 @@
 
 #include "cam_irq_controller.h"
 #include "cam_vfe_bus.h"
+#include "cam_vfe_hw_intf.h"
 
-#define CAM_VFE_BUS_VER3_MAX_SUB_GRPS                6
-#define CAM_VFE_BUS_VER3_MAX_MID_PER_PORT            4
-#define CAM_VFE_BUS_VER3_CONS_ERR_MAX                32
-#define CAM_VFE_BUS_VER3_MAX_CLIENTS                 28
-#define CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX             2
+#define CAM_VFE_BUS_VER3_MAX_SUB_GRPS        6
+#define CAM_VFE_BUS_VER3_MAX_MID_PER_PORT    4
+#define CAM_VFE_BUS_VER3_CONS_ERR_MAX        32
+#define CAM_VFE_BUS_VER3_MAX_CLIENTS         28
+#define CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX     2
+#define CAM_VFE_BUS_VER3_PAYLOAD_MAX         256
+
+#define MAX_BUF_UPDATE_REG_NUM   \
+	((sizeof(struct cam_vfe_bus_ver3_reg_offset_bus_client) +  \
+	sizeof(struct cam_vfe_bus_ver3_reg_offset_ubwc_client))/4)
+
+#define MAX_REG_VAL_PAIR_SIZE    \
+	(MAX_BUF_UPDATE_REG_NUM * 2 * CAM_PACKET_MAX_PLANES)
 
 enum cam_vfe_bus_ver3_vfe_core_id {
 	CAM_VFE_BUS_VER3_VFE_CORE_0,
@@ -92,6 +101,27 @@ enum cam_vfe_bus_ver3_vfe_out_type {
 	CAM_VFE_BUS_VER3_VFE_OUT_PDAF_PARSED,
 	CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST,
 	CAM_VFE_BUS_VER3_VFE_OUT_MAX,
+};
+
+enum cam_vfe_bus_ver3_packer_format {
+	PACKER_FMT_VER3_PLAIN_128,
+	PACKER_FMT_VER3_PLAIN_8,
+	PACKER_FMT_VER3_PLAIN_8_ODD_EVEN,
+	PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10,
+	PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN,
+	PACKER_FMT_VER3_PLAIN_16_10BPP,
+	PACKER_FMT_VER3_PLAIN_16_12BPP,
+	PACKER_FMT_VER3_PLAIN_16_14BPP,
+	PACKER_FMT_VER3_PLAIN_16_16BPP,
+	PACKER_FMT_VER3_PLAIN_32,
+	PACKER_FMT_VER3_PLAIN_64,
+	PACKER_FMT_VER3_TP_10,
+	PACKER_FMT_VER3_MIPI10,
+	PACKER_FMT_VER3_MIPI12,
+	PACKER_FMT_VER3_MIPI14,
+	PACKER_FMT_VER3_MIPI20,
+	PACKER_FMT_VER3_PLAIN32_20BPP,
+	PACKER_FMT_VER3_MAX,
 };
 
 /*
@@ -184,6 +214,34 @@ struct cam_vfe_bus_ver3_reg_offset_bus_client {
 	uint32_t bw_limiter_addr;
 	uint32_t comp_group;
 	uint32_t tunnel_cfg_idx;
+};
+
+struct cam_vfe_bus_ver3_vfe_out_data {
+	uint32_t                              out_type;
+	uint32_t                              source_group;
+	uint32_t                              buf_done_mask_shift;
+	struct cam_vfe_bus_ver3_common_data  *common_data;
+	struct cam_vfe_bus_ver3_priv         *bus_priv;
+
+	uint32_t                         num_wm;
+	struct cam_isp_resource_node    *wm_res;
+
+	struct cam_isp_resource_node    *comp_grp;
+	enum cam_isp_hw_sync_mode        dual_comp_sync_mode;
+	uint32_t                         dual_hw_alternate_vfe_id;
+	struct list_head                 vfe_out_list;
+
+	uint32_t                         is_master;
+	uint32_t                         is_dual;
+
+	uint32_t                         format;
+	uint32_t                         max_width;
+	uint32_t                         max_height;
+	struct cam_cdm_utils_ops        *cdm_util_ops;
+	uint32_t                         secure_mode;
+	void                            *priv;
+	uint32_t                         mid[CAM_VFE_BUS_VER3_MAX_MID_PER_PORT];
+	bool                             limiter_enabled;
 };
 
 /*
@@ -301,6 +359,97 @@ struct cam_vfe_bus_ver3_mini_dump_data {
 	uint8_t                               hw_idx;
 };
 
+struct cam_vfe_bus_ver3_wm_resource_data {
+	uint32_t             index;
+	struct cam_vfe_bus_ver3_common_data            *common_data;
+	struct cam_vfe_bus_ver3_reg_offset_bus_client  *hw_regs;
+
+	bool                 init_cfg_done;
+	bool                 hfr_cfg_done;
+
+	uint32_t             offset;
+	uint32_t             width;
+	uint32_t             height;
+	uint32_t             stride;
+	uint32_t             format;
+	enum cam_vfe_bus_ver3_packer_format pack_fmt;
+
+	uint32_t             burst_len;
+
+	uint32_t             en_ubwc;
+	bool                 ubwc_updated;
+	uint32_t             packer_cfg;
+	uint32_t             h_init;
+	uint32_t             ubwc_meta_addr;
+	uint32_t             ubwc_meta_cfg;
+	uint32_t             ubwc_mode_cfg;
+	uint32_t             ubwc_stats_ctrl;
+	uint32_t             ubwc_ctrl_2;
+
+	uint32_t             irq_subsample_period;
+	uint32_t             irq_subsample_pattern;
+	uint32_t             framedrop_period;
+	uint32_t             framedrop_pattern;
+
+	uint32_t             en_cfg;
+	uint32_t             is_dual;
+
+	uint32_t             ubwc_lossy_threshold_0;
+	uint32_t             ubwc_lossy_threshold_1;
+	uint32_t             ubwc_offset_lossy_variance;
+	uint32_t             ubwc_bandwidth_limit;
+	uint32_t             acquired_width;
+	uint32_t             acquired_height;
+	uint32_t             default_line_based;
+	bool                 use_wm_pack;
+
+	uint32_t             tunnel_id;
+	uint32_t             tunnel_en;
+};
+
+struct cam_vfe_bus_ver3_common_data {
+	uint32_t                                    core_index;
+	void __iomem                               *mem_base;
+	struct cam_hw_intf                         *hw_intf;
+	void                                       *bus_irq_controller;
+	void                                       *vfe_irq_controller;
+	void                                       *buf_done_controller;
+	void                                       *priv;
+	struct cam_vfe_bus_ver3_reg_offset_common  *common_reg;
+	uint32_t                                    io_buf_update[
+		MAX_REG_VAL_PAIR_SIZE];
+
+	struct cam_vfe_bus_irq_evt_payload          evt_payload[
+		CAM_VFE_BUS_VER3_PAYLOAD_MAX];
+	struct list_head                            free_payload_list;
+	spinlock_t                                  spin_lock;
+	struct mutex                                bus_mutex;
+	uint32_t                                    secure_mode;
+	uint32_t                                    num_sec_out;
+	uint32_t                                    addr_no_sync;
+	uint32_t                                    comp_done_shift;
+	uint32_t                                    supported_irq;
+	bool                                        comp_config_needed;
+	bool                                        is_lite;
+	bool                                        hw_init;
+	bool                                        support_consumed_addr;
+	bool                                        disable_ubwc_comp;
+	bool                                        init_irq_subscribed;
+	bool                                        disable_mmu_prefetch;
+	bool                                        support_tunneling;
+	cam_hw_mgr_event_cb_func                    event_cb;
+	int                                         rup_irq_handle[
+		CAM_VFE_BUS_VER3_SRC_GRP_MAX];
+	uint32_t                                    pack_align_shift;
+	uint32_t                                    max_bw_counter_limit;
+	uint32_t                                    no_tunnelingId_shift;
+	uint32_t                                    tunneling_overflow_shift;
+};
+
+int cam_vfe_populate_out(
+	struct cam_isp_resource_node      *vfe_out,
+	uint32_t                          *reg_payload,
+	uint32_t                          *idx);
 /*
  * cam_vfe_bus_ver3_init()
  *

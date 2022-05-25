@@ -7,18 +7,206 @@
 #include <linux/module.h>
 #include <linux/rpmsg.h>
 #include <linux/notifier.h>
+#include <linux/pid.h>
+#include <linux/fdtable.h>
+#include <linux/rcupdate.h>
+#include <linux/fs.h>
+#include <linux/version.h>
 
 #include "cam_rpmsg.h"
 #include "cam_debug_util.h"
 #include "cam_req_mgr_dev.h"
+#include "cam_common_util.h"
+#include "cam_jpeg_hw_mgr.h"
+#include "cam_fastrpc.h"
+
 #include "media/cam_req_mgr.h"
 
-#define LOG_CTX() \
-	CAM_DBG(CAM_RPMSG, "in_irq %d, in_task %d, in_interrupt %d",\
-			in_irq(), in_task(), in_interrupt())
+#define CAM_SLAVE_CHANNEL_NAME "AH_CAM"
+
+static int state;
+static int slave_pkt_dump = 0;
 
 static struct cam_rpmsg_instance_data cam_rpdev_idata[CAM_RPMSG_HANDLE_MAX];
 struct cam_rpmsg_slave_pvt slave_private;
+static struct cam_rpmsg_jpeg_pvt jpeg_private;
+
+#define CAM_RPMSG_WORKQ_NUM_TASK 10
+
+struct cam_rpmsg_system_data {
+	struct completion complete;
+	struct cam_req_mgr_core_workq *workq;
+};
+
+struct cam_rpmsg_system_data system_data;
+
+static int cam_rpmsg_system_recv_worker(void *priv, void *data)
+{
+	struct cam_rpmsg_slave_payload_desc *pkt;
+
+	pkt = (struct cam_rpmsg_slave_payload_desc *)(data);
+
+	switch(CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(pkt)) {
+		case CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_PING:
+			CAM_DBG(CAM_RPMSG, "ping ack recv");
+			complete(&system_data.complete);
+			break;
+		default:
+			CAM_ERR(CAM_RPMSG, "Unexpected pkt type %x, len %d",
+				CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(pkt),
+				CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(pkt));
+
+	}
+
+	kfree(data);
+
+	return 0;
+}
+
+static void cam_rpmsg_system_recv_workq(struct work_struct *work)
+{
+	cam_req_mgr_process_workq(work);
+}
+
+static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
+{
+	struct crm_workq_task *task;
+	void *payload;
+	int rc = 0;
+
+	/* called in interrupt context */
+	payload = kzalloc(len, GFP_ATOMIC);
+	if (!payload) {
+		CAM_ERR(CAM_RPMSG, "Failed to alloc payload");
+		return -ENOMEM;
+	}
+	CAM_DBG(CAM_RPMSG, "Send %d bytes to workq", len);
+	memcpy(payload, data, len);
+
+	task = cam_req_mgr_workq_get_task(system_data.workq);
+	task->payload = payload;
+	task->process_cb = cam_rpmsg_system_recv_worker;
+	rc = cam_req_mgr_workq_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+	if (rc) {
+		CAM_ERR(CAM_RPMSG, "failed to enqueue task rc %d", rc);
+	}
+
+	return rc;
+}
+
+int cam_rpmsg_system_send_ping(void) {
+	int rc = 0, handle;
+	unsigned long rem_jiffies;
+	struct cam_rpmsg_system_ping_payload pkt;
+
+	reinit_completion(&system_data.complete);
+
+	/* send ping command */
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
+		CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_PING);
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&pkt.phdr,
+			sizeof(struct cam_rpmsg_system_ping_payload) -
+			SLAVE_PKT_HDR_SIZE);
+
+	CAM_DBG(CAM_RPMSG, "sending ping to slave");
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, &pkt, sizeof(pkt));
+	if (rc) {
+		CAM_ERR(CAM_RPMSG, "Failed to send ping command");
+		goto err;
+	}
+
+	CAM_DBG(CAM_RPMSG, "Waiting for ACK");
+	/* wait for ping ack */
+	rem_jiffies = cam_common_wait_for_completion_timeout(
+			&system_data.complete, msecs_to_jiffies(50));
+	if (!rem_jiffies) {
+		rc = -ETIMEDOUT;
+		CAM_ERR(CAM_RPMSG, "slave PING response timed out %d\n", rc);
+		goto err;
+	}
+
+	CAM_DBG(CAM_RPMSG, "received PING ACK");
+
+err:
+	return rc;
+}
+
+int cam_rpmsg_isp_send_acq(uint32_t sensor_id)
+{
+	struct cam_rpmsg_isp_acq_payload pkt;
+	int rc = 0, handle;
+
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
+			CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_ACQUIRE);
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&pkt.phdr,
+			sizeof(struct cam_rpmsg_isp_acq_payload) -
+			SLAVE_PKT_HDR_SIZE);
+	pkt.version = PACKET_VERSION_1;
+	pkt.sensor_id = sensor_id;
+
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, &pkt, sizeof(pkt));
+
+	return rc;
+}
+
+int cam_rpmsg_isp_send_rel(uint32_t sensor_id)
+{
+	struct cam_rpmsg_isp_rel_payload pkt;
+	int rc = 0, handle;
+
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
+			CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_RELEASE);
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&pkt.phdr,
+			sizeof(struct cam_rpmsg_isp_rel_payload) -
+			SLAVE_PKT_HDR_SIZE);
+	pkt.version = PACKET_VERSION_1;
+	pkt.sensor_id = sensor_id;
+
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, &pkt, sizeof(pkt));
+
+	return rc;
+}
+
+int cam_rpmsg_isp_send_start(uint32_t sensor_id)
+{
+	struct cam_rpmsg_isp_start_payload pkt;
+	int rc = 0, handle;
+
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
+			CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_START_DEV);
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&pkt.phdr,
+			sizeof(struct cam_rpmsg_isp_start_payload) -
+			SLAVE_PKT_HDR_SIZE);
+	pkt.version = PACKET_VERSION_1;
+	pkt.sensor_id = sensor_id;
+
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, &pkt, sizeof(pkt));
+
+	return rc;
+}
+
+int cam_rpmsg_isp_send_stop(uint32_t sensor_id)
+{
+	struct cam_rpmsg_isp_start_payload pkt;
+	int rc = 0, handle;
+
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
+			CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_STOP_DEV);
+	CAM_RPMSG_SLAVE_SET_PAYLOAD_SIZE(&pkt.phdr,
+			sizeof(struct cam_rpmsg_isp_stop_payload) -
+			SLAVE_PKT_HDR_SIZE);
+	pkt.version = PACKET_VERSION_1;
+	pkt.sensor_id = sensor_id;
+
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, &pkt, sizeof(pkt));
+
+	return rc;
+}
 
 unsigned int cam_rpmsg_get_handle(char *name)
 {
@@ -130,6 +318,11 @@ int cam_rpmsg_register_status_change_event(unsigned int handle,
 	if (handle >= CAM_RPMSG_HANDLE_MAX)
 		return -EINVAL;
 
+	if (!nb->notifier_call) {
+		CAM_ERR(CAM_RPMSG, "Null notifier");
+		return -EINVAL;
+	}
+
 	idata = &cam_rpdev_idata[handle];
 	blocking_notifier_chain_register(&idata->status_change_notify, nb);
 
@@ -155,6 +348,11 @@ static void cam_rpmsg_notify_slave_status_change(
 {
 	struct cam_req_mgr_message msg = {0};
 
+	if (!state) {
+		CAM_DBG(CAM_RPMSG, "skip notify in deinit");
+		return;
+	}
+
 	msg.u.slave_status.version = 1;
 	msg.u.slave_status.status = status;
 
@@ -169,13 +367,40 @@ static void cam_rpmsg_notify_slave_status_change(
 
 }
 
+void cam_rpmsg_slave_dump_pkt(void *pkt, size_t len);
+
 int cam_rpmsg_send(unsigned int handle, void *data, int len)
 {
 	int ret = 0;
 	struct rpmsg_device *rpdev;
+	struct cam_slave_pkt_hdr *hdr = (struct cam_slave_pkt_hdr *)data;
 
-	if (handle >= CAM_RPMSG_HANDLE_MAX)
+	if (handle >= CAM_RPMSG_HANDLE_MAX) {
+		CAM_ERR(CAM_RPMSG, "Invalid handle %d", handle);
 		return -EINVAL;
+	}
+
+	if(!data) {
+		CAM_ERR(CAM_RPMSG, "data is null");
+		return -EINVAL;
+	}
+
+	/* Data size should be multiple of 4 */
+	if (len && len & 0x3) {
+		CAM_ERR(CAM_RPMSG, "Invalid length %d", len);
+		return -EINVAL;
+	}
+
+	CAM_RPMSG_SLAVE_SET_HDR_VERSION(hdr, 1);
+	CAM_RPMSG_SLAVE_SET_HDR_DIRECTION(hdr, CAM_RPMSG_DIR_MASTER_TO_SLAVE);
+	CAM_RPMSG_SLAVE_SET_HDR_NUM_PACKET(hdr, 1);
+	CAM_RPMSG_SLAVE_SET_HDR_PACKET_SZ(hdr, len);
+
+	if (slave_pkt_dump) {
+		cam_rpmsg_slave_dump_pkt(data, len);
+		CAM_INFO(CAM_RPMSG, "hex_dump %d bytes, w %d", len, *(char *)data);
+		print_hex_dump(KERN_INFO, "camera_dump:", DUMP_PREFIX_OFFSET, 16, 4, data, len, 0);
+	}
 
 	rpdev = cam_rpdev_idata[handle].rpdev;
 
@@ -188,16 +413,239 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	if (ret) {
 		CAM_ERR(CAM_RPMSG, "rpmsg_send failed dev %d, rc %d",
 			handle, ret);
+		return ret;
 	}
+	CAM_DBG(CAM_RPMSG, "send hndl %d sz %d rc %d", handle, len, ret);
 
 	return ret;
 }
 
+/* struct cam_cdm_work_payload - struct for cdm work payload data.*/
+struct cam_rpmsg_jpeg_payload {
+	struct rpmsg_device *rpdev;
+	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
+	ktime_t workq_scheduled_ts;
+	struct work_struct work;
+};
+
+char *dsp_cmd_to_string(uint32_t val)
+{
+	switch(val) {
+		case CAM_CPU2DSP_SUSPEND: return "CPU2DSP_SUSPEND";
+		case CAM_CPU2DSP_RESUME: return "CPU2DSP_RESUME";
+		case CAM_CPU2DSP_SHUTDOWN: return "CPU2DSP_SHUTDOWN";
+		case CAM_CPU2DSP_REGISTER_BUFFER: return "CPU2DSP_REGISTER_BUFFER";
+		case CAM_CPU2DSP_DEREGISTER_BUFFER: return "CPU2DSP_DEREGISTER_BUFFER";
+		case CAM_CPU2DSP_INIT: return "CPU2DSP_INIT";
+		case CAM_CPU2DSP_SET_DEBUG_LEVEL: return "CPU2DSP_SET_DEBUG_LEVEL";
+		case CAM_CPU2DSP_MAX_CMD: return "CPU2DSP_MAX_CMD";
+		case CAM_DSP2CPU_POWERON: return "DSP2CPU_POWERON";
+		case CAM_DSP2CPU_POWEROFF: return "DSP2CPU_POWEROFF";
+		case CAM_DSP2CPU_START: return "DSP2CPU_START";
+		case CAM_DSP2CPU_DETELE_SESSION: return "DSP2CPU_DETELE_SESSION";
+		case CAM_DSP2CPU_POWER_REQUEST: return "DSP2CPU_POWER_REQUEST";
+		case CAM_DSP2CPU_POWER_CANCEL: return "DSP2CPU_POWER_CANCEL";
+		case CAM_DSP2CPU_REGISTER_BUFFER: return "DSP2CPU_REGISTER_BUFFER";
+		case CAM_DSP2CPU_DEREGISTER_BUFFER: return "DSP2CPU_DEREGISTER_BUFFER";
+		case CAM_DSP2CPU_MEM_ALLOC: return "DSP2CPU_MEM_ALLOC";
+		case CAM_DSP2CPU_MEM_FREE: return "DSP2CPU_MEM_FREE";
+		case CAM_JPEG_DSP_MAX_CMD: return "JPEG_DSP_MAX_CMD";
+		default: return "Unknown";
+	}
+}
+
+static void handle_jpeg_cb(struct work_struct *work) {
+	struct cam_rpmsg_jpeg_payload *payload;
+	struct cam_jpegd_cmd_msg   cmd_msg;
+	struct cam_mem_mgr_alloc_cmd alloc_cmd = {0};
+	struct cam_mem_mgr_map_cmd map_cmd = {0};
+	struct cam_mem_mgr_release_cmd release_cmd = {0};
+	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
+	struct rpmsg_device *rpdev;
+	int rc = 0;
+	int old_fd;
+	struct pid *pid_s = NULL;
+	struct files_struct *files;
+	struct file *file;
+	struct dma_buf *dbuf;
+
+	payload = container_of(work, struct cam_rpmsg_jpeg_payload, work);
+	if (!payload) {
+		CAM_ERR(CAM_RPMSG, "NULL payload");
+		return;
+	}
+
+	rsp = payload->rsp;
+	rpdev = payload->rpdev;
+	CAM_DBG(CAM_RPMSG, "method %d %s", rsp->type, dsp_cmd_to_string(rsp->type));
+
+	switch(rsp->type) {
+		case CAM_DSP2CPU_POWERON:
+			if (CAM_JPEG_DSP_POWERON == jpeg_private.status) {
+				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered on");
+				break;
+			}
+			cam_jpeg_mgr_nsp_acquire_hw(&jpeg_private.jpeg_iommu_hdl);
+			cam_fastrpc_driver_register(rsp->pid);
+			cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWERON;
+			pid_s = find_get_pid(rsp->pid);
+			if (pid_s == NULL) {
+				CAM_ERR(CAM_RPMSG, "incorrect pid 0x%x", rsp->pid);
+			}
+			jpeg_private.jpeg_task = get_pid_task(pid_s, PIDTYPE_TGID);
+			if (!jpeg_private.jpeg_task) {
+				CAM_ERR(CAM_RPMSG, "task doesn't exist for pid 0x%x", pid_s);
+			}
+			jpeg_private.dmabuf_f_op = NULL;
+			jpeg_private.status = CAM_JPEG_DSP_POWERON;
+			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			break;
+		case CAM_DSP2CPU_MEM_ALLOC:
+			alloc_cmd.flags = CAM_MEM_FLAG_NSP_ACCESS | CAM_MEM_FLAG_HW_READ_WRITE;
+			alloc_cmd.len = rsp->buf_info.size;
+			if (alloc_cmd.flags & CAM_MEM_FLAG_HW_READ_WRITE) {
+				alloc_cmd.mmu_hdls[0] = jpeg_private.jpeg_iommu_hdl;
+				alloc_cmd.num_hdl = 1;
+			} else {
+				alloc_cmd.num_hdl = 0;
+			}
+			cam_mem_mgr_alloc_and_map(&alloc_cmd);
+			rc = cam_mem_get_io_buf(
+				alloc_cmd.out.buf_handle,
+				jpeg_private.jpeg_iommu_hdl,
+				(dma_addr_t *)&cmd_msg.buf_info.iova, (size_t *)&cmd_msg.buf_info.size, NULL);
+			cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
+			cmd_msg.buf_info.fd = alloc_cmd.out.fd;
+			cmd_msg.buf_info.ipa_addr = alloc_cmd.out.vaddr;
+			cmd_msg.buf_info.buf_handle = alloc_cmd.out.buf_handle;
+			if (!jpeg_private.dmabuf_f_op) {
+				dbuf = dma_buf_get(alloc_cmd.out.fd);
+				jpeg_private.dmabuf_f_op = (const struct file_operations *)dbuf->file->f_op;
+			}
+			CAM_DBG(CAM_RPMSG, "ALLOC_OUT fd %d ipa 0x%x iova 0x%x buf_handle %x",
+				cmd_msg.buf_info.fd, cmd_msg.buf_info.ipa_addr,
+				cmd_msg.buf_info.iova, cmd_msg.buf_info.buf_handle);
+			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			break;
+		case CAM_DSP2CPU_REGISTER_BUFFER:
+			map_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
+			map_cmd.fd = rsp->buf_info.fd;
+			map_cmd.mmu_hdls[0] = jpeg_private.jpeg_iommu_hdl;
+			map_cmd.num_hdl = 1;
+			files = jpeg_private.jpeg_task->files;
+			if (!files) {
+				CAM_ERR(CAM_MEM, "null files");
+				goto registerEnd;
+			}
+			rcu_read_lock();
+			loop:
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0))
+			file = fcheck_files(files, map_cmd.fd);
+#else
+			file = files_lookup_fd_rcu(files, map_cmd.fd);
+#endif
+			if (file) {
+				/* File object ref couldn't be taken.
+				 * dup2() atomicity guarantee is the reason
+				 * we loop to catch the new file (or NULL pointer)
+				 */
+				if (file->f_mode & FMODE_PATH) {
+					file = NULL;
+					CAM_ERR(CAM_RPMSG, "INCORRECT FMODE", file->f_mode);
+				}
+				else if (!get_file_rcu_many(file, 1)) {
+					CAM_ERR(CAM_RPMSG, "get_file_rcu_many 0");
+					goto loop;
+				}
+			}
+			else {
+				CAM_ERR(CAM_RPMSG, "null file");
+			}
+			if (jpeg_private.dmabuf_f_op && file->f_op != jpeg_private.dmabuf_f_op) {
+				CAM_ERR(CAM_RPMSG, "fd doesn't refer to dma_buf");
+				break;
+			} else {
+				old_fd = map_cmd.fd;
+				map_cmd.fd = dma_buf_fd((struct dma_buf *)(file->private_data), O_CLOEXEC);
+				if (map_cmd.fd < 0) {
+					CAM_ERR(CAM_RPMSG, "get fd fail, *fd=%d", map_cmd.fd);
+					break;
+				}
+			}
+			rcu_read_unlock();
+
+			cam_mem_mgr_map(&map_cmd);
+			rc = cam_mem_get_io_buf(
+				map_cmd.out.buf_handle,
+				jpeg_private.jpeg_iommu_hdl,
+				(dma_addr_t *)&cmd_msg.buf_info.iova, (size_t *)&cmd_msg.buf_info.size, NULL);
+			cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+			cmd_msg.buf_info.buf_handle = map_cmd.out.buf_handle;
+			cmd_msg.buf_info.fd = old_fd;
+			cmd_msg.buf_info.ipa_addr = alloc_cmd.out.vaddr;
+			CAM_DBG(CAM_RPMSG, "MAP_OUT fd %d iova 0x%x size %d ipa %lx buf_handle %x",
+				cmd_msg.buf_info.fd, cmd_msg.buf_info.iova, cmd_msg.buf_info.size,
+				cmd_msg.buf_info.ipa_addr, cmd_msg.buf_info.buf_handle);
+			registerEnd:
+			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			break;
+		case CAM_DSP2CPU_DEREGISTER_BUFFER:
+		case CAM_DSP2CPU_MEM_FREE:
+			release_cmd.buf_handle = rsp->buf_info.buf_handle;
+			rc = cam_mem_mgr_release(&release_cmd);
+			if (rc) {
+				CAM_ERR(CAM_RPMSG, "Failed to release buffer for handle %d", rsp->buf_info.buf_handle);
+				break;
+			}
+			cmd_msg.cmd_msg_type = rsp->type;
+			cmd_msg.buf_info.fd =  rsp->buf_info.fd;
+			cmd_msg.buf_info.buf_handle = rsp->buf_info.buf_handle;
+			rc = rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			break;
+		default:
+			CAM_ERR(CAM_MEM, "Invalid command %d", rsp->type);
+			break;
+	}
+
+
+}
+
+static int cam_rpmsg_jpeg_cb(struct rpmsg_device *rpdev, void *data, int len,
+	void *priv, u32 src)
+{
+	struct cam_jpeg_dsp2cpu_cmd_msg *rsp = (struct cam_jpeg_dsp2cpu_cmd_msg *)data;
+	struct cam_rpmsg_jpeg_payload *payload = 0;
+	bool work_status;
+
+	CAM_DBG(CAM_RPMSG, "Received message %d", rsp->type);
+	if (rsp->type < CAM_JPEG_DSP_MAX_CMD &&
+		len == sizeof(struct cam_jpeg_dsp2cpu_cmd_msg)) {
+		payload = kzalloc(sizeof(struct cam_rpmsg_jpeg_payload),
+			GFP_ATOMIC);
+		payload->rpdev = rpdev;
+		payload->rsp   = rsp;
+		INIT_WORK((struct work_struct *)&payload->work,
+			handle_jpeg_cb);
+		payload->workq_scheduled_ts = ktime_get();
+
+		work_status = queue_work(
+			jpeg_private.jpeg_work_queue,
+			&payload->work);
+
+		if (work_status == false) {
+			CAM_ERR(CAM_CDM,
+				"Failed to queue work for");
+			kfree(payload);
+			payload = NULL;
+		}
+	}
+	return 0;
+}
 static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 	void *priv, u32 src)
 {
 	int ret = 0, processed = 0, client;
-	int hdr_version, dir, payload_type, payload_len, hdr_len;
+	int hdr_version, payload_type, payload_len, hdr_len;
 	unsigned long flag;
 	struct cam_rpmsg_instance_data *idata = dev_get_drvdata(&rpdev->dev);
 	struct cam_slave_pkt_hdr *hdr = data;
@@ -205,8 +653,8 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 	struct cam_rpmsg_slave_pvt *pvt =
 		(struct cam_rpmsg_slave_pvt *)idata->pvt;
 	struct cam_rpmsg_slave_cbs *cb = NULL;
+	int rc;
 
-	LOG_CTX();
 
 	if (len < (sizeof(struct cam_slave_pkt_hdr) +
 				sizeof(struct cam_rpmsg_slave_payload_desc))) {
@@ -215,7 +663,7 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 	}
 
 	hdr_version = CAM_RPMSG_SLAVE_GET_HDR_VERSION(hdr);
-	hdr_len = CAM_RPMSG_SLAVE_GET_HDR_PAYLOAD_LEN(hdr);
+	hdr_len = CAM_RPMSG_SLAVE_GET_HDR_PACKET_SZ(hdr);
 	processed = sizeof(struct cam_slave_pkt_hdr);
 
 	if (hdr_version != CAM_RPMSG_V1) {
@@ -228,54 +676,65 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 		payload = (struct cam_rpmsg_slave_payload_desc *)
 			((uintptr_t)data + processed);
 		cb = NULL;
+		rc = 0;
 		client = CAM_RPMSG_SLAVE_CLIENT_MAX;
-		dir = CAM_RPMSG_SLAVE_GET_PAYLOAD_DIR(payload);
 		payload_type = CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(payload);
 		payload_len = CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(payload);
 
-		if (dir != CAM_RPMSG_DIR_SLAVE_TO_MASTER) {
-			CAM_ERR(CAM_RPMSG, "Invalid direction %d, payload %x", dir, payload_type);
-			processed += sizeof(struct cam_rpmsg_slave_payload_desc) +
-				payload_len;
-			continue;
-		}
-
-		if (payload_type > CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED &&
+		CAM_DBG(CAM_RPMSG, "pld_type %d, pld_len %d", payload_type, payload_len);
+		if (payload_type >= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED &&
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_MAX) {
 			/* Hand off to system pkt handler */
 			client = CAM_RPMSG_SLAVE_CLIENT_SYSTEM;
-		} else if (payload_type > CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_UNUSED &&
+		} else if (payload_type >= CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_UNUSED &&
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_MAX) {
 			/* Hand off to ISP pkt handler */
 			client = CAM_RPMSG_SLAVE_CLIENT_ISP;
-		} else if (payload_type > CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_UNUSED &&
+		} else if (payload_type >= CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_UNUSED &&
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_MAX) {
 			/* Hand off to SENSOR pkt handler */
 			client = CAM_RPMSG_SLAVE_CLIENT_SENSOR;
+		}else if (payload_type == CAM_RPMSG_SLAVE_PACKET_TYPE_DEBUG_LOG) {
+			char *log_str = (char *)&payload[1];
+			log_str[len - 8 - 1] = '\0';
+			CAM_INFO(CAM_RPMSG, "%s: %s", "HELIOS", log_str);
+			goto pkt_processed;
+		} else {
+			CAM_ERR(CAM_RPMSG, "Unexpected packet type %x len %d",
+					payload_type, payload_len);
+			print_hex_dump(KERN_INFO, "cam_recv_dump:", DUMP_PREFIX_OFFSET, 16, 4,
+					payload, payload_len, 0);
 		}
 
 		spin_lock_irqsave(&idata->sp_lock, flag);
 		if (client < CAM_RPMSG_SLAVE_CLIENT_MAX)
 			cb = &pvt->cbs[client];
 
-		if (cb || !cb->registered) {
+		if (!cb) {
+			CAM_ERR(CAM_RPMSG, "cb is null for client %d", client);
+		}else if(!cb->registered) {
 			CAM_ERR(CAM_RPMSG, "cbs not registered for client %d",
 					client);
 		} else if (!cb->recv) {
-			CAM_ERR(CAM_RPMSG, "recv not set for client %d",
-					client);
+			CAM_ERR(CAM_RPMSG, "recv not set for client %d, type %d",
+					client, payload_type);
 		} else {
-			cb->recv(cb->cookie, payload, payload_len);
+			rc = cb->recv(cb->cookie, payload, payload_len);
+			if (rc) {
+				CAM_ERR(CAM_RPMSG, "recv_cb failed rc %d", rc);
+				print_hex_dump(KERN_INFO, "cam_recv_dump:", DUMP_PREFIX_OFFSET, 16, 4,
+					payload, payload_len, 0);
+			}
 		}
 		spin_unlock_irqrestore(&idata->sp_lock, flag);
 
-		processed += sizeof(struct cam_rpmsg_slave_payload_desc) +
-			payload_len;
+pkt_processed:
+		processed += payload_len;
 	}
 
 	if (processed != len) {
-		CAM_INFO(CAM_RPMSG, "%d bytes are left unprocessed",
-				len - processed);
+		CAM_INFO(CAM_RPMSG, "%d bytes are left unprocessed len %d",
+				len - processed, len);
 	}
 
 	return ret;
@@ -324,21 +783,34 @@ int cam_rpmsg_set_recv_cb(unsigned int handle, cam_rpmsg_recv_cb cb)
 static int cam_rpmsg_slave_probe(struct rpmsg_device *rpdev)
 {
 	struct cam_rpmsg_instance_data *idata;
+	struct cam_rpmsg_slave_cbs system_cb;
 	unsigned int handle = CAM_RPMSG_HANDLE_SLAVE;
 	unsigned long flag;
 
 	CAM_INFO(CAM_RPMSG, "src 0x%x -> dst 0x%x", rpdev->src, rpdev->dst);
-	LOG_CTX();
 
 	idata = &cam_rpdev_idata[CAM_RPMSG_HANDLE_SLAVE];
 	dev_set_drvdata(&rpdev->dev, idata);
 	spin_lock_irqsave(&idata->sp_lock, flag);
 	idata->rpdev = rpdev;
-	idata->pvt = &slave_private;
+
 	spin_unlock_irqrestore(&idata->sp_lock, flag);
 
 	cam_rpmsg_set_recv_cb(handle, cam_rpmsg_slave_cb);
 
+	cam_req_mgr_workq_create("cam_rpmsg_system_wq",
+			CAM_RPMSG_WORKQ_NUM_TASK,
+			&system_data.workq, CRM_WORKQ_USAGE_IRQ,
+			CAM_WORKQ_FLAG_HIGH_PRIORITY,
+			cam_rpmsg_system_recv_workq);
+	/* set system recv */
+	init_completion(&system_data.complete);
+	system_cb.cookie = &system_data;
+	system_cb.recv = cam_rpmsg_system_recv_irq_cb;
+	cam_rpmsg_subscribe_slave_callback(CAM_RPMSG_SLAVE_CLIENT_SYSTEM,
+			system_cb);
+
+	cam_rpmsg_system_send_ping();
 	cam_rpmsg_notify_slave_status_change(idata, CAM_REQ_MGR_SLAVE_UP);
 	return 0;
 }
@@ -355,6 +827,15 @@ static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 	spin_lock_irqsave(&idata->sp_lock, flag);
 	idata->rpdev = rpdev;
 	spin_unlock_irqrestore(&idata->sp_lock, flag);
+	jpeg_private.jpeg_work_queue = alloc_workqueue("jpeg_glink_workq",
+			WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS,
+			5);
+	if (!jpeg_private.jpeg_work_queue) {
+		CAM_ERR(CAM_CDM,
+			"Workqueue allocation failed");
+	}
+
+	cam_rpmsg_set_recv_cb(CAM_RPMSG_HANDLE_JPEG, cam_rpmsg_jpeg_cb);
 
 	CAM_DBG(CAM_RPMSG, "rpmsg probe success for jpeg");
 
@@ -388,8 +869,8 @@ static void cam_rpmsg_jpeg_remove(struct rpmsg_device *rpdev)
 
 /* Channel name */
 static struct rpmsg_device_id cam_rpmsg_slave_id_table[] = {
-	{ .name = "cam-slave" },
-	{ },
+	{ .name = CAM_SLAVE_CHANNEL_NAME},
+	{},
 };
 
 /* device tree compatible string */
@@ -405,7 +886,7 @@ static struct rpmsg_driver cam_rpmsg_slave_client = {
 	.callback               = cam_rpmsg_cb,
 	.remove                 = cam_rpmsg_slave_remove,
 	.drv                    = {
-		.name           = "cam-slave-drv",
+		.name           = "qcom,msm_slave_rpmsg",
 		.of_match_table = cam_rpmsg_slave_of_match,
 	},
 };
@@ -427,28 +908,33 @@ static struct rpmsg_driver cam_rpmsg_jpeg_client = {
 	.callback               = cam_rpmsg_cb,
 	.remove                 = cam_rpmsg_jpeg_remove,
 	.drv                    = {
-		.name           = "cam-jpeg-drv",
-		.of_match_table = cam_rpmsg_jpeg_of_match,
+		.name           = "qcom,cam-jpeg-rpmsg",
 	},
 };
 
 int cam_rpmsg_init(void)
 {
 	int rc = 0, i;
+	struct cam_rpmsg_instance_data *idata;
 
 	CAM_INFO(CAM_RPMSG, "Registering RPMSG driver");
+
+	idata = &cam_rpdev_idata[CAM_RPMSG_HANDLE_SLAVE];
+	idata->pvt = &slave_private;
 
 	for (i = 0; i < CAM_RPMSG_HANDLE_MAX; i++) {
 		spin_lock_init(&cam_rpdev_idata[i].sp_lock);
 		BLOCKING_INIT_NOTIFIER_HEAD(
 				&cam_rpdev_idata[i].status_change_notify);
 	}
+	state = 1;
 
 	rc = register_rpmsg_driver(&cam_rpmsg_slave_client);
 	if (rc) {
 		CAM_ERR(CAM_RPMSG, "Failed to register slave rpmsg");
 		return rc;
 	}
+	CAM_DBG(CAM_RPMSG, "salve channel %s, rc %d", CAM_SLAVE_CHANNEL_NAME, rc);
 
 	rc = register_rpmsg_driver(&cam_rpmsg_jpeg_client);
 	if (rc) {
@@ -461,6 +947,7 @@ int cam_rpmsg_init(void)
 
 void cam_rpmsg_exit(void)
 {
+	state = 0;
 	unregister_rpmsg_driver(&cam_rpmsg_slave_client);
 	unregister_rpmsg_driver(&cam_rpmsg_jpeg_client);
 }

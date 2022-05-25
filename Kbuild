@@ -80,6 +80,7 @@ camera-y := \
 	drivers/cam_req_mgr/cam_req_mgr_workq.o \
 	drivers/cam_req_mgr/cam_req_mgr_timer.o \
 	drivers/cam_req_mgr/cam_req_mgr_debug.o \
+	drivers/cam_req_mgr/cam_fastrpc.o \
 	drivers/cam_utils/cam_soc_util.o \
 	drivers/cam_utils/cam_packet_util.o \
 	drivers/cam_utils/cam_debug_util.o \
@@ -90,6 +91,7 @@ camera-y := \
 	drivers/cam_core/cam_context_utils.o \
 	drivers/cam_core/cam_node.o \
 	drivers/cam_core/cam_rpmsg.o \
+	drivers/cam_core/cam_rpmsg_pkt.o \
 	drivers/cam_core/cam_subdev.o \
 	drivers/cam_smmu/cam_smmu_api.o \
 	drivers/cam_sync/cam_sync.o \
@@ -129,6 +131,7 @@ camera-$(CONFIG_SPECTRA_ISP) += \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_common.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver1.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver2.o \
+	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_virt_csid_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_lite_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/sfe_hw/cam_sfe_soc.o \
@@ -157,6 +160,7 @@ camera-$(CONFIG_SPECTRA_ISP) += \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_fe_ver1.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe_top/cam_vfe_camif_lite_ver3.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe17x/cam_vfe.o \
+	drivers/cam_isp/isp_hw_mgr/isp_hw/vfe_hw/vfe17x/cam_virt_vfe.o \
 	drivers/cam_isp/isp_hw_mgr/cam_isp_hw_mgr.o \
 	drivers/cam_isp/isp_hw_mgr/cam_ife_hw_mgr.o \
 	drivers/cam_isp/cam_isp_dev.o \
@@ -215,6 +219,10 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_cci/cam_cci_dev.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_core.o \
 	drivers/cam_sensor_module/cam_cci/cam_cci_soc.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_dev.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_core.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_soc.o \
+	drivers/cam_sensor_module/cam_sensor_lite/cam_sensor_lite_pkt_utils.o \
 	drivers/cam_sensor_module/cam_tpg/cam_tpg_dev.o \
 	drivers/cam_sensor_module/cam_tpg/cam_tpg_core.o \
 	drivers/cam_sensor_module/cam_tpg/tpg_hw/tpg_hw.o \
@@ -224,6 +232,9 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.o \
 	drivers/cam_sensor_module/cam_csiphy/cam_csiphy_dev.o \
 	drivers/cam_sensor_module/cam_csiphy/cam_csiphy_core.o \
+	drivers/cam_sensor_module/cam_csiphy_remote/cam_csiphy_remote_soc.o \
+	drivers/cam_sensor_module/cam_csiphy_remote/cam_csiphy_remote_dev.o \
+	drivers/cam_sensor_module/cam_csiphy_remote/cam_csiphy_remote_core.o \
 	drivers/cam_sensor_module/cam_eeprom/cam_eeprom_dev.o \
 	drivers/cam_sensor_module/cam_eeprom/cam_eeprom_core.o  \
 	drivers/cam_sensor_module/cam_eeprom/cam_eeprom_soc.o \

@@ -23,13 +23,14 @@
 #define MAX_PER_FRAME_ARRAY 32
 #define BATCH_SIZE_MAX      16
 
-#define CAM_SENSOR_NAME    "cam-sensor"
-#define CAM_ACTUATOR_NAME  "cam-actuator"
-#define CAM_CSIPHY_NAME    "cam-csiphy"
-#define CAM_FLASH_NAME     "cam-flash"
-#define CAM_EEPROM_NAME    "cam-eeprom"
-#define CAM_OIS_NAME       "cam-ois"
-#define CAM_TPG_NAME       "cam-tpg"
+#define CAM_SENSOR_NAME           "cam-sensor"
+#define CAM_ACTUATOR_NAME         "cam-actuator"
+#define CAM_CSIPHY_NAME           "cam-csiphy"
+#define CAM_FLASH_NAME            "cam-flash"
+#define CAM_EEPROM_NAME           "cam-eeprom"
+#define CAM_OIS_NAME              "cam-ois"
+#define CAM_TPG_NAME              "cam-tpg"
+#define CAM_SENSOR_LITE_NAME      "cam-sensor-lite"
 
 #define MAX_SYSTEM_PIPELINE_DELAY 2
 

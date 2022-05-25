@@ -54,6 +54,8 @@ enum cam_debug_module_id {
 	CAM_PRESIL_CORE,         /* bit 32 */
 	CAM_TPG,                 /* bit 33 */
 	CAM_RPMSG,               /* bit 34 */
+	CAM_SENSOR_LITE,         /* bit 35 */
+	CAM_CSIPHY_REMOTE,       /* bit 36 */
 	CAM_DBG_MOD_MAX
 };
 
@@ -111,6 +113,9 @@ static const char *cam_debug_mod_name[CAM_DBG_MOD_MAX] = {
 	[CAM_CRE]         = "CAM-CRE",
 	[CAM_PRESIL_CORE] = "CAM-CORE-PRESIL",
 	[CAM_TPG]         = "CAM-TPG",
+	[CAM_RPMSG]       = "CAM-RPMSG",
+	[CAM_SENSOR_LITE] = "CAM-SENSORLITE",
+	[CAM_CSIPHY_REMOTE] = "CAM-CSIPHY-REMOTE",
 };
 
 #define ___CAM_DBG_MOD_NAME(module_id)                                      \
@@ -148,7 +153,10 @@ __builtin_choose_expr(((module_id) == CAM_SFE), "CAM-SFE",                  \
 __builtin_choose_expr(((module_id) == CAM_CRE), "CAM-CRE",                  \
 __builtin_choose_expr(((module_id) == CAM_PRESIL_CORE), "CAM-CORE-PRESIL",  \
 __builtin_choose_expr(((module_id) == CAM_TPG), "CAM-TPG",                  \
-"CAMERA"))))))))))))))))))))))))))))))))))
+__builtin_choose_expr(((module_id) == CAM_RPMSG), "CAM-RPMSG",              \
+__builtin_choose_expr(((module_id) == CAM_SENSOR_LITE), "CAM-SENSORLITE",   \
+__builtin_choose_expr(((module_id) == CAM_CSIPHY_REMOTE), "CAM-CSIPHY-REMOTE", \
+"CAMERA")))))))))))))))))))))))))))))))))))))
 
 #define CAM_DBG_MOD_NAME(module_id) \
 ((module_id < CAM_DBG_MOD_MAX) ? cam_debug_mod_name[module_id] : "CAMERA")

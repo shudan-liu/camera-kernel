@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_DEFS_H__
@@ -630,7 +631,7 @@ struct cam_acquire_hw_cmd_v1 {
  * @acquired_hw_path:   Acquired path mask for an input
  *                      if input splits into multiple paths,
  *                      its updated per hardware
- * valid_acquired_hw:   Valid num of acquired hardware
+ * @valid_acquired_hw:   Valid num of acquired hardware
  */
 struct cam_acquired_hw_info {
 	__u32    acquired_hw_id[CAM_MAX_ACQ_RES];

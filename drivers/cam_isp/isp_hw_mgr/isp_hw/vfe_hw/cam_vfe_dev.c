@@ -16,7 +16,7 @@
 #include "cam_debug_util.h"
 #include <dt-bindings/msm-camera.h>
 
-static  struct cam_isp_hw_intf_data cam_vfe_hw_list[CAM_VFE_HW_NUM_MAX];
+struct cam_isp_hw_intf_data cam_vfe_hw_list[CAM_VFE_HW_NUM_MAX];
 
 static int cam_vfe_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
@@ -117,9 +117,12 @@ static int cam_vfe_component_bind(struct device *dev,
 
 	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
 		cam_vfe_hw_list[vfe_hw_intf->hw_idx].hw_intf = vfe_hw_intf;
-	else
+	else {
 		CAM_ERR(CAM_ISP, "VFE index is more than max supported index hw_idx =%d max index",
 			vfe_hw_intf->hw_idx, CAM_VFE_HW_NUM_MAX);
+		rc = -EINVAL;
+		goto deinit_core;
+	}
 
 	vfe_soc_priv = vfe_hw->soc_info.soc_private;
 	cam_vfe_hw_list[vfe_hw_intf->hw_idx].num_hw_pid = vfe_soc_priv->num_pid;
@@ -130,7 +133,8 @@ static int cam_vfe_component_bind(struct device *dev,
 	CAM_DBG(CAM_ISP, "VFE:%d component bound successfully",
 		vfe_hw_intf->hw_idx);
 	return rc;
-
+deinit_core:
+	cam_vfe_core_deinit(core_info, hw_info);
 deinit_soc:
 	if (cam_vfe_deinit_soc_resources(&vfe_hw->soc_info))
 		CAM_ERR(CAM_ISP, "Failed to deinit soc");

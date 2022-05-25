@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_SENSOR_H__
@@ -10,7 +11,7 @@
 #include <linux/ioctl.h>
 #include <media/cam_defs.h>
 
-#define CAM_SENSOR_PROBE_CMD      (CAM_COMMON_OPCODE_MAX + 1)
+#define CAM_SENSOR_PROBE_CMD           (CAM_COMMON_OPCODE_MAX + 1)
 #define CAM_FLASH_MAX_LED_TRIGGERS 2
 #define MAX_OIS_NAME_SIZE 32
 #define CAM_CSIPHY_SECURE_MODE_ENABLED 1
@@ -97,6 +98,19 @@ enum cam_sensor_packet_opcodes {
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_FRAME_SKIP_UPDATE,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_PROBE_V2,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP = 127
+};
+
+enum cam_sensorlite_packet_opcodes {
+	CAM_SENSOR_LITE_PACKET_OPCODE_STREAMON,
+	CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE,
+	CAM_SENSOR_LITE_PACKET_OPCODE_INITIAL_CONFIG,
+	CAM_SENSOR_LITE_PACKET_OPCODE_PROBE,
+	CAM_SENSOR_LITE_PACKET_OPCODE_CONFIG,
+	CAM_SENSOR_LITE_PACKET_OPCODE_STREAMOFF,
+	CAM_SENSOR_LITE_PACKET_OPCODE_READ,
+	CAM_SENSOR_LITE_PACKET_OPCODE_FRAME_SKIP_UPDATE,
+	CAM_SENSOR_LITE_PACKET_OPCODE_PROBE_V2,
+	CAM_SENSOR_LITE_PACKET_OPCODE_NOP = 127
 };
 
 enum tpg_command_type_t {
@@ -216,6 +230,20 @@ struct cam_csiphy_query_cap {
 } __attribute__((packed));
 
 /**
+ * struct cam_csiphy_query_cap - capabilities info for remote csiphy
+ *
+ * @slot_info        :  Indicates about the slotId or cell Index
+ * @version          :  CSIphy version
+ *                      as clock lane
+ * @reserved
+ */
+struct cam_csiphy_remote_query_cap {
+	__u32            slot_info;
+	__u32            version;
+	__u32            reserved;
+} __attribute__((packed));
+
+/**
  * struct cam_actuator_query_cap - capabilities info for actuator
  *
  * @slot_info        :  Indicates about the slotId or cell Index
@@ -260,6 +288,25 @@ struct cam_ois_query_cap_t {
 struct cam_tpg_query_cap {
 	__u32        slot_info;
 	__u32        version;
+	__u32        secure_camera;
+	__u32        csiphy_slot_id;
+	__u32        reserved[2];
+} __attribute__((packed));
+
+/**
+ * struct cam_sensorlite_query_cap - capabilities info for sensor lite
+ *
+ * @slot_info        :  Indicates about the slotId or cell Index
+ * @version          :  sensor lite version , in msb
+ * @remote_id        :  sensor is connected remotely we need to fill ids accordingly
+ * @reserved         :  Reserved for future Use
+ * @secure_camera    :  Camera is in secure/Non-secure mode
+ * @csiphy_slot_id   :  CSIphy slot id which connected to sensor
+ */
+struct cam_sensorlite_query_cap {
+	__u32        slot_info;
+	__u32        version;
+	__u32        remote_id;
 	__u32        secure_camera;
 	__u32        csiphy_slot_id;
 	__u32        reserved[2];
@@ -567,6 +614,20 @@ struct cam_csiphy_acquire_dev_info {
 } __attribute__((packed));
 
 /**
+ * cam_csiphy_remote_acquire_dev_info : Information needed for
+ *                               csiphy remote at the time of acquire
+ * @phy_id                 : PHY HW id
+ * @sensor_physical_id     : Sensor physical id
+ * @reserved
+ *
+ */
+struct cam_csiphy_remote_acquire_dev_info {
+	__u32    phy_id;
+	__u32    sensor_physical_id;
+	__u32    reserved;
+} __attribute__((packed));
+
+/**
  * cam_sensor_acquire_dev : Updates sensor acuire cmd
  * @device_handle  :    Updates device handle
  * @session_handle :    Session handle for acquiring device
@@ -599,6 +660,44 @@ struct cam_tpg_acquire_dev {
 	__u32    handle_type;
 	__u32    reserved;
 	__u64    info_handle;
+} __attribute__((packed));
+
+/**
+ * cam_sensorlite_acquire_dev : Updates sensor lite acuire cmd
+ * @device_handle  :    Updates device handle
+ * @session_handle :    Session handle for acquiring device
+ * @handle_type    :    Resource handle type
+ * @reserved
+ * @info_handle    :    Handle to additional info
+ *                      needed for sensor sub modules
+ *
+ */
+struct cam_sensorlite_acquire_dev {
+	__u32    session_handle;
+	__u32    device_handle;
+	__u32    handle_type;
+	__u32    reserved;
+	__u64    info_handle;
+} __attribute__((packed));
+
+/**
+ * cam_csiphy_remote_info      : Provides cmdbuffer structre
+ * @phy_id                     : Phy HW index
+ * @lane_assign                : Lanes sensor will be using
+ * @lane_cnt                   : Total number of lanes
+ * @combo_mode                 : Indicates the device mode of operation
+ * @csiphy_3phase              : Details whether 3Phase / 2Phase operation
+ * @sensor_physical_id         : Sensor physical id
+ * @reserved
+ */
+struct cam_csiphy_remote_info {
+	__u32    phy_id;
+	__u16    lane_assign;
+	__u16    lane_cnt;
+	__u32    combo_mode;
+	__u16    csiphy_3phase;
+	__u16    sensor_physical_id;
+	__u64    reserved;
 } __attribute__((packed));
 
 /**
@@ -742,6 +841,7 @@ struct tpg_illumination_control {
 	uint16_t b_gain;
 	uint32_t reserved[4];
 } __attribute__((packed));
+
 
 /**
  * struct cam_flash_init : Init command for the flash
