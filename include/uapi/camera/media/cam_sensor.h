@@ -510,6 +510,7 @@ struct cam_ir_led_query_cap_info {
  * @ir_led_intensity   :   ir led intensity level
  * @pwm_duty_on_ns     :   PWM duty cycle in ns for IRLED intensity
  * @pwm_period_ns      :   PWM period in ns
+ * @brightness         :   IRLED brightness step for I2C control
  *
  */
 struct cam_ir_led_set_on_off {
@@ -519,5 +520,6 @@ struct cam_ir_led_set_on_off {
        uint32_t    ir_led_intensity;
        uint32_t    pwm_duty_on_ns;
        uint32_t    pwm_period_ns;
+       uint8_t     brightness;
 } __attribute__((packed));
 #endif

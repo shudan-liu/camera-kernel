@@ -16,6 +16,7 @@
 #include <linux/pwm.h>
 #include "cam_ir_led_soc.h"
 #include "cam_res_mgr_api.h"
+#include "linux/i2c.h"
 
 int cam_ir_led_get_dt_data(struct cam_ir_led_ctrl *ictrl,
 	struct cam_hw_soc_info *soc_info)
@@ -47,6 +48,23 @@ int cam_ir_led_get_dt_data(struct cam_ir_led_ctrl *ictrl,
 		if (ictrl->pwm_dev == NULL)
 			CAM_ERR(CAM_IR_LED, "Cannot get PWM device");
 		ictrl->ir_led_driver_type = IR_LED_DRIVER_PMIC;
+	} else if (of_property_read_bool(soc_info->dev->of_node, "i2c")) {
+		struct device_node *PCA9632 = of_parse_phandle(ictrl->pdev->dev.of_node, "i2c", 0);
+		if (PCA9632 == NULL)
+			CAM_ERR(CAM_IR_LED, "Cannot get PCA9632 device");
+		else {
+			ictrl->io_master_info.client =
+				of_find_i2c_device_by_node(PCA9632);
+
+			if (ictrl->io_master_info.client != NULL) {
+				ictrl->io_master_info.master_type = I2C_MASTER;
+				ictrl->ir_led_driver_type = IR_LED_DRIVER_I2C;
+			} else {
+				CAM_ERR(CAM_IR_LED, "Cannot get PCA9632 I2C device");
+			}
+
+			of_node_put(PCA9632);
+		}
 	} else {
 		ictrl->ir_led_driver_type = IR_LED_DRIVER_GPIO;
 	}

@@ -20,6 +20,9 @@ int cam_ir_led_stop_dev(struct cam_ir_led_ctrl *ictrl)
 	if (ictrl->func_tbl->camera_ir_led_off != NULL)
 		rc = ictrl->func_tbl->camera_ir_led_off(ictrl);
 
+	if (ictrl->func_tbl->camera_ir_cut_off != NULL)
+		rc = ictrl->func_tbl->camera_ir_cut_off(ictrl);
+
 	return rc;
 }
 

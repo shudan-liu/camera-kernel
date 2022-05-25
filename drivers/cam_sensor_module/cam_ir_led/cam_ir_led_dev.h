@@ -35,6 +35,7 @@
 #include "cam_sensor_cmn_header.h"
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
+#include "cam_sensor_io.h"
 
 #define CAMX_IR_LED_DEV_NAME "cam-ir-led-dev"
 #define CAM_IR_LED_PIPELINE_DELAY 1
@@ -51,6 +52,7 @@ enum cam_ir_led_switch_trigger_ops {
 enum cam_ir_led_driver_type {
 	IR_LED_DRIVER_GPIO,
 	IR_LED_DRIVER_PMIC,
+	IR_LED_DRIVER_I2C,
 	IR_LED_DRIVER_DEFAULT,
 };
 
@@ -137,6 +139,7 @@ struct cam_ir_led_private_soc {
  * @ir_led_state        : Current ir_led state (INIT/ACQUIRE/START/ON/OFF)
  * @device_hdl          : Device Handle
  * @ir_led_driver_type  : ir_led driver type (GPIO/PWM)
+ * @io_master_info      : Information about the communication master
  */
 struct cam_ir_led_ctrl {
 	struct cam_hw_soc_info      soc_info;
@@ -149,6 +152,7 @@ struct cam_ir_led_ctrl {
 	enum   cam_ir_led_state     ir_led_state;
 	int32_t                     device_hdl;
 	enum cam_ir_led_driver_type ir_led_driver_type;
+	struct camera_io_master     io_master_info;
 };
 
 struct cam_ir_led_func {
