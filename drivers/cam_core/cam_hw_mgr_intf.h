@@ -438,6 +438,17 @@ struct cam_virt_process_cmd {
 };
 
 /**
+ * struct cam_virt_populate_out_args - struct for populate out ports arguments
+ *
+ * @num_res:    Number of items in res pointer
+ * @res:        Pointer to resource structure
+ */
+struct cam_virt_populate_out_args {
+	int num_res;
+	struct cam_isp_resource_node **res;
+};
+
+/**
  * struct cam_hw_mini_dump_args - Mini Dump arguments
  *
  * @start_addr:          Start address of buffer

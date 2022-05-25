@@ -42,8 +42,75 @@ struct cam_virt_vfe_top_ver4_priv {
 	struct cam_vfe_top_priv_common      top_common;
 };
 
+int __translate_res_id(int res_id)
+{
+	switch(res_id) {
+		case CAM_VFE_BUS_VER3_VFE_OUT_RDI0:
+			return CAM_ISP_IFE_OUT_RES_RDI_0;
+		case CAM_VFE_BUS_VER3_VFE_OUT_RDI1:
+			return CAM_ISP_IFE_OUT_RES_RDI_1;
+		case CAM_VFE_BUS_VER3_VFE_OUT_RDI2:
+			return CAM_ISP_IFE_OUT_RES_RDI_2;
+		case CAM_VFE_BUS_VER3_VFE_OUT_RDI3:
+			return CAM_ISP_IFE_OUT_RES_RDI_3;
+		case CAM_VFE_BUS_VER3_VFE_OUT_STATS_BG:
+			return CAM_ISP_IFE_LITE_OUT_RES_STATS_BG;
+		case CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW:
+			return CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW;
+		case CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST:
+			return CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST;
+		default:
+			CAM_ERR(CAM_ISP, "Unknown type %d", res_id);
+	}
+	return -1;
+}
+
+int cam_virt_vfe_populate_out_ports(void *hw_priv, void *cmd, uint32_t arg_size)
+{
+	int rc = 0, i, *num_out;
+	struct cam_virt_process_cmd          *process_cmd;
+	struct cam_virt_populate_out_args    *out_args;
+	struct cam_isp_resource_node         *isp_res;
+	struct cam_vfe_bus_ver3_vfe_out_data *rsrc_data;
+	struct cam_isp_resource_node         *wm_res;
+	struct cam_vfe_bus_ver3_wm_resource_data *wm_rsrc_data;
+	struct cam_rpmsg_out_port *out;
+	uint32_t *buf, *idx;
+
+	if (!hw_priv || !cmd ||
+		(arg_size != sizeof(struct cam_virt_process_cmd))) {
+		CAM_ERR(CAM_ISP, "Invalid input arguments");
+		return -EINVAL;
+	}
+
+	process_cmd = (struct cam_virt_process_cmd *)cmd;
+	out_args = (struct cam_virt_populate_out_args *)process_cmd->args;
+	CAM_DBG(CAM_ISP, "num_res %d", out_args->num_res);
+	buf = process_cmd->pkt;
+	idx = process_cmd->off;
+	num_out = &buf[(*idx)++];
+	out = (struct cam_rpmsg_out_port *)&buf[*idx];
+	for (i = 0; i < out_args->num_res; i++, (*num_out)++) {
+		isp_res = out_args->res[i];
+		rsrc_data = isp_res->res_priv;
+		wm_res = &rsrc_data->wm_res[0];
+		wm_rsrc_data = wm_res->res_priv;
+		CAM_DBG(CAM_ISP, "res_id %d width %d height %d format %d",
+				__translate_res_id(wm_res->res_id),
+				wm_rsrc_data->acquired_width, wm_rsrc_data->acquired_height,
+				wm_rsrc_data->format);
+		out[i].type = __translate_res_id(wm_res->res_id);
+		out[i].width = wm_rsrc_data->acquired_width;
+		out[i].height = wm_rsrc_data->acquired_height;
+		out[i].format = wm_rsrc_data->format;
+	}
+	*idx += ((*num_out * sizeof(struct cam_rpmsg_out_port)) / sizeof(uint32_t));
+
+	return rc;
+}
+
 int cam_virt_vfe_populate_wm(
-	struct cam_isp_resource_node *wm_res,
+	struct cam_isp_resource_node      *wm_res,
 	uint32_t                          *reg_payload,
 	uint32_t                          *idx)
 {
@@ -141,7 +208,6 @@ int cam_virt_vfe_populate_regs(void *hw_priv, void *cmd, uint32_t arg_size)
 	struct cam_hw_info                *vfe_hw  = hw_priv;
 	struct cam_virt_process_cmd       *hw_regs;
 	struct cam_isp_resource_node      *isp_res;
-	struct cam_hw_soc_info            *soc_info = NULL;
 	int                                rc = 0;
 	uint32_t                          *reg_payload = NULL, *size_ptr = NULL;
 	uint32_t                          *idx = 0, old_idx;
@@ -152,7 +218,6 @@ int cam_virt_vfe_populate_regs(void *hw_priv, void *cmd, uint32_t arg_size)
 		return -EINVAL;
 	}
 
-	soc_info = &vfe_hw->soc_info;
 	core_info = (struct cam_virt_vfe_hw_core_info *)vfe_hw->core_info;
 	hw_regs = (struct cam_virt_process_cmd *)cmd;
 	isp_res = (struct cam_isp_resource_node  *)hw_regs->args;
@@ -341,9 +406,13 @@ int cam_virt_vfe_process_cmd(void *hw_priv, uint32_t cmd_type, void *cmd_args,
 {
 	int rc = -EINVAL;
 
+	CAM_DBG(CAM_ISP, "cmd_type %d", cmd_type);
 	switch (cmd_type) {
 	case CAM_ISP_VIRT_POPULATE_REGS:
 		rc = cam_virt_vfe_populate_regs(hw_priv, cmd_args, arg_size);
+		break;
+	case CAM_ISP_VIRT_POPULATE_OUT_PORTS:
+		rc = cam_virt_vfe_populate_out_ports(hw_priv, cmd_args, arg_size);
 		break;
 	}
 
