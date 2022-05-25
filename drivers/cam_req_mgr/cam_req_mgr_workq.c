@@ -6,6 +6,7 @@
 #include "cam_req_mgr_workq.h"
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
+#include "cam_irq_controller.h"
 
 #define WORKQ_ACQUIRE_LOCK(workq, flags) {\
 	if ((workq)->in_irq) \
@@ -20,6 +21,11 @@
 	else	\
 		spin_unlock_bh(&(workq)->lock_bh); \
 }
+
+struct cam_irq_bh_api workq_bh_api = {
+	.bottom_half_enqueue_func = cam_req_mgr_workq_enqueue_task,
+	.get_bh_payload_func = cam_req_mgr_workq_get_task
+};
 
 struct crm_workq_task *cam_req_mgr_workq_get_task(
 	struct cam_req_mgr_core_workq *workq)

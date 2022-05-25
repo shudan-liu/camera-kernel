@@ -9,7 +9,6 @@
 
 #include <media/cam_defs.h>
 #include "cam_isp_hw_mgr_intf.h"
-#include "cam_tasklet_util.h"
 #include "cam_isp_hw.h"
 
 #define CAM_ISP_HW_NUM_MAX                       16
@@ -20,7 +19,7 @@
 /**
  * struct cam_isp_hw_mgr_ctx - common acquired context for managers
  *
- * @takslet_info:          assciated tasklet
+ * @workq_info:            associated workq
  * @event_cb:              call back interface to ISP context. Set during
  *                         acquire device
  * @cb_priv:               first argument for the call back function
@@ -29,7 +28,7 @@
  *
  */
 struct cam_isp_hw_mgr_ctx {
-	void                           *tasklet_info;
+	void                           *workq_info;
 	cam_hw_event_cb_func            event_cb;
 	void                           *cb_priv;
 	cam_ctx_mini_dump_cb_func       mini_dump_cb;
@@ -38,7 +37,7 @@ struct cam_isp_hw_mgr_ctx {
 /**
  * struct cam_isp_hw_mgr - ISP HW Manager common object
  *
- * @tasklet_pool:             Tasklet pool
+ * @workq_pool:               Workq pool
  * @img_iommu_hdl:            iommu memory handle for regular image buffer
  * @img_iommu_hdl_secure:     iommu memory handle for secure image buffer
  * @cmd_iommu_hdl:            iommu memory handle for regular command buffer
@@ -48,7 +47,7 @@ struct cam_isp_hw_mgr_ctx {
  *
  */
 struct cam_isp_hw_mgr {
-	void                           *tasklet_pool[CAM_CTX_MAX];
+	struct cam_req_mgr_core_workq  *workq_pool[CAM_CTX_MAX];
 	int                             img_iommu_hdl;
 	int                             img_iommu_hdl_secure;
 	int                             cmd_iommu_hdl;

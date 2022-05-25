@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -13,7 +14,7 @@
 #include "cam_debug_util.h"
 #include "cam_cdm_util.h"
 #include "cam_irq_controller.h"
-#include "cam_tasklet_util.h"
+#include "cam_req_mgr_workq.h"
 
 struct cam_vfe_mux_rdi_data {
 	void __iomem                                *mem_base;
@@ -186,7 +187,7 @@ static int cam_vfe_rdi_err_irq_top_half(
 	rc  = cam_vfe_rdi_get_evt_payload(rdi_priv, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue");
+			"No workq_cmd is free in queue");
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "STATUS_1=0x%x",
 			th_payload->evt_status_arr[1]);
 		return rc;
@@ -320,8 +321,8 @@ static int cam_vfe_rdi_resource_start(
 			rdi_res,
 			cam_vfe_rdi_err_irq_top_half,
 			rdi_res->bottom_half_handler,
-			rdi_res->tasklet_info,
-			&tasklet_bh_api,
+			rdi_res->workq_info,
+			&workq_bh_api,
 			CAM_IRQ_EVT_GROUP_0);
 		if (rsrc_data->irq_err_handle < 1) {
 			CAM_ERR(CAM_ISP, "Error IRQ handle subscribe failure");
@@ -349,8 +350,8 @@ static int cam_vfe_rdi_resource_start(
 			rdi_res,
 			rdi_res->top_half_handler,
 			rdi_res->bottom_half_handler,
-			rdi_res->tasklet_info,
-			&tasklet_bh_api,
+			rdi_res->workq_info,
+			&workq_bh_api,
 			CAM_IRQ_EVT_GROUP_0);
 		if (rsrc_data->irq_handle < 1) {
 			CAM_ERR(CAM_ISP, "IRQ handle subscribe failure");
@@ -447,7 +448,7 @@ static int cam_vfe_rdi_handle_irq_top_half(uint32_t evt_id,
 
 	rc  = cam_vfe_rdi_get_evt_payload(rdi_priv, &evt_payload);
 	if (rc) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No workq_cmd is free in queue");
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ status0=0x%x status1=0x%x",
 			th_payload->evt_status_arr[0],
 			th_payload->evt_status_arr[1]);

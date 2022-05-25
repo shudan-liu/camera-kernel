@@ -195,7 +195,7 @@ struct cam_vfe_hw_vfe_in_acquire_args {
  * struct cam_vfe_acquire_args:
  *
  * @rsrc_type:               Type of Resource (OUT/IN) to acquire
- * @tasklet:                 Tasklet to associate with this resource. This is
+ * @workq:                   Workq to associate with this resource. This is
  *                           used to schedule bottom of IRQ events associated
  *                           with this resource.
  * @priv:                    Context data
@@ -207,7 +207,7 @@ struct cam_vfe_hw_vfe_in_acquire_args {
  */
 struct cam_vfe_acquire_args {
 	enum cam_isp_resource_type           rsrc_type;
-	void                                *tasklet;
+	void                                *workq;
 	void                                *priv;
 	cam_hw_mgr_event_cb_func             event_cb;
 	void                                *buf_done_controller;

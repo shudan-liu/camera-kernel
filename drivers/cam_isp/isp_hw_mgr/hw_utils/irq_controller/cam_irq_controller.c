@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -12,6 +13,7 @@
 #include "cam_irq_controller.h"
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
+#include "cam_req_mgr_workq.h"
 
 /**
  * struct cam_irq_evt_handler:
@@ -509,13 +511,11 @@ int cam_irq_controller_subscribe_irq(void *irq_controller,
 
 	if (irq_bh_api &&
 		(!irq_bh_api->bottom_half_enqueue_func ||
-		!irq_bh_api->get_bh_payload_func ||
-		!irq_bh_api->put_bh_payload_func)) {
+		!irq_bh_api->get_bh_payload_func)) {
 		CAM_ERR(CAM_IRQ_CTRL,
 			"Invalid: enqueue_func=%pK get_bh=%pK put_bh=%pK",
 			irq_bh_api->bottom_half_enqueue_func,
-			irq_bh_api->get_bh_payload_func,
-			irq_bh_api->put_bh_payload_func);
+			irq_bh_api->get_bh_payload_func);
 		return -EINVAL;
 	}
 
@@ -725,7 +725,7 @@ static void __cam_irq_controller_th_processing(
 	bool                            is_irq_match;
 	int                             rc = -EINVAL;
 	int                             i;
-	void                           *bh_cmd = NULL;
+	struct crm_workq_task          *bh_cmd = NULL;
 	struct cam_irq_bh_api          *irq_bh_api = NULL;
 
 	CAM_DBG(CAM_IRQ_CTRL, "Enter");
@@ -754,9 +754,9 @@ static void __cam_irq_controller_th_processing(
 		bh_cmd = NULL;
 
 		if (evt_handler->bottom_half_handler) {
-			rc = irq_bh_api->get_bh_payload_func(
-				evt_handler->bottom_half, &bh_cmd);
-			if (rc || !bh_cmd) {
+			bh_cmd = irq_bh_api->get_bh_payload_func(
+				evt_handler->bottom_half);
+			if (!bh_cmd) {
 				CAM_ERR_RATE_LIMIT(CAM_ISP,
 					"No payload, IRQ handling frozen for %s",
 					controller->name);
@@ -773,21 +773,14 @@ static void __cam_irq_controller_th_processing(
 				controller->irq_status_arr[0],
 				(void *)th_payload);
 
-		if (rc && bh_cmd) {
-			irq_bh_api->put_bh_payload_func(
-				evt_handler->bottom_half, &bh_cmd);
-			continue;
-		}
-
 		if (evt_handler->bottom_half_handler) {
 			CAM_DBG(CAM_IRQ_CTRL, "Enqueuing bottom half for %s",
 				controller->name);
-			irq_bh_api->bottom_half_enqueue_func(
-				evt_handler->bottom_half,
-				bh_cmd,
-				evt_handler->handler_priv,
-				th_payload->evt_payload_priv,
-				evt_handler->bottom_half_handler);
+			bh_cmd->process_cb = evt_handler->bottom_half_handler;
+			bh_cmd->payload = th_payload->evt_payload_priv;
+
+			irq_bh_api->bottom_half_enqueue_func(bh_cmd,
+				evt_handler->handler_priv, CRM_TASK_PRIORITY_0);
 		}
 	}
 

@@ -1,12 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IRQ_CONTROLLER_H_
 #define _CAM_IRQ_CONTROLLER_H_
 
 #include <linux/interrupt.h>
+#include "cam_req_mgr_workq.h"
 
 #define CAM_IRQ_BITS_PER_REGISTER      32
 
@@ -119,20 +121,15 @@ typedef int (*CAM_IRQ_HANDLER_TOP_HALF)(uint32_t evt_id,
 typedef int (*CAM_IRQ_HANDLER_BOTTOM_HALF)(void *handler_priv,
 	void *evt_payload_priv);
 
-typedef void (*CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC)(void *bottom_half,
-	void *bh_cmd, void *handler_priv, void *evt_payload_priv,
-	CAM_IRQ_HANDLER_BOTTOM_HALF);
+typedef int (*CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC)(struct crm_workq_task *bh_cmd,
+	void *handler_priv, int32_t prio);
 
-typedef int (*CAM_IRQ_GET_TASKLET_PAYLOAD_FUNC)(void *bottom_half,
-	void **bh_cmd);
-
-typedef void (*CAM_IRQ_PUT_TASKLET_PAYLOAD_FUNC)(void *bottom_half,
-	void **bh_cmd);
+typedef struct crm_workq_task * (*CAM_IRQ_GET_WORKQ_PAYLOAD_FUNC)(
+	struct cam_req_mgr_core_workq *bottom_half);
 
 struct cam_irq_bh_api {
 	CAM_IRQ_BOTTOM_HALF_ENQUEUE_FUNC bottom_half_enqueue_func;
-	CAM_IRQ_GET_TASKLET_PAYLOAD_FUNC get_bh_payload_func;
-	CAM_IRQ_PUT_TASKLET_PAYLOAD_FUNC put_bh_payload_func;
+	CAM_IRQ_GET_WORKQ_PAYLOAD_FUNC get_bh_payload_func;
 };
 
 /*

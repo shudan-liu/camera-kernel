@@ -21,9 +21,9 @@
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
 #include "cam_isp_hw_mgr_intf.h"
-#include "cam_tasklet_util.h"
 #include "cam_common_util.h"
 #include "cam_subdev.h"
+#include "cam_req_mgr_workq.h"
 
 #define IFE_CSID_TIMEOUT                               1000
 
@@ -2701,7 +2701,6 @@ static int cam_ife_csid_ver1_enable_hw(struct cam_ife_csid_ver1_hw *csid_hw)
 	csid_hw->flags.fatal_err_detected = false;
 	csid_hw->flags.device_enabled = true;
 	spin_unlock_irqrestore(&csid_hw->lock_state, flags);
-	cam_tasklet_start(csid_hw->tasklet);
 
 	return rc;
 
@@ -2866,7 +2865,6 @@ static int cam_ife_csid_ver1_disable_hw(
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->top_irq_mask_addr);
 
-	cam_tasklet_stop(csid_hw->tasklet);
 	rc = cam_ife_csid_disable_soc_resources(soc_info);
 	if (rc)
 		CAM_ERR(CAM_ISP, "CSID:%d Disable CSID SOC failed",
@@ -4429,7 +4427,7 @@ static irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	struct cam_ife_csid_ver1_reg_info     *csid_reg;
 	struct cam_ife_csid_ver1_hw           *csid_hw;
 	struct cam_hw_soc_info                *soc_info;
-	void                                  *bh_cmd = NULL;
+	struct crm_workq_task                  *bh_cmd = NULL;
 	unsigned long                          flags;
 	uint32_t                               status[CAM_IFE_CSID_IRQ_REG_MAX];
 	uint32_t                               need_rx_bh = 0;
@@ -4496,19 +4494,19 @@ static irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 		&csid_hw->free_payload_list);
 
 	if (!evt_payload) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID[%u], no free tasklet",
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "CSID[%u], no free workq",
 			csid_hw->hw_intf->hw_idx);
 		return IRQ_HANDLED;
 	}
 
 
-	rc = tasklet_bh_api.get_bh_payload_func(csid_hw->tasklet, &bh_cmd);
+	bh_cmd = cam_req_mgr_workq_get_task(csid_hw->workq);
 
-	if (rc || !bh_cmd) {
+	if (!bh_cmd) {
 		cam_ife_csid_ver1_put_evt_payload(csid_hw, &evt_payload,
 			&csid_hw->free_payload_list);
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"CSID[%d] Can not get cmd for tasklet, status %x",
+			"CSID[%d] Can not get cmd for workq, status %x",
 			csid_hw->hw_intf->hw_idx,
 			status[CAM_IFE_CSID_IRQ_REG_TOP]);
 		return IRQ_HANDLED;
@@ -4517,14 +4515,13 @@ static irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 	evt_payload->priv = csid_hw->token;
 	evt_payload->hw_idx = csid_hw->hw_intf->hw_idx;
 
+	bh_cmd->process_cb = cam_ife_csid_ver1_bottom_half_handler;
+	bh_cmd->payload = evt_payload;
+
 	for (i = 0; i < CAM_IFE_CSID_IRQ_REG_MAX; i++)
 		evt_payload->irq_status[i] = status[i];
 
-	tasklet_bh_api.bottom_half_enqueue_func(csid_hw->tasklet,
-		bh_cmd,
-		csid_hw,
-		evt_payload,
-		cam_ife_csid_ver1_bottom_half_handler);
+	cam_req_mgr_workq_enqueue_task(bh_cmd, csid_hw, 0);
 
 	return IRQ_HANDLED;
 
@@ -4677,6 +4674,12 @@ free_res:
 	return rc;
 }
 
+
+static void cam_req_mgr_process_workq_cam_csid_worker(struct work_struct *w)
+{
+	cam_req_mgr_process_workq(w);
+}
+
 int cam_ife_csid_hw_ver1_init(struct cam_hw_intf  *hw_intf,
 	struct cam_ife_csid_core_info *csid_core_info,
 	bool is_custom)
@@ -4754,10 +4757,11 @@ int cam_ife_csid_hw_ver1_init(struct cam_hw_intf  *hw_intf,
 		return rc;
 	}
 
-	rc  = cam_tasklet_init(&ife_csid_hw->tasklet, ife_csid_hw,
-			hw_intf->hw_idx);
+	rc = cam_req_mgr_workq_create("cam_csid_worker",
+			256, &ife_csid_hw->workq, CRM_WORKQ_USAGE_IRQ, 0,
+			cam_req_mgr_process_workq_cam_csid_worker);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "CSID[%d] init tasklet failed",
+		CAM_ERR(CAM_ISP, "CSID[%d] init workq failed",
 			hw_intf->hw_idx);
 		goto err;
 	}
