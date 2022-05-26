@@ -25,8 +25,26 @@
 void cam_sensor_lite_shutdown(
 	struct sensor_lite_device *sensor_lite_dev)
 {
-	CAM_INFO(CAM_SENSOR_LITE, "Shutdown called ");
-	sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_INIT;
+	CAM_INFO(CAM_SENSOR_LITE, "Shutdown[%d] called",
+		sensor_lite_dev->soc_info.index);
+
+	if (sensor_lite_dev->state == CAM_SENSOR_LITE_STATE_START) {
+		__send_pkt(sensor_lite_dev,
+			&(sensor_lite_dev->stop_cmd->header));
+		sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_ACQUIRE;
+	}
+
+	if (sensor_lite_dev->state == CAM_SENSOR_LITE_STATE_ACQUIRE) {
+		__send_pkt(sensor_lite_dev,
+			&(sensor_lite_dev->release_cmd->header));
+		sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_INIT;
+
+		cam_destroy_device_hdl(sensor_lite_dev->crm_intf.device_hdl);
+		sensor_lite_dev->crm_intf.device_hdl  = -1;
+		sensor_lite_dev->crm_intf.session_hdl = -1;
+		sensor_lite_dev->crm_intf.enable_crm  = 0;
+	}
+
 	/* Free acquire and release */
 	kfree(sensor_lite_dev->acquire_cmd);
 	sensor_lite_dev->acquire_cmd = NULL;
@@ -1023,7 +1041,7 @@ int cam_sensor_lite_core_cfg(
 					sensor_lite_dev->soc_info.index,
 					rc);
 		}
-
+		break;
 	}
 	case CAM_CONFIG_DEV: {
 		struct cam_config_dev_cmd config;
