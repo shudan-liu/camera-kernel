@@ -88,6 +88,7 @@ struct crm_task_payload {
 	enum crm_workq_task_type type;
 	union {
 		struct cam_req_mgr_sched_request        sched_req;
+		struct cam_req_mgr_sched_request_v2     sched_req_v2;
 		struct cam_req_mgr_flush_info           flush_info;
 		struct cam_req_mgr_add_request          dev_req;
 		struct cam_req_mgr_send_request         send_req;
@@ -512,6 +513,15 @@ int cam_req_mgr_unlink(struct cam_req_mgr_unlink_info *unlink_info);
  * @sched_req: request id, session and link id info, bubble recovery info
  */
 int cam_req_mgr_schedule_request(struct cam_req_mgr_sched_request *sched_req);
+
+/**
+ * cam_req_mgr_schedule_request_v2()
+ * @brief: Request is scheduled
+ * @sched_req: request id, session and link id info, bubble recovery info
+ * reserved field
+ */
+int cam_req_mgr_schedule_request_v2(
+	struct cam_req_mgr_sched_request_v2 *sched_req);
 
 /**
  * cam_req_mgr_sync_mode_setup()
