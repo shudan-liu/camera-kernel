@@ -677,7 +677,7 @@ static void __cam_req_mgr_validate_crm_wd_timer(
 	}
 	spin_lock_bh(&link->link_state_spin_lock);
 	if (link->watchdog) {
-		if ((next_frame_timeout) {
+		if (next_frame_timeout) {
 			CAM_DBG(CAM_CRM,
 				"Modifying wd timer expiry from %d ms to %d ms",
 				link->watchdog->expires,
@@ -2697,6 +2697,7 @@ int cam_req_mgr_process_sched_req_v2(void *priv, void *data)
 	struct cam_req_mgr_req_queue     *in_q = NULL;
 	struct cam_req_mgr_slot          *slot = NULL;
 	struct crm_task_payload          *task_data = NULL;
+	int                               i = 0;
 
 	if (!data || !priv) {
 		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
@@ -2737,8 +2738,10 @@ int cam_req_mgr_process_sched_req_v2(void *priv, void *data)
 			link->initial_sync_req = slot->req_id;
 	} else {
 		link->initial_sync_req = -1;
-		if (link->sync_link)
-			link->sync_link->initial_sync_req = -1;
+		for (i = 0; i < link->num_sync_links; i++) {
+		if (link->sync_link[i])
+			link->sync_link[i]->initial_sync_req = -1;
+		}
 	}
 
 	mutex_unlock(&link->req.lock);
