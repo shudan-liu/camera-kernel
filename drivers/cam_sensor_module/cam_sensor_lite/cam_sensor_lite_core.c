@@ -964,8 +964,7 @@ int cam_sensor_lite_core_cfg(
 	case CAM_SENSOR_PROBE_CMD: {
 		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] probe cmd received",
 				sensor_lite_dev->soc_info.index);
-		__cam_sensor_lite_handle_probe(sensor_lite_dev, cmd->handle, cmd->op_code);
-
+		rc = __cam_sensor_lite_handle_probe(sensor_lite_dev, cmd->handle, cmd->op_code);
 		break;
 	}
 	case CAM_ACQUIRE_DEV: {

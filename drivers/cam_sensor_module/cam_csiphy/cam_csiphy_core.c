@@ -1264,11 +1264,11 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	if (!csiphy_dev->acquire_count)
 		return;
 
-	if (csiphy_dev->acquire_count >= CSIPHY_MAX_INSTANCES_PER_PHY) {
+	if (csiphy_dev->acquire_count >= csiphy_dev->session_max_device_support) {
 		CAM_WARN(CAM_CSIPHY, "acquire count is invalid: %u",
 			csiphy_dev->acquire_count);
 		csiphy_dev->acquire_count =
-			CSIPHY_MAX_INSTANCES_PER_PHY;
+			csiphy_dev->session_max_device_support;
 	}
 
 	csiphy_reg = &csiphy_dev->ctrl_reg->csiphy_reg;
@@ -1847,7 +1847,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	csiphybase = soc_info->reg_map[0].mem_base;
 	csiphy_reg = &csiphy_dev->ctrl_reg->csiphy_reg;
 	status_reg_ptr = csiphy_reg->status_reg_params;
-	CAM_DBG(CAM_CSIPHY, "Opcode received: %d", cmd->op_code);
+	CAM_INFO(CAM_CSIPHY, "Opcode received: %d", cmd->op_code);
 	mutex_lock(&csiphy_dev->mutex);
 	switch (cmd->op_code) {
 	case CAM_ACQUIRE_DEV: {
