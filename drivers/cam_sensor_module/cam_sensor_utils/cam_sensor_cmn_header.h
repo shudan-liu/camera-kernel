@@ -332,6 +332,7 @@ struct cam_camera_slave_info {
 	uint16_t sensor_id;
 	uint16_t sensor_id_mask;
 	uint8_t  i2c_freq_mode;
+	uint16_t sensor_hot_plug_type;
 };
 
 struct msm_sensor_init_params {
