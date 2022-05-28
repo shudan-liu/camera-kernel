@@ -25,7 +25,6 @@
 #define CAM_SLAVE_CHANNEL_NAME "AH_CAM"
 
 static int state;
-static int slave_pkt_dump = 0;
 
 static struct cam_rpmsg_instance_data cam_rpdev_idata[CAM_RPMSG_HANDLE_MAX];
 struct cam_rpmsg_slave_pvt slave_private;
@@ -84,6 +83,10 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 	memcpy(payload, data, len);
 
 	task = cam_req_mgr_workq_get_task(system_data.workq);
+	if (!task) {
+		CAM_ERR(CAM_RPMSG, "Failed to dequeue task");
+		return -EINVAL;
+	}
 	task->payload = payload;
 	task->process_cb = cam_rpmsg_system_recv_worker;
 	rc = cam_req_mgr_workq_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
@@ -396,7 +399,7 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	CAM_RPMSG_SLAVE_SET_HDR_NUM_PACKET(hdr, 1);
 	CAM_RPMSG_SLAVE_SET_HDR_PACKET_SZ(hdr, len);
 
-	if (slave_pkt_dump) {
+	if (slave_private.tx_dump) {
 		cam_rpmsg_slave_dump_pkt(data, len);
 		CAM_INFO(CAM_RPMSG, "hex_dump %d bytes, w %d", len, *(char *)data);
 		print_hex_dump(KERN_INFO, "camera_dump:", DUMP_PREFIX_OFFSET, 16, 4, data, len, 0);
@@ -641,6 +644,25 @@ static int cam_rpmsg_jpeg_cb(struct rpmsg_device *rpdev, void *data, int len,
 	}
 	return 0;
 }
+
+static int cam_rpmsg_create_slave_debug_fs(void)
+{
+	int rc = 0;
+
+	slave_private.dentry = debugfs_create_dir("camera_rpmsg", NULL);
+	if (!slave_private.dentry) {
+		CAM_ERR(CAM_SMMU,"DebugFS could not create directory!");
+		rc = -ENOENT;
+		goto end;
+	}
+
+	debugfs_create_bool("slave_tx_dump_en", 0644,
+		slave_private.dentry, &slave_private.tx_dump);
+	debugfs_create_bool("slave_rx_dump_en", 0644,
+		slave_private.dentry, &slave_private.rx_dump);
+end:
+	return rc;
+}
 static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 	void *priv, u32 src)
 {
@@ -671,7 +693,12 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 				hdr_version);
 		return 0;
 	}
+	if (slave_private.rx_dump) {
+		print_hex_dump(KERN_INFO, "cam_rx_dump:", DUMP_PREFIX_OFFSET, 16, 4,
+				data, len, 0);
+	}
 
+	CAM_DBG(CAM_RPMSG, "pkt_len %d, hdr_len %d", len, hdr_len);
 	while (processed < len) {
 		payload = (struct cam_rpmsg_slave_payload_desc *)
 			((uintptr_t)data + processed);
@@ -681,7 +708,13 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 		payload_type = CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(payload);
 		payload_len = CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(payload);
 
-		CAM_DBG(CAM_RPMSG, "pld_type %d, pld_len %d", payload_type, payload_len);
+		CAM_DBG(CAM_RPMSG, "pld_type %x, pld_len %d", payload_type, payload_len);
+
+		if (!payload_len) {
+			CAM_ERR(CAM_RPMSG, "zero length payload, type %d", payload_type);
+			return 0;
+		}
+
 		if (payload_type >= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_UNUSED &&
 			payload_type <= CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_MAX) {
 			/* Hand off to system pkt handler */
@@ -722,7 +755,7 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 			rc = cb->recv(cb->cookie, payload, payload_len);
 			if (rc) {
 				CAM_ERR(CAM_RPMSG, "recv_cb failed rc %d", rc);
-				print_hex_dump(KERN_INFO, "cam_recv_dump:", DUMP_PREFIX_OFFSET, 16, 4,
+				print_hex_dump(KERN_INFO, "cam_rx_fail:", DUMP_PREFIX_OFFSET, 16, 4,
 					payload, payload_len, 0);
 			}
 		}
@@ -786,6 +819,7 @@ static int cam_rpmsg_slave_probe(struct rpmsg_device *rpdev)
 	struct cam_rpmsg_slave_cbs system_cb;
 	unsigned int handle = CAM_RPMSG_HANDLE_SLAVE;
 	unsigned long flag;
+	int rc = 0;
 
 	CAM_INFO(CAM_RPMSG, "src 0x%x -> dst 0x%x", rpdev->src, rpdev->dst);
 
@@ -798,11 +832,15 @@ static int cam_rpmsg_slave_probe(struct rpmsg_device *rpdev)
 
 	cam_rpmsg_set_recv_cb(handle, cam_rpmsg_slave_cb);
 
-	cam_req_mgr_workq_create("cam_rpmsg_system_wq",
+	rc = cam_req_mgr_workq_create("cam_rpmsg_system_wq",
 			CAM_RPMSG_WORKQ_NUM_TASK,
 			&system_data.workq, CRM_WORKQ_USAGE_IRQ,
 			CAM_WORKQ_FLAG_HIGH_PRIORITY,
 			cam_rpmsg_system_recv_workq);
+	if (rc) {
+		CAM_ERR(CAM_RPMSG, "Failed to create workq rc %d", rc);
+		return -EINVAL;
+	}
 	/* set system recv */
 	init_completion(&system_data.complete);
 	system_cb.cookie = &system_data;
@@ -927,6 +965,7 @@ int cam_rpmsg_init(void)
 		BLOCKING_INIT_NOTIFIER_HEAD(
 				&cam_rpdev_idata[i].status_change_notify);
 	}
+	cam_rpmsg_create_slave_debug_fs();
 	state = 1;
 
 	rc = register_rpmsg_driver(&cam_rpmsg_slave_client);
@@ -948,6 +987,7 @@ int cam_rpmsg_init(void)
 void cam_rpmsg_exit(void)
 {
 	state = 0;
+	debugfs_remove_recursive(slave_private.dentry);
 	unregister_rpmsg_driver(&cam_rpmsg_slave_client);
 	unregister_rpmsg_driver(&cam_rpmsg_jpeg_client);
 }
