@@ -13,6 +13,10 @@
 void cam_sensor_lite_shutdown(
 		struct sensor_lite_device *sensor_lite_dev);
 
+int __cam_sensor_lite_handle_start_dev(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct cam_start_stop_dev_cmd *start);
+
 int cam_sensor_lite_core_cfg(
 		struct sensor_lite_device *sensor_lite_dev,
 		void *arg);

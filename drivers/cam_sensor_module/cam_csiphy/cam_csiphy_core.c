@@ -2312,6 +2312,8 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				csiphy_dev->csiphy_info[offset].secure_mode,
 				csiphy_dev->csiphy_info[offset].data_rate,
 				csiphy_dev->csiphy_info[offset].settle_time);
+			cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
+				CAM_SUBDEV_MESSAGE_START_SENSORLITE, (void *)&(soc_info->index));
 
 			goto release_mutex;
 		}
@@ -2412,6 +2414,8 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->csiphy_info[offset].settle_time,
 			csiphy_dev->combo_mode,
 			csiphy_dev->cphy_dphy_combo_mode);
+		cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
+				CAM_SUBDEV_MESSAGE_START_SENSORLITE, (void *)&(soc_info->index));
 	}
 		break;
 	case CAM_CONFIG_DEV_EXTERNAL: {

@@ -622,24 +622,12 @@ end:
 	return rc;
 }
 
-static int __cam_sensor_lite_handle_start_dev(
+int __cam_sensor_lite_handle_start_dev(
 	struct sensor_lite_device *sensor_lite_dev,
 	struct cam_start_stop_dev_cmd *start)
 {
 	int rc = 0;
 
-	if (!start || !sensor_lite_dev)
-		return -EINVAL;
-
-	if (start->dev_handle <= 0) {
-		CAM_ERR(CAM_SENSOR_LITE, "Invalid device handle for context");
-		return -EINVAL;
-	}
-
-	if (start->session_handle <= 0) {
-		CAM_ERR(CAM_SENSOR_LITE, "Invalid session handle for context");
-		return -EINVAL;
-	}
 	if (sensor_lite_dev->state != CAM_SENSOR_LITE_STATE_ACQUIRE) {
 		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] not in right state[%d] to start",
 				sensor_lite_dev->soc_info.index, sensor_lite_dev->state);
@@ -1065,7 +1053,12 @@ int cam_sensor_lite_core_cfg(
 			sizeof(start)))
 			rc = -EFAULT;
 		else {
-			rc = __cam_sensor_lite_handle_start_dev(sensor_lite_dev, &start);
+			/* As all sensors are connnected to Co-Processer For Single camera     */
+			/* and multicamrea usecases, all Sensors start_dev should happen after */
+			/* Aggregator PHY Start, The present code doesn't do that, to fix that */
+			/* implemented a subdev notify from PHY to Sensor lite node to stream  */
+			/* line the sensor start dev                                           */
+			/* rc = __cam_sensor_lite_handle_start_dev(sensor_lite_dev, &start);   */
 			if (rc)
 				CAM_ERR(CAM_SENSOR_LITE,
 					"SENSOR_LITE[%d] start device failed(rc = %d)",
