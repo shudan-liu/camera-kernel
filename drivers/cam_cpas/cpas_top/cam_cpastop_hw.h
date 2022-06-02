@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CPASTOP_HW_H_
@@ -153,6 +154,7 @@ enum cam_camnoc_hw_irq_type {
  * @CAM_CAMNOC_TFE_1: Indicates TFE1 HW connection to camnoc
  * @CAM_CAMNOC_TFE_2: Indicates TFE2 HW connection to camnoc
  * @CAM_CAMNOC_OPE: Indicates OPE HW connection to camnoc
+ * @CAM_CAMNOC_IFE_LITE_1: Indicates IFE lites connection to camnoc
  */
  /* Deprecated, do not use this anymore. port_name serves the purpose instead of this */
 enum cam_camnoc_port_type {
@@ -204,6 +206,7 @@ enum cam_camnoc_port_type {
 	CAM_CAMNOC_IFE01234_RDI_WRITE,
 	CAM_CAMNOC_IFE01_NRDI_WRITE,
 	CAM_CAMNOC_IFE2_NRDI_WRITE,
+	CAM_CAMNOC_IFE_LITE_1,
 };
 
 /**

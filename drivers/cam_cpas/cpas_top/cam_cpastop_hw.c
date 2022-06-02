@@ -31,6 +31,7 @@
 #include "cpastop_v545_100.h"
 #include "cpastop_v570_100.h"
 #include "cpastop_v570_200.h"
+#include "cpastop_v636_100.h"
 #include "cpastop_v650_100.h"
 #include "cpastop_v680_100.h"
 #include "cpastop_v680_110.h"
@@ -185,6 +186,15 @@ static const uint32_t cam_cpas_hw_version_map
 		0,
 		0,
 	},
+	/* for camera_636 */
+	{
+		CAM_CPAS_TITAN_636_V100,
+		0,
+		0,
+		0,
+		0,
+		0,
+	},
 };
 
 static int cam_cpas_translate_camera_cpas_version_id(
@@ -248,6 +258,9 @@ static int cam_cpas_translate_camera_cpas_version_id(
 		break;
 	case CAM_CPAS_CAMERA_VERSION_650:
 		*cam_version_id = CAM_CPAS_CAMERA_VERSION_ID_650;
+		break;
+	case CAM_CPAS_CAMERA_VERSION_636:
+		*cam_version_id = CAM_CPAS_CAMERA_VERSION_ID_636;
 		break;
 	default:
 		CAM_ERR(CAM_CPAS, "Invalid cam version %u",
@@ -1004,6 +1017,10 @@ static int cam_cpastop_init_hw_version(struct cam_hw_info *cpas_hw,
 	case CAM_CPAS_TITAN_650_V100:
 		camnoc_info = &cam650_cpas100_camnoc_info;
 		qchannel_info = &cam650_cpas100_qchannel_info;
+		break;
+	case CAM_CPAS_TITAN_636_V100:
+		camnoc_info = &cam636_cpas100_camnoc_info;
+		qchannel_info = &cam636_cpas100_qchannel_info;
 		break;
 	default:
 		CAM_ERR(CAM_CPAS, "Camera Version not supported %d.%d.%d",

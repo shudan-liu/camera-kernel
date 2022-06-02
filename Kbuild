@@ -10,6 +10,10 @@ ifeq ($(CONFIG_ARCH_NEO), y)
 include $(CAMERA_KERNEL_ROOT)/config/neo.mk
 endif
 
+ifeq ($(CONFIG_ARCH_ANORAK), y)
+include $(CAMERA_KERNEL_ROOT)/config/anorak.mk
+endif
+
 ifeq ($(CONFIG_ARCH_KALAMA), y)
 include $(CAMERA_KERNEL_ROOT)/config/kalama.mk
 endif
