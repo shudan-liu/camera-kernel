@@ -548,7 +548,6 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	}
 
 	if (cam_flags & CAM_MEM_FLAG_CACHE) {
-		//(tbl.force_cache_allocs && (!(cam_flags & CAM_MEM_FLAG_PROTECTED_MODE)))) {
 		CAM_DBG(CAM_MEM,
 			"Using CACHED heap, cam_flags=0x%x ", cam_flags);
 		use_cached_heap = true;
@@ -558,15 +557,9 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			"Using CACHED heap for secure, cam_flags=0x%x",	cam_flags);
 	} else {
 		use_cached_heap = false;
-		CAM_ERR(CAM_MEM,
-			"Using UNCACHED heap not supported, cam_flags=0x%x", cam_flags);
-		/*
-		 * Need a better handling based on whether dma-buf-heaps support
-		 * uncached heaps or not. For now, assume not supported.
-		 */
-		return -EINVAL;
+		CAM_DBG(CAM_MEM,
+			"Using UNCACHED heap, cam_flags=0x%x", cam_flags);
 	}
-
 	if (cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap = tbl.secure_display_heap;
 
@@ -645,7 +638,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	}
 
 	CAM_DBG(CAM_MEM, "Allocate success, len=%zu, *buf=%pK", len, *buf);
-
+	return rc;
 end:
 	dma_buf_put(*buf);
 	return rc;

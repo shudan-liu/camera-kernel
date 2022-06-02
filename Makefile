@@ -12,8 +12,5 @@ modules dtbs:
 modules_install:
 	$(MAKE) M=$(M) -C $(KERNEL_SRC) modules_install
 
-#install_headers:
-#	$(MAKE) --no-builtin-rules ARCH=$(ARCH) -C $(KERNEL_SRC) headers_install
-
 clean:
 	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean

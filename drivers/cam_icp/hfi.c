@@ -669,7 +669,8 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 
 	if (g_hfi->hfi_state != HFI_DEINIT) {
 		CAM_ERR(CAM_HFI, "hfi_init: invalid state");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto regions_fail;
 	}
 
 	memcpy(&g_hfi->map, hfi_mem, sizeof(g_hfi->map));
@@ -870,6 +871,7 @@ int cam_hfi_init(uint8_t event_driven_mode, struct hfi_mem_info *hfi_mem,
 		CAM_ERR(CAM_HFI,
 			"hw version : : [%x], fw version : [%x]",
 			hw_version, fw_version);
+		rc = -ETIMEDOUT;
 		goto regions_fail;
 	}
 

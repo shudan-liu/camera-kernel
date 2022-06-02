@@ -4,50 +4,6 @@ $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
 endif
 
 # Include Architecture configurations
-ifeq ($(CONFIG_ARCH_KALAMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kalama.mk
-endif
-
-ifeq ($(CONFIG_ARCH_WAIPIO), y)
-include $(CAMERA_KERNEL_ROOT)/config/waipio.mk
-endif
-
-ifeq ($(CONFIG_ARCH_LAHAINA), y)
-include $(CAMERA_KERNEL_ROOT)/config/lahaina.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KONA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kona.mk
-endif
-
-ifeq ($(CONFIG_ARCH_BENGAL), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_HOLI), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_LITO), y)
-include $(CAMERA_KERNEL_ROOT)/config/lito.mk
-endif
-
-ifeq ($(CONFIG_ARCH_SHIMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/shima.mk
-endif
-
-ifeq ($(CONFIG_ARCH_DIWALI), y)
-include $(CAMERA_KERNEL_ROOT)/config/diwali.mk
-endif
-
-ifeq ($(CONFIG_ARCH_CAPE), y)
-include $(CAMERA_KERNEL_ROOT)/config/cape.mk
-endif
-
-ifeq ($(CONFIG_ARCH_PARROT), y)
-include $(CAMERA_KERNEL_ROOT)/config/parrot.mk
-endif
-
 ifeq (y, $(findstring y, $(CONFIG_ARCH_SA8155) $(CONFIG_ARCH_SA6155) $(CONFIG_ARCH_SA8195)))
 include $(CAMERA_KERNEL_ROOT)/config/gen3auto.mk
 endif
