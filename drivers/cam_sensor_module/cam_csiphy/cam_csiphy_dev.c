@@ -316,7 +316,7 @@ static int cam_csiphy_component_bind(struct device *dev,
 
 	platform_set_drvdata(pdev, &(new_csiphy_dev->v4l2_dev_str.sd));
 
-	for (i = 0; i < CSIPHY_MAX_INSTANCES_PER_PHY; i++) {
+	for (i = 0; i < CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY; i++) {
 		new_csiphy_dev->csiphy_info[i].hdl_data.device_hdl = -1;
 		new_csiphy_dev->csiphy_info[i].hdl_data.session_hdl = -1;
 		new_csiphy_dev->csiphy_info[i].csiphy_3phase = -1;
