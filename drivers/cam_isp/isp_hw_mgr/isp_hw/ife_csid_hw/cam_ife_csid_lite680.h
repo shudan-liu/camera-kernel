@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_LITE_680_H_
@@ -534,7 +535,7 @@ static struct cam_ife_csid_ver2_path_reg_info
 		.overflow_ctrl_mode_val           = 0x8,
 		.min_hbi_shift_val                = 4,
 		.start_master_sel_shift_val       = 4,
-		.fatal_err_mask                   = 0x4,
+		.fatal_err_mask                   = 0x6004,
 		.non_fatal_err_mask               = 0x10080000,
 		.camif_irq_mask                   = 0x800000,
 		.rup_aup_mask                     = 0x10001,
@@ -622,7 +623,7 @@ static struct cam_ife_csid_ver2_path_reg_info
 		.timestamp_en_shift_val         = 4,
 		.debug_byte_cntr_rst_shift_val  = 2,
 		.ccif_violation_en              = 1,
-		.fatal_err_mask                 = 0x4,
+		.fatal_err_mask                 = 0x6004,
 		.non_fatal_err_mask             = 0x10080000,
 		.camif_irq_mask                 = 0x800000,
 		.rup_aup_mask                   = 0x100010,
@@ -712,7 +713,7 @@ static struct cam_ife_csid_ver2_path_reg_info
 		.timestamp_en_shift_val         = 4,
 		.debug_byte_cntr_rst_shift_val  = 2,
 		.ccif_violation_en              = 1,
-		.fatal_err_mask                 = 0x4,
+		.fatal_err_mask                 = 0x6004,
 		.non_fatal_err_mask             = 0x10080000,
 		.camif_irq_mask                 = 0x800000,
 		.rup_aup_mask                   = 0x200020,
@@ -802,7 +803,7 @@ static struct cam_ife_csid_ver2_path_reg_info
 		.timestamp_en_shift_val         = 4,
 		.debug_byte_cntr_rst_shift_val  = 2,
 		.ccif_violation_en              = 1,
-		.fatal_err_mask                 = 0x4,
+		.fatal_err_mask                 = 0x6004,
 		.non_fatal_err_mask             = 0x10080000,
 		.camif_irq_mask                 = 0x800000,
 		.rup_aup_mask                   = 0x400040,
@@ -892,7 +893,7 @@ static struct cam_ife_csid_ver2_path_reg_info
 		.timestamp_en_shift_val         = 4,
 		.debug_byte_cntr_rst_shift_val  = 2,
 		.ccif_violation_en              = 1,
-		.fatal_err_mask                 = 0x4,
+		.fatal_err_mask                 = 0x6004,
 		.non_fatal_err_mask             = 0x10080000,
 		.camif_irq_mask                 = 0x800000,
 		.rup_aup_mask                   = 0x800080,
