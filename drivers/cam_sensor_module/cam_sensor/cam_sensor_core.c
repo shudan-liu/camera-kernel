@@ -897,6 +897,76 @@ static int cam_sensor_process_powerdown_cmd(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
+static int cam_sensor_process_exec_power_settings(struct cam_sensor_ctrl_t *s_ctrl,
+							struct cam_control *cmd)
+{
+	int rc = 0;
+	struct ais_sensor_power_settings_seq *power_seq;
+	struct cam_sensor_power_ctrl_t *power_info;
+	struct cam_hw_soc_info *soc_info;
+	struct cam_sensor_power_seq_array *cam_power_seq = NULL;
+	int index = 0;
+
+	CAM_DBG(CAM_SENSOR, "Enter AIS_SENSOR_EXEC_POWER_SEQ");
+	power_seq = kzalloc(sizeof(*power_seq), GFP_KERNEL);
+	if (!power_seq) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	rc = copy_from_user(power_seq,
+		(void __user *) cmd->handle, sizeof(*power_seq));
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		goto free_power_seq;
+	}
+
+	cam_power_seq = kzalloc(sizeof(struct cam_sensor_power_seq_array),
+				GFP_KERNEL);
+	if (!cam_power_seq) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	rc = ais_sensor_update_power_sequence(power_seq, cam_power_seq);
+
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR,
+			"Failed to update power sequence : rc = %d", rc);
+		goto free_cam_power_seq;
+	}
+
+	/* Parse and fill vreg params for applying power sequence*/
+	rc = msm_camera_fill_vreg_params(
+		&s_ctrl->soc_info,
+		cam_power_seq->power_seq,
+		cam_power_seq->power_seq_size);
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR,
+			"Fail in filling vreg params : rc %d",
+			 rc);
+		goto free_cam_power_seq;
+	}
+
+	power_info = &s_ctrl->sensordata->power_info;
+
+	soc_info = &s_ctrl->soc_info;
+
+	for (index = 0; index < cam_power_seq->power_seq_size; index++) {
+		rc = cam_sensor_util_power_apply(power_info, soc_info,
+				&cam_power_seq->power_seq[index]);
+		if (rc)
+			CAM_ERR(CAM_SENSOR, "Failed to apply power sequence");
+	}
+
+free_cam_power_seq:
+	kfree(cam_power_seq);
+free_power_seq:
+	kfree(power_seq);
+
+	return rc;
+}
+
 static int cam_sensor_process_read_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 						struct cam_control *cmd)
 {
@@ -1299,6 +1369,79 @@ static int cam_sensor_process_write_array_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	(void)cam_sensor_restore_slave_info(s_ctrl);
 	kfree(wr_array);
 	kfree(reg_setting);
+	return rc;
+}
+
+static int cam_sensor_intr_init(struct cam_sensor_ctrl_t *s_ctrl,
+					struct cam_control *cmd)
+{
+	int rc = 0;
+	struct ais_sensor_gpio_intr_config
+		*gpio_intr_cfg;
+
+	gpio_intr_cfg =
+		kzalloc(sizeof(struct ais_sensor_gpio_intr_config),
+		GFP_KERNEL);
+
+	if (!gpio_intr_cfg) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	rc = copy_from_user(gpio_intr_cfg,
+		(void __user *) cmd->handle,
+		sizeof(struct ais_sensor_gpio_intr_config));
+
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		goto free_gpio_intr_init_config;
+	}
+
+	rc = cam_sensor_init_gpio_intr(gpio_intr_cfg, s_ctrl);
+
+	if (rc < 0)
+		CAM_ERR(CAM_SENSOR, "Failed in Updating intr Info");
+
+free_gpio_intr_init_config:
+		kfree(gpio_intr_cfg);
+
+	return rc;
+}
+
+static int cam_sensor_intr_deinit(struct cam_sensor_ctrl_t *s_ctrl,
+					struct cam_control *cmd)
+{
+	int idx = 0;
+	int rc = 0;
+	struct ais_sensor_gpio_intr_config *gpio_intr_cfg;
+
+	gpio_intr_cfg =
+		kzalloc(sizeof(struct ais_sensor_gpio_intr_config),
+		GFP_KERNEL);
+
+	if (!gpio_intr_cfg) {
+		rc = -ENOMEM;
+		return rc;
+	}
+
+	rc = copy_from_user(gpio_intr_cfg,
+		(void __user *) cmd->handle,
+		sizeof(struct ais_sensor_gpio_intr_config));
+
+	if (rc < 0) {
+		CAM_ERR(CAM_SENSOR, "Failed Copying from user");
+		goto free_gpio_intr_deinit_config;
+	}
+
+	for (idx = 0; idx < AIS_MAX_INTR_GPIO; idx++) {
+		if (s_ctrl->s_intr[idx].work_inited == 1)
+			cancel_work_sync(
+			&s_ctrl->s_intr[idx].irq_work);
+	}
+
+free_gpio_intr_deinit_config:
+		kfree(gpio_intr_cfg);
+
 	return rc;
 }
 
@@ -1763,12 +1906,23 @@ free_probe_cmd:
 		kfree(probe_cmd);
 	}
 		break;
+
 	case AIS_SENSOR_POWER_UP:
 		rc = cam_sensor_process_powerup_cmd(s_ctrl);
 		break;
 
 	case AIS_SENSOR_POWER_DOWN:
 		rc = cam_sensor_process_powerdown_cmd(s_ctrl);
+		break;
+
+	case AIS_SENSOR_EXEC_POWER_SEQ: {
+		if (cmd->handle != 0) {
+			rc = cam_sensor_process_exec_power_settings(s_ctrl, cmd);
+		} else {
+			CAM_ERR(CAM_SENSOR, "Cannot apply empty power sequence");
+			rc = -EINVAL;
+		}
+	}
 		break;
 
 	case AIS_SENSOR_I2C_POWER_UP: {
@@ -1803,76 +1957,14 @@ free_probe_cmd:
 		rc = cam_sensor_process_write_array_cmd(s_ctrl, cmd);
 		break;
 
-	case AIS_SENSOR_INTR_INIT: {
-
-		struct ais_sensor_gpio_intr_config
-			*gpio_intr_cfg;
-
-		gpio_intr_cfg =
-			kzalloc(sizeof(struct ais_sensor_gpio_intr_config),
-			GFP_KERNEL);
-
-		if (!gpio_intr_cfg) {
-			rc = -ENOMEM;
-			goto release_mutex;
-		}
-
-		rc = copy_from_user(gpio_intr_cfg,
-			(void __user *) cmd->handle,
-			sizeof(struct ais_sensor_gpio_intr_config));
-
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			goto free_gpio_intr_init_config;
-		}
-
-		rc = cam_sensor_init_gpio_intr(
-				gpio_intr_cfg,
-				s_ctrl);
-
-		if (rc < 0)
-			CAM_ERR(CAM_SENSOR, "Failed in Updating intr Info");
-
-
-free_gpio_intr_init_config:
-		kfree(gpio_intr_cfg);
-
-	}
+	case AIS_SENSOR_INTR_INIT:
+		rc = cam_sensor_intr_init(s_ctrl, cmd);
 		break;
-	case AIS_SENSOR_INTR_DEINIT: {
-		int idx = 0;
-		int rc = 0;
-		struct ais_sensor_gpio_intr_config
-			*gpio_intr_cfg;
 
-		gpio_intr_cfg =
-			kzalloc(sizeof(struct ais_sensor_gpio_intr_config),
-			GFP_KERNEL);
-
-		if (!gpio_intr_cfg) {
-			rc = -ENOMEM;
-			goto release_mutex;
-		}
-
-		rc = copy_from_user(gpio_intr_cfg,
-			(void __user *) cmd->handle,
-			sizeof(struct ais_sensor_gpio_intr_config));
-
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Failed Copying from user");
-			goto free_gpio_intr_deinit_config;
-		}
-
-		for (idx = 0; idx < AIS_MAX_INTR_GPIO; idx++) {
-			if (s_ctrl->s_intr[idx].work_inited == 1)
-				cancel_work_sync(
-				&s_ctrl->s_intr[idx].irq_work);
-		}
-
-free_gpio_intr_deinit_config:
-		kfree(gpio_intr_cfg);
-	}
+	case AIS_SENSOR_INTR_DEINIT:
+		rc = cam_sensor_intr_deinit(s_ctrl, cmd);
 		break;
+
 	case CAM_ACQUIRE_DEV:
 		rc = cam_sensor_process_acquire_dev_cmd(s_ctrl, cmd);
 		break;
@@ -2018,7 +2110,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		}
 	}
 
-	rc = cam_sensor_util_power_up(power_info, soc_info);
+	rc = cam_sensor_util_power_up_resources(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);
 		return rc;
@@ -2049,7 +2141,8 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 	}
 
 	soc_info = &s_ctrl->soc_info;
-	rc = cam_sensor_util_power_down(power_info, soc_info);
+
+	rc = cam_sensor_util_power_down_resources(power_info, soc_info);
 	if (rc < 0) {
 		CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
 		return rc;
