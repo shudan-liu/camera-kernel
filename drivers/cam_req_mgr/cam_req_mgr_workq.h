@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_REQ_MGR_WORKQ_H_
@@ -183,5 +184,7 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
  * @workq: pointer to worker data struct
  */
 void cam_req_mgr_workq_flush(struct cam_req_mgr_core_workq *workq);
+
+extern struct cam_irq_bh_api workq_bh_api;
 
 #endif

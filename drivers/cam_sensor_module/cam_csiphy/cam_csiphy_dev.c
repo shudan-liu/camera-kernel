@@ -316,7 +316,7 @@ static int cam_csiphy_component_bind(struct device *dev,
 
 	platform_set_drvdata(pdev, &(new_csiphy_dev->v4l2_dev_str.sd));
 
-	for (i = 0; i < CSIPHY_MAX_INSTANCES_PER_PHY; i++) {
+	for (i = 0; i < CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY; i++) {
 		new_csiphy_dev->csiphy_info[i].hdl_data.device_hdl = -1;
 		new_csiphy_dev->csiphy_info[i].hdl_data.session_hdl = -1;
 		new_csiphy_dev->csiphy_info[i].csiphy_3phase = -1;
@@ -335,6 +335,10 @@ static int cam_csiphy_component_bind(struct device *dev,
 	new_csiphy_dev->acquire_count = 0;
 	new_csiphy_dev->start_dev_count = 0;
 	new_csiphy_dev->preamble_enable = 0;
+
+	if (new_csiphy_dev->is_aggregator_rx)
+		new_csiphy_dev->session_max_device_support =
+			CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY;
 
 	cpas_parms.cam_cpas_client_cb = NULL;
 	cpas_parms.cell_index = new_csiphy_dev->soc_info.index;

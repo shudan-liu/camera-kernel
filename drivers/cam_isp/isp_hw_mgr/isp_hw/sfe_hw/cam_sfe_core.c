@@ -1,15 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
 #include <linux/list.h>
-#include "cam_tasklet_util.h"
 #include "cam_sfe_hw_intf.h"
 #include "cam_sfe_soc.h"
 #include "cam_sfe_core.h"
 #include "cam_debug_util.h"
+#include "cam_req_mgr_workq.h"
 
 static const char drv_name[] = "sfe";
 
@@ -227,7 +228,7 @@ int cam_sfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 	soc_info = &sfe_hw->soc_info;
 	core_info = (struct cam_sfe_hw_core_info *)sfe_hw->core_info;
 	sfe_res = (struct cam_isp_resource_node  *)start_args;
-	core_info->tasklet_info = sfe_res->tasklet_info;
+	core_info->workq_info = sfe_res->workq_info;
 
 	mutex_lock(&sfe_hw->hw_mutex);
 	if (sfe_res->res_type == CAM_ISP_RESOURCE_SFE_IN) {

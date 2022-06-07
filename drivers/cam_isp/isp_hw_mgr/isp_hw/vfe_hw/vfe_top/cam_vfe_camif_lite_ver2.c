@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -13,10 +14,10 @@
 #include "cam_vfe_top.h"
 #include "cam_vfe_top_ver2.h"
 #include "cam_irq_controller.h"
-#include "cam_tasklet_util.h"
 #include "cam_vfe_camif_lite_ver2.h"
 #include "cam_debug_util.h"
 #include "cam_cdm_util.h"
+#include "cam_req_mgr_workq.h"
 
 struct cam_vfe_mux_camif_lite_data {
 	void __iomem                                *mem_base;
@@ -123,7 +124,7 @@ static int cam_vfe_camif_lite_err_irq_top_half(
 	rc  = cam_vfe_camif_lite_get_evt_payload(camif_lite_priv, &evt_payload);
 	if (rc) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"No tasklet_cmd is free in queue");
+			"No workq_cmd is free in queue");
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ STATUS_0=0x%x STATUS_1=0x%x",
 			th_payload->evt_status_arr[0],
 			th_payload->evt_status_arr[1]);
@@ -296,8 +297,8 @@ static int cam_vfe_camif_lite_resource_start(
 			camif_lite_res,
 			cam_vfe_camif_lite_err_irq_top_half,
 			camif_lite_res->bottom_half_handler,
-			camif_lite_res->tasklet_info,
-			&tasklet_bh_api,
+			camif_lite_res->workq_info,
+			&workq_bh_api,
 			CAM_IRQ_EVT_GROUP_0);
 		if (rsrc_data->irq_err_handle < 1) {
 			CAM_ERR(CAM_ISP, "Error IRQ handle subscribe failure");
@@ -398,7 +399,7 @@ static int cam_vfe_camif_lite_handle_irq_top_half(uint32_t evt_id,
 
 	rc  = cam_vfe_camif_lite_get_evt_payload(camif_lite_priv, &evt_payload);
 	if (rc) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "No tasklet_cmd is free in queue");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No workq_cmd is free in queue");
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "IRQ status0=0x%x status1=0x%x",
 			th_payload->evt_status_arr[0],
 			th_payload->evt_status_arr[1]);

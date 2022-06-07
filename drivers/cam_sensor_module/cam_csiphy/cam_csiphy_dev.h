@@ -54,7 +54,8 @@
 #define CSIPHY_2PH_3PH_COMBO_REGS        10
 #define CSIPHY_AUXILIARY_SETTING         11
 
-#define CSIPHY_MAX_INSTANCES_PER_PHY     3
+#define CSIPHY_MAX_INSTANCES_PER_PHY           3
+#define CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY 4
 
 #define CAM_CSIPHY_MAX_DPHY_LANES    4
 #define CAM_CSIPHY_MAX_CPHY_LANES    3
@@ -359,11 +360,11 @@ struct csiphy_device {
 	int32_t                        ref_count;
 	struct cam_subdev              v4l2_dev_str;
 	struct cam_csiphy_param        csiphy_info[
-					CSIPHY_MAX_INSTANCES_PER_PHY];
+					CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY];
 	struct cam_hw_soc_info         soc_info;
 	uint64_t                       current_data_rate;
 	uint64_t                       csiphy_cpas_cp_reg_mask[
-					CSIPHY_MAX_INSTANCES_PER_PHY];
+					CSIPHY_MAX_INSTANCES_PER_AGGREG_RX_PHY];
 	struct cam_req_mgr_kmd_ops     ops;
 	struct cam_req_mgr_crm_cb     *crm_cb;
 	bool                           prgm_cmn_reg_across_csiphy;

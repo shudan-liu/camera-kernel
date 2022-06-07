@@ -189,6 +189,254 @@ static int cam_ife_virt_csid_config_rx(
 	return 0;
 }
 
+static bool cam_ife_virt_csid_hw_need_unpack_mipi(
+	struct cam_ife_virt_csid                     *csid_hw,
+	struct cam_csid_hw_reserve_resource_args     *reserve,
+	const struct cam_ife_csid_ver2_path_reg_info *path_reg,
+	uint32_t                                      format)
+{
+	bool  need_unpack = false;
+
+	switch (format) {
+	case CAM_FORMAT_MIPI_RAW_8:
+		need_unpack = (bool)(path_reg->capabilities & CAM_IFE_CSID_CAP_MIPI8_UNPACK);
+		break;
+	case CAM_FORMAT_MIPI_RAW_10:
+		need_unpack = (bool)(path_reg->capabilities & CAM_IFE_CSID_CAP_MIPI10_UNPACK);
+		break;
+	case CAM_FORMAT_MIPI_RAW_12:
+		need_unpack = (bool)(path_reg->capabilities & CAM_IFE_CSID_CAP_MIPI12_UNPACK);
+		break;
+	case CAM_FORMAT_MIPI_RAW_14:
+		need_unpack = (bool)(path_reg->capabilities & CAM_IFE_CSID_CAP_MIPI14_UNPACK);
+		break;
+	case CAM_FORMAT_MIPI_RAW_16:
+		need_unpack = (bool)(path_reg->capabilities & CAM_IFE_CSID_CAP_MIPI16_UNPACK);
+		break;
+	case CAM_FORMAT_MIPI_RAW_20:
+		need_unpack = (bool)(path_reg->capabilities & CAM_IFE_CSID_CAP_MIPI20_UNPACK);
+		break;
+	default:
+		need_unpack = false;
+		break;
+	}
+
+	CAM_DBG(CAM_ISP, "VCSID[%u], RDI_%u format %u need_unpack %u sfe_shdr %u",
+		csid_hw->hw_intf->hw_idx, reserve->res_id, format, need_unpack,
+		reserve->sfe_inline_shdr);
+
+	return need_unpack;
+}
+
+static int cam_virt_ife_csid_decode_format1_validate(
+	struct cam_ife_virt_csid *csid_hw,
+	struct cam_isp_resource_node *res)
+{
+	int rc = 0;
+	const struct cam_ife_csid_ver2_reg_info *csid_reg =
+		(struct cam_ife_csid_ver2_reg_info *)csid_hw->core_info->csid_reg;
+	struct cam_ife_csid_ver2_path_cfg *path_cfg =
+		(struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
+	struct cam_ife_csid_cid_data *cid_data = &csid_hw->cid_data[path_cfg->cid];
+
+	/* Validation is only required  for multi vc dt use case */
+	if (!cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].valid)
+		return rc;
+
+	if ((path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt ==
+		csid_reg->cmn_reg->decode_format_payload_only) ||
+		(path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].decode_fmt  ==
+		 csid_reg->cmn_reg->decode_format_payload_only)) {
+		if (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt !=
+			path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].decode_fmt) {
+			CAM_ERR(CAM_ISP,
+				"CSID:%d decode_fmt %d decode_fmt1 %d mismatch",
+				csid_hw->hw_intf->hw_idx,
+				path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt,
+				path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].decode_fmt);
+			rc = -EINVAL;
+			goto err;
+		}
+	}
+
+	if ((cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].vc ==
+		cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].vc) &&
+		(cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].dt ==
+		cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].dt)) {
+		if (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt !=
+			path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].decode_fmt) {
+			CAM_ERR(CAM_ISP,
+				"CSID:%d Wrong multi VC-DT configuration",
+					csid_hw->hw_intf->hw_idx);
+			CAM_ERR(CAM_ISP,
+				"fmt %d fmt1 %d vc %d vc1 %d dt %d dt1 %d",
+				path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt,
+				path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].decode_fmt,
+				cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].vc,
+				cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].vc,
+				cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].dt,
+				cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].dt);
+			rc = -EINVAL;
+			goto err;
+		}
+	}
+
+	return rc;
+err:
+	CAM_ERR(CAM_ISP, "Invalid decode fmt1 cfg csid[%d] res [id %d name %s] rc %d",
+		csid_hw->hw_intf->hw_idx, res->res_id, res->res_name, rc);
+	return rc;
+}
+
+
+static int cam_ife_virt_csid_hw_config_path_data(
+	struct cam_ife_virt_csid *csid_hw,
+	struct cam_ife_csid_ver2_path_cfg *path_cfg,
+	struct cam_csid_hw_reserve_resource_args  *reserve,
+	uint32_t cid)
+{
+	int rc = 0, i = 0;
+	const struct cam_ife_csid_ver2_reg_info *csid_reg =
+		(struct cam_ife_csid_ver2_reg_info *)csid_hw->core_info->csid_reg;
+	struct cam_ife_csid_cid_data *cid_data = &csid_hw->cid_data[cid];
+	struct cam_isp_resource_node *res = &csid_hw->path_res[reserve->res_id];
+	const struct cam_ife_csid_ver2_path_reg_info  *path_reg = NULL;
+
+	for (i = 0; i < reserve->in_port->num_valid_vc_dt; i++)
+		path_cfg->in_format[i] = reserve->in_port->format[i];
+
+	path_cfg->cid = cid;
+	path_cfg->out_format = reserve->out_port->format;
+	path_cfg->sync_mode = reserve->sync_mode;
+	path_cfg->height  = reserve->in_port->height;
+	path_cfg->start_line = reserve->in_port->line_start;
+	path_cfg->end_line = reserve->in_port->line_stop;
+	path_cfg->crop_enable = reserve->crop_enable;
+	path_cfg->drop_enable = reserve->drop_enable;
+	path_cfg->horizontal_bin = reserve->in_port->horizontal_bin;
+	path_cfg->vertical_bin = reserve->in_port->vertical_bin;
+	path_cfg->qcfa_bin = reserve->in_port->qcfa_bin;
+	path_cfg->num_bytes_out = reserve->in_port->num_bytes_out;
+	path_cfg->sec_evt_config.en_secondary_evt = reserve->sec_evt_config.en_secondary_evt;
+	path_cfg->sec_evt_config.evt_type = reserve->sec_evt_config.evt_type;
+	path_reg = csid_reg->path_reg[res->res_id];
+
+	if (reserve->sync_mode == CAM_ISP_HW_SYNC_MASTER) {
+		path_cfg->start_pixel = reserve->in_port->left_start;
+		path_cfg->end_pixel = reserve->in_port->left_stop;
+		path_cfg->width  = reserve->in_port->left_width;
+
+		if (reserve->res_id >= CAM_IFE_PIX_PATH_RES_RDI_0 &&
+			reserve->res_id <= (CAM_IFE_PIX_PATH_RES_RDI_0 +
+			CAM_IFE_CSID_RDI_MAX - 1)) {
+			path_cfg->end_pixel = reserve->in_port->right_stop;
+			path_cfg->width = path_cfg->end_pixel -
+				path_cfg->start_pixel + 1;
+		}
+		CAM_DBG(CAM_ISP,
+			"CSID:%d res:%d master:startpixel 0x%x endpixel:0x%x",
+			csid_hw->hw_intf->hw_idx, reserve->res_id,
+			path_cfg->start_pixel, path_cfg->end_pixel);
+		CAM_DBG(CAM_ISP,
+			"CSID:%d res:%d master:line start:0x%x line end:0x%x",
+			csid_hw->hw_intf->hw_idx, reserve->res_id,
+			path_cfg->start_line, path_cfg->end_line);
+	} else if (reserve->sync_mode == CAM_ISP_HW_SYNC_SLAVE) {
+		path_cfg->start_pixel = reserve->in_port->right_start;
+		path_cfg->end_pixel = reserve->in_port->right_stop;
+		path_cfg->width  = reserve->in_port->right_width;
+		CAM_DBG(CAM_ISP,
+			"CSID:%d res:%d slave:start:0x%x end:0x%x width 0x%x",
+			csid_hw->hw_intf->hw_idx, reserve->res_id,
+			path_cfg->start_pixel, path_cfg->end_pixel,
+			path_cfg->width);
+		CAM_DBG(CAM_ISP,
+			"CSID:%d res:%d slave:line start:0x%x line end:0x%x",
+			csid_hw->hw_intf->hw_idx, reserve->res_id,
+			path_cfg->start_line, path_cfg->end_line);
+	} else {
+		path_cfg->width  = reserve->in_port->left_width;
+		path_cfg->start_pixel = reserve->in_port->left_start;
+		path_cfg->end_pixel = reserve->in_port->left_stop;
+		CAM_DBG(CAM_ISP,
+			"CSID:%d res:%d left width %d start: %d stop:%d",
+			csid_hw->hw_intf->hw_idx, reserve->res_id,
+			reserve->in_port->left_width,
+			reserve->in_port->left_start,
+			reserve->in_port->left_stop);
+	}
+
+	switch (reserve->res_id) {
+	case CAM_IFE_PIX_PATH_RES_RDI_0:
+	case CAM_IFE_PIX_PATH_RES_RDI_1:
+	case CAM_IFE_PIX_PATH_RES_RDI_2:
+	case CAM_IFE_PIX_PATH_RES_RDI_3:
+	case CAM_IFE_PIX_PATH_RES_RDI_4:
+		/*
+		 * if csid gives unpacked out, packing needs to be done at
+		 * WM side if needed, based on the format the decision is
+		 * taken at WM side
+		 */
+		reserve->use_wm_pack = cam_ife_virt_csid_hw_need_unpack_mipi(csid_hw,
+			reserve, path_reg, path_cfg->out_format);
+		rc = cam_ife_csid_get_format_rdi(
+			path_cfg->in_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0],
+			path_cfg->out_format,
+			&path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0],
+			path_reg->mipi_pack_supported, reserve->use_wm_pack);
+		if (rc)
+			goto end;
+
+		if (csid_reg->cmn_reg->decode_format1_supported &&
+			(cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].valid)) {
+
+			rc = cam_ife_csid_get_format_rdi(
+				path_cfg->in_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1],
+				path_cfg->out_format,
+				&path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1],
+				path_reg->mipi_pack_supported, reserve->use_wm_pack);
+			if (rc)
+				goto end;
+		}
+		break;
+	case CAM_IFE_PIX_PATH_RES_IPP:
+	case CAM_IFE_PIX_PATH_RES_PPP:
+		rc = cam_ife_csid_get_format_ipp_ppp(
+			path_cfg->in_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0],
+			&path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0]);
+		if (rc)
+			goto end;
+
+		if (csid_reg->cmn_reg->decode_format1_supported &&
+			(cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].valid)) {
+
+			rc = cam_ife_csid_get_format_ipp_ppp(
+				path_cfg->in_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1],
+				&path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_1]);
+			if (rc)
+				goto end;
+		}
+		break;
+	default:
+		rc = -EINVAL;
+		CAM_ERR(CAM_ISP, "Invalid Res id %u", reserve->res_id);
+		break;
+	}
+
+	if (csid_reg->cmn_reg->decode_format1_supported &&
+		(cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].valid)) {
+		rc = cam_virt_ife_csid_decode_format1_validate(csid_hw, res);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "VCSID[%d] res %d decode fmt1 validation failed",
+				csid_hw->hw_intf->hw_idx, res);
+			goto end;
+		}
+	}
+
+end:
+	return rc;
+}
+
 int cam_ife_virt_csid_hw_cfg(
 	struct cam_ife_virt_csid *csid_hw,
 	struct cam_ife_csid_ver2_path_cfg *path_cfg,
@@ -200,10 +448,19 @@ int cam_ife_virt_csid_hw_cfg(
 	rc = cam_ife_virt_csid_config_rx(csid_hw, reserve);
 
 	if (rc) {
-		CAM_ERR(CAM_ISP, "CSID[%d] rx config failed",
+		CAM_ERR(CAM_ISP, "VCSID[%d] rx config failed",
 			csid_hw->hw_intf->hw_idx);
 		return rc;
 	}
+
+	rc = cam_ife_virt_csid_hw_config_path_data(csid_hw, path_cfg,
+		reserve, cid);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "VCSID[%d] config path data failed",
+				csid_hw->hw_intf->hw_idx);
+		return rc;
+	}
+
 	return rc;
 }
 
