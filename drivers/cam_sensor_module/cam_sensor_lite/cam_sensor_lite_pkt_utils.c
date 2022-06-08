@@ -600,6 +600,10 @@ int __send_pkt(
 		__set_slave_pkt_headers(header,
 				HCM_PKT_OPCODE_SENSOR_STOP_DEV);
 		break;
+	case SENSORLITE_CMD_TYPE_RESOLUTIONINFO:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_STREAMING_CONFIG);
+		break;
 	case HCM_PKT_OPCODE_SENSOR_ACQUIRE:
 		break;
 	case HCM_PKT_OPCODE_SENSOR_RELEASE:
