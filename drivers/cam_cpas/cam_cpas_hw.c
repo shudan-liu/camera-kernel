@@ -1044,8 +1044,7 @@ static int cam_cpas_hw_start(void *hw_priv, void *start_args,
 	if (!ahb_vote || !axi_vote)
 		return -EINVAL;
 
-	if ((ahb_vote->vote.level == 0) || ((axi_vote->compressed_bw == 0) &&
-		(axi_vote->uncompressed_bw == 0))) {
+	if (ahb_vote->vote.level == 0) {
 		CAM_ERR(CAM_CPAS, "Invalid vote ahb[%d], axi[%llu], [%llu]",
 			ahb_vote->vote.level, axi_vote->compressed_bw,
 			axi_vote->uncompressed_bw);

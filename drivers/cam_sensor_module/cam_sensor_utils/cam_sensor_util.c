@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -580,13 +581,66 @@ int cam_sensor_util_i2c_apply_setting(
 	return rc;
 }
 
+static int32_t msm_camera_process_fill_vreg_params(
+	struct cam_hw_soc_info *soc_info,
+	struct cam_sensor_power_setting *power_setting,
+	int num_vreg, int i)
+{
+	char *reg_name;
+	int32_t rc = 0, j = 0;
+
+	if (power_setting[i].seq_type == SENSOR_VDIG)
+		reg_name = "cam_vdig";
+	else if (power_setting[i].seq_type == SENSOR_VIO)
+		reg_name = "cam_vio";
+	else if (power_setting[i].seq_type == SENSOR_VANA)
+		reg_name = "cam_vana";
+	else if (power_setting[i].seq_type == SENSOR_VAF)
+		reg_name = "cam_vaf";
+	else if (power_setting[i].seq_type == SENSOR_CUSTOM_REG1)
+		reg_name = "cam_v_custom1";
+	else if (power_setting[i].seq_type == SENSOR_CUSTOM_REG2)
+		reg_name = "cam_v_custom2";
+	else
+		return -EINVAL;
+
+	for (j = 0; j < num_vreg; j++) {
+		if (!strcmp(soc_info->rgltr_name[j],
+			reg_name)) {
+
+			CAM_DBG(CAM_SENSOR,
+				"i: %d j: %d %s", i, j, reg_name);
+			power_setting[i].seq_val = j;
+
+			if (VALIDATE_VOLTAGE(
+				soc_info->rgltr_min_volt[j],
+				soc_info->rgltr_max_volt[j],
+				power_setting[i].config_val)) {
+				soc_info->rgltr_min_volt[j] =
+				soc_info->rgltr_max_volt[j] =
+				power_setting[i].config_val;
+			}
+			break;
+		}
+	}
+	if (j == num_vreg)
+		power_setting[i].seq_val = INVALID_VREG;
+
+	return rc;
+}
+
 int32_t msm_camera_fill_vreg_params(
 	struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_setting,
 	uint16_t power_setting_size)
 {
-	int32_t rc = 0, j = 0, i = 0;
+	int32_t rc = 0, i = 0;
 	int num_vreg;
+
+	if (power_setting_size == 0) {
+		CAM_WARN(CAM_SENSOR, "Power sequence empty");
+		return rc;
+	}
 
 	/* Validate input parameters */
 	if (!soc_info || !power_setting) {
@@ -611,157 +665,8 @@ int32_t msm_camera_fill_vreg_params(
 			return -EINVAL;
 		}
 
-		switch (power_setting[i].seq_type) {
-		case SENSOR_VDIG:
-			for (j = 0; j < num_vreg; j++) {
-				if (!strcmp(soc_info->rgltr_name[j],
-					"cam_vdig")) {
-
-					CAM_DBG(CAM_SENSOR,
-						"i: %d j: %d cam_vdig", i, j);
-					power_setting[i].seq_val = j;
-
-					if (VALIDATE_VOLTAGE(
-						soc_info->rgltr_min_volt[j],
-						soc_info->rgltr_max_volt[j],
-						power_setting[i].config_val)) {
-						soc_info->rgltr_min_volt[j] =
-						soc_info->rgltr_max_volt[j] =
-						power_setting[i].config_val;
-					}
-					break;
-				}
-			}
-			if (j == num_vreg)
-				power_setting[i].seq_val = INVALID_VREG;
-			break;
-
-		case SENSOR_VIO:
-			for (j = 0; j < num_vreg; j++) {
-
-				if (!strcmp(soc_info->rgltr_name[j],
-					"cam_vio")) {
-					CAM_DBG(CAM_SENSOR,
-						"i: %d j: %d cam_vio", i, j);
-					power_setting[i].seq_val = j;
-
-					if (VALIDATE_VOLTAGE(
-						soc_info->rgltr_min_volt[j],
-						soc_info->rgltr_max_volt[j],
-						power_setting[i].config_val)) {
-						soc_info->rgltr_min_volt[j] =
-						soc_info->rgltr_max_volt[j] =
-						power_setting[i].config_val;
-					}
-					break;
-				}
-
-			}
-			if (j == num_vreg)
-				power_setting[i].seq_val = INVALID_VREG;
-			break;
-
-		case SENSOR_VANA:
-			for (j = 0; j < num_vreg; j++) {
-
-				if (!strcmp(soc_info->rgltr_name[j],
-					"cam_vana")) {
-					CAM_DBG(CAM_SENSOR,
-						"i: %d j: %d cam_vana", i, j);
-					power_setting[i].seq_val = j;
-
-					if (VALIDATE_VOLTAGE(
-						soc_info->rgltr_min_volt[j],
-						soc_info->rgltr_max_volt[j],
-						power_setting[i].config_val)) {
-						soc_info->rgltr_min_volt[j] =
-						soc_info->rgltr_max_volt[j] =
-						power_setting[i].config_val;
-					}
-					break;
-				}
-
-			}
-			if (j == num_vreg)
-				power_setting[i].seq_val = INVALID_VREG;
-			break;
-
-		case SENSOR_VAF:
-			for (j = 0; j < num_vreg; j++) {
-
-				if (!strcmp(soc_info->rgltr_name[j],
-					"cam_vaf")) {
-					CAM_DBG(CAM_SENSOR,
-						"i: %d j: %d cam_vaf", i, j);
-					power_setting[i].seq_val = j;
-
-					if (VALIDATE_VOLTAGE(
-						soc_info->rgltr_min_volt[j],
-						soc_info->rgltr_max_volt[j],
-						power_setting[i].config_val)) {
-						soc_info->rgltr_min_volt[j] =
-						soc_info->rgltr_max_volt[j] =
-						power_setting[i].config_val;
-					}
-
-					break;
-				}
-
-			}
-			if (j == num_vreg)
-				power_setting[i].seq_val = INVALID_VREG;
-			break;
-
-		case SENSOR_CUSTOM_REG1:
-			for (j = 0; j < num_vreg; j++) {
-
-				if (!strcmp(soc_info->rgltr_name[j],
-					"cam_v_custom1")) {
-					CAM_DBG(CAM_SENSOR,
-						"i:%d j:%d cam_vcustom1", i, j);
-					power_setting[i].seq_val = j;
-
-					if (VALIDATE_VOLTAGE(
-						soc_info->rgltr_min_volt[j],
-						soc_info->rgltr_max_volt[j],
-						power_setting[i].config_val)) {
-						soc_info->rgltr_min_volt[j] =
-						soc_info->rgltr_max_volt[j] =
-						power_setting[i].config_val;
-					}
-					break;
-				}
-
-			}
-			if (j == num_vreg)
-				power_setting[i].seq_val = INVALID_VREG;
-			break;
-		case SENSOR_CUSTOM_REG2:
-			for (j = 0; j < num_vreg; j++) {
-
-				if (!strcmp(soc_info->rgltr_name[j],
-					"cam_v_custom2")) {
-					CAM_DBG(CAM_SENSOR,
-						"i:%d j:%d cam_vcustom2", i, j);
-					power_setting[i].seq_val = j;
-
-					if (VALIDATE_VOLTAGE(
-						soc_info->rgltr_min_volt[j],
-						soc_info->rgltr_max_volt[j],
-						power_setting[i].config_val)) {
-						soc_info->rgltr_min_volt[j] =
-						soc_info->rgltr_max_volt[j] =
-						power_setting[i].config_val;
-					}
-					break;
-				}
-			}
-			if (j == num_vreg)
-				power_setting[i].seq_val = INVALID_VREG;
-			break;
-		default:
-			break;
-		}
+		msm_camera_process_fill_vreg_params(soc_info,
+			power_setting, num_vreg, i);
 	}
 
 	return rc;
@@ -867,25 +772,31 @@ int32_t ais_sensor_update_power_settings(
 	}
 
 	pwr_info->power_setting_size = pwr_cfg->size_up;
-	pwr_info->power_setting =
-		(struct cam_sensor_power_setting *)
-		kcalloc(pwr_info->power_setting_size,
-			sizeof(struct cam_sensor_power_setting),
-			GFP_KERNEL);
-	if (!pwr_info->power_setting)
-		return -ENOMEM;
+	if (pwr_info->power_setting_size == 0) {
+		CAM_WARN(CAM_SENSOR, "Power up sequence empty");
+	} else {
+		pwr_info->power_setting =
+			kcalloc(pwr_info->power_setting_size,
+				sizeof(struct cam_sensor_power_setting),
+				GFP_KERNEL);
+		if (!pwr_info->power_setting)
+			return -ENOMEM;
+	}
 
 	pwr_info->power_down_setting_size = pwr_cfg->size_down;
-	pwr_info->power_down_setting =
-		(struct cam_sensor_power_setting *)
-		kcalloc(pwr_info->power_down_setting_size,
-			sizeof(struct cam_sensor_power_setting),
-			GFP_KERNEL);
-	if (!pwr_info->power_down_setting) {
-		kfree(pwr_info->power_setting);
-		pwr_info->power_setting = NULL;
-		pwr_info->power_setting_size = 0;
-		return -ENOMEM;
+	if (pwr_info->power_down_setting_size == 0) {
+		CAM_WARN(CAM_SENSOR, "Power down sequence empty");
+	} else {
+		pwr_info->power_down_setting =
+			kcalloc(pwr_info->power_down_setting_size,
+				sizeof(struct cam_sensor_power_setting),
+				GFP_KERNEL);
+		if (!pwr_info->power_down_setting) {
+			kfree(pwr_info->power_setting);
+			pwr_info->power_setting = NULL;
+			pwr_info->power_setting_size = 0;
+			return -ENOMEM;
+		}
 	}
 
 	CAM_DBG(CAM_SENSOR, "power up/down sizes %d/%d",
@@ -1600,7 +1511,7 @@ static int cam_config_mclk_reg(struct cam_sensor_power_ctrl_t *ctrl,
 	return rc;
 }
 
-int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
+int cam_sensor_util_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0, index = 0, no_gpio = 0, ret = 0, num_vreg, j = 0, i = 0;
@@ -2038,8 +1949,7 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 		case SENSOR_CUSTOM_GPIO1:
 		case SENSOR_CUSTOM_GPIO2:
 
-			if (!gpio_num_info->valid[pd->seq_type])
-			{
+			if (!gpio_num_info->valid[pd->seq_type]) {
 				CAM_INFO(CAM_SENSOR, "continuing without reset");
 				continue;
 			}
