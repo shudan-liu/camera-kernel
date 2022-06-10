@@ -27,6 +27,11 @@ void cam_sensor_lite_shutdown(
 {
 	CAM_INFO(CAM_SENSOR_LITE, "Shutdown[%d] called",
 		sensor_lite_dev->soc_info.index);
+	if (sensor_lite_dev->state == CAM_SENSOR_LITE_STATE_INIT) {
+		CAM_INFO(CAM_SENSOR_LITE, "Shutdown[%d] called in Init State",
+				sensor_lite_dev->soc_info.index);
+		return;
+	}
 
 	if (sensor_lite_dev->state == CAM_SENSOR_LITE_STATE_START) {
 		__send_pkt(sensor_lite_dev,
@@ -49,7 +54,7 @@ void cam_sensor_lite_shutdown(
 	kfree(sensor_lite_dev->acquire_cmd);
 	sensor_lite_dev->acquire_cmd = NULL;
 	kfree(sensor_lite_dev->release_cmd);
-	sensor_lite_dev->acquire_cmd = NULL;
+	sensor_lite_dev->release_cmd = NULL;
 	kfree(sensor_lite_dev->start_cmd);
 	sensor_lite_dev->start_cmd = NULL;
 	kfree(sensor_lite_dev->stop_cmd);
