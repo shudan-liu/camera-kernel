@@ -7,7 +7,7 @@
 
 #define SENSOR_LITE_INFO(fmt, args...) CAM_INFO(CAM_SENSOR_LITE, fmt, ##args)
 #define SENSOR_LITE_DBG(fmt, args...)  CAM_DBG(CAM_SENSOR_LITE, fmt, ##args)
-#define PROBE_RESPONSE_TIMEOUT 500
+#define PROBE_RESPONSE_TIMEOUT 1000
 
 void __dump_slave_pkt_headers(
 		struct sensor_lite_header *header)
@@ -490,7 +490,8 @@ int __send_probe_pkt(
 		goto err;
 	}
 
-	CAM_INFO(CAM_SENSOR_LITE, "Waiting for probe response packet");
+	CAM_INFO(CAM_SENSOR_LITE, "Waiting for probe response packet index %d",
+			sensor_lite_dev->soc_info.index);
 	rem_jiffies = wait_for_completion_timeout(
 			&(sensor_lite_dev->complete),
 			msecs_to_jiffies(PROBE_RESPONSE_TIMEOUT));
