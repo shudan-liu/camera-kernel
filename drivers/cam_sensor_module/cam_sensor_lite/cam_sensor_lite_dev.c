@@ -28,6 +28,7 @@ static void cam_sensor_lite_subdev_handle_message(
 {
 	struct sensor_lite_device *sensor_lite_dev = v4l2_get_subdevdata(sd);
 	uint32_t data_idx;
+	int rc = 0;
 
 	switch (message_type) {
 	case CAM_SUBDEV_MESSAGE_REG_DUMP:
@@ -35,6 +36,19 @@ static void cam_sensor_lite_subdev_handle_message(
 		CAM_INFO(CAM_SENSOR_LITE, "subdev index : %d Sensor Lite index: %d",
 				sensor_lite_dev->soc_info.index, data_idx);
 		break;
+	case CAM_SUBDEV_MESSAGE_START_SENSORLITE: {
+		data_idx = *(uint32_t *)data;
+		CAM_INFO(CAM_SENSOR_LITE, "subdev index : %d Start Sensorlite: phy_idx : %d",
+		sensor_lite_dev->soc_info.index, data_idx);
+
+		rc = __cam_sensor_lite_handle_start_dev(sensor_lite_dev, NULL);
+		if (rc)
+			CAM_ERR(CAM_SENSOR_LITE,
+				"SENSOR_LITE[%d] start device failed(rc = %d)",
+				sensor_lite_dev->soc_info.index,
+				rc);
+		break;
+	}
 	case CAM_SUBDEV_MESSAGE_PROBE_RES: {
 		struct probe_response_packet *pkt =
 			(struct probe_response_packet *)data;
