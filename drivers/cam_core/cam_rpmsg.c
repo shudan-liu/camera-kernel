@@ -171,6 +171,25 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 	return rc;
 }
 
+int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far)
+{
+	int ret = -1, handle;
+	struct cam_jpeg_cmd_msg cmd_msg;
+
+	cmd_msg.cmd_msg_type = CAM_CPU2DSP_NOTIFY_ERROR;
+	cmd_msg.error_info.core_id = core_id;
+	cmd_msg.error_info.error_type = error_type;
+	cmd_msg.error_info.far = far;
+
+	handle = cam_rpmsg_get_handle("jpeg");
+	ret = cam_rpmsg_send(handle, &cmd_msg, sizeof(cmd_msg));
+	if (ret) {
+		CAM_ERR(CAM_RPMSG, "rpmsg_send failed dev");
+		return ret;
+	}
+	return 0;
+}
+
 int cam_rpmsg_system_send_ping(void) {
 	int rc = 0, handle;
 	unsigned long rem_jiffies;
@@ -521,6 +540,7 @@ static const char *__dsp_cmd_to_string(uint32_t val)
 		case CAM_CPU2DSP_DEREGISTER_BUFFER: return "CPU2DSP_DEREGISTER_BUFFER";
 		case CAM_CPU2DSP_INIT: return "CPU2DSP_INIT";
 		case CAM_CPU2DSP_SET_DEBUG_LEVEL: return "CPU2DSP_SET_DEBUG_LEVEL";
+		case CAM_CPU2DSP_NOTIFY_ERROR: return "CPU2DSP_NOTIFY_ERROR";
 		case CAM_CPU2DSP_MAX_CMD: return "CPU2DSP_MAX_CMD";
 		case CAM_DSP2CPU_POWERON: return "DSP2CPU_POWERON";
 		case CAM_DSP2CPU_POWEROFF: return "DSP2CPU_POWEROFF";
@@ -539,7 +559,7 @@ static const char *__dsp_cmd_to_string(uint32_t val)
 
 static void handle_jpeg_cb(struct work_struct *work) {
 	struct cam_rpmsg_jpeg_payload *payload;
-	struct cam_jpegd_cmd_msg   cmd_msg = {0};
+	struct cam_jpeg_cmd_msg   cmd_msg = {0};
 	struct cam_mem_mgr_alloc_cmd alloc_cmd = {0};
 	struct cam_mem_mgr_map_cmd map_cmd = {0};
 	struct cam_mem_mgr_release_cmd release_cmd = {0};
@@ -971,6 +991,7 @@ static int cam_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 	return rc;
 }
+
 int cam_rpmsg_set_recv_cb(unsigned int handle, cam_rpmsg_recv_cb cb)
 {
 	struct cam_rpmsg_instance_data *idata;

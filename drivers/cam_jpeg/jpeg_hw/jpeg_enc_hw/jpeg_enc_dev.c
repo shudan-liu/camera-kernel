@@ -112,10 +112,13 @@ static int cam_jpeg_enc_component_bind(struct device *dev,
 	core_info->is_nsp_controlled =
 		of_property_read_bool(pdev->dev.of_node, "nsp-controlled");
 
-	if (core_info->is_nsp_controlled)
+	if (core_info->is_nsp_controlled) {
 		jpeg_enc_dev_intf->hw_type = CAM_JPEG_DEV_ENC_NSP;
-	else
+		core_info->nsp_core_id = jpeg_enc_dev_intf->hw_idx - 1;
+	} else {
 		jpeg_enc_dev_intf->hw_type = CAM_JPEG_DEV_ENC;
+		core_info->nsp_core_id = -1;
+	}
 
 	match_dev = of_match_device(pdev->dev.driver->of_match_table,
 		&pdev->dev);

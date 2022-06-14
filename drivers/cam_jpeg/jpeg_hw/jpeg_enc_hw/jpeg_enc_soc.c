@@ -70,7 +70,7 @@ int cam_jpeg_enc_enable_soc_resources(struct cam_hw_soc_info *soc_info, bool ena
 	int rc;
 
 	rc = cam_soc_util_enable_platform_resource(soc_info, true,
-		CAM_SVS_VOTE, enable_irq);
+		CAM_LOWSVS_VOTE, enable_irq);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "enable platform failed %d", rc);
 

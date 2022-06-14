@@ -254,27 +254,34 @@ enum cam_jpeg_dsp_status {
 	CAM_JPEG_DSP_POWERON,
 };
 
+enum cam_jpeg_dsp_error_type {
+	CAM_JPEG_DSP_INVALID  = 0,
+	CAM_JPEG_DSP_PF_ERROR  = 1,
+	CAM_JPEG_DSP_MAX_ERROR = 2,
+};
+
 enum cam_jpeg_dsp_cmd {
-    CAM_CPU2DSP_SUSPEND = 1,
-    CAM_CPU2DSP_RESUME = 2,
-    CAM_CPU2DSP_SHUTDOWN = 3,
-    CAM_CPU2DSP_REGISTER_BUFFER = 4,
-    CAM_CPU2DSP_DEREGISTER_BUFFER = 5,
-    CAM_CPU2DSP_INIT = 6,
-    CAM_CPU2DSP_MAX_CMD = 8,
-    CAM_CPU2DSP_SET_DEBUG_LEVEL = 7,
-    CAM_DSP2CPU_POWERON = 11,
-    CAM_DSP2CPU_POWEROFF = 12,
-    CAM_DSP2CPU_START = 13,
-    CAM_DSP2CPU_DETELE_SESSION = 14,
-    CAM_DSP2CPU_POWER_REQUEST = 15,
-    CAM_DSP2CPU_POWER_CANCEL = 16,
-    CAM_DSP2CPU_REGISTER_BUFFER = 17,
-    CAM_DSP2CPU_DEREGISTER_BUFFER = 18,
-    CAM_DSP2CPU_MEM_ALLOC = 19,
-    CAM_DSP2CPU_MEM_FREE = 20,
-    CAM_DSP2CPU_LOG = 21,
-    CAM_JPEG_DSP_MAX_CMD = 22,
+	CAM_CPU2DSP_SUSPEND = 1,
+	CAM_CPU2DSP_RESUME = 2,
+	CAM_CPU2DSP_SHUTDOWN = 3,
+	CAM_CPU2DSP_REGISTER_BUFFER = 4,
+	CAM_CPU2DSP_DEREGISTER_BUFFER = 5,
+	CAM_CPU2DSP_INIT = 6,
+	CAM_CPU2DSP_SET_DEBUG_LEVEL = 7,
+	CAM_CPU2DSP_NOTIFY_ERROR = 8,
+	CAM_CPU2DSP_MAX_CMD = 9,
+	CAM_DSP2CPU_POWERON = 11,
+	CAM_DSP2CPU_POWEROFF = 12,
+	CAM_DSP2CPU_START = 13,
+	CAM_DSP2CPU_DETELE_SESSION = 14,
+	CAM_DSP2CPU_POWER_REQUEST = 15,
+	CAM_DSP2CPU_POWER_CANCEL = 16,
+	CAM_DSP2CPU_REGISTER_BUFFER = 17,
+	CAM_DSP2CPU_DEREGISTER_BUFFER = 18,
+	CAM_DSP2CPU_MEM_ALLOC = 19,
+	CAM_DSP2CPU_MEM_FREE = 20,
+	CAM_DSP2CPU_LOG = 21,
+	CAM_JPEG_DSP_MAX_CMD = 22,
 };
 
 /** struct cam_jpeg_mem_remote - buffer information for cdsp
@@ -336,6 +343,17 @@ struct cam_jpeg_dsp2cpu_cmd_msg {
     uint32_t data[JPEG_DSP2CPU_RESERVED];
 };
 
+/** struct cam_jpeg_dsp_error_info - CPU to DSP error info
+ *
+ * @core_id    : Jpeg core on which error is seen
+ * @error_type : Type of the error
+ * @far        : Page fault address, valid only in case of pf
+ */
+struct cam_jpeg_dsp_error_info {
+	uint32_t core_id;
+	uint32_t error_type;
+	uint32_t far;
+};
 
 /** struct cam_jpegd_cmd_msg - CPU to DSP command structure
  *
@@ -348,20 +366,20 @@ struct cam_jpeg_dsp2cpu_cmd_msg {
  * @buf_offset          : Offset of buffer
  * @jpeg_dsp_debug_level: Debug level of dsp
  * @buf_info            : Information of buffer
+ * @error_info          : Error Info
  */
-struct cam_jpegd_cmd_msg {
-    uint32_t  cmd_msg_type;
-    int32_t   ret_val;
-    uint32_t  iova;
-    uint32_t  buf_index;
-    uint32_t  buf_size;
-    uint32_t  fd;
-    uint32_t  buf_offset;
-    uint32_t  fd_size;
-    uint32_t  jpeg_dsp_debug_level;
-    struct cam_jpeg_mem_remote buf_info;
-    uint32_t  reserved0;
-    uint32_t  reserved1;
+struct cam_jpeg_cmd_msg {
+	uint32_t cmd_msg_type;
+	int32_t  ret_val;
+	uint32_t iova;
+	uint32_t buf_index;
+	uint32_t buf_size;
+	uint32_t fd;
+	uint32_t buf_offset;
+	uint32_t fd_size;
+	uint32_t jpeg_dsp_debug_level;
+	struct   cam_jpeg_mem_remote buf_info;
+	struct   cam_jpeg_dsp_error_info error_info;
 };
 
 
@@ -671,5 +689,15 @@ int cam_rpmsg_init(void);
  * @brief : API to remove rpmsg from platform framework.
  */
 void cam_rpmsg_exit(void);
+
+/**
+ * @brief      : API to send error info to cdsp.
+ * @error_type : Type of the error.
+ * @core_id    : core on which error is seen.
+ * @far        : FAR address valid in case of page fault.
+ *
+ * @return zero on success, or ERR_PTR() on error.
+ */
+int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far);
 
 #endif /* __CAM_RPMSG_H__ */

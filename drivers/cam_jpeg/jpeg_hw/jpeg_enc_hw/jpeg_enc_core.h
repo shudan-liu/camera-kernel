@@ -105,6 +105,7 @@ struct cam_jpeg_enc_device_core_info {
 	uint32_t rd_mid;
 	uint32_t wr_mid;
 	uint8_t  is_nsp_controlled;
+	int8_t  nsp_core_id;
 };
 
 int cam_jpeg_enc_init_hw(void *device_priv,

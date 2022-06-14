@@ -1773,7 +1773,8 @@ static int cam_jpeg_init_devices(struct device_node *of_node,
 		g_jpeg_hw_mgr.num_nsp_enc = num_nsp_dev;
 		if (!g_jpeg_hw_mgr.nsp_devices[CAM_JPEG_DEV_TYPE_ENC]) {
 			rc = -ENOMEM;
-			CAM_ERR(CAM_JPEG, "getting number of dma dev nodes failed");
+			CAM_ERR(CAM_JPEG,
+				"getting number of nsp jpeg dev nodes failed");
 			goto num_enc_failed;
 		}
 	}
