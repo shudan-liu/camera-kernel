@@ -181,15 +181,14 @@ void cam_cdm_notify_clients(struct cam_hw_info *cdm_hw,
 			(struct cam_cdm_bl_cb_request_entry *)data;
 
 		client_idx = CAM_CDM_GET_CLIENT_IDX(node->client_hdl);
-		mutex_lock(&cdm_hw->hw_mutex);
 		client = core->clients[client_idx];
 		if ((!client) || (client->handle != node->client_hdl)) {
 			CAM_ERR(CAM_CDM, "Invalid client %pK hdl=%x", client,
 				node->client_hdl);
-			mutex_unlock(&cdm_hw->hw_mutex);
 			return;
 		}
 		cam_cdm_get_client_refcount(client);
+		mutex_lock(&client->lock);
 		if (client->data.cam_cdm_callback) {
 			CAM_DBG(CAM_CDM, "Calling client=%s cb cookie=%d",
 				client->data.identifier, node->cookie);
@@ -202,15 +201,15 @@ void cam_cdm_notify_clients(struct cam_hw_info *cdm_hw,
 			CAM_ERR(CAM_CDM, "No cb registered for client hdl=%x",
 				node->client_hdl);
 		}
+		mutex_unlock(&client->lock);
 		cam_cdm_put_client_refcount(client);
-		mutex_unlock(&cdm_hw->hw_mutex);
 		return;
 	}
 
 	for (i = 0; i < CAM_PER_CDM_MAX_REGISTERED_CLIENTS; i++) {
 		if (core->clients[i] != NULL) {
-		mutex_lock(&cdm_hw->hw_mutex);
 			client = core->clients[i];
+			cam_cdm_get_client_refcount(client);
 			mutex_lock(&client->lock);
 			CAM_DBG(CAM_CDM, "Found client slot %d", i);
 			if (client->data.cam_cdm_callback) {
@@ -230,7 +229,7 @@ void cam_cdm_notify_clients(struct cam_hw_info *cdm_hw,
 					client->handle);
 			}
 			mutex_unlock(&client->lock);
-			mutex_unlock(&cdm_hw->hw_mutex);
+			cam_cdm_put_client_refcount(client);
 		}
 	}
 }

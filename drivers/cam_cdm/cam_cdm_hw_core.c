@@ -598,8 +598,10 @@ static void cam_hw_cdm_iommu_fault_handler(struct iommu_domain *domain,
 		cam_hw_cdm_dump_core_debug_registers(cdm_hw);
 		CAM_ERR_RATE_LIMIT(CAM_CDM, "Page fault iova addr %pK\n",
 			(void *)iova);
+		mutex_lock(&cdm_hw->hw_mutex);
 		cam_cdm_notify_clients(cdm_hw, CAM_CDM_CB_STATUS_PAGEFAULT,
 			(void *)iova);
+		mutex_unlock(&cdm_hw->hw_mutex);
 		atomic_dec(&core->error);
 	} else {
 		CAM_ERR(CAM_CDM, "Invalid token");
