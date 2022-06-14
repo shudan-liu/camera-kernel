@@ -165,7 +165,8 @@ int cam_isp_add_io_buffers(
 	struct list_head                     *res_list_ife_in_rd,
 	uint32_t                              size_isp_out,
 	bool                                  fill_fence,
-	struct cam_isp_frame_header_info     *frame_header_info);
+	struct cam_isp_frame_header_info     *frame_header_info,
+	uint32_t                              unpacker_fmt);
 
 /*
  * cam_isp_add_reg_update()

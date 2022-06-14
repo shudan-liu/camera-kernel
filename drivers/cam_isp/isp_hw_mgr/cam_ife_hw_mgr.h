@@ -101,6 +101,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                              num_in_ports;
 	struct cam_isp_in_port_generic_info  *in_ports;
 	struct cam_ife_mgr_bw_data            bw_data;
+	uint32_t                              unpacker_fmt;
 };
 
 /**

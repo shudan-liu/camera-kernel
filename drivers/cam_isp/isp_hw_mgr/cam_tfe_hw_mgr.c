@@ -4530,7 +4530,7 @@ static int cam_tfe_mgr_prepare_hw_update(void *hw_mgr_priv,
 			&kmd_buf, ctx->res_list_tfe_out,
 			NULL,
 			CAM_TFE_HW_OUT_RES_MAX, fill_fence,
-			&frame_header_info);
+			&frame_header_info, 0);
 
 		if (rc) {
 			CAM_ERR(CAM_ISP,

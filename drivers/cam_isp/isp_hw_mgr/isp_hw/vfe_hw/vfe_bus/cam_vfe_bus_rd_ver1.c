@@ -918,6 +918,13 @@ static int cam_vfe_bus_rd_update_rm(void *priv, void *cmd_args,
 		rm_data = vfe_bus_rd_data->rm_res[i]->res_priv;
 
 		/* update size register */
+
+		rm_data->unpacker_cfg = cam_vfe_bus_get_unpacker_fmt(
+					update_buf->rm_update->unpacker_fmt);
+
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			rm_data->hw_regs->unpacker_cfg, rm_data->unpacker_cfg);
+
 		cam_vfe_bus_rd_pxls_to_bytes(io_cfg->planes[i].width,
 			rm_data->unpacker_cfg, &rm_data->width);
 		rm_data->height = io_cfg->planes[i].height;
