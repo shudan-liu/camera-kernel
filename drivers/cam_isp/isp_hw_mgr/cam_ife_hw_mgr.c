@@ -12557,7 +12557,8 @@ static int cam_ife_mgr_populate_vcdt(struct cam_ife_hw_mgr_ctx *ife_ctx, uint32_
 		}
 		ife_ctx->num_processed++;
 	} else if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
-		*pkt++ = ife_ctx->in_ports[ife_ctx->num_processed].sensor_mode;
+		/* Hybrid acquire does not require sensor mode */
+		*pkt++ = 0;
 		vcdt = (struct cam_rpmsg_vcdt *)pkt;
 		for (i = 0; i < ife_ctx->sensor_info->num_vcdt && i < 4; i++) {
 			vcdt[i].vc = ife_ctx->sensor_info->vcdt[i].vc;
