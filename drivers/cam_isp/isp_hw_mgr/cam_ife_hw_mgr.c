@@ -3683,6 +3683,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.workq = ife_ctx->common.workq_info;
 		csid_acquire.cb_priv = ife_ctx;
 		csid_acquire.cdm_ops = ife_ctx->cdm_ops;
+		csid_acquire.metadata_en = ife_ctx->flags.slave_metadata_en;
 
 		rc = cam_ife_hw_mgr_acquire_csid_hw(ife_ctx,
 			&csid_acquire,
@@ -3831,6 +3832,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.workq = ife_ctx->common.workq_info;
 		csid_acquire.cb_priv = ife_ctx;
 		csid_acquire.cdm_ops = ife_ctx->cdm_ops;
+		csid_acquire.metadata_en = ife_ctx->flags.slave_metadata_en;
+
 		if (ife_ctx->ctx_type == CAM_IFE_CTX_TYPE_SFE)
 			csid_acquire.sfe_en = true;
 
@@ -5313,40 +5316,41 @@ static int cam_ife_mgr_acquire_get_unified_structure_v0(
 		goto err;
 	}
 
-	in_port->major_ver       =
+	in_port->major_ver         =
 		(acquire_hw_info->input_info_version >> 16) & 0xFFFF;
-	in_port->minor_ver       =
+	in_port->minor_ver         =
 		acquire_hw_info->input_info_version & 0xFFFF;
-	in_port->res_type        =  in->res_type;
-	in_port->lane_type       =  in->lane_type;
-	in_port->lane_num        =  in->lane_num;
-	in_port->lane_cfg        =  in->lane_cfg;
-	in_port->vc[0]           =  in->vc;
-	in_port->dt[0]           =  in->dt;
-	in_port->num_valid_vc_dt = 1;
-	in_port->format[0]       =  in->format;
-	in_port->test_pattern    =  in->test_pattern;
-	in_port->usage_type      =  in->usage_type;
-	in_port->left_start      =  in->left_start;
-	in_port->left_stop       =  in->left_stop;
-	in_port->left_width      =  in->left_width;
-	in_port->right_start     =  in->right_start;
-	in_port->right_stop      =  in->right_stop;
-	in_port->right_width     =  in->right_width;
-	in_port->line_start      =  in->line_start;
-	in_port->line_stop       =  in->line_stop;
-	in_port->height          =  in->height;
-	in_port->pixel_clk       =  in->pixel_clk;
-	in_port->batch_size      =  in->batch_size;
-	in_port->dsp_mode        =  in->dsp_mode;
-	in_port->hbi_cnt         =  in->hbi_cnt;
-	in_port->cust_node       =  0;
-	in_port->horizontal_bin  =  0;
-	in_port->qcfa_bin        =  0;
-	in_port->num_out_res     =  in->num_out_res;
-	in_port->acquire_type    =  CAM_ISP_ACQUIRE_TYPE_REAL;
-	in_port->sensor_id       =  CAM_ISP_IN_SENSOR_ID_UNKNOWN;
-	in_port->sensor_mode     =  CAM_ISP_IN_SENSOR_MODE_UNKNOWN;
+	in_port->res_type          = in->res_type;
+	in_port->lane_type         = in->lane_type;
+	in_port->lane_num          = in->lane_num;
+	in_port->lane_cfg          = in->lane_cfg;
+	in_port->vc[0]             = in->vc;
+	in_port->dt[0]             = in->dt;
+	in_port->num_valid_vc_dt   = 1;
+	in_port->format[0]         = in->format;
+	in_port->test_pattern      = in->test_pattern;
+	in_port->usage_type        = in->usage_type;
+	in_port->left_start        = in->left_start;
+	in_port->left_stop         = in->left_stop;
+	in_port->left_width        = in->left_width;
+	in_port->right_start       = in->right_start;
+	in_port->right_stop        = in->right_stop;
+	in_port->right_width       = in->right_width;
+	in_port->line_start        = in->line_start;
+	in_port->line_stop         = in->line_stop;
+	in_port->height            = in->height;
+	in_port->pixel_clk         = in->pixel_clk;
+	in_port->batch_size        = in->batch_size;
+	in_port->dsp_mode          = in->dsp_mode;
+	in_port->hbi_cnt           = in->hbi_cnt;
+	in_port->cust_node         = 0;
+	in_port->horizontal_bin    = 0;
+	in_port->qcfa_bin          = 0;
+	in_port->num_out_res       = in->num_out_res;
+	in_port->acquire_type      = CAM_ISP_ACQUIRE_TYPE_REAL;
+	in_port->sensor_id         = CAM_ISP_IN_SENSOR_ID_UNKNOWN;
+	in_port->sensor_mode       = CAM_ISP_IN_SENSOR_MODE_UNKNOWN;
+	in_port->slave_metadata_en = FALSE;
 
 	in_port->data = kcalloc(in->num_out_res,
 		sizeof(struct cam_isp_out_port_generic_info),
@@ -5400,6 +5404,7 @@ static inline void cam_ife_mgr_acquire_get_feature_flag_params(
 	in_port->epd_supported            = in->feature_flag & CAM_ISP_EPD_SUPPORT;
 	in_port->aeb_mode                 = in->feature_flag & CAM_ISP_AEB_MODE_EN;
 	in_port->independent_crm_mode     = in->feature_flag & CAM_ISP_INDEPENDENT_CRM;
+	in_port->slave_metadata_en        = FALSE;
 }
 
 static inline void cam_ife_mgr_acquire_get_feature_flag_params_v3(
@@ -5413,6 +5418,7 @@ static inline void cam_ife_mgr_acquire_get_feature_flag_params_v3(
 	in_port->epd_supported            = in->feature_flag & CAM_ISP_EPD_SUPPORT;
 	in_port->aeb_mode                 = in->feature_flag & CAM_ISP_AEB_MODE_EN;
 	in_port->independent_crm_mode     = in->feature_flag & CAM_ISP_INDEPENDENT_CRM;
+	in_port->slave_metadata_en        = in->feature_flag & CAM_ISP_SLAVE_METADATA_EN;
 }
 
 static int cam_ife_mgr_acquire_get_unified_structure_v2(
@@ -5759,6 +5765,10 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	ife_ctx->sensor_id = in_port[0].sensor_id;
 	ife_ctx->in_ports = in_port;
 
+	if (in_port->slave_metadata_en &&
+			ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID)
+		ife_ctx->flags.slave_metadata_en = in_port->slave_metadata_en;
+
 	/* No HW is acquired in virtual */
 	if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL) {
 		CAM_DBG(CAM_ISP, "skip acq in virt");
@@ -5940,6 +5950,9 @@ out:
 
 	if (ife_ctx->flags.is_independent_crm_mode)
 		acquire_args->op_flags |= CAM_IFE_CTX_INDEPENDENT_CRM_EN;
+
+	if (ife_ctx->flags.slave_metadata_en)
+		acquire_args->op_flags |= CAM_IFE_CTX_SLAVE_METADTA_EN;
 
 	ife_ctx->flags.ctx_in_use = true;
 	ife_ctx->num_reg_dump_buf = 0;
@@ -11875,7 +11888,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 				(CAM_ISP_IFE_OUT_RES_BASE + max_ife_out_res),
 				fill_ife_fence,
 				CAM_ISP_HW_TYPE_VFE, &frame_header_info,
-				&check_for_scratch);
+				&check_for_scratch,
+				ctx->flags.slave_metadata_en);
 		else if (ctx->base[i].hw_type == CAM_ISP_HW_TYPE_SFE)
 			rc = cam_isp_add_io_buffers(
 				hw_mgr->mgr_common.img_iommu_hdl,
@@ -11886,7 +11900,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 				CAM_ISP_SFE_OUT_RES_BASE,
 				CAM_ISP_SFE_OUT_RES_MAX, fill_sfe_fence,
 				CAM_ISP_HW_TYPE_SFE, &frame_header_info,
-				&check_for_scratch);
+				&check_for_scratch,
+				ctx->flags.slave_metadata_en);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Failed in io buffers, i=%d, rc=%d hw_type=%s",
@@ -12679,7 +12694,7 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			rc = cam_ife_mgr_release_virt_hw_for_ctx(ctx,
 					&ctx->in_ports[ctx->num_processed], true);
 			break;
-		case CAM_HW_MGR_CMD_GET_WORKQ:
+		case CAM_ISP_HW_MGR_CMD_GET_WORKQ:
 			isp_hw_cmd_args->cmd_data = ctx->common.workq_info;
 			break;
 		default:

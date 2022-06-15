@@ -49,6 +49,9 @@
 /* Max number of sof irq's triggered in case of SOF freeze */
 #define CAM_CSID_IRQ_SOF_DEBUG_CNT_MAX 12
 
+/* This is as per CPHY standard */
+#define CAM_CSID_METADATA_DT           0x12
+
 static void cam_ife_csid_ver2_print_debug_reg_status(
 	struct cam_ife_csid_ver2_hw *csid_hw,
 	struct cam_isp_resource_node    *res);
@@ -2516,6 +2519,12 @@ static int cam_ife_csid_ver2_in_port_validate(
 			goto err;
 	}
 
+	if (reserve->in_port->num_valid_vc_dt > 1 && reserve->metadata_en) {
+		CAM_ERR(CAM_ISP, "metadata can not be enabled with multi_vcdt");
+		rc = -EINVAL;
+		goto err;
+	}
+
 	if (!cam_ife_csid_ver2_is_width_valid(reserve, csid_hw))
 		goto err;
 
@@ -2648,6 +2657,7 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 	path_cfg->sfe_shdr = reserve->sfe_inline_shdr;
 	csid_hw->flags.offline_mode = reserve->is_offline;
 	reserve->need_top_cfg = csid_reg->need_top_cfg;
+	csid_hw->flags.metadata_en = reserve->metadata_en;
 
 	CAM_DBG(CAM_ISP, "CSID[%u] Resource[id: %d name:%s] state %d cid %d",
 		csid_hw->hw_intf->hw_idx, reserve->res_id, res->res_name,
@@ -2863,8 +2873,19 @@ static int cam_ife_csid_ver2_init_config_rdi_path(
 
 	cam_io_w_mb(cfg0, mem_base + path_reg->cfg0_addr);
 
-	CAM_DBG(CAM_ISP, "CSID[%d] %s cfg0_addr 0x%x",
-		csid_hw->hw_intf->hw_idx, res->res_name, cfg0);
+	CAM_DBG(CAM_ISP, "CSID[%d] %s cfg0_addr 0x%x metadata %d",
+		csid_hw->hw_intf->hw_idx, res->res_name, cfg0,
+		csid_hw->flags.metadata_en);
+
+	/* program METADATA VCDT if enabled */
+	if (csid_hw->flags.metadata_en) {
+		val = (cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].vc <<
+				cmn_reg->multi_vcdt_vc1_shift_val) |
+			(CAM_CSID_METADATA_DT <<
+				cmn_reg->multi_vcdt_dt1_shift_val) |
+			(1 << cmn_reg->multi_vcdt_en_shift_val);
+		cam_io_w_mb(val, mem_base + path_reg->multi_vcdt_cfg0_addr);
+	}
 
 	/*Configure Multi VC DT combo */
 	if (cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_1].valid) {

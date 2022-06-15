@@ -485,13 +485,11 @@ int cam_sfe_add_command_buffers(
 {
 	int rc = 0;
 	uint32_t                             cmd_meta_data, num_ent, i;
-	uint32_t                             base_idx;
 	enum cam_isp_hw_split_id             split_id;
 	struct cam_cmd_buf_desc             *cmd_desc = NULL;
 	struct cam_hw_update_entry          *hw_entry = NULL;
 
 	split_id = base_info->split_id;
-	base_idx = base_info->idx;
 	hw_entry = prepare->hw_update_entries;
 
 	/*
@@ -723,7 +721,8 @@ int cam_isp_add_io_buffers(
 	bool                                     fill_fence,
 	enum cam_isp_hw_type                     hw_type,
 	struct cam_isp_frame_header_info        *frame_header_info,
-	struct cam_isp_check_io_cfg_for_scratch *scratch_check_cfg)
+	struct cam_isp_check_io_cfg_for_scratch *scratch_check_cfg,
+	bool                                     need_cpu_addr)
 {
 	int                                 rc = 0;
 	dma_addr_t                          io_addr[CAM_PACKET_MAX_PLANES];
@@ -958,16 +957,16 @@ int cam_isp_add_io_buffers(
 					mmu_hdl, (int)size,
 					io_addr[plane_id]+size);
 
-				if (!is_buf_secure) {
+				if (!is_buf_secure && need_cpu_addr) {
 					rc = cam_mem_get_cpu_buf(io_cfg[i].mem_handle[plane_id],
-						(uintptr_t*)out_map_entries->kernel_map_buf_addr[plane_id], &len);
-					if (rc) {
+						(uintptr_t *)&
+						out_map_entries->kernel_map_buf_addr[plane_id],
+						&len);
+					if (rc)
 						CAM_ERR(CAM_ISP,
-							"get cpu buf failed, mem_hdl=0x%x, wm res id:%d",
+							"split %d plane_id %d get cpu buf failed, mem_hdl=0x%x, wm res id:%d",
+							j, plane_id,
 							io_cfg[i].mem_handle[plane_id],res->res_id);
-						out_map_entries->kernel_map_buf_addr[plane_id] = NULL;
-					}
-
 				} else {
 						out_map_entries->kernel_map_buf_addr[plane_id] = NULL;
 				}
@@ -1033,10 +1032,6 @@ int cam_isp_add_io_buffers(
 				rc = -ENOMEM;
 				return rc;
 			}
-			if (secure_mode.wm_update->slave_buf_data)
-				out_map_entries->slave_buf_data = true;
-			else
-				out_map_entries->slave_buf_data = false;
 
 			if (wm_update.fh_enabled) {
 				frame_header_info->frame_header_res_id =
@@ -1619,13 +1614,11 @@ int cam_isp_add_csid_command_buffers(
 {
 	int rc = 0;
 	uint32_t                           cmd_meta_data, num_ent, i;
-	uint32_t                           base_idx;
 	enum cam_isp_hw_split_id           split_id;
 	struct cam_cmd_buf_desc           *cmd_desc = NULL;
 	struct cam_hw_update_entry        *hw_entry = NULL;
 
 	split_id = base_info->split_id;
-	base_idx = base_info->idx;
 	hw_entry = prepare->hw_update_entries;
 
 	/*

@@ -1428,7 +1428,7 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 	struct cam_isp_ctx_req *req_isp;
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_sync_timestamp ev_timestamp;
-	uint64_t* kernel_buf_ptr ;
+	uint32_t *kernel_buf_ptr;
 	struct cam_sync_signal_param param;
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -1449,15 +1449,15 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 				memset(&ev_timestamp, 0, sizeof(ev_timestamp));
 				ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 				ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
-				kernel_buf_ptr = (uint64_t*)req_isp->fence_map_out[i].kernel_map_buf_addr[0];
+				kernel_buf_ptr = req_isp->fence_map_out[i].kernel_map_buf_addr[0];
 
 				if (kernel_buf_ptr != NULL  &&
-					ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID &&
-					req_isp->fence_map_out[i].slave_buf_data) {
+					ctx_isp->slave_metadata_en) {
 					ev_timestamp.slave_timestamp =
-						(*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_FIRST_INDEX) & 0xFFFFFFFF);
-					ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
-						((*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_SECOND_INDEX) & CAM_ISP_SLAVE_MSB_MASK) << 32));
+						kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX];
+					ev_timestamp.slave_timestamp =
+						(ev_timestamp.slave_timestamp << 32) |
+						kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
 					ev_timestamp.tracker_id = *kernel_buf_ptr;
 				}
 				memset(&param, 0, sizeof(param));
@@ -1539,7 +1539,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 	const char *handle_type;
 	struct cam_sync_timestamp ev_timestamp;
 	struct cam_sync_signal_param param;
-	uint64_t* kernel_buf_ptr;
+	uint32_t *kernel_buf_ptr;
 	trace_cam_buf_done("ISP", ctx, req);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -1635,16 +1635,16 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
-			kernel_buf_ptr = (uint64_t*)req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 
 			if (kernel_buf_ptr != NULL  &&
-				ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID &&
-				req_isp->fence_map_out[i].slave_buf_data) {
+				ctx_isp->slave_metadata_en) {
 				ev_timestamp.slave_timestamp =
-					(*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_FIRST_INDEX) & 0xFFFFFFFF);
-				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
-					((*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_SECOND_INDEX) & CAM_ISP_SLAVE_MSB_MASK) << 32));
-				ev_timestamp.tracker_id = *kernel_buf_ptr & 0xFF;
+					kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX];
+				ev_timestamp.slave_timestamp =
+					(ev_timestamp.slave_timestamp << 32) |
+					kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
+				ev_timestamp.tracker_id = *kernel_buf_ptr;
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -1714,7 +1714,7 @@ static int __cam_isp_handle_deferred_buf_done(
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_sync_timestamp ev_timestamp;
 	struct cam_sync_signal_param param;
-	uint64_t* kernel_buf_ptr ;
+	uint32_t *kernel_buf_ptr;
 
 	CAM_DBG(CAM_ISP,
 		"ctx[%d] : Req %llu : Handling %d deferred buf_dones num_acked=%d, bubble_handling=%d",
@@ -1747,16 +1747,15 @@ static int __cam_isp_handle_deferred_buf_done(
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
-			kernel_buf_ptr =(uint64_t*) req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 
 			if (kernel_buf_ptr != NULL  &&
-				ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID &&
-				req_isp->fence_map_out[i].slave_buf_data) {
+				ctx_isp->slave_metadata_en) {
 				ev_timestamp.slave_timestamp =
-					(*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_FIRST_INDEX) & 0xFFFFFFFF);
+					kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
 				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
-					((*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_SECOND_INDEX) & CAM_ISP_SLAVE_MSB_MASK) << 32));
-				ev_timestamp.tracker_id = *kernel_buf_ptr & 0xFF;
+					((uint64_t)kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX] << 32));
+				ev_timestamp.tracker_id = *kernel_buf_ptr;
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -1836,7 +1835,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 
 	struct cam_sync_timestamp  ev_timestamp;
 	struct cam_sync_signal_param param;
-	uint64_t* kernel_buf_ptr;
+	uint32_t *kernel_buf_ptr;
 
 	trace_cam_buf_done("ISP", ctx, req);
 
@@ -1942,16 +1941,15 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
-			kernel_buf_ptr = (uint64_t*)req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 
 			if (kernel_buf_ptr != NULL  &&
-				ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID &&
-				req_isp->fence_map_out[i].slave_buf_data) {
+				ctx_isp->slave_metadata_en) {
 				ev_timestamp.slave_timestamp =
-					(*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_FIRST_INDEX) & 0xFFFFFFFF);
+					kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
 				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
-					((*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_SECOND_INDEX) & CAM_ISP_SLAVE_MSB_MASK) << 32));
-				ev_timestamp.tracker_id = *kernel_buf_ptr & 0xFF;
+					((uint64_t)kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX] << 32));
+				ev_timestamp.tracker_id = *kernel_buf_ptr;
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -1981,16 +1979,15 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
-			kernel_buf_ptr = (uint64_t*)req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 
 			if (kernel_buf_ptr != NULL &&
-				ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID &&
-				req_isp->fence_map_out[i].slave_buf_data) {
+				ctx_isp->slave_metadata_en) {
 				ev_timestamp.slave_timestamp =
-					(*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_FIRST_INDEX) & 0xFFFFFFFF);
+					kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
 				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
-					((*(kernel_buf_ptr + CAM_ISP_SLAVE_TS_SECOND_INDEX) & CAM_ISP_SLAVE_MSB_MASK) << 32));
-				ev_timestamp.tracker_id = *kernel_buf_ptr & 0xFF;
+					((uint64_t)kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX] << 32));
+				ev_timestamp.tracker_id = *kernel_buf_ptr;
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -6467,6 +6464,8 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 		(param.op_flags & CAM_IFE_CTX_AEB_EN);
 	ctx_isp->independent_crm_en =
 		(param.op_flags & CAM_IFE_CTX_INDEPENDENT_CRM_EN);
+	ctx_isp->slave_metadata_en =
+		(param.op_flags & CAM_IFE_CTX_SLAVE_METADTA_EN);
 
 	if ((ctx_isp->aeb_enabled) && (!isp_ctx_debug.disable_internal_recovery))
 		ctx_isp->do_internal_recovery = true;
@@ -6541,7 +6540,7 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 	if (ctx_isp->independent_crm_en) {
 		hw_cmd_args.ctxt_to_hw_map = param.ctxt_to_hw_map;
 		hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
-		isp_hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_GET_WORKQ;
+		isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_GET_WORKQ;
 		hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
 		rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
 					&hw_cmd_args);
@@ -6552,7 +6551,7 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigedn for no crm");
 	}
 
-	/* Query the packet opcode */
+	/* Query the packet acq_type */
 	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
 	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
 	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_GET_ACQ_TYPE;
@@ -6565,7 +6564,6 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 		CAM_ERR(CAM_ISP, "HW command failed");
 		goto free_hw;
 	}
-
 	ctx_isp->acquire_type = isp_hw_cmd_args.u.acquire_type;
 
 	ctx_isp->hw_ctx = param.ctxt_to_hw_map;
@@ -6574,8 +6572,8 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 
 	trace_cam_context_state("ISP", ctx);
 	CAM_DBG(CAM_ISP,
-		"Acquire success on session_hdl 0x%xs ctx_type %d ctx_id %u",
-		ctx->session_hdl, isp_hw_cmd_args.u.ctx_type, ctx->ctx_id);
+		"Acquire success on session_hdl 0x%xs ctx_type %d ctx_id %u acq_type %d",
+		ctx->session_hdl, isp_hw_cmd_args.u.ctx_type, ctx->ctx_id, ctx_isp->acquire_type);
 	kfree(acquire_hw_info);
 	return rc;
 

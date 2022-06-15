@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_PARSER_H_
@@ -237,6 +238,7 @@ int cam_isp_add_command_buffers(
  * @hw_type:               HW type for this ctx base (IFE/SFE)
  * @frame_header_info:     Frame header related params
  * @scratch_check_cfg:     Validate info for IFE/SFE scratch buffers
+ * @need_cpu_addr:         Flag to indicate if cpu addr is required in fence object
  * @return:                0 for success
  *                         -EINVAL for Fail
  */
@@ -253,7 +255,8 @@ int cam_isp_add_io_buffers(
 	bool                                     fill_fence,
 	enum cam_isp_hw_type                     hw_type,
 	struct cam_isp_frame_header_info        *frame_header_info,
-	struct cam_isp_check_io_cfg_for_scratch *scratch_check_cfg);
+	struct cam_isp_check_io_cfg_for_scratch *scratch_check_cfg,
+	bool                                     need_cpu_addr);
 
 /*
  * cam_isp_add_reg_update()
