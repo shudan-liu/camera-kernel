@@ -394,7 +394,8 @@ struct cam_req_mgr_connected_device {
  *                         case of long exposure use case
  * @last_sof_trigger_jiffies : Record the jiffies of last sof trigger jiffies
  * @wq_congestion        : Indicates if WQ congestion is detected or not
- * @trigger_type         : indicates whether its streaming or fsync trigger based
+ * @feature_flag         : indicates whether its streaming or fsync trigger based
+ *                         or independent CRM mode
  */
 struct cam_req_mgr_core_link {
 	int32_t                              link_hdl;
@@ -433,7 +434,7 @@ struct cam_req_mgr_core_link {
 	bool                                 skip_init_frame;
 	uint64_t                             last_sof_trigger_jiffies;
 	bool                                 wq_congestion;
-	uint32_t                             trigger_type;
+	uint32_t                             feature_flag;
 };
 
 /**

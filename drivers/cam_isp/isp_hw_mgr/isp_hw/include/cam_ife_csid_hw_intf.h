@@ -156,6 +156,7 @@ struct cam_isp_in_port_generic_info {
 	uint32_t                        acquire_type;
 	uint32_t                        sensor_id;
 	uint32_t                        sensor_mode;
+	bool                            independent_crm_mode;
 	struct cam_isp_out_port_generic_info    *data;
 };
 

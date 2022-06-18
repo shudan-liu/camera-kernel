@@ -175,6 +175,7 @@ struct cam_ife_hw_mgr_sfe_info {
  *                       for the cache type
  * hybrid_acquire        Bool for categorising acquire type.
  * @secure_mode          Flag to check if any out resource is secure
+ * @is_independent_crm_mode  Flag to check if isp ctx is working in independent crm mode
  *
  */
 struct cam_ife_hw_mgr_ctx_flags {
@@ -198,6 +199,7 @@ struct cam_ife_hw_mgr_ctx_flags {
 	bool   sys_cache_usage[CAM_LLCC_MAX];
 	bool   hybrid_acquire;
 	bool   secure_mode;
+	bool   is_independent_crm_mode;
 };
 
 /**

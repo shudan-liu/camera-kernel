@@ -244,7 +244,6 @@ static int __cam_sensor_lite_handle_acquire_dev(
 
 	/* crm ops should be assined in no crm case as well for error handling */
 	crm_intf_params.ops = &sensor_lite_dev->crm_intf.ops;
-	crm_intf_params.ops = NULL;
 	crm_intf_params.v4l2_sub_dev_flag = 0;
 	crm_intf_params.media_entity_flag = 0;
 	crm_intf_params.priv = sensor_lite_dev;

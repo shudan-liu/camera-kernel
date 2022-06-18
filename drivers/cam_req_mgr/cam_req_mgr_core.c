@@ -68,7 +68,7 @@ void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 	link->num_sync_links = 0;
 	link->last_sof_trigger_jiffies = 0;
 	link->wq_congestion = false;
-	link->trigger_type = 0;
+	link->feature_flag = 0;
 	atomic_set(&link->eof_event_cnt, 0);
 	__cam_req_mgr_reset_apply_data(link);
 
@@ -340,6 +340,11 @@ static int __cam_req_mgr_send_evt(
 	int i;
 	struct cam_req_mgr_link_evt_data     evt_data;
 	struct cam_req_mgr_connected_device *device = NULL;
+
+	if (link->feature_flag & CAM_REQ_MGR_LINK_INDEPENDENT_CRM_TYPE) {
+		CAM_DBG(CAM_CRM, "process evt unavailable for independent CRM usecase");
+		return 0;
+	}
 
 	CAM_DBG(CAM_CRM,
 		"Notify event type: %d to all connected devices on link: 0x%x",
@@ -778,7 +783,7 @@ static void __cam_req_mgr_validate_crm_wd_timer(
 		"rd_idx: %d idx: %d curr_req_id: %lld current_frame_timeout: %d ms",
 		in_q->rd_idx, idx, current_req_id, current_frame_timeout);
 
-	if ((link->trigger_type &&
+	if (((link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE) &&
 		in_q->slot[in_q->rd_idx].status != CRM_SLOT_STATUS_REQ_APPLIED) ||
 		((current_req_id == -1) && (next_req_id == -1))) {
 		CAM_DBG(CAM_CRM,
@@ -931,7 +936,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 	apply_req.link_hdl = link->link_hdl;
 	apply_req.report_if_bubble = 0;
 	apply_req.re_apply = false;
-	if (link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE)
+	if (link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE)
 		apply_req.wait_for_request_apply = TRUE;
 	else
 		apply_req.wait_for_request_apply = FALSE;
@@ -2019,7 +2024,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 		/* Apply req failed retry at next sof */
 		slot->status = CRM_SLOT_STATUS_REQ_PENDING;
 		max_retry = MAXIMUM_RETRY_ATTEMPTS;
-		if ((link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) && dev &&
+		if ((link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE) && dev &&
 			(dev->dev_info.dev_id == CAM_REQ_MGR_DEVICE_SENSOR)) {
 			__cam_req_mgr_notify_sensor_apply_failure(link, dev);
 			goto end;
@@ -3015,7 +3020,7 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 			"link 0x%x idx %d req_id %lld pd %d SLOT READY",
 			link->link_hdl, idx, add_req->req_id, tbl->pd);
 		slot->state = CRM_REQ_STATE_READY;
-		if (link->trigger_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
+		if (link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
 			in_q = link->req.in_q;
 
 			if (in_q->last_applied_idx != -1) {
@@ -3643,6 +3648,10 @@ static int cam_req_mgr_cb_notify_stop(
 		goto end;
 	}
 
+	if (link->feature_flag & CAM_REQ_MGR_LINK_INDEPENDENT_CRM_TYPE) {
+		CAM_DBG(CAM_CRM, "CRM notify stop not required for no-CRM");
+		goto end;
+	}
 	spin_lock_bh(&link->link_state_spin_lock);
 	if (link->state != CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
@@ -3755,9 +3764,10 @@ static int cam_req_mgr_cb_notify_trigger(
 		}
 	}
 
-	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF && !link->trigger_type)
+	if (trigger_data->trigger == CAM_TRIGGER_POINT_SOF && (link->feature_flag
+		& CAM_REQ_MGR_LINK_STREAMING_TYPE))
 		crm_timer_reset(link->watchdog);
-	else if (link->trigger_type)
+	else if (link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE)
 		crm_timer_modify(link->watchdog, CAM_REQ_MGR_WATCHDOG_MAX_TIMEOUT);
 
 	spin_unlock_bh(&link->link_state_spin_lock);
@@ -3931,6 +3941,10 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		rc = -EINVAL;
 		goto error;
 	}
+
+	if (link_info->version == VERSION_3)
+		link_data.stream_type = link->feature_flag &
+			(CAM_REQ_MGR_LINK_STREAMING_TYPE | CAM_REQ_MGR_LINK_TRIGGER_TYPE);
 
 	link_data.link_enable = 1;
 	link_data.link_hdl = link->link_hdl;
@@ -4444,11 +4458,13 @@ int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info)
 		mutex_unlock(&g_crm_core_dev->crm_lock);
 		return -EINVAL;
 	}
-	CAM_INFO(CAM_CRM, "link reserved %pK %x trigger_type:%d num_devices:%d session_hdl:%d",
+	CAM_INFO(CAM_CRM, "link reserved %pK %x trigger_type:%d num_devs:%d sess_hdl:%d no_crm:%d",
 		link, link->link_hdl,
-		link_info->u.link_info_v3.trigger_type,
+		link_info->u.link_info_v3.trigger_type &
+		(CAM_REQ_MGR_LINK_STREAMING_TYPE | CAM_REQ_MGR_LINK_TRIGGER_TYPE),
 		link_info->u.link_info_v3.num_devices,
-		link_info->u.link_info_v3.session_hdl);
+		link_info->u.link_info_v3.session_hdl,
+		(link_info->u.link_info_v3.trigger_type & CAM_REQ_MGR_LINK_INDEPENDENT_CRM_TYPE));
 
 	memset(&root_dev, 0, sizeof(struct cam_create_dev_hdl));
 	root_dev.session_hdl = link_info->u.link_info_v3.session_hdl;
@@ -4465,7 +4481,7 @@ int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info)
 		goto link_hdl_fail;
 	}
 	link_info->u.link_info_v3.link_hdl = link->link_hdl;
-	link->trigger_type = link_info->u.link_info_v3.trigger_type;
+	link->feature_flag = link_info->u.link_info_v3.trigger_type;
 	link->last_flush_id = 0;
 
 	/* Allocate memory to hold data of all linked devs */
@@ -4783,6 +4799,7 @@ int cam_req_mgr_flush_requests(
 		rc = -EINVAL;
 		goto end;
 	}
+
 	if (session->num_links <= 0) {
 		CAM_WARN(CAM_CRM, "No active links in session %x",
 		flush_info->session_hdl);
@@ -4795,6 +4812,13 @@ int cam_req_mgr_flush_requests(
 		CAM_ERR(CAM_CRM, "link: %s, flush_info->link_hdl:%x, link->link_hdl:%x",
 			CAM_IS_NULL_TO_STR(link), flush_info->link_hdl,
 			(!link) ? CAM_REQ_MGR_DEFAULT_HDL_VAL : link->link_hdl);
+		rc = -EINVAL;
+		goto end;
+	}
+
+	if (link->feature_flag & CAM_REQ_MGR_LINK_INDEPENDENT_CRM_TYPE) {
+		CAM_ERR(CAM_CRM, "CRM flush not supported by link: %d in Independent CRM mode",
+			link->link_hdl);
 		rc = -EINVAL;
 		goto end;
 	}
@@ -4860,6 +4884,12 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 			break;
 		}
 
+		if (link->feature_flag & CAM_REQ_MGR_LINK_INDEPENDENT_CRM_TYPE) {
+			CAM_DBG(CAM_CRM, "link %d is independent of CRM, bypassing link op:%d",
+			link->link_hdl, control->ops);
+			continue;
+		}
+
 		mutex_lock(&link->lock);
 		if (control->ops == CAM_REQ_MGR_LINK_ACTIVATE) {
 			spin_lock_bh(&link->link_state_spin_lock);
@@ -4872,7 +4902,7 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 				"Activate link: 0x%x init_timeout: %d ms",
 				link->link_hdl, control->init_timeout[i]);
 			/* Start SOF watchdog timer */
-			if (link->trigger_type) {
+			if (link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
 				rc = crm_timer_init(&link->watchdog,
 				CAM_REQ_MGR_WATCHDOG_MAX_TIMEOUT,
 				link, &__cam_req_mgr_sof_freeze);
