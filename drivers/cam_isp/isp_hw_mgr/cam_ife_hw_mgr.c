@@ -4755,7 +4755,6 @@ static int cam_ife_hw_mgr_acquire_res_ife_vcsid_ipp(
 	struct cam_hw_intf  *hw_intf;
 	struct cam_hw_info *hw_info;
 	struct cam_isp_hw_mgr_res *csid_res;
-	struct cam_isp_out_port_generic_info *out_port = NULL;
 	struct cam_ife_hw_mgr *ife_hw_mgr;
 	struct cam_csid_hw_reserve_resource_args csid_acquire;
 
@@ -4773,7 +4772,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_vcsid_ipp(
 	csid_acquire.res_type = csid_res->res_type;
 	csid_acquire.res_id = csid_res->res_id;
 	csid_acquire.in_port = in_port;
-	csid_acquire.out_port = out_port;
+	csid_acquire.out_port = in_port->data;
 	csid_acquire.node_res = NULL;
 	csid_acquire.event_cb = cam_ife_hw_mgr_event_handler;
 	csid_acquire.workq = ife_ctx->common.workq_info;
