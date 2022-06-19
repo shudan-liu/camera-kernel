@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -979,6 +980,7 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 	csiphy_dev->ref_count = 0;
 	csiphy_dev->acquire_count = 0;
 	csiphy_dev->start_dev_count = 0;
+	csiphy_dev->share_count = 0;
 	csiphy_dev->csiphy_state = CAM_CSIPHY_INIT;
 }
 
@@ -1099,6 +1101,33 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		int index;
 		struct cam_create_dev_hdl bridge_params;
 
+		csiphy_dev->share_count++;
+		if (csiphy_dev->combo_mode == 0 && csiphy_dev->share_count > 1) {
+
+			rc = copy_from_user(&csiphy_acq_dev,
+				u64_to_user_ptr(cmd->handle),
+				sizeof(csiphy_acq_dev));
+			if (rc < 0) {
+				CAM_ERR(CAM_CSIPHY, "Failed copying from User");
+				csiphy_dev->share_count--;
+				goto release_mutex;
+			}
+			csiphy_acq_dev.device_handle =
+				csiphy_dev->csiphy_info[0].hdl_data.device_hdl;
+			if (copy_to_user(u64_to_user_ptr(cmd->handle),
+					&csiphy_acq_dev,
+					sizeof(struct cam_sensor_acquire_dev))) {
+				CAM_ERR(CAM_CSIPHY, "Failed copying to User");
+				rc = -EINVAL;
+				csiphy_dev->share_count--;
+				goto release_mutex;
+			}
+			CAM_DBG(CAM_CSIPHY, "Reuse device %d, skip acquire",
+					csiphy_acq_dev.device_handle);
+			goto release_mutex;
+		}
+
+
 		CAM_DBG(CAM_CSIPHY, "ACQUIRE_CNT: %d COMBO_MODE: %d",
 			csiphy_dev->acquire_count,
 			csiphy_dev->combo_mode);
@@ -1109,6 +1138,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				"NonComboMode does not support multiple acquire: Acquire_count: %d",
 				csiphy_dev->acquire_count);
 			rc = -EINVAL;
+			csiphy_dev->share_count--;
 			goto release_mutex;
 		}
 
@@ -1119,6 +1149,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				"Max acquires are allowed in combo mode: %d",
 				csiphy_dev->session_max_device_support);
 			rc = -EINVAL;
+			csiphy_dev->share_count--;
 			goto release_mutex;
 		}
 
@@ -1127,6 +1158,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			sizeof(csiphy_acq_dev));
 		if (rc < 0) {
 			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
+			csiphy_dev->share_count--;
 			goto release_mutex;
 		}
 
@@ -1137,6 +1169,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			sizeof(csiphy_acq_params))) {
 			CAM_ERR(CAM_CSIPHY,
 				"Failed copying from User");
+			csiphy_dev->share_count--;
 			goto release_mutex;
 		}
 
@@ -1203,6 +1236,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				sizeof(struct cam_sensor_acquire_dev))) {
 			CAM_ERR(CAM_CSIPHY, "Failed copying from User");
 			rc = -EINVAL;
+			csiphy_dev->share_count--;
 			goto release_mutex;
 		}
 
@@ -1237,6 +1271,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	case CAM_STOP_DEV: {
 		int32_t offset, rc = 0;
 		struct cam_start_stop_dev_cmd config;
+
+		if (csiphy_dev->combo_mode == 0 &&
+				csiphy_dev->share_count > 1) {
+			CAM_DBG(CAM_CSIPHY, "Reuse device, skip stop");
+			goto release_mutex;
+		}
 
 		rc = copy_from_user(&config, (void __user *)cmd->handle,
 					sizeof(config));
@@ -1317,6 +1357,18 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		int32_t offset;
 		struct cam_release_dev_cmd release;
 
+		if (csiphy_dev->share_count == 0) {
+			CAM_ERR(CAM_CSIPHY, "No valid devices to release");
+			rc = -EINVAL;
+			goto release_mutex;
+		}
+
+		csiphy_dev->share_count--;
+		if (csiphy_dev->combo_mode == 0 && csiphy_dev->share_count > 0) {
+			CAM_DBG(CAM_CSIPHY, "Reuse device, skip release");
+			goto release_mutex;
+		}
+
 		if (!csiphy_dev->acquire_count) {
 			CAM_ERR(CAM_CSIPHY, "No valid devices to release");
 			rc = -EINVAL;
@@ -1373,6 +1425,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 	case CAM_CONFIG_DEV: {
 		struct cam_config_dev_cmd config;
 
+		if (csiphy_dev->combo_mode == 0 && csiphy_dev->share_count > 1) {
+			CAM_DBG(CAM_CSIPHY, "Reuse device, skip config");
+			goto release_mutex;
+		}
+
 		if (copy_from_user(&config,
 			u64_to_user_ptr(cmd->handle),
 					sizeof(config))) {
@@ -1393,6 +1450,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		int32_t i, offset;
 		int clk_vote_level = -1;
 		unsigned long clk_rate = 0;
+
+		if (csiphy_dev->combo_mode == 0 && csiphy_dev->share_count > 1) {
+			CAM_DBG(CAM_CSIPHY, "Reuse device, skip start");
+			goto release_mutex;
+		}
 
 		rc = copy_from_user(&config, (void __user *)cmd->handle,
 			sizeof(config));
