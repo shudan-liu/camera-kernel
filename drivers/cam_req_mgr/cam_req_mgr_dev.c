@@ -147,7 +147,6 @@ static int cam_req_mgr_open(struct file *filep)
 	spin_unlock_bh(&g_dev.cam_eventq_lock);
 
 	g_dev.open_cnt++;
-	g_dev.read_active_dev_id_hdls = 0;
 	CAM_DBG(CAM_CRM, " CRM open cnt %d", g_dev.open_cnt);
 	rc = cam_mem_mgr_init();
 	if (rc) {
@@ -222,7 +221,6 @@ static int cam_req_mgr_close(struct file *filep)
 
 	g_dev.open_cnt--;
 	g_dev.shutdown_state = false;
-	g_dev.read_active_dev_id_hdls = 0;
 	v4l2_fh_release(filep);
 
 	spin_lock_bh(&g_dev.cam_eventq_lock);
@@ -742,10 +740,7 @@ bool cam_req_mgr_is_open(uint64_t dev_id)
 	mutex_lock(&g_dev.cam_lock);
 	crm_status = g_dev.open_cnt ? true : false;
 
-	if (!g_dev.read_active_dev_id_hdls) {
-		g_dev.active_dev_id_hdls = cam_get_dev_handle_status();
-		g_dev.read_active_dev_id_hdls++;
-	}
+	g_dev.active_dev_id_hdls = cam_get_dev_handle_status();
 
 	dev_id_status = (g_dev.active_dev_id_hdls & dev_id) ? true : false;
 	crm_status &=  dev_id_status;
