@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -102,5 +103,14 @@ int ais_vfe_hw_init(struct cam_hw_intf **vfe_hw,
 	struct ais_isp_hw_init_args *init,
 	struct cam_hw_intf *csid_hw);
 
-
+/*
+ * ais_vfe_discard_old_frame_done_event()
+ *
+ * @Brief:                  Discard old frame done event
+ *
+ * @vfe_idx:                Index of VFE HW
+ * @evt_data:               Ife event data
+ */
+void ais_vfe_discard_old_frame_done_event(uint8_t vfe_idx,
+					struct ais_ife_event_data *evt_data);
 #endif /* _AIS_VFE_HW_INTF_H_ */

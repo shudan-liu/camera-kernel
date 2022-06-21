@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -220,4 +221,21 @@ int ais_vfe_hw_init(struct cam_hw_intf **vfe_hw,
 		rc = -ENODEV;
 	}
 	return rc;
+}
+
+void ais_vfe_discard_old_frame_done_event(uint8_t vfe_idx,
+					struct ais_ife_event_data *evt_data)
+{
+	struct cam_hw_info *vfe_info = NULL;
+	struct ais_vfe_hw_core_info       *core_info = NULL;
+
+	if (vfe_idx >= AIS_VFE_HW_NUM_MAX || evt_data == NULL)
+		return;
+
+	vfe_info = ais_vfe_hw_list[vfe_idx]->hw_priv;
+	if (vfe_info == NULL || vfe_info->core_info == NULL)
+		return;
+	core_info = (struct ais_vfe_hw_core_info *)vfe_info->core_info;
+
+	ais_ife_discard_old_frame_done_event(core_info, evt_data);
 }
