@@ -236,7 +236,9 @@ static int __cam_sensor_lite_handle_acquire_dev(
 	}
 
 	crm_intf_params.session_hdl = acquire->session_handle;
-	/* Don't register crm ops as its non realtime device */
+
+	/* crm ops should be assined in no crm case as well for error handling */
+	crm_intf_params.ops = &sensor_lite_dev->crm_intf.ops;
 	crm_intf_params.ops = NULL;
 	crm_intf_params.v4l2_sub_dev_flag = 0;
 	crm_intf_params.media_entity_flag = 0;
