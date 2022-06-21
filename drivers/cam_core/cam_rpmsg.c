@@ -20,8 +20,6 @@
 #include "cam_jpeg_hw_mgr.h"
 #include "cam_fastrpc.h"
 
-#include "media/cam_req_mgr.h"
-
 #define CAM_SLAVE_CHANNEL_NAME "AH_CAM"
 
 static int state;
@@ -349,21 +347,10 @@ int cam_rpmsg_unregister_status_change_event(unsigned int handle,
 static void cam_rpmsg_notify_slave_status_change(
 		struct cam_rpmsg_instance_data *idata, int status)
 {
-	struct cam_req_mgr_message msg = {0};
-
 	if (!state) {
 		CAM_DBG(CAM_RPMSG, "skip notify in deinit");
 		return;
 	}
-
-	msg.u.slave_status.version = 1;
-	msg.u.slave_status.status = status;
-
-	if (cam_req_mgr_notify_message(&msg,
-		V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS,
-		V4L_EVENT_CAM_REQ_MGR_EVENT))
-		CAM_ERR(CAM_RPMSG, "Error in notifying slave status %d",
-			status);
 
 	blocking_notifier_call_chain(&idata->status_change_notify,
 		status, NULL);

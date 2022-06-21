@@ -292,7 +292,7 @@ struct cam_isp_context_event_record {
  * @v4l2_event_sub_ids         contains individual bits representing subscribed v4l2 ids
  * @aeb_enabled:               Indicate if stream is for AEB
  * @do_internal_recovery:      Enable KMD halt/reset/resume internal recovery
- * @hybrid_acquire             flag to understand hybrid acquire model
+ * @acquire_type               Value for acquire model: NONE, REAL, HYBRID or VIRTUAL
  * @stream_type:               value for sensor mode streaming type
  * @independent_crm_en:        flag to indicate if CRM operations are skipped
  * @independent_crm_sof_timer: watchdog timer to check SOF freeze in independent CRM case

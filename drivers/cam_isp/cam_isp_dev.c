@@ -44,12 +44,34 @@ static void cam_isp_dev_iommu_fault_handler(struct cam_smmu_pf_info *pf_info)
 static int cam_isp_slave_status_update(struct notifier_block *nb,
 		unsigned long val, void *data)
 {
+	int i = 0;
+	struct cam_req_mgr_message msg = {0};
+
 	if (val == CAM_REQ_MGR_SLAVE_UP)
 		CAM_INFO(CAM_ISP, "slave connected");
 	else if (val == CAM_REQ_MGR_SLAVE_DOWN)
-		CAM_INFO(CAM_ISP, "slave disconnected");
+		CAM_ERR(CAM_ISP, "slave disconnected");
 	else
 		CAM_ERR(CAM_ISP, "Unknown status %d", val);
+
+	mutex_lock(&g_isp_dev.isp_mutex);
+	for (i = 0; i < g_isp_dev.max_context; i++) {
+		if (g_isp_dev.ctx[i].state < CAM_CTX_ACQUIRED)
+			continue;
+		if (g_isp_dev.ctx_isp[i].acquire_type &
+			(CAM_ISP_ACQUIRE_TYPE_HYBRID | CAM_ISP_ACQUIRE_TYPE_VIRTUAL)) {
+			msg.session_hdl = g_isp_dev.ctx[i].session_hdl;
+			msg.u.slave_status.version = 1;
+			msg.u.slave_status.status = val;
+			msg.u.slave_status.value2 = g_isp_dev.ctx[i].link_hdl;
+			if (cam_req_mgr_notify_message(&msg,
+				V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS,
+				V4L_EVENT_CAM_REQ_MGR_EVENT))
+				CAM_ERR(CAM_ISP, "Error in notifying slave status %d",
+					val);
+		}
+	}
+	mutex_unlock(&g_isp_dev.isp_mutex);
 
 	return 0;
 }
