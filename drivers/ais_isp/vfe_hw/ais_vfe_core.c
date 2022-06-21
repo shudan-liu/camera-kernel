@@ -294,16 +294,13 @@ static void ais_vfe_reset_rdi(void *hw_priv,
 
 	CAM_INFO(CAM_ISP, "reset IFE%d RDI%d complete done (%d)", core_info->vfe_idx, path, rc);
 
-	if (rc) {
+	if (rc)
 		rc = 0;
-	} else {
+	else
 		CAM_ERR(CAM_ISP, "Error! Reset Timeout");
-	}
 
 	core_info->irq_mask0 = 0x0;
 	cam_io_w_mb(0x0, core_info->mem_base + AIS_VFE_IRQ_MASK0);
-
-	return;
 }
 
 int ais_vfe_init_hw(void *hw_priv, void *init_hw_args, uint32_t arg_size)
@@ -727,14 +724,12 @@ int ais_vfe_stop(void *hw_priv, void *stop_args, uint32_t arg_size)
 	}
 
 	/*
-	* For now just when ERROR state do reset_rdi to clear IFE overflow error.
-	* TBD: If INIT/AVAILABLE state do reset_rdi, in multi-stream start/stop
-	* test lead frame freeze, need to check further why freeze.
-	*/
+	 * For now just when ERROR state do reset_rdi to clear IFE overflow error.
+	 * TBD: If INIT/AVAILABLE state do reset_rdi, in multi-stream start/stop
+	 * test lead frame freeze, need to check further why freeze.
+	 */
 	if (rdi_path->state == AIS_ISP_RESOURCE_STATE_ERROR)
-	{
 		ais_vfe_reset_rdi(vfe_hw, stop_cmd->path);
-	}
 
 	rdi_path->state = AIS_ISP_RESOURCE_STATE_INIT_HW;
 
@@ -816,6 +811,62 @@ static void ais_vfe_q_bufs_to_hw(struct ais_vfe_hw_core_info *core_info,
 			rdi_path->num_buffer_hw_q);
 }
 
+void ais_ife_discard_old_frame_done_event(struct ais_vfe_hw_core_info *core_info,
+					struct ais_ife_event_data *evt_data)
+{
+	uint8_t path = 0;
+	uint32_t buf_idx = 0;
+	struct ais_vfe_buffer_t *vfe_buf = NULL;
+	struct ais_vfe_buffer_t *tmp_vfe_buf = NULL;
+	struct ais_vfe_rdi_output *rdi_path = NULL;
+	int rc = -1;
+
+	if (core_info == NULL || evt_data == NULL)
+		return;
+
+	path = evt_data->msg.path;
+	buf_idx = evt_data->u.frame_msg.buf_idx;
+
+	if (path >= AIS_IFE_PATH_MAX) {
+		CAM_WARN(CAM_ISP, "Invalid path:%d", path);
+		return;
+	}
+
+	rdi_path = &core_info->rdi_out[path];
+	if (rdi_path->state != AIS_ISP_RESOURCE_STATE_STREAMING) {
+		CAM_WARN(CAM_ISP, "Not streaming state:%d", rdi_path->state);
+		return;
+	}
+
+	spin_lock(&rdi_path->buffer_lock);
+	if (list_empty(&rdi_path->free_buffer_list)) {
+		spin_unlock(&rdi_path->buffer_lock);
+		return;
+	}
+
+	list_for_each_entry_safe(vfe_buf, tmp_vfe_buf,
+				&rdi_path->free_buffer_list, list) {
+		if ((vfe_buf->bufIdx == buf_idx) &&
+				(vfe_buf->mem_handle != 0) &&
+				(vfe_buf->iova_addr != 0) &&
+				(vfe_buf->iova_addr >> 32 == 0)) {
+			list_del_init(&vfe_buf->list);
+			list_add_tail(&vfe_buf->list, &rdi_path->buffer_q);
+
+			rc = 0;
+			break;
+		}
+	}
+	spin_unlock(&rdi_path->buffer_lock);
+
+	if (rc == 0 && vfe_buf != NULL) {
+		CAM_WARN(CAM_ISP, "I%d|R%d discard old frame done buffer:%d",
+				core_info->vfe_idx, path, vfe_buf->bufIdx);
+	} else {
+		CAM_WARN(CAM_ISP, "I%d|R%d can't find old frame done buffer:%d",
+			core_info->vfe_idx, path, buf_idx);
+	}
+}
 
 static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 		struct ais_ife_enqueue_buffer_args *enq_buf)
@@ -853,7 +904,7 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 		if (!vfe_buf[batch_id]) {
 			CAM_ERR(CAM_ISP, "RDI%d No more free buffers!", enq_buf->path);
 			for (i = 0; i < batch_id; i++)
-			    list_add_tail(&vfe_buf[i]->list, &rdi_path->free_buffer_list);
+				list_add_tail(&vfe_buf[i]->list, &rdi_path->free_buffer_list);
 			spin_unlock(&rdi_path->buffer_lock);
 			return -ENOMEM;
 		}

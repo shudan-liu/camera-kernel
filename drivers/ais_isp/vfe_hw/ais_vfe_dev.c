@@ -240,3 +240,20 @@ int ais_vfe_remove(struct platform_device *pdev)
 	component_del(&pdev->dev, &ais_vfe_dev_component_ops);
 	return 0;
 }
+
+void ais_vfe_discard_old_frame_done_event(uint8_t vfe_idx,
+					struct ais_ife_event_data *evt_data)
+{
+	struct cam_hw_info *vfe_info = NULL;
+	struct ais_vfe_hw_core_info       *core_info = NULL;
+
+	if (vfe_idx >= AIS_VFE_HW_NUM_MAX || evt_data == NULL)
+		return;
+
+	vfe_info = ais_vfe_hw_list[vfe_idx]->hw_priv;
+	if (vfe_info == NULL || vfe_info->core_info == NULL)
+		return;
+	core_info = (struct ais_vfe_hw_core_info *)vfe_info->core_info;
+
+	ais_ife_discard_old_frame_done_event(core_info, evt_data);
+}
