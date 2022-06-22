@@ -1028,7 +1028,7 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 	uint64_t prev_sof_hw_ts = work_data->ts_hw[path].prev_sof_ts;
 
 	p_rdi->frame_cnt++;
-
+	core_info->event.msg.reserved = sizeof(struct ais_ife_event_data);
 	if (p_rdi->num_buffer_hw_q) {
 		struct ais_sof_info_t sof = {};
 		uint64_t ts_delta;
@@ -1149,7 +1149,7 @@ static void ais_vfe_handle_sof_rdi(struct ais_vfe_hw_core_info *core_info,
 	//send sof only for current frame
 	core_info->event.msg.type = AIS_IFE_MSG_SOF;
 	core_info->event.msg.path = path;
-	core_info->event.u.sof_msg.frame_id = p_rdi->frame_cnt;
+	core_info->event.msg.frame_id = p_rdi->frame_cnt;
 	core_info->event.u.sof_msg.hw_ts = cur_sof_hw_ts;
 
 	core_info->event_cb(core_info->event_cb_priv,
@@ -1247,6 +1247,7 @@ static int ais_vfe_handle_error(
 
 		core_info->event.msg.type = AIS_IFE_MSG_OUTPUT_ERROR;
 		core_info->event.msg.path = path;
+		core_info->event.msg.reserved = sizeof(struct ais_ife_event_data);
 
 		core_info->event_cb(core_info->event_cb_priv,
 				&core_info->event);
@@ -1283,6 +1284,7 @@ static void ais_vfe_bus_handle_client_frame_done(
 
 	core_info->event.msg.type = AIS_IFE_MSG_FRAME_DONE;
 	core_info->event.msg.path = path;
+	core_info->event.msg.reserved = sizeof(struct ais_ife_event_data);
 
 	while (rdi_path->num_buffer_hw_q && !last_addr_match) {
 		struct ais_sof_info_t *p_sof_info = NULL;
@@ -1368,9 +1370,9 @@ static void ais_vfe_bus_handle_client_frame_done(
 			core_info->event.u.frame_msg.num_batch_frames =
 				rdi_path->batchConfig.numBatchFrames;
 			core_info->event.u.frame_msg.ts = sof_ts;
+			core_info->event.msg.frame_id =
+				rdi_path->batchFrameInfo[i].frameId;
 			for (i = 0; i < rdi_path->batchConfig.numBatchFrames; i++) {
-				core_info->event.u.frame_msg.frame_id[i] =
-					rdi_path->batchFrameInfo[i].frameId;
 				core_info->event.u.frame_msg.hw_ts[i] =
 					rdi_path->batchFrameInfo[i].hwTimestamp;
 			}
@@ -1379,9 +1381,9 @@ static void ais_vfe_bus_handle_client_frame_done(
 
 			CAM_DBG(CAM_ISP, "I%d|R%d|F%llu: si [%llu, %llu]",
 				core_info->vfe_idx, path,
-				core_info->event.u.frame_msg.frame_id[i],
+				core_info->event.msg.frame_id,
 				sof_ts,
-				core_info->event.u.frame_msg.hw_ts[i]);
+				core_info->event.u.frame_msg.hw_ts[0]);
 		}
 	}
 
