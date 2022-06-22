@@ -58,5 +58,6 @@
 #define CAM_ISP_IFE_IN_RES_CPHY_TPG_1          (CAM_ISP_IFE_IN_RES_BASE + 9)
 #define CAM_ISP_IFE_IN_RES_CPHY_TPG_2          (CAM_ISP_IFE_IN_RES_BASE + 10)
 #define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 11)
+#define CAM_ISP_IFE_OUT_RES_MAX               (CAM_ISP_IFE_OUT_RES_BASE + 24)
 
 #endif /* __UAPI_CAM_ISP_IFE_H__ */

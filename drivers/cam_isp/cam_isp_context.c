@@ -5070,6 +5070,12 @@ static int __cam_isp_ctx_acquire_hw_v1(struct cam_context *ctx,
 	ctx_isp->hw_acquired = true;
 	ctx->ctxt_to_hw_map = param.ctxt_to_hw_map;
 
+	if (copy_to_user((void __user *)cmd->resource_hdl, acquire_hw_info,
+		cmd->data_size)) {
+		rc = -EFAULT;
+		goto free_res;
+	}
+
 	atomic64_set(&ctx_isp->state_monitor_head, -1);
 
 	for (i = 0; i < CAM_ISP_CTX_EVENT_MAX; i++)

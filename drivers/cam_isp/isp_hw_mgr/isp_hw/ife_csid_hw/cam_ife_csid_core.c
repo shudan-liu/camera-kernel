@@ -935,7 +935,7 @@ int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 				csid_hw->hw_intf->hw_idx,
 				cid_reserv->res_id,
 				csid_hw->rdi_res[cid_reserv->res_id].res_state);
-			rc = -EINVAL;
+			rc = -EAGAIN;
 			goto end;
 		}
 		break;
