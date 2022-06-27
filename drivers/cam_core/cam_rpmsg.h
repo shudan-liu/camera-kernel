@@ -244,6 +244,11 @@ struct cam_rpmsg_slave_payload_desc {
 #define CAM_RPMSG_SLAVE_CLIENT_PHY       3
 #define CAM_RPMSG_SLAVE_CLIENT_MAX       4
 
+#define CAM_RPMSG_TRACE_BEGIN_TX    "Tx Begin"
+#define CAM_RPMSG_TRACE_END_TX      "Tx End"
+#define CAM_RPMSG_TRACE_RX          "Rx"
+#define CAM_RPMSG_TRACE_TX          "Tx"
+
 enum cam_jpeg_dsp_status {
 	CAM_JPEG_DSP_POWEROFF,
 	CAM_JPEG_DSP_POWERON,
@@ -543,6 +548,22 @@ struct cam_rpmsg_isp_init_hw_cfg {
  */
 int cam_rpmsg_isp_send_acq(uint32_t sensor_id);
 
+/**
+ * @brief     : return device name string based
+ *              on handle
+ * @val       : device handle for rpdev
+ *
+ * @return device name
+ */
+const char *cam_rpmsg_dev_hdl_to_string(unsigned int val);
+
+/**
+ * @brief     : return helios packet type string
+ * @val       : packet type
+ *
+ * @return packet-type string
+ */
+const char *cam_rpmsg_slave_pl_type_to_string(unsigned int val);
 /**
  * @brief     : send isp release packet
  * @sensor_id : sensor id

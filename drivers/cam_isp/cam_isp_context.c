@@ -5878,6 +5878,12 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 					packet->header.request_id, ctx_isp->pkt_offset,
 					(*pkt_offset - 2) * sizeof(uint32_t),
 					(*pkt_offset - 1) * sizeof(uint32_t));
+			trace_cam_rpmsg_isp(cam_rpmsg_dev_hdl_to_string(shndl),
+				CAM_RPMSG_TRACE_TX, packet->header.request_id,
+				pld->sensor_id,
+				CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(&pld->phdr),
+				cam_rpmsg_slave_pl_type_to_string(
+					CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(&pld->phdr)));
 			cam_rpmsg_send(shndl, slave_pkt, (*pkt_offset) * sizeof(uint32_t));
 			kfree(ctx_isp->slave_pkt);
 			ctx_isp->slave_pkt = NULL;
@@ -5916,6 +5922,11 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 					packet->header.request_id,
 					(*pkt_offset - 2) * sizeof(uint32_t),
 					(*pkt_offset - 1) * sizeof(uint32_t));
+			trace_cam_rpmsg_isp(cam_rpmsg_dev_hdl_to_string(shndl), CAM_RPMSG_TRACE_TX,
+				packet->header.request_id, pld->sensor_id,
+				CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(&pld->phdr),
+				cam_rpmsg_slave_pl_type_to_string(
+					CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(&pld->phdr)));
 			cam_rpmsg_send(shndl, slave_pkt, (*pkt_offset) * sizeof(uint32_t));
 			kfree(ctx_isp->slave_pkt);
 			ctx_isp->slave_pkt = NULL;
