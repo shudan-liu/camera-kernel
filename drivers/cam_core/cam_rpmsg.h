@@ -396,6 +396,7 @@ struct cam_rpmsg_jpeg_pvt {
 	uint32_t                      jpeg_iommu_hdl;
 	struct task_struct           *jpeg_task;
 	const struct file_operations *dmabuf_f_op;
+	struct mutex                  jpeg_mutex;
 };
 
 /** struct cam_rpmsg_instance_data - rpmsg per channel data
