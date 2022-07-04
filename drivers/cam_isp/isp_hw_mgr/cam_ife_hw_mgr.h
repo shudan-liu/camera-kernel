@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_HW_MGR_H_
@@ -221,6 +222,7 @@ struct cam_ife_hw_mgr_ctx {
  * @ife_devices:           IFE device instances array. This will be filled by
  *                         HW layer during initialization
  * @ctx_mutex:             mutex for the hw context pool
+ * @wm_cfg_mutex:              mutex for updating the wm configuration in CDtM
  * @free_ctx_list:         free hw context list
  * @used_ctx_list:         used hw context list
  * @ctx_pool:              context storage
@@ -241,6 +243,7 @@ struct cam_ife_hw_mgr {
 	struct cam_soc_reg_map        *cdm_reg_map[CAM_IFE_HW_NUM_MAX];
 
 	struct mutex                   ctx_mutex;
+	struct mutex                   wm_cfg_mutex[CAM_IFE_HW_NUM_MAX];
 	atomic_t                       active_ctx_cnt;
 	struct list_head               free_ctx_list;
 	struct list_head               used_ctx_list;
