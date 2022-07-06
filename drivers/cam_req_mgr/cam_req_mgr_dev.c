@@ -310,6 +310,22 @@ static int cam_subscribe_event(struct v4l2_fh *fh,
 	const struct v4l2_event_subscription *sub)
 {
 	g_dev.v4l2_sub_ids |= 1 << sub->id;
+
+	switch (sub->id) {
+	case V4L_EVENT_CAM_REQ_MGR_SOF:
+	case V4L_EVENT_CAM_REQ_MGR_ERROR:
+	case V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS:
+	case V4L_EVENT_CAM_REQ_MGR_CUSTOM_EVT:
+	case V4L_EVENT_CAM_REQ_MGR_NODE_EVENT:
+	case V4L_EVENT_CAM_REQ_MGR_SOF_UNIFIED_TS:
+	case V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS:
+	case V4L_EVENT_CAM_REQ_MGR_SLAVE_ERROR:
+	case V4L_EVENT_CAM_REQ_MGR_EXIT:
+		break;
+	default:
+		CAM_ERR(CAM_CRM, "unsupported event id 0x%x", sub->id);
+		return -EINVAL;
+	}
 	return v4l2_event_subscribe(fh, sub, CAM_REQ_MGR_EVENT_MAX,
 		&g_cam_v4l2_ops);
 }
@@ -631,6 +647,15 @@ static long cam_private_ioctl(struct file *file, void *fh,
 			u64_to_user_ptr(k_ioctl->handle),
 			&cmd, sizeof(struct cam_dump_req_cmd)))
 			rc = -EFAULT;
+		}
+		break;
+	case CAM_REQ_MGR_EXIT_DQ_THREAD: {
+		struct cam_req_mgr_message msg;
+
+		memset(&msg, 0, sizeof(struct cam_req_mgr_message));
+
+		rc = cam_req_mgr_notify_message(&msg, V4L_EVENT_CAM_REQ_MGR_EXIT,
+			V4L_EVENT_CAM_REQ_MGR_EVENT);
 		}
 		break;
 	default:

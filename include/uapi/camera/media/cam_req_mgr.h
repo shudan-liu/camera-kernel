@@ -68,6 +68,7 @@
 #define V4L_EVENT_CAM_REQ_MGR_SOF_UNIFIED_TS                            5
 #define V4L_EVENT_CAM_REQ_MGR_SLAVE_STATUS                              6
 #define V4L_EVENT_CAM_REQ_MGR_SLAVE_ERROR                               7
+#define V4L_EVENT_CAM_REQ_MGR_EXIT                                      8
 
 /* Slave status */
 #define CAM_REQ_MGR_SLAVE_UNKNOWN               0
@@ -304,6 +305,7 @@ struct cam_req_mgr_link_control {
 #define CAM_REQ_MGR_LINK_V2                     (CAM_COMMON_OPCODE_MAX + 14)
 #define CAM_REQ_MGR_REQUEST_DUMP                (CAM_COMMON_OPCODE_MAX + 15)
 #define CAM_REQ_MGR_LINK_V3                     (CAM_COMMON_OPCODE_MAX + 16)
+#define CAM_REQ_MGR_EXIT_DQ_THREAD              (CAM_COMMON_OPCODE_MAX + 17)
 
 /* end of cam_req_mgr opcodes */
 

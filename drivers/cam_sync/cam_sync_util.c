@@ -8,6 +8,25 @@
 #include "cam_req_mgr_workq.h"
 #include "cam_common_util.h"
 
+int cam_sync_util_send_exit_poll_event(void)
+{
+	struct v4l2_event event;
+
+	memset(&event, 0, sizeof(struct v4l2_event));
+
+	if (sync_dev->version == CAM_SYNC_V4L_EVENT_V2)
+		event.type = CAM_SYNC_V4L_EVENT_V2;
+	else if (sync_dev->version == CAM_SYNC_V4L_EVENT_V3)
+		event.type = CAM_SYNC_V4L_EVENT_V3;
+	else
+		event.type = CAM_SYNC_V4L_EVENT;
+
+	event.id = CAM_SYNC_V4L_EVENT_ID_EXIT;
+
+	v4l2_event_queue(sync_dev->vdev, &event);
+	return 0;
+}
+
 int cam_sync_util_find_and_set_empty_row(struct sync_device *sync_dev,
 	long *idx)
 {

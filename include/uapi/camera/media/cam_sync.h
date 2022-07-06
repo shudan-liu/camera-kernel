@@ -21,6 +21,7 @@
 
 /* Specific event ids to get notified in user space */
 #define CAM_SYNC_V4L_EVENT_ID_CB_TRIG            0
+#define CAM_SYNC_V4L_EVENT_ID_EXIT               1
 
 /* Size of opaque payload sent to kernel for safekeeping until signal time */
 #define CAM_SYNC_USER_PAYLOAD_SIZE               2
@@ -312,5 +313,6 @@ struct cam_private_ioctl_arg {
 #define CAM_SYNC_REGISTER_PAYLOAD                4
 #define CAM_SYNC_DEREGISTER_PAYLOAD              5
 #define CAM_SYNC_WAIT                            6
+#define CAM_SYNC_EXIT_DQ_THREAD                  7
 
 #endif /* __UAPI_CAM_SYNC_H__ */
