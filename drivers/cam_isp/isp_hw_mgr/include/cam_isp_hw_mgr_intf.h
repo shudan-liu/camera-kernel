@@ -42,6 +42,7 @@
 #define CAM_IFE_CTX_APPLY_DEFAULT_CFG  BIT(3)
 #define CAM_IFE_CTX_SFE_EN             BIT(4)
 #define CAM_IFE_CTX_AEB_EN             BIT(5)
+#define CAM_IFE_CTX_INDEPENDENT_CRM_EN BIT(6)
 
 /*
  * Maximum configuration entry size  - This is based on the
@@ -362,6 +363,7 @@ enum cam_isp_hw_mgr_command {
 	CAM_ISP_HW_MGR_POPULATE_VCDT,
 	CAM_ISP_HW_MGR_VIRT_ACQUIRE,
 	CAM_ISP_HW_MGR_VIRT_RELEASE,
+	CAM_HW_MGR_CMD_GET_WORKQ,
 	CAM_ISP_HW_MGR_CMD_MAX,
 };
 

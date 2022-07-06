@@ -185,6 +185,7 @@
 #define CAM_ISP_SFE_FS_MODE_EN                 BIT(5)
 #define CAM_ISP_SFE_SHDR_MODE_EN               BIT(6)
 #define CAM_ISP_AEB_MODE_EN                    BIT(7)
+#define CAM_ISP_INDEPENDENT_CRM                BIT(8)
 
 #define CAM_ISP_ACQUIRE_TYPE_NONE              0
 #define CAM_ISP_ACQUIRE_TYPE_VIRTUAL           1

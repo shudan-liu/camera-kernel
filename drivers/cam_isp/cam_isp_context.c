@@ -34,6 +34,11 @@ static struct cam_isp_ctx_debug isp_ctx_debug;
 	div_u64_rem(atomic64_add_return(1, head),\
 	max_entries, (ret))
 
+static int __cam_isp_ctx_no_crm_apply(struct cam_isp_context *ctx_isp,
+	bool check_applied_state);
+
+static int32_t __cam_isp_ctx_independent_sof_timer(void *priv, void *data);
+
 static int cam_isp_context_dump_requests(void *data,
 	struct cam_smmu_pf_info *pf_info);
 
@@ -41,6 +46,8 @@ static int cam_isp_context_hw_recovery(void *priv, void *data);
 
 static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd);
+
+static void *__cam_isp_return_no_crm_state_machine(void);
 
 static const char *__cam_isp_evt_val_to_type(
 	uint32_t evt_id)
@@ -552,6 +559,16 @@ static int __cam_isp_ctx_notify_trigger_util(
 	notify.trigger_id = ctx_isp->trigger_id;
 	notify.curr_req_id = request_id;
 
+	if (ctx_isp->independent_crm_en) {
+		if (trigger_type != CAM_TRIGGER_POINT_SOF)
+			return rc;
+		mutex_lock(&ctx_isp->no_crm_mutex);
+		CAM_DBG(CAM_ISP, "no_crm apply from trigger_util");
+		rc = __cam_isp_ctx_no_crm_apply(ctx_isp, false);
+		mutex_unlock(&ctx_isp->no_crm_mutex);
+		return rc;
+	}
+
 	CAM_DBG(CAM_ISP,
 		"Notify CRM %s on frame: %llu ctx: %u link: 0x%x last_buf_done_req: %lld curr_req_id:%d",
 		__cam_isp_ctx_crm_trigger_point_to_string(trigger_type),
@@ -606,6 +623,11 @@ static int __cam_isp_ctx_notify_error_util(
 	int                                rc = -EINVAL;
 	struct cam_context                *ctx = ctx_isp->base;
 	struct cam_req_mgr_error_notify    notify;
+
+	if (ctx_isp->independent_crm_en) {
+		CAM_DBG(CAM_ISP, "Notify to CRM for error not supported for independent CRM mode");
+		return rc;
+	}
 
 	notify.link_hdl = ctx->link_hdl;
 	notify.dev_hdl = ctx->dev_hdl;
@@ -695,6 +717,15 @@ static inline void __cam_isp_ctx_update_sof_ts_util(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+
+	if (ctx_isp->independent_crm_en) {
+		if (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)
+			crm_timer_reset(ctx_isp->independent_crm_sof_timer);
+
+		else
+			crm_timer_modify(ctx_isp->independent_crm_sof_timer,
+				CAM_REQ_MGR_WATCHDOG_TIMEOUT_MAX);
+	}
 }
 
 static int cam_isp_ctx_dump_req(
@@ -3159,8 +3190,14 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	CAM_DBG(CAM_ISP, "Enter error_type = %d", error_type);
 
 
-	if (!ctx_isp->offline_context)
+	if (!ctx_isp->offline_context && !ctx_isp->independent_crm_en)
 		__cam_isp_ctx_pause_crm_timer(ctx);
+
+	if (ctx_isp->independent_crm_en) {
+		ctx_isp->independent_crm_sof_timer->pause_timer = true;
+		crm_timer_modify(ctx_isp->independent_crm_sof_timer,
+			CAM_REQ_MGR_WATCHDOG_TIMEOUT_MAX);
+	}
 
 	if(error_type == CAM_ISP_HW_ERROR_TUNNEL_OVERFLOW) {
 		rc = cam_isp_ctx_handle_tunnel_overflow(ctx_isp, evt_data);
@@ -3337,8 +3374,10 @@ end:
 		if (error_event_data->recovery_enabled)
 			error = CRM_KMD_ERR_BUBBLE;
 
-	__cam_isp_ctx_notify_error_util(CAM_TRIGGER_POINT_SOF, error,
-		error_request_id, ctx_isp);
+	if (!ctx_isp->independent_crm_en) {
+		__cam_isp_ctx_notify_error_util(CAM_TRIGGER_POINT_SOF, error,
+			error_request_id, ctx_isp);
+	}
 
 	/*
 	 * Need to send error occurred in KMD
@@ -5289,8 +5328,8 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	struct cam_isp_context *ctx_isp = ctx->ctx_priv;
 	struct cam_req_mgr_flush_request flush_req;
 
-	if (!ctx_isp->offline_context) {
-		CAM_ERR(CAM_ISP, "flush dev only supported in offline context");
+	if (!ctx_isp->offline_context || !ctx_isp->independent_crm_en) {
+		CAM_ERR(CAM_ISP, "flush dev only supported in offline ctx or no CRM mode");
 		return -EINVAL;
 	}
 
@@ -5313,6 +5352,11 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 
 	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
 		cam_req_mgr_workq_flush(ctx_isp->workq);
+
+	if (ctx_isp->independent_crm_en) {
+		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
+		ctx_isp->independent_crm_sof_timer = NULL;
+	}
 }
 
 static void __cam_isp_ctx_free_mem_hw_entries(struct cam_context *ctx)
@@ -5387,6 +5431,7 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	ctx_isp->aeb_enabled = false;
 	ctx_isp->do_internal_recovery = false;
 	ctx_isp->req_info.last_bufdone_req_id = 0;
+	ctx_isp->independent_crm_en = false;
 
 	atomic64_set(&ctx_isp->state_monitor_head, -1);
 
@@ -5864,6 +5909,15 @@ done:
 
 	if (ctx_isp->offline_context && atomic_read(&ctx_isp->rxd_epoch)) {
 		__cam_isp_ctx_schedule_apply_req_offline(ctx_isp);
+	}
+
+	if ((ctx_isp->independent_crm_en)) {
+		if (ctx->state == CAM_CTX_ACTIVATED) {
+			CAM_DBG(CAM_ISP, "independent CRM apply from config_dev");
+			mutex_lock(&ctx_isp->no_crm_mutex);
+			__cam_isp_ctx_no_crm_apply(ctx_isp, true);
+			mutex_unlock(&ctx_isp->no_crm_mutex);
+		}
 	}
 
 	return rc;
@@ -6411,6 +6465,8 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 		(param.op_flags & CAM_IFE_CTX_CONSUME_ADDR_EN);
 	ctx_isp->aeb_enabled =
 		(param.op_flags & CAM_IFE_CTX_AEB_EN);
+	ctx_isp->independent_crm_en =
+		(param.op_flags & CAM_IFE_CTX_INDEPENDENT_CRM_EN);
 
 	if ((ctx_isp->aeb_enabled) && (!isp_ctx_debug.disable_internal_recovery))
 		ctx_isp->do_internal_recovery = true;
@@ -6480,6 +6536,20 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 			cam_isp_ctx_activated_state_machine_irq;
 		ctx_isp->substate_machine =
 			cam_isp_ctx_activated_state_machine;
+	}
+
+	if (ctx_isp->independent_crm_en) {
+		hw_cmd_args.ctxt_to_hw_map = param.ctxt_to_hw_map;
+		hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+		isp_hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_GET_WORKQ;
+		hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+		rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+					&hw_cmd_args);
+
+		ctx_isp->hw_mgr_workq = (struct cam_req_mgr_core_workq *)isp_hw_cmd_args.cmd_data;
+		ctx_isp->base->state_machine =
+			(struct cam_ctx_ops *)__cam_isp_return_no_crm_state_machine();
+		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigedn for no crm");
 	}
 
 	/* Query the packet opcode */
@@ -6640,6 +6710,9 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 
 	CAM_DBG(CAM_ISP, "Enter.........");
 
+	if (link->stream_type)
+		ctx_isp->stream_type = link->stream_type;
+
 	ctx->link_hdl = link->link_hdl;
 	ctx->ctx_crm_intf = link->crm_cb;
 	ctx_isp->subscribe_event =
@@ -6701,6 +6774,31 @@ static inline void __cam_isp_context_reset_ctx_params(
 	ctx_isp->bubble_frame_cnt = 0;
 	ctx_isp->recovery_req_id = 0;
 	ctx_isp->aeb_error_cnt = 0;
+}
+
+static void cam_isp_ctx_sof_independent_timer_cb(struct timer_list *timer_data)
+{
+	struct crm_workq_task     *task = NULL;
+	struct cam_isp_context    *ctx_isp;
+	struct cam_req_mgr_timer  *timer =
+		container_of(timer_data, struct cam_req_mgr_timer, sys_timer);
+
+	ctx_isp = (struct cam_isp_context *)timer->parent;
+
+	if (!ctx_isp->hw_mgr_workq) {
+		CAM_ERR(CAM_ISP, "No worker for isp context");
+		return;
+	}
+
+	task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+
+	if (!task) {
+		CAM_ERR(CAM_ISP, "No task for worker");
+		return;
+	}
+
+	task->process_cb = __cam_isp_ctx_independent_sof_timer;
+	cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
 }
 
 static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
@@ -6826,6 +6924,14 @@ do_hw_start:
 		list_add(&req->list, &ctx->pending_req_list);
 		goto end;
 	}
+
+	if (ctx_isp->independent_crm_en) {
+		rc = crm_timer_init(&ctx_isp->independent_crm_sof_timer,
+			CAM_REQ_MGR_WATCHDOG_TIMEOUT, ctx_isp,
+			&cam_isp_ctx_sof_independent_timer_cb);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Failed to start timer");
+	}
 	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
 end:
@@ -6880,7 +6986,9 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 		__cam_isp_ctx_substate_val_to_type(
 		ctx_isp->substate_activated));
 
-	if (ctx->ctx_crm_intf &&
+	if (ctx_isp->independent_crm_en) {
+		CAM_DBG(CAM_ISP, "notify_stop dev not required for no-crm");
+	} else if (ctx->ctx_crm_intf &&
 		ctx->ctx_crm_intf->notify_stop) {
 		struct cam_req_mgr_notify_stop notify;
 
@@ -7238,6 +7346,53 @@ static int __cam_isp_ctx_process_evt(struct cam_context *ctx,
 	return rc;
 }
 
+static int32_t __cam_isp_ctx_independent_sof_timer(void *priv, void *data)
+{
+	struct cam_req_mgr_message       msg;
+	struct cam_req_mgr_core_session *session = NULL;
+	struct cam_req_mgr_core_link    *link    = NULL;
+	struct cam_isp_context          *ctx_isp = NULL;
+	struct cam_context              *ctx     = NULL;
+	int rc = 0;
+
+	if (!data || !priv) {
+		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
+		return -EINVAL;
+	}
+
+	ctx_isp = (struct cam_isp_context *)priv;
+	ctx = ctx_isp->base;
+
+	if ((ctx_isp->independent_crm_sof_timer) &&
+		(ctx_isp->independent_crm_sof_timer->pause_timer)) {
+		CAM_INFO(CAM_ISP,
+			"link:%x watchdog paused, maybe stream on/off is delayed",
+			ctx->link_hdl);
+	}
+
+	CAM_ERR(CAM_ISP,
+		"SOF freeze for session: %d link: 0x%x", ctx->session_hdl, ctx->link_hdl);
+
+	rc = __cam_isp_ctx_handle_sof_freeze_evt(ctx);
+
+	memset(&msg, 0, sizeof(msg));
+	msg.session_hdl = ctx->session_hdl;
+	msg.u.err_msg.error_type = CAM_REQ_MGR_ERROR_TYPE_SOF_FREEZE;
+	msg.u.err_msg.request_id = 0;
+	msg.u.err_msg.link_hdl   = ctx->link_hdl;
+	msg.u.err_msg.error_code = CAM_REQ_MGR_ISP_UNREPORTED_ERROR;
+	msg.u.err_msg.resource_size = 0;
+
+	rc = cam_req_mgr_notify_message(&msg,
+		V4L_EVENT_CAM_REQ_MGR_ERROR, V4L_EVENT_CAM_REQ_MGR_EVENT);
+
+	if (rc)
+		CAM_ERR(CAM_CRM,
+			"Error notifying SOF freeze for session %d link 0x%x rc %d",
+			session->session_hdl, link->link_hdl, rc);
+	return rc;
+}
+
 static int __cam_isp_ctx_unlink_in_activated(struct cam_context *ctx,
 	struct cam_req_mgr_core_dev_link_setup *unlink)
 {
@@ -7287,6 +7442,68 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 			ctx_isp->substate_activated), rc);
 	return rc;
 }
+
+static int __cam_isp_ctx_no_crm_apply(struct cam_isp_context *ctx_isp, bool check_applied_state)
+{
+	int rc = 0;
+	struct cam_ctx_request           *req;
+	struct cam_context               *cam_ctx = ctx_isp->base;
+	struct cam_ctx_ops               *ctx_ops = NULL;
+	struct cam_req_mgr_apply_request apply_req;
+
+	CAM_DBG(CAM_ISP, "enter no crm apply");
+	spin_lock_bh(&cam_ctx->lock);
+	if (list_empty(&cam_ctx->pending_req_list)) {
+		spin_unlock_bh(&cam_ctx->lock);
+		CAM_ERR(CAM_ISP, "pending list empty, returning.");
+		return 0;
+	}
+	req = list_first_entry(&cam_ctx->pending_req_list, struct cam_ctx_request, list);
+	spin_unlock_bh(&cam_ctx->lock);
+
+	apply_req.link_hdl         = cam_ctx->link_hdl;
+	apply_req.dev_hdl          = cam_ctx->dev_hdl;
+	apply_req.request_id       = req->request_id;
+	apply_req.trigger_point    = CAM_TRIGGER_POINT_SOF;
+
+	CAM_DBG(CAM_ISP,
+		"apply: %s req_id: %lld on ctx: %u link: 0x%x last_buf_done_req: %lld",
+		__cam_isp_ctx_crm_trigger_point_to_string(apply_req.trigger_point), req->request_id,
+		cam_ctx->ctx_id, cam_ctx->link_hdl, apply_req.request_id);
+
+
+	if ((ctx_isp->substate_activated == CAM_ISP_CTX_ACTIVATED_APPLIED) &&
+		(check_applied_state)) {
+
+		CAM_DBG(CAM_ISP, "skip apply as isp context in applied state");
+
+	} else {
+		CAM_DBG(CAM_ISP, "Enter: apply req in Substate[%s] request_id:%lld",
+			__cam_isp_ctx_substate_val_to_type(
+			ctx_isp->substate_activated), apply_req.request_id);
+			ctx_ops = &ctx_isp->substate_machine[ctx_isp->substate_activated];
+
+		if (ctx_ops->crm_ops.apply_req) {
+			rc = ctx_ops->crm_ops.apply_req(cam_ctx, &apply_req);
+		} else {
+			CAM_WARN_RATE_LIMIT(CAM_ISP,
+				"No handle function in activated Substate[%s]",
+				__cam_isp_ctx_substate_val_to_type(
+				ctx_isp->substate_activated));
+			rc = -EFAULT;
+		}
+		if (rc)
+			CAM_WARN_RATE_LIMIT(CAM_ISP,
+				"Apply failed in active Substate[%s] rc %d",
+				__cam_isp_ctx_substate_val_to_type(
+				ctx_isp->substate_activated), rc);
+
+		crm_timer_reset(ctx_isp->independent_crm_sof_timer);
+	}
+
+	return rc;
+}
+
 
 static int __cam_isp_ctx_apply_default_settings(
 	struct cam_context *ctx,
@@ -7370,6 +7587,95 @@ static int __cam_isp_ctx_handle_irq_in_activated(void *context,
 	return rc;
 }
 
+/* top state machine */
+struct cam_ctx_ops cam_isp_ctx_top_state_machine_no_crm[CAM_CTX_STATE_MAX] = {
+	/* Uninit */
+	{
+		.ioctl_ops = {},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* Available */
+	{
+		.ioctl_ops = {
+			.acquire_dev = __cam_isp_ctx_acquire_dev_in_available,
+		},
+		.crm_ops = {},
+		.irq_ops = NULL,
+	},
+	/* Acquired */
+	{
+		.ioctl_ops = {
+			.acquire_hw = __cam_isp_ctx_acquire_hw_in_acquired,
+			.release_dev = __cam_isp_ctx_release_dev_in_top_state,
+			.config_dev = __cam_isp_ctx_config_dev_in_acquired,
+			.flush_dev = __cam_isp_ctx_flush_dev_in_top_state,
+			.release_hw = __cam_isp_ctx_release_hw_in_top_state,
+		},
+		.crm_ops = {
+			.link = __cam_isp_ctx_link_in_acquired,
+			.unlink = __cam_isp_ctx_unlink_in_acquired,
+			.get_dev_info = __cam_isp_ctx_get_dev_info_in_acquired,
+		},
+		.irq_ops = NULL,
+		.pagefault_ops = cam_isp_context_dump_requests,
+		.dumpinfo_ops = cam_isp_context_info_dump,
+	},
+	/* Ready */
+	{
+		.ioctl_ops = {
+			.start_dev = __cam_isp_ctx_start_dev_in_ready,
+			.release_dev = __cam_isp_ctx_release_dev_in_top_state,
+			.config_dev = __cam_isp_ctx_config_dev_in_top_state,
+			.flush_dev = __cam_isp_ctx_flush_dev_in_top_state,
+			.release_hw = __cam_isp_ctx_release_hw_in_top_state,
+		},
+		.crm_ops = {
+			.unlink = __cam_isp_ctx_unlink_in_ready,
+		},
+		.irq_ops = NULL,
+		.pagefault_ops = cam_isp_context_dump_requests,
+		.dumpinfo_ops = cam_isp_context_info_dump,
+	},
+	/* Flushed */
+	{
+		.ioctl_ops = {
+			.stop_dev = __cam_isp_ctx_stop_dev_in_activated,
+			.release_dev = __cam_isp_ctx_release_dev_in_activated,
+			.config_dev = __cam_isp_ctx_config_dev_in_flushed,
+			.release_hw = __cam_isp_ctx_release_hw_in_activated,
+		},
+		.crm_ops = {
+			.unlink = __cam_isp_ctx_unlink_in_ready,
+		},
+		.irq_ops = NULL,
+		.pagefault_ops = cam_isp_context_dump_requests,
+		.dumpinfo_ops = cam_isp_context_info_dump,
+	},
+	/* Activated */
+	{
+		.ioctl_ops = {
+			.stop_dev = __cam_isp_ctx_stop_dev_in_activated,
+			.release_dev = __cam_isp_ctx_release_dev_in_activated,
+			.config_dev = __cam_isp_ctx_config_dev_in_top_state,
+			.flush_dev = __cam_isp_ctx_flush_dev_in_top_state,
+			.release_hw = __cam_isp_ctx_release_hw_in_activated,
+		},
+		.crm_ops = {
+			.unlink = __cam_isp_ctx_unlink_in_ready,
+		},
+		.irq_ops = __cam_isp_ctx_handle_irq_in_activated,
+		.pagefault_ops = cam_isp_context_dump_requests,
+		.dumpinfo_ops = cam_isp_context_info_dump,
+		.recovery_ops = cam_isp_context_hw_recovery,
+	},
+};
+
+
+static void *__cam_isp_return_no_crm_state_machine(void)
+{
+	return &cam_isp_ctx_top_state_machine_no_crm;
+}
 /* top state machine */
 static struct cam_ctx_ops
 	cam_isp_ctx_top_state_machine[CAM_CTX_STATE_MAX] = {
@@ -7685,6 +7991,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	/* link camera context with isp context */
 	ctx_base->state_machine = cam_isp_ctx_top_state_machine;
 	ctx_base->ctx_priv = ctx;
+
+	mutex_init(&ctx->no_crm_mutex);
 
 	/* initializing current state for error logging */
 	for (i = 0; i < CAM_ISP_CTX_STATE_MONITOR_MAX_ENTRIES; i++) {

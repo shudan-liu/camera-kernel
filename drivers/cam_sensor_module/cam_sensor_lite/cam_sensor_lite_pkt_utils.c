@@ -276,6 +276,29 @@ int __dump_host_dest_init_cmd(
 			init->header.size);
 	return 0;
 }
+
+int __dump_exposure_config_cmd(
+	struct sensor_lite_exp_ctrl_cmd *init)
+{
+
+	/* Append the rpmsg headers */
+	__set_slave_pkt_headers(&(init->header), HCM_PKT_OPCODE_SENSOR_EXPOSURE_CONFIG);
+	__dump_slave_pkt_headers(&(init->header));
+
+	CAM_INFO(CAM_SENSOR_LITE, "sensor_physical_id           : 0x%x",
+			init->sensor_id);
+	CAM_INFO(CAM_SENSOR_LITE, "exposure ctrl setting offset : 0x%x",
+			init->exp_ctrl_setting_offset);
+	CAM_INFO(CAM_SENSOR_LITE, "exposure ctrl setting count  : 0x%x",
+			init->exp_ctrl_setting_count);
+
+	/* TODO: validate offsets beyond size etc*/
+	__dump_reg_settings((void *)init,
+			init->exp_ctrl_setting_offset,
+			init->exp_ctrl_setting_count,
+			init->header.size);
+	return 0;
+}
 int __dump_stream_config(
 	struct sensorlite_stream_configuration *stream)
 {
@@ -535,7 +558,8 @@ int __dump_pkt(
 			(struct host_dest_camera_init_payload_v2 *)header);
 		break;
 	case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE:
-		CAM_INFO(CAM_SENSOR_LITE, "Exposure update dump not enabled");
+		__dump_exposure_config_cmd(
+			(struct sensor_lite_exp_ctrl_cmd *)header);
 		break;
 	case SENSORLITE_CMD_TYPE_RESOLUTIONINFO:
 		__dump_resolution_cmd(
@@ -593,6 +617,10 @@ int __send_pkt(
 		__set_slave_pkt_headers(header,
 				HCM_PKT_OPCODE_SENSOR_CONFIG);
 		break;
+	case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE:
+		__set_slave_pkt_headers(header,
+				HCM_PKT_OPCODE_SENSOR_EXPOSURE_CONFIG);
+		break;
 	case SENSORLITE_CMD_TYPE_START:
 		__set_slave_pkt_headers(header,
 				HCM_PKT_OPCODE_SENSOR_START_DEV);
@@ -602,8 +630,7 @@ int __send_pkt(
 				HCM_PKT_OPCODE_SENSOR_STOP_DEV);
 		break;
 	case SENSORLITE_CMD_TYPE_RESOLUTIONINFO:
-		__set_slave_pkt_headers(header,
-				HCM_PKT_OPCODE_SENSOR_STREAMING_CONFIG);
+		/* Resolution Command is taken care HOSTDESTINIT place holder to send resolution in future*/
 		break;
 	case HCM_PKT_OPCODE_SENSOR_ACQUIRE:
 		break;

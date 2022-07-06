@@ -567,6 +567,13 @@ struct sensor_lite_perframe_cmd {
 	uint64_t                         timestamp;
 } __packed;
 
+struct sensor_lite_exp_ctrl_cmd {
+	struct sensor_lite_header          header;
+	uint32_t                           sensor_id;
+	uint32_t                           exp_ctrl_setting_offset;
+	uint32_t                           exp_ctrl_setting_count;
+} __packed;
+
 /**
  * @brief sensor_lite_acquire_cmd - Explains about the acquire acket
  */

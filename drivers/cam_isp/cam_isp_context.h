@@ -293,6 +293,11 @@ struct cam_isp_context_event_record {
  * @aeb_enabled:               Indicate if stream is for AEB
  * @do_internal_recovery:      Enable KMD halt/reset/resume internal recovery
  * @hybrid_acquire             flag to understand hybrid acquire model
+ * @stream_type:               value for sensor mode streaming type
+ * @independent_crm_en:        flag to indicate if CRM operations are skipped
+ * @independent_crm_sof_timer: watchdog timer to check SOF freeze in independent CRM case
+ * @hw_mgr_workq:              associated hw_mgr workq
+ * @no_crm_mutex:              mutex for no_crm apply
  *
  */
 struct cam_isp_context {
@@ -351,6 +356,11 @@ struct cam_isp_context {
 	uint32_t                              acquire_type;
 	uint32_t                             *slave_pkt;
 	uint32_t                              pkt_offset;
+	bool                                  independent_crm_en;
+	int8_t                                stream_type;
+	struct cam_req_mgr_timer              *independent_crm_sof_timer;
+	struct cam_req_mgr_core_workq         *hw_mgr_workq;
+	struct mutex                           no_crm_mutex;
 };
 
 /**
