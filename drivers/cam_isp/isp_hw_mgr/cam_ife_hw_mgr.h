@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_HW_MGR_H_
@@ -18,10 +19,14 @@
 /* IFE resource constants */
 #define CAM_IFE_HW_IN_RES_MAX            (CAM_ISP_IFE_IN_RES_MAX & 0xFF)
 #define CAM_IFE_HW_RES_POOL_MAX          64
+#define CAM_IFE_HW_OUT_RES_MAX           (CAM_ISP_IFE_OUT_RES_MAX & 0xFF)
+
 
 /* IFE_HW_MGR custom config */
 #define CAM_IFE_CUSTOM_CFG_FRAME_HEADER_TS   BIT(0)
 #define CAM_IFE_CUSTOM_CFG_SW_SYNC_ON        BIT(1)
+#define CAM_IFE_CSID_RDI_MAX                  4
+
 
 /**
  * struct cam_ife_hw_mgr_debug - contain the debug information
@@ -46,6 +51,53 @@ struct cam_ife_hw_mgr_debug {
 	bool           per_req_reg_dump;
 	bool           disable_ubwc_comp;
 };
+
+/* enum cam_ife_hw_mgr_res_type - manager resource node type */
+enum cam_ife_hw_mgr_res_type {
+	CAM_IFE_HW_MGR_RES_UNINIT,
+	CAM_IFE_HW_MGR_RES_ROOT,
+	CAM_IFE_HW_MGR_RES_CID,
+	CAM_IFE_HW_MGR_RES_CSID,
+	CAM_IFE_HW_MGR_RES_IFE_SRC,
+	CAM_IFE_HW_MGR_RES_IFE_IN_RD,
+	CAM_IFE_HW_MGR_RES_IFE_OUT,
+};
+
+
+/**
+ * struct cam_vfe_hw_mgr_res- HW resources for the VFE manager
+ *
+ * @list:                used by the resource list
+ * @res_type:            IFE manager resource type
+ * @res_id:              resource id based on the resource type for root or
+ *                       leaf resource, it matches the KMD interface port id.
+ *                       For branch resrouce, it is defined by the ISP HW
+ *                       layer
+ * @hw_res:              hw layer resource array. For single VFE, only one VFE
+ *                       hw resrouce will be acquired. For dual VFE, two hw
+ *                       resources from different VFE HW device will be
+ *                       acquired
+ * @parent:              point to the parent resource node.
+ * @children:            point to the children resource nodes
+ * @child_num:           numbe of the child resource node.
+ * @is_secure            informs whether the resource is in secure mode or not
+ *
+ */
+struct cam_ife_hw_mgr_res {
+	struct list_head                 list;
+	enum cam_ife_hw_mgr_res_type     res_type;
+	uint32_t                         res_id;
+	uint32_t                         is_dual_vfe;
+	struct cam_isp_resource_node    *hw_res[CAM_ISP_HW_SPLIT_MAX];
+
+	/* graph */
+	struct cam_ife_hw_mgr_res       *parent;
+	struct cam_ife_hw_mgr_res       *child[CAM_IFE_HW_OUT_RES_MAX];
+	uint32_t                         num_children;
+	uint32_t                         is_secure;
+};
+
+
 
 /**
  * struct cam_vfe_hw_mgr_ctx - IFE HW manager Context object
@@ -158,6 +210,7 @@ struct cam_ife_hw_mgr_ctx {
 	bool                            dsp_enabled;
 	bool                            internal_cdm;
 	bool                            pf_mid_found;
+	uint32_t                        acq_common_args_ver;
 };
 
 /**
@@ -169,6 +222,7 @@ struct cam_ife_hw_mgr_ctx {
  * @ife_devices:           IFE device instances array. This will be filled by
  *                         HW layer during initialization
  * @ctx_mutex:             mutex for the hw context pool
+ * @wm_cfg_mutex:              mutex for updating the wm configuration in CDtM
  * @free_ctx_list:         free hw context list
  * @used_ctx_list:         used hw context list
  * @ctx_pool:              context storage
@@ -189,6 +243,7 @@ struct cam_ife_hw_mgr {
 	struct cam_soc_reg_map        *cdm_reg_map[CAM_IFE_HW_NUM_MAX];
 
 	struct mutex                   ctx_mutex;
+	struct mutex                   wm_cfg_mutex[CAM_IFE_HW_NUM_MAX];
 	atomic_t                       active_ctx_cnt;
 	struct list_head               free_ctx_list;
 	struct list_head               used_ctx_list;

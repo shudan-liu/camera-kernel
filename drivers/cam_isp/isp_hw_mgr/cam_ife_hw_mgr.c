@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -1288,12 +1289,12 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 	for (i = 0; i < in_port->num_out_res; i++) {
 		out_port = &in_port->data[i];
 
-		CAM_DBG(CAM_ISP, "i = %d, vfe_out_res_id = %d, out_port: %d",
-			i, vfe_out_res_id, out_port->res_type);
-
-		if (vfe_out_res_id != out_port->res_type)
+		if ((vfe_out_res_id != out_port->res_type) &&
+			((out_port->res_type < CAM_ISP_IFE_OUT_RES_RDI_0) ||
+			(out_port->res_type > CAM_ISP_IFE_OUT_RES_RDI_3)))
 			continue;
 
+		out_port->res_type = vfe_out_res_id;
 		vfe_acquire.vfe_out.cdm_ops = ife_ctx->cdm_ops;
 		vfe_acquire.priv = ife_ctx;
 		vfe_acquire.vfe_out.out_port_info = out_port;
@@ -1736,11 +1737,17 @@ err:
 static int cam_ife_hw_mgr_acquire_csid_hw(
 	struct cam_ife_hw_mgr *ife_hw_mgr,
 	struct cam_csid_hw_reserve_resource_args  *csid_acquire,
-	bool is_start_lower_idx)
+	bool is_start_lower_idx,
+	struct cam_ife_hw_mgr_ctx  *ife_ctx)
 {
 	int i;
 	int rc = -EINVAL;
 	struct cam_hw_intf  *hw_intf;
+
+	bool   try_again;
+	bool   is_rdi = false;
+	int    tries;
+	enum cam_ife_pix_path_res_id rdis[CAM_IFE_CSID_RDI_MAX];
 
 	if (!ife_hw_mgr || !csid_acquire) {
 		CAM_ERR(CAM_ISP,
@@ -1750,6 +1757,21 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 	}
 
 	CAM_DBG(CAM_ISP, "Acquire CSID HW lower_idx: %d", is_start_lower_idx);
+
+	tries = 0;
+	if (csid_acquire->res_id >= CAM_IFE_PIX_PATH_RES_RDI_0 &&
+		csid_acquire->res_id <= CAM_IFE_PIX_PATH_RES_RDI_3) {
+		rdis[tries++] = csid_acquire->res_id;
+		is_rdi = true;
+
+		for (i = CAM_IFE_PIX_PATH_RES_RDI_0;
+			i <= CAM_IFE_PIX_PATH_RES_RDI_3;
+			i++) {
+			if (i != csid_acquire->res_id)
+				rdis[tries++] = i;
+		}
+	}
+
 	if (is_start_lower_idx) {
 		for (i =  0; i < CAM_IFE_CSID_HW_NUM_MAX; i++) {
 			if (!ife_hw_mgr->csid_devices[i])
@@ -1769,12 +1791,25 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 	for (i = CAM_IFE_CSID_HW_NUM_MAX - 1; i >= 0; i--) {
 		if (!ife_hw_mgr->csid_devices[i])
 			continue;
-
-		hw_intf = ife_hw_mgr->csid_devices[i];
-		rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
-			csid_acquire,
-			sizeof(struct
-				cam_csid_hw_reserve_resource_args));
+		try_again = true;
+		tries = 0;
+		while (try_again) {
+			try_again = false;
+			if (is_rdi)
+				csid_acquire->res_id =  rdis[tries];
+			hw_intf = ife_hw_mgr->csid_devices[i];
+			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
+				csid_acquire,
+				sizeof(struct
+					cam_csid_hw_reserve_resource_args));
+			if (is_rdi &&
+				(tries < CAM_IFE_CSID_RDI_MAX-1) &&
+				ife_ctx->acq_common_args_ver > 0x1000 &&
+				rc == -EAGAIN) {
+				try_again = true;
+				tries++;
+			}
+		}
 		if (!rc)
 			return rc;
 	}
@@ -1782,20 +1817,126 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 	return rc;
 }
 
+static int cam_ife_mgr_attempt_reuse_cid_res(
+	struct cam_ife_hw_mgr_ctx          *ife_ctx,
+	struct cam_isp_hw_mgr_res          *cid_res_temp,
+	struct cam_csid_hw_reserve_resource_args  *csid_acquire,
+	uint32_t *acquired_cnt)
+{
+
+	int rc = -1;
+	int i;
+	struct cam_isp_hw_mgr_res            *cid_res_iterator;
+	struct cam_hw_intf                   *hw_intf;
+	struct cam_isp_in_port_generic_info  *in_port;
+	struct cam_isp_out_port_generic_info *out_port = NULL;
+	int                                   try_again = true;
+	bool                                  is_rdi = false;
+	int                                   tries;
+	enum cam_ife_pix_path_res_id rdis[CAM_IFE_CSID_RDI_MAX];
+
+	in_port = csid_acquire->in_port;
+
+	if (in_port->num_out_res)
+		out_port = &(in_port->data[0]);
+
+	tries = 0;
+	if (csid_acquire->res_id >= CAM_IFE_PIX_PATH_RES_RDI_0 &&
+		csid_acquire->res_id <= CAM_IFE_PIX_PATH_RES_RDI_3) {
+		rdis[tries++] = csid_acquire->res_id;
+		is_rdi = true;
+
+		for (i = CAM_IFE_PIX_PATH_RES_RDI_0;
+			i <= CAM_IFE_PIX_PATH_RES_RDI_3;
+			i++) {
+			if (i != csid_acquire->res_id)
+				rdis[tries++] = i;
+		}
+	}
+
+	list_for_each_entry(cid_res_iterator, &ife_ctx->res_list_ife_cid,
+		list) {
+		tries = 0;
+		try_again = true;
+		while (try_again) {
+			try_again = false;
+			if (is_rdi)
+				csid_acquire->res_id =  rdis[tries];
+			for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+				if (!cid_res_iterator->hw_res[i])
+					continue;
+
+				if (cid_res_iterator->is_secure == 1 ||
+					(cid_res_iterator->is_secure == 0 &&
+					in_port->num_out_res &&
+					out_port->secure_mode == 1))
+					continue;
+
+				hw_intf = cid_res_iterator->hw_res[i]->hw_intf;
+				rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
+					csid_acquire, sizeof(*csid_acquire));
+				if (is_rdi &&
+					(tries < CAM_IFE_CSID_RDI_MAX-1)  &&
+				ife_ctx->acq_common_args_ver > 0x1000 &&
+						rc == -EAGAIN) {
+					try_again = true;
+					tries++;
+					break;
+				} else if (rc) {
+					CAM_DBG(CAM_ISP,
+						"No ife cid resource from hw %d",
+						hw_intf->hw_idx);
+					continue;
+				}
+
+				cid_res_temp->hw_res[(*acquired_cnt)++] =
+					csid_acquire->node_res;
+
+				CAM_INFO(CAM_ISP,
+					"acquired csid(%s)=%d CID rsrc successfully",
+					(i == 0) ? "left" : "right",
+					hw_intf->hw_idx);
+
+				if (csid_acquire->in_port->usage_type &&
+					*acquired_cnt == 1 &&
+					csid_acquire->res_id ==
+						CAM_IFE_PIX_PATH_RES_IPP)
+					/* Continue to acquire Right */
+					continue;
+
+				if (*acquired_cnt)
+					/*
+					 * If successfully acquired CID from
+					 * previously acquired HW, skip the next
+					 * part
+					 */
+					return 0;
+			}
+		}
+	}
+	return -EBUSY;
+}
+
+
 static int cam_ife_mgr_acquire_cid_res(
 	struct cam_ife_hw_mgr_ctx          *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port,
 	struct cam_isp_hw_mgr_res         **cid_res,
-	enum cam_ife_pix_path_res_id        path_res_id)
+	enum cam_ife_pix_path_res_id        *path_res_id)
 {
 	int rc = -1;
 	int i, j;
 	struct cam_ife_hw_mgr               *ife_hw_mgr;
 	struct cam_hw_intf                  *hw_intf;
-	struct cam_isp_hw_mgr_res           *cid_res_temp, *cid_res_iterator;
+	struct cam_isp_hw_mgr_res           *cid_res_temp;
+	struct cam_ife_hw_mgr_ctx           *ife_ctx_iterator;
 	struct cam_csid_hw_reserve_resource_args  csid_acquire = {0};
 	uint32_t acquired_cnt = 0;
 	struct cam_isp_out_port_generic_info *out_port = NULL;
+
+	bool   is_rdi = false;
+	int    tries;
+	enum cam_ife_pix_path_res_id rdis[CAM_IFE_CSID_RDI_MAX];
 
 	ife_hw_mgr = ife_ctx->hw_mgr;
 	*cid_res = NULL;
@@ -1810,13 +1951,13 @@ static int cam_ife_mgr_acquire_cid_res(
 
 	csid_acquire.res_type = CAM_ISP_RESOURCE_CID;
 	csid_acquire.in_port = in_port;
-	csid_acquire.res_id =  path_res_id;
+	csid_acquire.res_id =  *path_res_id;
 	csid_acquire.node_res = NULL;
 
 	if (ife_ctx->is_rdi_only_context)
 		csid_acquire.can_use_lite = true;
 
-	CAM_DBG(CAM_ISP, "path_res_id %d", path_res_id);
+	CAM_DBG(CAM_ISP, "path_res_id %d", *path_res_id);
 
 	if (in_port->num_out_res)
 		out_port = &(in_port->data[0]);
@@ -1828,61 +1969,39 @@ static int cam_ife_mgr_acquire_cid_res(
 			csid_acquire.phy_sel = CAM_ISP_IFE_IN_RES_PHY_1;
 	}
 
-	/* Try acquiring CID resource from previously acquired HW */
-	list_for_each_entry(cid_res_iterator, &ife_ctx->res_list_ife_cid,
-		list) {
+	tries = 0;
+	if (csid_acquire.res_id >= CAM_IFE_PIX_PATH_RES_RDI_0 &&
+		csid_acquire.res_id <= CAM_IFE_PIX_PATH_RES_RDI_3) {
+		rdis[tries++] = csid_acquire.res_id;
+		is_rdi = true;
 
-		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
-			if (!cid_res_iterator->hw_res[i])
-				continue;
-
-			if (in_port->num_out_res &&
-				((cid_res_iterator->is_secure == 1 &&
-				out_port->secure_mode == 0) ||
-				(cid_res_iterator->is_secure == 0 &&
-				out_port->secure_mode == 1)))
-				continue;
-
-			if (!in_port->num_out_res &&
-				cid_res_iterator->is_secure == 1)
-				continue;
-
-			hw_intf = cid_res_iterator->hw_res[i]->hw_intf;
-			rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
-				&csid_acquire, sizeof(csid_acquire));
-			if (rc) {
-				CAM_DBG(CAM_ISP,
-					"No ife cid resource from hw %d",
-					hw_intf->hw_idx);
-				continue;
-			}
-
-			cid_res_temp->hw_res[acquired_cnt++] =
-				csid_acquire.node_res;
-
-			CAM_DBG(CAM_ISP,
-				"acquired from old csid(%s)=%d CID rsrc successfully",
-				(i == 0) ? "left" : "right",
-				hw_intf->hw_idx);
-
-			if (in_port->usage_type && acquired_cnt == 1 &&
-				path_res_id == CAM_IFE_PIX_PATH_RES_IPP)
-				/*
-				 * Continue to acquire Right for IPP.
-				 * Dual IFE for RDI and PPP is not currently
-				 * supported.
-				 */
-
-				continue;
-
-			if (acquired_cnt)
-				/*
-				 * If successfully acquired CID from
-				 * previously acquired HW, skip the next
-				 * part
-				 */
-				goto acquire_successful;
+		for (i = CAM_IFE_PIX_PATH_RES_RDI_0;
+			i <= CAM_IFE_PIX_PATH_RES_RDI_3;
+			i++) {
+			if (i != csid_acquire.res_id)
+				rdis[tries++] = i;
 		}
+	}
+	tries = 0;
+
+	/*
+	 * Try acquiring CID resource from previously acquired HW in
+	 * same context
+	 */
+	if (cam_ife_mgr_attempt_reuse_cid_res(
+			ife_ctx, cid_res_temp, &csid_acquire,
+			&acquired_cnt) == 0)
+		goto acquire_successful;
+	/*
+	 * Try acquiring CID resource from previously acquired HW from other
+	 * used contexts
+	 */
+	list_for_each_entry(ife_ctx_iterator, &ife_hw_mgr->used_ctx_list,
+		list) {
+		if (cam_ife_mgr_attempt_reuse_cid_res(
+				ife_ctx_iterator, cid_res_temp, &csid_acquire,
+				&acquired_cnt) == 0)
+			goto acquire_successful;
 	}
 
 	/* Acquire Left if not already acquired */
@@ -1894,14 +2013,14 @@ static int cam_ife_mgr_acquire_cid_res(
 	if (ife_ctx->is_fe_enabled ||
 		ife_ctx->dsp_enabled)
 		rc = cam_ife_hw_mgr_acquire_csid_hw(ife_hw_mgr,
-			&csid_acquire, true);
+			&csid_acquire, true, ife_ctx);
 	else
 		rc = cam_ife_hw_mgr_acquire_csid_hw(ife_hw_mgr,
-			&csid_acquire, false);
+			&csid_acquire, false, ife_ctx);
 
 	if (rc || !csid_acquire.node_res) {
 		CAM_ERR(CAM_ISP, "No %d paths available rc %d rsrc %p",
-			path_res_id, rc, csid_acquire.node_res);
+			*path_res_id, rc, csid_acquire.node_res);
 		goto put_res;
 	}
 
@@ -1911,6 +2030,7 @@ static int cam_ife_mgr_acquire_cid_res(
 		cid_res_temp->hw_res[acquired_cnt++] = csid_acquire.node_res;
 
 acquire_successful:
+	*path_res_id = csid_acquire.res_id;
 	CAM_DBG(CAM_ISP, "CID %s acquired success is_dual %d",
 		(in_port->usage_type ? "Right" : " Left"),
 		in_port->usage_type);
@@ -1926,10 +2046,10 @@ acquire_successful:
 	cam_ife_hw_mgr_put_res(&ife_ctx->res_list_ife_cid, cid_res);
 
 	/*
-	 * Acquire left if not already acquired.
+	 * Acquire Right if not already acquired.
 	 * Dual IFE for RDI and PPP is not currently supported.
 	 */
-	if (cid_res_temp->is_dual_isp && path_res_id
+	if (cid_res_temp->is_dual_isp && *path_res_id
 		== CAM_IFE_PIX_PATH_RES_IPP && acquired_cnt == 1) {
 		csid_acquire.node_res = NULL;
 		csid_acquire.res_type = CAM_ISP_RESOURCE_CID;
@@ -2050,7 +2170,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		path_res_id = CAM_IFE_PIX_PATH_RES_PPP;
 
 	rc = cam_ife_mgr_acquire_cid_res(ife_ctx, in_port, &cid_res,
-		path_res_id);
+		&path_res_id);
 
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Acquire IFE CID resource Failed");
@@ -2170,7 +2290,8 @@ static enum cam_ife_pix_path_res_id
 
 static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
-	struct cam_isp_in_port_generic_info *in_port)
+	struct cam_isp_in_port_generic_info *in_port,
+	enum cam_ife_pix_path_res_id  *acq_res_id)
 {
 	int rc = -EINVAL;
 	int i;
@@ -2182,6 +2303,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 	struct cam_isp_out_port_generic_info  *out_port;
 	struct cam_csid_hw_reserve_resource_args  csid_acquire;
 	enum cam_ife_pix_path_res_id         path_res_id;
+	enum cam_ife_pix_path_res_id         org_path_res_id;
 
 	uint32_t hw_version = 0;
 
@@ -2194,9 +2316,10 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		if (path_res_id == CAM_IFE_PIX_PATH_RES_MAX)
 			continue;
 
+		org_path_res_id = path_res_id;
 		/* get cid resource */
 		rc = cam_ife_mgr_acquire_cid_res(ife_ctx, in_port, &cid_res,
-			path_res_id);
+			&path_res_id);
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Acquire IFE CID resource Failed");
 			goto end;
@@ -2261,6 +2384,9 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 
 		csid_res->res_type = CAM_ISP_RESOURCE_PIX_PATH;
 		csid_res->res_id = csid_acquire.res_id;
+		*acq_res_id |= ((uint32_t)csid_acquire.res_id) <<
+						(16 + org_path_res_id*2);
+		*acq_res_id |= 1 << (csid_acquire.res_id + 3);
 		csid_res->is_dual_isp = 0;
 		csid_res->hw_res[0] = csid_acquire.node_res;
 		csid_res->hw_res[1] = NULL;
@@ -2771,7 +2897,8 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port,
 	uint32_t *acquired_hw_id,
-	uint32_t *acquired_hw_path)
+	uint32_t *acquired_hw_path,
+	uint32_t *acq_res_id)
 {
 	int rc                                    = -1;
 	int is_dual_isp                           = 0;
@@ -2817,7 +2944,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 
 	if (in_port->rdi_count) {
 		/* get ife csid RDI resource */
-		rc = cam_ife_hw_mgr_acquire_res_ife_csid_rdi(ife_ctx, in_port);
+		rc = cam_ife_hw_mgr_acquire_res_ife_csid_rdi(ife_ctx, in_port, acq_res_id);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Acquire IFE CSID RDI resource Failed");
@@ -3139,6 +3266,8 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	uint32_t                           total_pd_port = 0;
 	struct cam_isp_acquire_hw_info    *acquire_hw_info = NULL;
 	uint32_t                           input_size = 0;
+	uint32_t                           acq_hw_id_mask = 0;
+	uint32_t                          *out_hw_id_mask;
 
 	CAM_DBG(CAM_ISP, "Enter...");
 
@@ -3167,6 +3296,7 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 
 	acquire_hw_info =
 		(struct cam_isp_acquire_hw_info *)acquire_args->acquire_info;
+	ife_ctx->acq_common_args_ver = acquire_hw_info->common_info_version;
 
 	rc = cam_ife_mgr_check_and_update_fe(ife_ctx, acquire_hw_info,
 		acquire_args->acquire_info_size);
@@ -3243,7 +3373,8 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 			rc = cam_ife_mgr_acquire_hw_for_ctx(ife_ctx,
 				&in_port[i],
 				&acquire_args->acquired_hw_id[i],
-				acquire_args->acquired_hw_path[i]);
+				acquire_args->acquired_hw_path[i],
+				&acq_hw_id_mask);
 
 		if (rc) {
 			cam_ife_hw_mgr_print_acquire_info(ife_ctx,
@@ -3267,6 +3398,13 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Process base info failed");
 		goto free_res;
+	}
+
+	if (acquire_hw_info->common_info_version > 0x1000) {
+		out_hw_id_mask =
+			(uint32_t *)((uint8_t *)&acquire_hw_info->data +
+			acquire_hw_info->common_info_offset);
+		*out_hw_id_mask |= acq_hw_id_mask;
 	}
 
 	cam_cpas_get_cpas_hw_version(&ife_ctx->hw_version);
@@ -3407,6 +3545,9 @@ static int cam_ife_mgr_acquire_dev(void *hw_mgr_priv, void *acquire_hw_args)
 	uint32_t                               total_pix_port = 0;
 	uint32_t                               total_rdi_port = 0;
 	uint32_t                               in_port_length = 0;
+	uint32_t                              acq_hw_id_mask;
+	uint32_t                             *out_hw_id_mask;
+	struct cam_isp_acquire_hw_info       *acquire_hw_info = NULL;
 
 	CAM_DBG(CAM_ISP, "Enter...");
 
@@ -3422,6 +3563,9 @@ static int cam_ife_mgr_acquire_dev(void *hw_mgr_priv, void *acquire_hw_args)
 		goto err;
 	}
 
+	acquire_hw_info =
+		(struct cam_isp_acquire_hw_info *)acquire_args->acquire_info;
+	ife_ctx->acq_common_args_ver = acquire_hw_info->common_info_version;
 	ife_ctx->cdm_handle = 0;
 	ife_ctx->common.cb_priv = acquire_args->context_data;
 	for (i = 0; i < CAM_ISP_HW_EVENT_MAX; i++)
@@ -3527,7 +3671,8 @@ static int cam_ife_mgr_acquire_dev(void *hw_mgr_priv, void *acquire_hw_args)
 		rc = cam_ife_mgr_acquire_hw_for_ctx(ife_ctx,
 			&gen_port_info[i],
 			&acquire_args->acquired_hw_id[i],
-			acquire_args->acquired_hw_path[i]);
+			acquire_args->acquired_hw_path[i],
+			&acq_hw_id_mask);
 
 		if (rc) {
 			cam_ife_hw_mgr_print_acquire_info(ife_ctx,
@@ -3592,6 +3737,13 @@ static int cam_ife_mgr_acquire_dev(void *hw_mgr_priv, void *acquire_hw_args)
 
 	cam_ife_hw_mgr_print_acquire_info(ife_ctx, total_pix_port,
 		total_pd_port, total_rdi_port, rc);
+
+	if (acquire_hw_info->common_info_version > 0x1000) {
+		out_hw_id_mask =
+			(uint32_t *)((uint8_t *)&acquire_hw_info->data +
+			acquire_hw_info->common_info_offset);
+		*out_hw_id_mask |= acq_hw_id_mask;
+	}
 
 	cam_ife_hw_mgr_put_ctx(&ife_hw_mgr->used_ctx_list, &ife_ctx);
 
@@ -6602,6 +6754,8 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		}
 
 		/* get IO buffers */
+
+		mutex_lock(&g_ife_hw_mgr.wm_cfg_mutex[ctx->base[i].idx]);
 		rc = cam_isp_add_io_buffers(
 			hw_mgr->mgr_common.img_iommu_hdl,
 			hw_mgr->mgr_common.img_iommu_hdl_secure,
@@ -6610,6 +6764,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 			&ctx->res_list_ife_in_rd,
 			max_ife_out_res, fill_fence,
 			&frame_header_info);
+		mutex_unlock(&g_ife_hw_mgr.wm_cfg_mutex[ctx->base[i].idx]);
 
 		if (rc) {
 			CAM_ERR(CAM_ISP,
@@ -8237,6 +8392,9 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	memset(&g_ife_hw_mgr, 0, sizeof(g_ife_hw_mgr));
 
 	mutex_init(&g_ife_hw_mgr.ctx_mutex);
+	for (i = 0, j = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
+		mutex_init(&g_ife_hw_mgr.wm_cfg_mutex[i]);
+	}
 	spin_lock_init(&g_ife_hw_mgr.ctx_lock);
 
 	if (CAM_IFE_HW_NUM_MAX != CAM_IFE_CSID_HW_NUM_MAX) {

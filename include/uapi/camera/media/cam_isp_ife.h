@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_ISP_IFE_H__
@@ -58,5 +59,6 @@
 #define CAM_ISP_IFE_IN_RES_CPHY_TPG_1          (CAM_ISP_IFE_IN_RES_BASE + 9)
 #define CAM_ISP_IFE_IN_RES_CPHY_TPG_2          (CAM_ISP_IFE_IN_RES_BASE + 10)
 #define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 11)
+#define CAM_ISP_IFE_OUT_RES_MAX               (CAM_ISP_IFE_OUT_RES_BASE + 24)
 
 #endif /* __UAPI_CAM_ISP_IFE_H__ */
