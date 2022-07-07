@@ -576,6 +576,8 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			else {
 				CAM_ERR(CAM_RPMSG, "null file");
 			}
+			rcu_read_unlock();
+
 			/*
 			 * TODO: If register_buf is called before MEM_ALLOC, then will it fail?
 			 * we are assigning dmabuf_f_op in MEM_ALLOC.
@@ -591,7 +593,6 @@ static void handle_jpeg_cb(struct work_struct *work) {
 					break;
 				}
 			}
-			rcu_read_unlock();
 
 			cam_mem_mgr_map(&map_cmd);
 			rc = cam_mem_get_io_buf(
