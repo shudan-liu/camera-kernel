@@ -4843,8 +4843,9 @@ static int cam_ife_csid_ver2_get_time_stamp(
 			csid_hw->timestamp.prev_boot_ts + time_delta;
 	}
 
-	CAM_DBG(CAM_ISP, "Resource[id:%d name:%s timestamp:%lld]",
-		res->res_id, res->res_name, timestamp_args->boot_timestamp);
+	CAM_DBG(CAM_ISP, "CSID:%d Resource[id:%d name:%s] btime:%lld qtime:%lld",
+			csid_hw->hw_intf->hw_idx, res->res_id, res->res_name,
+			timestamp_args->boot_timestamp, timestamp_args->time_stamp_val);
 	csid_hw->timestamp.prev_sof_ts = timestamp_args->time_stamp_val;
 	csid_hw->timestamp.prev_boot_ts = timestamp_args->boot_timestamp;
 

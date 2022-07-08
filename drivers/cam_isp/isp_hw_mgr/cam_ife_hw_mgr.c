@@ -7253,7 +7253,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		msecs_to_jiffies(10));
 	if (rem_jiffies == 0)
 		CAM_WARN(CAM_ISP,
-			"config done completion timeout for last applied req_id=%llu ctx_index %",
+			"config done completion timeout for last applied req_id=%llu ctx_index %u",
 			ctx->applied_req_id, ctx->ctx_index);
 
 	/* Reset CDM for KMD internal stop */
