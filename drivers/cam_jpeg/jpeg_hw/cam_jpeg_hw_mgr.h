@@ -229,6 +229,24 @@ struct cam_jpeg_hw_mgr_mini_dump {
 	uint32_t                               num_context;
 };
 
+/**
+ * cam_jpeg_mgr_nsp_acquire_hw()
+ *
+ * @brief:        Handle acquire for nsp jpeg hw.
+ *
+ * @iommu_hdl:    output pointer for iommu handle
+ *
+ * @return 0 on success
+ */
 int cam_jpeg_mgr_nsp_acquire_hw(uint32_t *iommu_hdl);
+
+/**
+ * cam_jpeg_mgr_nsp_release_hw()
+ *
+ * @brief:        Handle release for nsp jpeg hw.
+ *
+ * @return 0 on success
+ */
+int cam_jpeg_mgr_nsp_release_hw(void);
 
 #endif /* CAM_JPEG_HW_MGR_H */

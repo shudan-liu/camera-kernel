@@ -33,18 +33,12 @@ static int cam_fastrpc_probe(struct fastrpc_device *rpc_dev)
 static int cam_fastrpc_callback(struct fastrpc_device *rpc_dev,
 			enum fastrpc_driver_status fastrpc_proc_num)
 {
-	CAM_DBG(CAM_MEM, "handle 0x%x, proc %d", __func__,
+	CAM_INFO(CAM_MEM, "handle 0x%x, proc %d", __func__,
 			rpc_dev->handle, fastrpc_proc_num);
-
-	/* fastrpc drive down when process gone
-	 * any handling can happen here, such as
-	 * eva_fastrpc_driver_unregister(rpc_dev->handle, true);
-	 */
-	fastrpc_driver_unregister(&gfa_cv.fastrpc_driver);
+	//TODO: Check if any cleanup needed here.
 
 	return 0;
 }
-
 
 static struct fastrpc_driver _fastrpc_client = {
 	.probe = cam_fastrpc_probe,
@@ -70,7 +64,7 @@ int cam_fastrpc_dev_map_dma(struct cam_mem_buf_queue *buf,
 		rc = fastrpc_driver_invoke(gfa_cv.fastrpc_device, FASTRPC_DEV_MAP_DMA,
 			(unsigned long)(&frpc_map_buf));
 		if (rc) {
-			CAM_ERR(CAM_MEM, "Failed to map buffer 0x%x", rc);
+			CAM_ERR(CAM_MEM, "Failed to map buffer %d", rc);
 			return rc;
 		}
 		*v_dsp_addr = frpc_map_buf.v_dsp_addr;
@@ -113,6 +107,7 @@ int cam_fastrpc_driver_register(uint32_t handle)
 	if (FASTRPC_REGISTERED == gfa_cv.state)
 	{
 		CAM_INFO(CAM_MEM, "fastrpc already registered");
+		return rc;
 	}
 	CAM_DBG(CAM_MEM, "new fastrpc node pid 0x%x", handle);
 
@@ -145,4 +140,22 @@ int cam_fastrpc_driver_register(uint32_t handle)
 
 fail_fastrpc_driver_register:
 	return -EINVAL;
+}
+
+int cam_fastrpc_driver_unregister(uint32_t handle)
+{
+	int rc = -1;
+	if (FASTRPC_UNREGISTERED == gfa_cv.state)
+	{
+		CAM_INFO(CAM_MEM, "fastrpc already unregistered");
+		return rc;
+	}
+
+	CAM_INFO(CAM_MEM, "fastrpc unregister node pid 0x%x", handle);
+
+	fastrpc_driver_unregister(&gfa_cv.fastrpc_driver);
+
+	gfa_cv.state = FASTRPC_UNREGISTERED;
+
+	return 0;
 }

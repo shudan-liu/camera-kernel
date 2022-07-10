@@ -1501,6 +1501,42 @@ jpeg_release_ctx:
 	return rc;
 }
 
+int cam_jpeg_mgr_nsp_release_hw(void)
+{
+	int ret = 0, rc = 0, i = 0;
+	struct cam_jpeg_hw_mgr *hw_mgr = &g_jpeg_hw_mgr;
+
+	mutex_lock(&hw_mgr->hw_mgr_mutex);
+	CAM_DBG(CAM_JPEG, "num nsp jpeg %d", hw_mgr->num_nsp_enc);
+	for (i = 0; i < hw_mgr->num_nsp_enc; i++) {
+		if (!hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]) {
+			CAM_ERR(CAM_JPEG, "nsp device not found for %d",i);
+			ret = -EFAULT;
+			continue;
+		}
+		if (!hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_ops.deinit) {
+			CAM_ERR(CAM_JPEG, "hw op init null ");
+			ret = -EFAULT;
+			continue;
+		}
+		rc = hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_ops.deinit(
+			hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_priv,
+			NULL,
+			0);
+		if (rc) {
+			CAM_ERR(CAM_JPEG, "deinit failed for enc i %d", i);
+			ret = rc;
+			continue;
+		}
+	}
+	mutex_unlock(&hw_mgr->hw_mgr_mutex);
+
+	if (!ret)
+		CAM_DBG(CAM_JPEG, "NSP release success %d", i);
+
+	return ret;
+}
+
 int cam_jpeg_mgr_nsp_acquire_hw(uint32_t *iommu_hdl)
 {
 	int rc = 0, i = 0, j;

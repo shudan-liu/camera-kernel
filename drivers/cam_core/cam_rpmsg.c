@@ -471,8 +471,12 @@ static void handle_jpeg_cb(struct work_struct *work) {
 
 	switch(rsp->type) {
 		case CAM_DSP2CPU_POWERON:
+			mutex_lock(&jpeg_private.jpeg_mutex);
 			if (CAM_JPEG_DSP_POWERON == jpeg_private.status) {
 				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered on");
+				mutex_unlock(&jpeg_private.jpeg_mutex);
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWERON;
+				rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
 				break;
 			}
 			cam_jpeg_mgr_nsp_acquire_hw(&jpeg_private.jpeg_iommu_hdl);
@@ -488,6 +492,26 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			}
 			jpeg_private.dmabuf_f_op = NULL;
 			jpeg_private.status = CAM_JPEG_DSP_POWERON;
+			mutex_unlock(&jpeg_private.jpeg_mutex);
+			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			break;
+		case CAM_DSP2CPU_POWEROFF:
+			mutex_lock(&jpeg_private.jpeg_mutex);
+			if (CAM_JPEG_DSP_POWEROFF == jpeg_private.status) {
+				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
+				mutex_unlock(&jpeg_private.jpeg_mutex);
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+				rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+				break;
+			}
+			CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", rsp->pid);
+			rc = cam_fastrpc_driver_unregister(rsp->pid);
+			cam_jpeg_mgr_nsp_release_hw();
+			cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+
+			jpeg_private.dmabuf_f_op = NULL;
+			jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
+			mutex_unlock(&jpeg_private.jpeg_mutex);
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
 			break;
 		case CAM_DSP2CPU_MEM_ALLOC:
@@ -529,6 +553,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			}
 			rcu_read_lock();
 			loop:
+			// TODO: Things like this should be moved in cam_compat.
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0))
 			file = fcheck_files(files, map_cmd.fd);
 #else
@@ -551,6 +576,10 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			else {
 				CAM_ERR(CAM_RPMSG, "null file");
 			}
+			/*
+			 * TODO: If register_buf is called before MEM_ALLOC, then will it fail?
+			 * we are assigning dmabuf_f_op in MEM_ALLOC.
+			 */
 			if (jpeg_private.dmabuf_f_op && file->f_op != jpeg_private.dmabuf_f_op) {
 				CAM_ERR(CAM_RPMSG, "fd doesn't refer to dma_buf");
 				break;
@@ -861,6 +890,7 @@ static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 	}
 
 	cam_rpmsg_set_recv_cb(CAM_RPMSG_HANDLE_JPEG, cam_rpmsg_jpeg_cb);
+	mutex_init(&jpeg_private.jpeg_mutex);
 
 	CAM_DBG(CAM_RPMSG, "rpmsg probe success for jpeg");
 
