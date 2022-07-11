@@ -546,6 +546,7 @@ struct sensor_lite_exposure_info {
 struct sensor_lite_setting_groupt_cmd {
 	struct sensor_lite_header        header;
 	uint32_t                         cmd_type;
+	uint32_t                         time_offset;
 	uint32_t                         group_regsettings_count;
 	uint32_t                         group_regsettings_offset;
 } __packed;
@@ -562,9 +563,9 @@ struct sensor_lite_settings_stream_cmd {
 struct sensor_lite_perframe_cmd {
 	struct sensor_lite_header        header;
 	uint32_t                         settings_id;
+	uint64_t                         timestamp;
 	uint32_t                         num_streams;
 	uint32_t                         stream_offset;
-	uint64_t                         timestamp;
 } __packed;
 
 struct sensor_lite_exp_ctrl_cmd {

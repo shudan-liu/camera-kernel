@@ -51,6 +51,34 @@ static int free_request_object(
 	return 0;
 }
 
+static int __cam_sensor_lite_handle_perframe(
+	struct sensor_lite_device         *sensor_lite_dev,
+	struct sensor_lite_perframe_cmd   *cmd,
+	uint64_t                          request_id)
+{
+	int rc = 0;
+	struct cam_req_mgr_add_request add_req = {0};
+
+	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
+			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
+			(sensor_lite_dev->crm_intf.enable_crm)) {
+		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
+		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
+		add_req.req_id   = request_id;
+		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
+					sensor_lite_dev->soc_info.index,
+					sensor_lite_dev->crm_intf.enable_crm,
+					request_id);
+	}
+	__send_pkt(sensor_lite_dev,
+			(struct sensor_lite_header *)cmd);
+	return rc;
+}
+
+
 static int cam_sensor_lite_request_queue_cmd(
 	struct sensor_lite_device  *dev,
 	struct sensor_lite_request *req,
@@ -928,6 +956,21 @@ static int cam_sensor_lite_cmd_buf_parse(
 				(struct sensor_lite_start_stop_cmd *)cmd_addr);
 			break;
 		case SENSORLITE_CMD_TYPE_PERFRAME:
+			CAM_DBG(CAM_SENSOR_LITE, "Start settings size: %d",
+				sensor_lite_dev->start_cmd->start_stop_settings_size);
+
+			if (!sensor_lite_dev->start_cmd->start_stop_settings_size) {
+				__cam_sensor_lite_handle_perframe(sensor_lite_dev,
+					(struct sensor_lite_perframe_cmd *)cmd_addr,
+					packet->header.request_id);
+			} else {
+				/* Add request to the cmd buffers */
+				rc = cam_sensor_lite_request_queue_cmd(
+						sensor_lite_dev,
+						req,
+						(struct sensor_lite_header *)cmd_addr);
+			}
+			break;
 		case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE:
 			/* Add request to the cmd buffers */
 			rc = cam_sensor_lite_request_queue_cmd(
