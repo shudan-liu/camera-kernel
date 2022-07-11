@@ -348,11 +348,13 @@ struct cam_ife_hw_mgr_ctx {
  * @max_vfe_out_res_type  :  max ife out res type value from hw
  * @max_sfe_out_res_type  :  max sfe out res type value from hw
  * @support_consumed_addr :  indicate whether hw supports last consumed address
+ * @fifo_depth            :  Max fifo depth supported
  */
 struct cam_isp_bus_hw_caps {
 	uint32_t     max_vfe_out_res_type;
 	uint32_t     max_sfe_out_res_type;
 	bool         support_consumed_addr;
+	uint32_t     fifo_depth;
 };
 
 /*

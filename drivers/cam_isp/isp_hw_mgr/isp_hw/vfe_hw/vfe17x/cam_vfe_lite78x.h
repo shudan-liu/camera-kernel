@@ -552,6 +552,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe_lite78x_bus_hw_info = {
 	.top_irq_shift   = 0,
 	.max_out_res = CAM_ISP_IFE_OUT_RES_BASE + 34,
 	.support_tunneling = false,
+	.fifo_depth = 4,
 };
 
 static struct cam_vfe_irq_hw_info vfe_lite78x_irq_hw_info = {

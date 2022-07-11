@@ -5896,6 +5896,8 @@ static int cam_ife_mgr_acquire_hw(void *hw_mgr_priv, void *acquire_hw_args)
 		acquire_args->op_flags |=
 			CAM_IFE_CTX_CONSUME_ADDR_EN;
 
+	acquire_args->out_fifo_depth = g_ife_hw_mgr.isp_bus_caps.fifo_depth;
+
 	if ((ife_ctx->flags.is_sfe_shdr) ||
 		(ife_ctx->flags.is_sfe_fs)) {
 		acquire_args->op_flags |=
@@ -14739,6 +14741,8 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 
 	g_ife_hw_mgr.isp_bus_caps.support_consumed_addr =
 		isp_bus_cap.support_consumed_addr;
+	g_ife_hw_mgr.isp_bus_caps.fifo_depth =
+		isp_bus_cap.out_fifo_depth;
 	g_ife_hw_mgr.isp_bus_caps.max_vfe_out_res_type =
 		isp_bus_cap.max_out_res_type;
 	max_ife_out_res =

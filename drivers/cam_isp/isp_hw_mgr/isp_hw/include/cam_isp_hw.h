@@ -502,11 +502,13 @@ struct cam_isp_hw_intf_data {
  *
  * @support_consumed_addr:  Indicate whether HW has last consumed addr reg
  * @max_out_res_type:       Maximum value of out resource type supported by hw
+ * @out_fifo_depth:         Maximum output fifo depth
  *
  */
 struct cam_isp_hw_bus_cap {
 	bool                    support_consumed_addr;
 	uint32_t                max_out_res_type;
+	uint32_t                out_fifo_depth;
 };
 
 /**

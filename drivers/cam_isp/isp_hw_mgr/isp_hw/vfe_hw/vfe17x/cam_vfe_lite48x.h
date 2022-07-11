@@ -439,6 +439,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe48x_bus_hw_info = {
 	.supported_irq =  CAM_VFE_HW_IRQ_CAP_BUF_DONE | CAM_VFE_HW_IRQ_CAP_RUP,
 	.comp_cfg_needed = true,
 	.support_tunneling = false,
+	.fifo_depth = 4,
 };
 
 static struct cam_vfe_irq_hw_info vfe48x_irq_hw_info = {

@@ -4214,6 +4214,8 @@ static int cam_vfe_bus_ver3_process_cmd(
 		vfe_bus_cap->max_out_res_type = bus_priv->max_out_res;
 		vfe_bus_cap->support_consumed_addr =
 			bus_priv->common_data.support_consumed_addr;
+		vfe_bus_cap->out_fifo_depth =
+			bus_priv->common_data.out_fifo_depth;
 		break;
 	case CAM_ISP_HW_CMD_IFE_BUS_DEBUG_CFG:
 		bus_priv = (struct cam_vfe_bus_ver3_priv  *) priv;
@@ -4309,6 +4311,8 @@ int cam_vfe_bus_ver3_init(
 	bus_priv->common_data.is_lite = is_lite;
 	bus_priv->common_data.support_consumed_addr =
 		ver3_hw_info->support_consumed_addr;
+	bus_priv->common_data.out_fifo_depth =
+		ver3_hw_info->fifo_depth;
 	bus_priv->common_data.support_tunneling =
 		ver3_hw_info->support_tunneling;
 	bus_priv->common_data.no_tunnelingId_shift =

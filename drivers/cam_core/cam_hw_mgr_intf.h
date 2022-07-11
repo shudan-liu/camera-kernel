@@ -150,6 +150,7 @@ struct cam_hw_acquire_stream_caps {
  * @valid_acquired_hw:     Valid num of acquired hardware
  * @op_params:             OP Params from hw_mgr to ctx
  * @mini_dump_cb:          Mini dump callback function
+ * @out_fifo_depth:        Max output fifo depth supported
  *
  */
 struct cam_hw_acquire_args {
@@ -162,6 +163,7 @@ struct cam_hw_acquire_args {
 	void                        *ctxt_to_hw_map;
 	uint32_t                     hw_mgr_ctx_id;
 	uint32_t                     op_flags;
+	uint32_t                     out_fifo_depth;
 
 	uint32_t    acquired_hw_id[CAM_MAX_ACQ_RES];
 	uint32_t    acquired_hw_path[CAM_MAX_ACQ_RES][CAM_MAX_HW_SPLIT];
