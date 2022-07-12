@@ -408,6 +408,18 @@ struct cam_isp_in_port_info_v2 {
 };
 
 /**
+ * struct cam_isp_common_info - IFE allocation common info
+ *
+ * @dynamic_rdi_alloc:          if dynamic RDI allocation is enabled
+ * @resource mask:              resource mask for dynamic allocation
+ *
+ */
+struct cam_isp_common_info {
+	uint32_t                       dynamic_rdi_alloc;
+	uint32_t                       resource_mask;
+};
+
+/**
  * struct cam_isp_resource - A resource bundle
  *
  * @resoruce_id:                resource id for the resource bundle

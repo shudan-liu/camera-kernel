@@ -1803,7 +1803,8 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 	struct cam_ife_hw_mgr *ife_hw_mgr,
 	struct cam_csid_hw_reserve_resource_args  *csid_acquire,
 	bool is_start_lower_idx,
-	struct cam_ife_hw_mgr_ctx  *ife_ctx)
+	struct cam_ife_hw_mgr_ctx  *ife_ctx,
+	bool dynamic_rdi_alloc)
 {
 	int i;
 	int rc = -EINVAL;
@@ -1868,7 +1869,7 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 				csid_acquire,
 				sizeof(struct
 					cam_csid_hw_reserve_resource_args));
-			if (is_rdi &&
+			if (is_rdi && dynamic_rdi_alloc &&
 				(tries < CAM_IFE_CSID_RDI_MAX-1) &&
 				c_ctx->acq_common_args_ver > 0x1000 &&
 				rc == -EAGAIN) {
@@ -1887,7 +1888,8 @@ static int cam_ife_mgr_attempt_reuse_cid_res(
 	struct cam_ife_hw_concrete_ctx          *c_ctx,
 	struct cam_isp_hw_mgr_res          *cid_res_temp,
 	struct cam_csid_hw_reserve_resource_args  *csid_acquire,
-	uint32_t *acquired_cnt)
+	uint32_t *acquired_cnt,
+	bool dynamic_rdi_alloc)
 {
 
 	int rc = -1;
@@ -1941,7 +1943,7 @@ static int cam_ife_mgr_attempt_reuse_cid_res(
 				hw_intf = cid_res_iterator->hw_res[i]->hw_intf;
 				rc = hw_intf->hw_ops.reserve(hw_intf->hw_priv,
 					csid_acquire, sizeof(*csid_acquire));
-				if (is_rdi &&
+				if (is_rdi && dynamic_rdi_alloc &&
 					(tries < CAM_IFE_CSID_RDI_MAX-1)  &&
 				c_ctx->acq_common_args_ver > 0x1000 &&
 						rc == -EAGAIN) {
@@ -2057,7 +2059,7 @@ static int cam_ife_mgr_acquire_cid_res(
 	 */
 	if (cam_ife_mgr_attempt_reuse_cid_res(
 			c_ctx, cid_res_temp, &csid_acquire,
-			&acquired_cnt) == 0)
+			&acquired_cnt, ife_ctx->dynamic_rdi_alloc) == 0)
 		goto acquire_successful;
 	/*
 	 * Try acquiring CID resource from previously acquired HW from other
@@ -2067,7 +2069,7 @@ static int cam_ife_mgr_acquire_cid_res(
 		list) {
 		if (cam_ife_mgr_attempt_reuse_cid_res(
 				ife_ctx_iterator, cid_res_temp, &csid_acquire,
-				&acquired_cnt) == 0)
+				&acquired_cnt, ife_ctx->dynamic_rdi_alloc) == 0)
 			goto acquire_successful;
 	}
 
@@ -2080,10 +2082,10 @@ static int cam_ife_mgr_acquire_cid_res(
 	if (c_ctx->is_fe_enabled ||
 		c_ctx->dsp_enabled)
 		rc = cam_ife_hw_mgr_acquire_csid_hw(ife_hw_mgr,
-			&csid_acquire, true, ife_ctx);
+			&csid_acquire, true, ife_ctx, ife_ctx->dynamic_rdi_alloc);
 	else
 		rc = cam_ife_hw_mgr_acquire_csid_hw(ife_hw_mgr,
-			&csid_acquire, false, ife_ctx);
+			&csid_acquire, false, ife_ctx, ife_ctx->dynamic_rdi_alloc);
 
 	if (rc || !csid_acquire.node_res) {
 		CAM_ERR(CAM_ISP, "No %d paths available rc %d rsrc %p",
@@ -2671,6 +2673,53 @@ static int cam_ife_mgr_check_fe(
 	return 0;
 }
 
+static int cam_ife_mgr_get_dynamic_rdi_alloc(
+	struct cam_ife_hw_mgr_ctx      *ife_ctx,
+	struct cam_isp_acquire_hw_info *acquire_hw_info,
+	uint32_t acquire_info_size)
+{
+	struct cam_isp_common_info *common_info;
+	ife_ctx->dynamic_rdi_alloc = false;
+	/* Check if version supports dynamic allocation */
+
+	if (acquire_hw_info->common_info_version < 0x2001)
+		return 0;
+
+	if (acquire_hw_info->common_info_offset +
+			sizeof(struct cam_isp_common_info) >
+				acquire_info_size) {
+		CAM_ERR(CAM_ISP, "Invalid acquire info size");
+		return -EINVAL;
+	}
+
+	common_info = (struct cam_isp_common_info *)
+		((uint8_t *)&acquire_hw_info->data +
+			acquire_hw_info->common_info_offset);
+
+	if (!ife_ctx->is_offline && common_info->dynamic_rdi_alloc)
+		ife_ctx->dynamic_rdi_alloc = true;
+
+	return 0;
+}
+
+static int cam_ife_mgr_set_dynamic_rdi_mask(
+	struct cam_ife_hw_mgr_ctx      *ife_ctx,
+	struct cam_isp_acquire_hw_info *acquire_hw_info)
+{
+	struct cam_isp_common_info *common_info;
+
+	/* Check if version supports dynamic allocation */
+	if (!ife_ctx->dynamic_rdi_alloc)
+		return 0;
+
+	common_info = (struct cam_isp_common_info *)
+		((uint8_t *)&acquire_hw_info->data +
+			acquire_hw_info->common_info_offset);
+	common_info->resource_mask = ife_ctx->dynamic_rdi_mask;
+
+	return 0;
+}
+
 static int cam_ife_hw_mgr_preprocess_port(
 	struct cam_ife_hw_mgr_ctx   *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port)
@@ -3006,6 +3055,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 	bool crop_enable                          = true;
 
 	is_dual_isp = in_port->usage_type;
+	ife_ctx->dynamic_rdi_mask = 0;
 	ife_ctx->concr_ctx->dsp_enabled = (bool)in_port->dsp_mode;
 	ife_ctx->concr_ctx->is_dual = (bool)in_port->usage_type;
 
@@ -3077,6 +3127,7 @@ static int cam_ife_mgr_acquire_hw_for_ctx(
 		rc = cam_ife_hw_mgr_acquire_res_ife_src(ife_ctx,
 			in_port, false,
 			acquired_hw_id, acquired_hw_path);
+		ife_ctx->dynamic_rdi_mask |= (acquired_hw_path[0] | *acq_res_id);
 
 		if (rc) {
 			CAM_ERR(CAM_ISP,
@@ -9110,6 +9161,10 @@ static int cam_ife_mgr_v_acquire(void *hw_mgr_priv, void *acquire_hw_args)
 		return rc;
 	}
 
+	ife_mgr_ctx->is_offline = is_offline;
+	cam_ife_mgr_get_dynamic_rdi_alloc(ife_mgr_ctx, acquire_hw_info,
+			acq_args_ptr->acquire_info_size);
+
 	CAM_DBG(CAM_ISP, "FE %d Offline %d", is_fe, is_offline);
 
 	ife_mgr_ctx->cb_priv = acq_args_ptr->context_data;
@@ -9119,7 +9174,6 @@ static int cam_ife_mgr_v_acquire(void *hw_mgr_priv, void *acquire_hw_args)
 	acq_args_ptr->ctxt_to_hw_map = ife_mgr_ctx;
 
 	if (is_offline) {
-		ife_mgr_ctx->is_offline = true;
 		ife_mgr_ctx->unpacker_fmt = ife_mgr_ctx->bw_data.format;
 		allocated = false;
 		mutex_lock(&ife_hw_mgr->ctx_mutex);
@@ -9201,10 +9255,13 @@ static int cam_ife_mgr_v_acquire(void *hw_mgr_priv, void *acquire_hw_args)
 		}
 	} else {
 		rc =  cam_ife_mgr_acquire(hw_mgr_priv, acquire_hw_args);
-		ife_mgr_ctx->is_offline = false;
 		ife_mgr_ctx->concr_ctx->served_ctx_w = 0;
 		ife_mgr_ctx->concr_ctx->served_ctx_id[0] =
 			ife_mgr_ctx->ctx_idx;
+
+		if (!rc && ife_mgr_ctx->dynamic_rdi_alloc)
+			cam_ife_mgr_set_dynamic_rdi_mask(ife_mgr_ctx,
+					acquire_hw_info);
 	}
 	return rc;
 }

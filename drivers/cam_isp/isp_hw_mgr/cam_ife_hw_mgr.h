@@ -88,6 +88,9 @@ struct cam_ife_mgr_bw_data {
  * num_in_ports:          number of context input ports
  * in_ports:              context input ports
  * bw_data:               contains data for BW usage calculation
+ * unpacker_fmt:          ife input unpacker format
+ * dynamic_rdi_alloc:     is dynamic rdi allocation enabled
+ * dynamic_rdi_mask:      dynamic allocated resources mask
  *
  */
 struct cam_ife_hw_mgr_ctx {
@@ -102,6 +105,8 @@ struct cam_ife_hw_mgr_ctx {
 	struct cam_isp_in_port_generic_info  *in_ports;
 	struct cam_ife_mgr_bw_data            bw_data;
 	uint32_t                              unpacker_fmt;
+	bool                                  dynamic_rdi_alloc;
+	uint32_t                              dynamic_rdi_mask;
 };
 
 /**

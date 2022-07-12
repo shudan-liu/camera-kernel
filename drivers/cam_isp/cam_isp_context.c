@@ -5511,7 +5511,12 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 	ctx_isp->hw_acquired = true;
 	ctx->ctxt_to_hw_map = param.ctxt_to_hw_map;
 
-	trace_cam_context_state("ISP", ctx);
+	if (copy_to_user((void __user *)cmd->resource_hdl, acquire_hw_info,
+		cmd->data_size)) {
+		rc = -EFAULT;
+		goto free_res;
+	}
+		trace_cam_context_state("ISP", ctx);
 	CAM_DBG(CAM_ISP,
 		"Acquire success on session_hdl 0x%xs ctx_type %d ctx_id %u",
 		ctx->session_hdl, isp_hw_cmd_args.u.ctx_type, ctx->ctx_id);
