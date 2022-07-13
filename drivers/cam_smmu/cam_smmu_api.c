@@ -1565,7 +1565,7 @@ int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
 	size = iommu_map_sg(iommu_cb_set.cb_info[idx].domain,
 		sec_heap_iova,
 		secheap_buf->table->sgl,
-		secheap_buf->table->nents,
+		secheap_buf->table->orig_nents,
 		IOMMU_READ | IOMMU_WRITE);
 	if (size != sec_heap_iova_len) {
 		CAM_ERR(CAM_SMMU, "IOMMU mapping failed");
@@ -1704,7 +1704,7 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 			goto err_unmap_sg;
 		}
 
-		size = iommu_map_sg(domain, iova, table->sgl, table->nents,
+		size = iommu_map_sg(domain, iova, table->sgl, table->orig_nents,
 				IOMMU_READ | IOMMU_WRITE);
 
 		if (size < 0) {
@@ -2128,7 +2128,7 @@ static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
 	if (iommu_map_sg(domain,
 		iova,
 		table->sgl,
-		table->nents,
+		table->orig_nents,
 		iommu_dir) != virt_len) {
 		CAM_ERR(CAM_SMMU, "iommu_map_sg() failed");
 		goto err_iommu_map;
