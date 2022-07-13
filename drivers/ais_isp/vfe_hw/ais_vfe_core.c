@@ -1662,6 +1662,28 @@ static int ais_vfe_process_irq_bh(void *priv, void *data)
 	return rc;
 }
 
+static bool ais_vfe_irq_cancel_task_filter(void *priv, void *data)
+{
+	struct ais_vfe_hw_work_data   *work_data;
+	struct cam_hw_info            *vfe_hw;
+	struct ais_vfe_hw_core_info   *core_info;
+	bool is_discard = false;
+
+	if (priv == NULL || data == NULL)
+		return true;
+
+	vfe_hw = (struct cam_hw_info *)priv;
+	core_info = (struct ais_vfe_hw_core_info *)vfe_hw->core_info;
+	if (!core_info)
+		return true;
+
+	work_data = (struct ais_vfe_hw_work_data *)data;
+	if (work_data->evt_type == AIS_VFE_HW_IRQ_EVENT_SOF)
+		is_discard = true;
+
+	return is_discard;
+}
+
 static int ais_vfe_dispatch_irq(struct cam_hw_info *vfe_hw,
 		struct ais_vfe_hw_work_data *p_work)
 {
@@ -1677,8 +1699,21 @@ static int ais_vfe_dispatch_irq(struct cam_hw_info *vfe_hw,
 
 	task = cam_req_mgr_workq_get_task(core_info->workq);
 	if (!task) {
-		CAM_ERR(CAM_ISP, "Can not get task for worker");
-		return -ENOMEM;
+		CAM_ERR(CAM_ISP, "Can not get task for worker, cancel SOF evt");
+
+		cam_req_mgr_workq_cancel_task(core_info->workq,
+						ais_vfe_irq_cancel_task_filter);
+
+		if (p_work->evt_type == AIS_VFE_HW_IRQ_EVENT_SOF) {
+			CAM_DBG(CAM_ISP, "So discard this SOF event");
+			return -ENOMEM;
+		}
+
+		task = cam_req_mgr_workq_get_task(core_info->workq);
+		if (!task) {
+			CAM_ERR(CAM_ISP, "Still can not get task for worker");
+			return -ENOMEM;
+		}
 	}
 	work_data = (struct ais_vfe_hw_work_data *)task->payload;
 	*work_data = *p_work;
