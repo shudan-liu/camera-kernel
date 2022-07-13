@@ -6989,6 +6989,7 @@ static int cam_ife_mgr_stop_hw_in_overflow(void *stop_hw_args)
 	struct cam_isp_hw_mgr_res        *hw_mgr_res;
 	struct cam_ife_hw_mgr_ctx        *ctx;
 	uint32_t                          i, master_base_idx = 0;
+	struct cam_req_mgr_core_workq    *workq_info;
 
 	if (!stop_hw_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -7046,6 +7047,9 @@ static int cam_ife_mgr_stop_hw_in_overflow(void *stop_hw_args)
 	for (i = 0; i < max_ife_out_res; i++)
 		cam_ife_hw_mgr_stop_hw_res(&ctx->res_list_ife_out[i]);
 
+	/* Flush workq */
+	workq_info = (struct cam_req_mgr_core_workq *)ctx->common.workq_info;
+	cam_req_mgr_workq_flush(workq_info);
 
 	CAM_DBG(CAM_ISP, "Exit...ctx id:%d rc :%d",
 		ctx->ctx_index, rc);
@@ -7129,6 +7133,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	enum cam_ife_csid_halt_cmd        csid_halt_type;
 	uint32_t                          i, master_base_idx = 0;
 	unsigned long                     rem_jiffies = 0;
+	struct cam_req_mgr_core_workq    *workq_info;
 
 	if (!hw_mgr_priv || !stop_hw_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -7245,6 +7250,10 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_in_rd, list) {
 		cam_ife_hw_mgr_stop_hw_res(hw_mgr_res);
 	}
+
+	/* Flush workq */
+	workq_info = (struct cam_req_mgr_core_workq *)ctx->common.workq_info;
+	cam_req_mgr_workq_flush(workq_info);
 
 	/* reset scratch buffer/mup expect INIT again for UMD triggered stop/flush */
 	if (!stop_isp->is_internal_stop) {
@@ -7489,6 +7498,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	uint32_t                             primary_rdi_csid_res;
 	struct cam_ife_csid_top_config_args  csid_top_args = {0};
 	struct cam_hw_intf                  *hw_intf;
+	struct cam_req_mgr_core_workq       *workq_info;
 
 	primary_rdi_src_res = CAM_ISP_HW_VFE_IN_MAX;
 	primary_rdi_out_res = g_ife_hw_mgr.isp_bus_caps.max_vfe_out_res_type;
@@ -7590,7 +7600,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 					rc = cam_ife_mgr_find_sfe_core_idx(
 						i, ctx, &csid_top_args.core_idx);
 					if (rc)
-						return rc;
+						goto stop_workq;
 				} else {
 					csid_top_args.input_core_type =
 						CAM_IFE_CSID_INPUT_CORE_IFE;
@@ -7637,7 +7647,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	rc = cam_ife_hw_mgr_init_hw(ctx);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Init failed");
-		return rc;
+		goto stop_workq;
 	}
 
 	ctx->flags.init_done = true;
@@ -7797,6 +7807,10 @@ err:
 	CAM_DBG(CAM_ISP, "Exit...(rc=%d)", rc);
 	return rc;
 
+stop_workq:
+	/* Flush workq */
+	workq_info = (struct cam_req_mgr_core_workq *)ctx->common.workq_info;
+	cam_req_mgr_workq_flush(workq_info);
 cdm_streamoff:
 	cam_cdm_stream_off(ctx->cdm_handle);
 safe_disable:
@@ -7804,7 +7818,6 @@ safe_disable:
 
 deinit_hw:
 	cam_ife_hw_mgr_deinit_hw(ctx);
-
 	return rc;
 }
 
@@ -7873,6 +7886,7 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 	struct cam_ife_hw_mgr_ctx        *ctx;
 	uint32_t                          i;
 	uint64_t                          ms, sec, min, hrs;
+	struct cam_req_mgr_core_workq    *workq_info;
 
 	if (!hw_mgr_priv || !release_hw_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -7887,6 +7901,10 @@ static int cam_ife_mgr_release_hw(void *hw_mgr_priv,
 
 	CAM_DBG(CAM_ISP, "Enter...ctx id:%d",
 		ctx->ctx_index);
+
+	/* Flush workq */
+	workq_info = (struct cam_req_mgr_core_workq *)ctx->common.workq_info;
+	cam_req_mgr_workq_flush(workq_info);
 
 	if (ctx->flags.init_done)
 		cam_ife_hw_mgr_deinit_hw(ctx);
