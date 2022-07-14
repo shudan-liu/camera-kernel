@@ -277,6 +277,33 @@ int __dump_host_dest_init_cmd(
 	return 0;
 }
 
+int __dump_host_dest_init_cmd_v2(
+	struct host_dest_camera_init_payload_v3 *init)
+{
+	int i = 0;
+	/* Append the rpmsg headers */
+	__set_slave_pkt_headers(&(init->header), HCM_PKT_OPCODE_SENSOR_INIT);
+	__dump_slave_pkt_headers(&(init->header));
+
+	CAM_INFO(CAM_SENSOR_LITE, "sensor_physical_id           : 0x%x",
+			init->sensor_physical_id);
+	for (i = 0; i < ARRAY_SIZE(init->vc_map); i++) {
+		CAM_INFO(CAM_SENSOR_LITE, "vc_map[%d].version               : 0x%x",
+				i, init->vc_map[i].version);
+		CAM_INFO(CAM_SENSOR_LITE, "vc_map[%d].sensor_vc             : 0x%x",
+				i, init->vc_map[i].sensor_vc);
+		CAM_INFO(CAM_SENSOR_LITE, "vc_map[%d].aggregator_vc         : 0x%x",
+				i, init->vc_map[i].aggregator_vc);
+	}
+
+	/* TODO: validate offsets beyond size etc*/
+	__dump_reg_settings((void *)init,
+			init->init_setting_offset,
+			init->init_setting_count,
+			init->header.size);
+	return 0;
+}
+
 int __dump_exposure_config_cmd(
 	struct sensor_lite_exp_ctrl_cmd *init)
 {
@@ -615,8 +642,13 @@ int __dump_pkt(
 			(struct slave_dest_camera_init_payload *)header);
 		break;
 	case SENSORLITE_CMD_TYPE_HOSTDESTINIT:
-		__dump_host_dest_init_cmd(
-			(struct host_dest_camera_init_payload_v2 *)header);
+		if (header->version == 0x1) {
+			__dump_host_dest_init_cmd(
+				(struct host_dest_camera_init_payload_v2 *)header);
+		} else if (header->version == 0x2) {
+			__dump_host_dest_init_cmd_v2(
+				(struct host_dest_camera_init_payload_v3 *)header);
+		}
 		break;
 	case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE:
 		__dump_exposure_config_cmd(

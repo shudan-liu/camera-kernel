@@ -638,6 +638,14 @@ struct host_dest_camera_init_payload_v2 {
 	uint32_t                     init_setting_count;
 } __packed;
 
+struct host_dest_camera_init_payload_v3 {
+	struct sensor_lite_header    header;
+	uint32_t                     sensor_physical_id;
+	struct  vc_mapping           vc_map[4];
+	uint32_t                     init_setting_offset;
+	uint32_t                     init_setting_count;
+} __packed;
+
 enum {
 	SENSORLITE_CMD_TYPE_INVALID         = 0,
 	SENSORLITE_CMD_TYPE_PROBE           = 1,
