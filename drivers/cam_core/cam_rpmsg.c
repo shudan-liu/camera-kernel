@@ -540,6 +540,8 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				cmd_msg.buf_info.fd, cmd_msg.buf_info.ipa_addr,
 				cmd_msg.buf_info.iova, cmd_msg.buf_info.buf_handle);
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			CAM_DBG(CAM_RPMSG, "closing dmabuf fd %d", cmd_msg.buf_info.fd);
+			__close_fd(current->files, cmd_msg.buf_info.fd);
 			break;
 		case CAM_DSP2CPU_REGISTER_BUFFER:
 			map_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
@@ -606,6 +608,8 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			CAM_DBG(CAM_RPMSG, "MAP_OUT fd %d iova 0x%x size %d ipa %lx buf_handle %x",
 				cmd_msg.buf_info.fd, cmd_msg.buf_info.iova, cmd_msg.buf_info.size,
 				cmd_msg.buf_info.ipa_addr, cmd_msg.buf_info.buf_handle);
+			CAM_DBG(CAM_RPMSG, "closing dmabuf fd %d", map_cmd.fd);
+			__close_fd(current->files, map_cmd.fd);
 			registerEnd:
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
 			break;
