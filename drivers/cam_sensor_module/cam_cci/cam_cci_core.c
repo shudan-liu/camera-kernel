@@ -2582,7 +2582,7 @@ int32_t cam_cci_core_cam_ctrl(struct v4l2_subdev *sd,
 	int32_t rc = 0;
 	struct cci_device *cci_dev = v4l2_get_subdevdata(sd);
 	struct cam_control *cmd = (struct cam_control *)arg;
-	struct cam_cci_ctrl cci_ctrl;
+	struct cam_cci_ctrl cci_ctrl = {};
 
 	if (!cci_dev || !arg) {
 		CAM_ERR(CAM_CCI, "s_ctrl is NULL");
