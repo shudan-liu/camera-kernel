@@ -89,7 +89,8 @@ static int cam_ife_mgr_regspace_data_cb(uint32_t reg_base_type,
 		switch (reg_base_type) {
 		case CAM_REG_DUMP_BASE_TYPE_CAMNOC:
 		case CAM_REG_DUMP_BASE_TYPE_ISP_LEFT:
-			if (!hw_mgr_res->hw_res[CAM_ISP_HW_SPLIT_LEFT])
+			if (!hw_mgr_res->hw_res[CAM_ISP_HW_SPLIT_LEFT] ||
+				!hw_mgr_res->hw_res[CAM_ISP_HW_SPLIT_LEFT]->process_cmd)
 				continue;
 
 			rc = hw_mgr_res->hw_res[
@@ -112,7 +113,8 @@ static int cam_ife_mgr_regspace_data_cb(uint32_t reg_base_type,
 			*soc_info_ptr = soc_info;
 			break;
 		case CAM_REG_DUMP_BASE_TYPE_ISP_RIGHT:
-			if (!hw_mgr_res->hw_res[CAM_ISP_HW_SPLIT_RIGHT])
+			if (!hw_mgr_res->hw_res[CAM_ISP_HW_SPLIT_RIGHT] ||
+				!hw_mgr_res->hw_res[CAM_ISP_HW_SPLIT_RIGHT]->process_cmd)
 				continue;
 
 			rc = hw_mgr_res->hw_res[
