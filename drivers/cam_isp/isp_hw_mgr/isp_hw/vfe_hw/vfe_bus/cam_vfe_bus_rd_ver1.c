@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/ratelimit.h>
@@ -534,6 +535,11 @@ static int cam_vfe_bus_deinit_rm_resource(
 static int cam_vfe_bus_rd_get_secure_mode(void *priv, void *cmd_args,
 	uint32_t arg_size)
 {
+
+	bool *mode = cmd_args;
+
+	*mode = false;
+
 	return 0;
 }
 
