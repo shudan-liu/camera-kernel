@@ -8714,22 +8714,49 @@ static int cam_ife_mgr_free_in_proc_req(struct cam_ife_hw_mgr *ife_hw_mgr,
 	return 0;
 }
 
-static int cam_ife_mgr_flush_in_queue(struct cam_ife_hw_mgr *ife_hw_mgr,
-					uint32_t ctx_idx, bool just_incomplete)
+static unsigned int check_in_proc_req_from_ctx(
+		struct cam_ife_hw_mgr *ife_hw_mgr,
+		uint32_t ctx_idx)
 {
 	struct cam_ife_mgr_offline_in_queue *c_elem;
 	struct cam_ife_mgr_offline_in_queue *c_elem_temp;
+	int left = 0;
+
+	list_for_each_entry_safe(c_elem, c_elem_temp,
+			&ife_hw_mgr->in_proc_queue.list, list) {
+		if (c_elem->ctx_idx == ctx_idx) {
+			CAM_DBG(CAM_ISP, "in_proc req %d %llu",
+					c_elem->ctx_idx, c_elem->request_id);
+			left++;
+		}
+	}
+	return left;
+}
+
+static unsigned int cam_ife_mgr_flush_in_queue(
+		struct cam_ife_hw_mgr *ife_hw_mgr,
+		uint32_t ctx_idx, bool just_incomplete)
+{
+	struct cam_ife_mgr_offline_in_queue *c_elem;
+	struct cam_ife_mgr_offline_in_queue *c_elem_temp;
+	int left = 0;
 
 	list_for_each_entry_safe(c_elem, c_elem_temp,
 			&ife_hw_mgr->input_queue.list, list) {
-		if (c_elem->ctx_idx == ctx_idx &&
-					!(c_elem->ready && just_incomplete)) {
-			CAM_DBG(CAM_ISP, "flush req %llu", c_elem->request_id);
-			list_del_init(&c_elem->list);
-			kfree(c_elem);
+		if (c_elem->ctx_idx == ctx_idx) {
+			if (!(c_elem->ready && just_incomplete)) {
+				CAM_DBG(CAM_ISP, "flush req %d %llu",
+					c_elem->ctx_idx, c_elem->request_id);
+				list_del_init(&c_elem->list);
+				kfree(c_elem);
+			} else {
+				left++;
+				CAM_DBG(CAM_ISP, "leave req %d %llu",
+					c_elem->ctx_idx, c_elem->request_id);
+			}
 		}
 	}
-	return 0;
+	return left;
 }
 
 static int cam_ife_mgr_enqueue_offline_update(void *hw_mgr_priv,
@@ -8860,6 +8887,7 @@ static int cam_ife_mgr_check_start_processing(void *hw_mgr_priv,
 				continue;
 			if (ife_hw_mgr->starting_offline_cnt == 0 &&
 				c_elem->request_id == 0) {
+				c_elem->hw_id = ife_ctx->acquired_hw_id;
 				list_del_init(&c_elem->list);
 				list_add_tail(&c_elem->list,
 					&ife_hw_mgr->in_proc_queue.list);
@@ -9017,7 +9045,8 @@ static int cam_ife_mgr_v_acquire(void *hw_mgr_priv, void *acquire_hw_args)
 			}
 		}
 
-		CAM_ERR(CAM_ISP, "Total IFEs used for offline: %d", ctx_idx+1);
+		CAM_ERR(CAM_ISP, "Total IFEs used for offline: %d",
+			atomic_read(&ife_hw_mgr->num_acquired_offline_ctx));
 		if (allocated) {
 
 			acquired_hw_data =
@@ -9115,6 +9144,7 @@ static int cam_ife_mgr_v_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	struct cam_ife_hw_concrete_ctx   *ife_ctx = NULL;
 	unsigned long                     rem_jiffies = 0;
 	uint32_t                          num_ctx;
+	uint32_t                          left_req;
 
 	if (!hw_mgr_priv || !stop_hw_args) {
 		CAM_ERR(CAM_ISP, "Invalid arguments");
@@ -9130,8 +9160,11 @@ static int cam_ife_mgr_v_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		 * complex HW allocation.
 		 */
 		mutex_lock(&ife_hw_mgr->ctx_mutex);
-		cam_ife_mgr_flush_in_queue(ife_hw_mgr, hw_mgr_ctx->ctx_idx,
-			true);
+		left_req = cam_ife_mgr_flush_in_queue(ife_hw_mgr,
+				hw_mgr_ctx->ctx_idx,
+				true);
+		left_req += check_in_proc_req_from_ctx(ife_hw_mgr,
+				hw_mgr_ctx->ctx_idx);
 		num_ctx = atomic_read(&ife_hw_mgr->num_acquired_offline_ctx);
 		if (num_ctx <=
 			cam_ife_mgr_required_offline_hw(hw_mgr_priv, true))
@@ -9140,8 +9173,7 @@ static int cam_ife_mgr_v_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			ife_ctx =
 				ife_hw_mgr->acquired_hw_pool[num_ctx-1].ife_ctx;
 		hw_mgr_ctx->concr_ctx = ife_ctx;
-		if ((num_ctx > 1) ||
-			!list_empty(&ife_hw_mgr->input_queue.list)) {
+		if (left_req) {
 			reinit_completion(
 				&hw_mgr_ctx->stop_done_complete);
 			hw_mgr_ctx->is_stopping = true;
@@ -9172,8 +9204,7 @@ static int cam_ife_mgr_v_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 			mutex_unlock(&ife_hw_mgr->ctx_mutex);
 		} else {
 			mutex_unlock(&ife_hw_mgr->ctx_mutex);
-			CAM_ERR(CAM_ISP, "Invalid IFE HW context");
-			return -EINVAL;
+			return 0;
 		}
 		atomic_dec(&ife_hw_mgr->num_acquired_offline_ctx);
 	}

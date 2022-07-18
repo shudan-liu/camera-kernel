@@ -956,7 +956,8 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 				req_isp->fence_map_out[i].resource_handle);
 
 			CAM_WARN(CAM_ISP,
-				"Duplicate BUF_DONE for req %lld : i=%d, j=%d, res=%s",
+				"Duplicate BUF_DONE for ctx %d  req %lld : i=%d, j=%d, res=%s",
+				ctx->ctx_id,
 				req->request_id, i, j, handle_type);
 
 			trace_cam_log_event("Duplicate BufDone",
