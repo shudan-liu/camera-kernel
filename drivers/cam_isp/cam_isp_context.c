@@ -5495,7 +5495,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	 */
 	list_del_init(&req->list);
 
-	if (ctx_isp->offline_context && !req_isp->num_fence_map_out) {
+	if (ctx_isp->offline_context) {
 		list_add_tail(&req->list, &ctx->free_req_list);
 		atomic_set(&ctx_isp->rxd_epoch, 1);
 		CAM_DBG(CAM_REQ,
