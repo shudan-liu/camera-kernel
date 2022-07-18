@@ -1566,10 +1566,19 @@ static int __cam_isp_ctx_apply_req_offline(
 		goto end;
 
 	spin_lock_bh(&ctx->lock);
+	if (list_empty(&ctx->pending_req_list)) {
+		CAM_DBG(CAM_ISP, "No pending requests to apply");
+		rc = -EFAULT;
+		spin_unlock_bh(&ctx->lock);
+		goto end;
+	}
 	req = list_first_entry(&ctx->pending_req_list, struct cam_ctx_request,
 		list);
 	spin_unlock_bh(&ctx->lock);
 
+	if (atomic_read(&req->num_in_acked) < req->num_in_map_entries)
+		goto end;
+	atomic_set(&req->num_in_acked, 0);
 	CAM_DBG(CAM_REQ, "Apply request %lld in substate %d ctx %u",
 		req->request_id, ctx_isp->substate_activated, ctx->ctx_id);
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -4573,10 +4582,43 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	return rc;
 }
 
+
+static void cam_isp_ctx_sync_callback(int32_t sync_obj, int status, void *data)
+{
+
+	struct cam_ctx_request *req = data;
+	struct cam_context *ctx = NULL;
+	struct cam_isp_context *ctx_isp = NULL;
+
+	if (!req) {
+		CAM_ERR(CAM_CTXT, "Invalid input param");
+		return;
+	}
+
+	ctx = req->ctx;
+	if (!ctx) {
+		CAM_ERR(CAM_CTXT, "Invalid ctx for req %llu", req->request_id);
+		return;
+	}
+
+	ctx_isp = (struct cam_isp_context *)ctx->ctx_priv;
+	if (!ctx_isp) {
+		CAM_ERR(CAM_CTXT, "Invalid ctx_isp for req %llu",
+				req->request_id);
+		return;
+	}
+
+	if (ctx_isp->offline_context && atomic_read(&ctx_isp->rxd_epoch) &&
+		(atomic_inc_return(&req->num_in_acked) ==
+			req->num_in_map_entries)) {
+		__cam_isp_ctx_schedule_apply_req_offline(ctx_isp);
+	}
+}
+
 static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_context *ctx, struct cam_config_dev_cmd *cmd)
 {
-	int rc = 0, i;
+	int rc = 0, i, j;
 	struct cam_ctx_request           *req = NULL;
 	struct cam_isp_ctx_req           *req_isp;
 	uintptr_t                         packet_addr;
@@ -4590,6 +4632,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_hw_cmd_args           hw_cmd_args;
 	struct cam_isp_hw_cmd_args       isp_hw_cmd_args;
 	uint32_t                         packet_opcode = 0;
+	int32_t s_id = 0;
 
 	CAM_DBG(CAM_ISP, "get free request object......");
 
@@ -4702,6 +4745,10 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	req_isp->cdm_reset_before_apply = false;
 	req_isp->hw_update_data.packet = packet;
 
+	req->num_out_map_entries = cfg.num_out_map_entries;
+	req->num_in_map_entries = cfg.num_in_map_entries;
+	atomic_set(&req->num_in_acked, 0);
+
 	for (i = 0; i < req_isp->num_fence_map_out; i++) {
 		rc = cam_sync_get_obj_ref(req_isp->fence_map_out[i].sync_id);
 		if (rc) {
@@ -4736,6 +4783,42 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		}
 	} else {
 		if (ctx_isp->offline_context) {
+			if (req->num_in_map_entries > 0) {
+				for (j = 0; j < req->num_in_map_entries; j++) {
+					s_id = req_isp->fence_map_in[j].sync_id;
+					rc = cam_sync_check_valid(s_id);
+					if (rc) {
+						spin_lock(&ctx->lock);
+						list_del_init(&req->list);
+						spin_unlock(&ctx->lock);
+						CAM_ERR(CAM_CTXT,
+							"invalid in map sync object %d",
+							s_id);
+						goto put_ref;
+					}
+				}
+
+				for (j = 0; j < req->num_in_map_entries; j++) {
+					s_id = req_isp->fence_map_in[j].sync_id;
+					rc = cam_sync_register_callback(
+						cam_isp_ctx_sync_callback,
+						(void *)req, s_id);
+					if (rc) {
+						CAM_ERR(CAM_CTXT,
+							"[%s][%d] Failed register fence cb: %d ret = %d",
+							ctx->dev_name,
+							ctx->ctx_id,
+							s_id, rc);
+						spin_lock(&ctx->lock);
+						list_del_init(&req->list);
+						spin_unlock(&ctx->lock);
+						goto put_ref;
+					}
+					CAM_DBG(CAM_CTXT,
+						"register in fence cb: %d ret = %d",
+						s_id, rc);
+				}
+			}
 			__cam_isp_ctx_enqueue_request_in_order(ctx, req);
 		} else if ((ctx->state != CAM_CTX_FLUSHED) &&
 			(ctx->state >= CAM_CTX_READY) &&
@@ -4765,11 +4848,6 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	CAM_DBG(CAM_REQ,
 		"Preprocessing Config req_id %lld successful on ctx %u",
 		req->request_id, ctx->ctx_id);
-
-	if (ctx_isp->offline_context && atomic_read(&ctx_isp->rxd_epoch)) {
-		__cam_isp_ctx_schedule_apply_req_offline(ctx_isp);
-	}
-
 	return rc;
 
 put_ref:
@@ -5496,7 +5574,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	list_del_init(&req->list);
 
 	if (ctx_isp->offline_context) {
-		list_add_tail(&req->list, &ctx->free_req_list);
+		list_add_tail(&req->list, &ctx->pending_req_list);
 		atomic_set(&ctx_isp->rxd_epoch, 1);
 		CAM_DBG(CAM_REQ,
 			"Move pending req: %lld to free list(cnt: %d) offline ctx %u",
