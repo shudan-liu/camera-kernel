@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_BUS_R_VER1_H_
@@ -68,6 +69,10 @@ struct cam_vfe_bus_rd_ver1_vfe_bus_hw_info {
 	enum cam_vfe_bus_rd_ver1_vfe_bus_rd_type  vfe_bus_rd_type;
 	uint32_t                            max_width;
 	uint32_t                            max_height;
+	uint32_t                            max_clk_threshold;
+	uint32_t                            nom_clk_threshold;
+	uint32_t                            min_clk_threshold;
+	uint32_t                            bytes_per_clk;
 };
 
 /*
