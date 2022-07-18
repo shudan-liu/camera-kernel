@@ -1710,14 +1710,24 @@ static int __cam_isp_ctx_schedule_apply_req_offline(
 	return rc;
 }
 
+static int __cam_isp_ctx_offline_eof_in_activated_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	int rc;
+
+	rc = __cam_isp_ctx_schedule_apply_req_offline(ctx_isp);
+
+	if (ctx_isp->offline_context)
+		__cam_isp_ctx_schedule_start_offline(ctx_isp);
+	return rc;
+}
+
 static int __cam_isp_ctx_offline_epoch_in_activated_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_ctx_request *req, *req_temp;
 	uint64_t request_id = 0;
-	int rc = 0;
-
 
 	CAM_DBG(CAM_ISP, "SOF frame %lld ctx %u", ctx_isp->frame_id,
 		ctx->ctx_id);
@@ -1730,11 +1740,6 @@ static int __cam_isp_ctx_offline_epoch_in_activated_state(
 		}
 	}
 
-	rc = __cam_isp_ctx_schedule_apply_req_offline(ctx_isp);
-
-	if (ctx_isp->offline_context)
-		__cam_isp_ctx_schedule_start_offline(ctx_isp);
-
 	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
@@ -1742,7 +1747,7 @@ static int __cam_isp_ctx_offline_epoch_in_activated_state(
 		CAM_ISP_STATE_CHANGE_TRIGGER_EPOCH,
 		request_id);
 
-	return rc;
+	return 0;
 }
 
 static int __cam_isp_ctx_reg_upd_in_epoch_bubble_state(
@@ -3171,7 +3176,7 @@ static struct cam_isp_ctx_irq_ops
 			NULL,
 			NULL,
 			__cam_isp_ctx_offline_epoch_in_activated_state,
-			NULL,
+			__cam_isp_ctx_offline_eof_in_activated_state,
 			__cam_isp_ctx_buf_done_in_epoch,
 		},
 	},

@@ -6832,55 +6832,6 @@ static int cam_ife_mgr_util_insert_frame_header(
 	return rc;
 }
 
-static int cam_ife_mgr_update_offline_go(
-			struct cam_ife_hw_concrete_ctx    *ctx,
-			struct cam_hw_prepare_update_args *prepare,
-			struct cam_kmd_buf_info           *kmd_buf)
-{
-	int i;
-	int rc = 0;
-
-	if (prepare->num_out_map_entries && prepare->num_in_map_entries &&
-		ctx->is_offline) {
-		/* add reg update commands */
-		for (i = 0; i < ctx->num_base; i++) {
-			/* Add change base */
-			rc = cam_isp_add_change_base(prepare,
-				&ctx->res_list_ife_src,
-				ctx->base[i].idx, kmd_buf);
-			if (rc) {
-				CAM_ERR(CAM_ISP,
-					"Failed in change base adding reg_update cmd i=%d, idx=%d, rc=%d",
-					i, ctx->base[i].idx, rc);
-				return rc;
-			}
-
-			/*Add reg update */
-			rc = cam_isp_add_reg_update(prepare,
-				&ctx->res_list_ife_src,
-				ctx->base[i].idx, kmd_buf);
-			if (rc) {
-				CAM_ERR(CAM_ISP,
-					"Add Reg_update cmd Failed i=%d, idx=%d, rc=%d",
-					i, ctx->base[i].idx, rc);
-				return rc;
-			}
-		}
-
-		/* add go_cmd for offline context */
-		for (i = 0; i < ctx->num_base; i++) {
-			rc = cam_isp_add_go_cmd(prepare,
-				&ctx->res_list_ife_in_rd,
-				ctx->base[i].idx, kmd_buf);
-			if (rc)
-				CAM_ERR(CAM_ISP,
-					"Add GO_CMD faled i: %d, idx: %d, rc: %d",
-					i, ctx->base[i].idx, rc);
-		}
-	}
-	return rc;
-}
-
 static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 	void *prepare_hw_update_args)
 {
@@ -7048,10 +6999,6 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		goto end;
 	}
 
-	rc = cam_ife_mgr_update_offline_go(ctx, prepare, &kmd_buf);
-	if (rc)
-		goto end;
-
 	/*
 	 * reg update will be done later for the initial configure.
 	 * need to plus one to the op_code and only take the lower
@@ -7066,7 +7013,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 
 		if ((!prepare->num_reg_dump_buf) || (prepare->num_reg_dump_buf >
 			CAM_REG_DUMP_MAX_BUF_ENTRIES))
-			goto end;
+			goto offline;
 
 		if (!ctx->num_reg_dump_buf) {
 			ctx->num_reg_dump_buf = prepare->num_reg_dump_buf;
@@ -7084,7 +7031,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 				prepare_hw_data->num_reg_dump_buf);
 		}
 
-		goto end;
+		goto offline;
 	} else {
 		prepare_hw_data->packet_opcode_type = CAM_ISP_PACKET_UPDATE_DEV;
 		prepare_hw_data->num_reg_dump_buf = prepare->num_reg_dump_buf;
@@ -7127,6 +7074,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		}
 	}
 
+offline:
 	/* add go_cmd for offline context */
 	if (prepare->num_out_map_entries && prepare->num_in_map_entries &&
 		ctx->is_offline) {
