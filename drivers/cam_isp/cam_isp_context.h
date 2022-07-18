@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_CONTEXT_H_
@@ -268,8 +269,6 @@ struct cam_isp_context_event_record {
  * @apply_in_progress          Whether request apply is in progress
  * @init_timestamp:            Timestamp at which this context is initialized
  * @isp_device_type:           ISP device type
- * @rxd_epoch:                 Indicate whether epoch has been received. Used to
- *                             decide whether to apply request in offline ctx
  * @workq:                     Worker thread for offline ife
  * @trigger_id:                ID provided by CRM for each ctx on the link
  * @last_bufdone_err_apply_req_id:  last bufdone error apply request id
@@ -316,7 +315,6 @@ struct cam_isp_context {
 	atomic_t                              apply_in_progress;
 	unsigned int                          init_timestamp;
 	uint32_t                              isp_device_type;
-	atomic_t                              rxd_epoch;
 	struct cam_req_mgr_core_workq        *workq;
 	int32_t                               trigger_id;
 	int64_t                               last_bufdone_err_apply_req_id;

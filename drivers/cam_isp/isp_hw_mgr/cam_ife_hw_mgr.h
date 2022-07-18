@@ -28,6 +28,12 @@
 #define CAM_IFE_CSID_RDI_MAX                  4
 
 
+#define CAM_IFE_HW_STATE_STOPPED  0
+#define CAM_IFE_HW_STATE_STARTING 1
+#define CAM_IFE_HW_STATE_STARTED  2
+#define CAM_IFE_HW_STATE_BUSY     3
+#define CAM_IFE_HW_STATE_STOPPING 4
+
 /**
  * struct cam_ife_hw_mgr_debug - contain the debug information
  *
@@ -52,67 +58,51 @@ struct cam_ife_hw_mgr_debug {
 	bool           disable_ubwc_comp;
 };
 
-/* enum cam_ife_hw_mgr_res_type - manager resource node type */
-enum cam_ife_hw_mgr_res_type {
-	CAM_IFE_HW_MGR_RES_UNINIT,
-	CAM_IFE_HW_MGR_RES_ROOT,
-	CAM_IFE_HW_MGR_RES_CID,
-	CAM_IFE_HW_MGR_RES_CSID,
-	CAM_IFE_HW_MGR_RES_IFE_SRC,
-	CAM_IFE_HW_MGR_RES_IFE_IN_RD,
-	CAM_IFE_HW_MGR_RES_IFE_OUT,
-};
-
-
-/**
- * struct cam_vfe_hw_mgr_res- HW resources for the VFE manager
- *
- * @list:                used by the resource list
- * @res_type:            IFE manager resource type
- * @res_id:              resource id based on the resource type for root or
- *                       leaf resource, it matches the KMD interface port id.
- *                       For branch resrouce, it is defined by the ISP HW
- *                       layer
- * @hw_res:              hw layer resource array. For single VFE, only one VFE
- *                       hw resrouce will be acquired. For dual VFE, two hw
- *                       resources from different VFE HW device will be
- *                       acquired
- * @parent:              point to the parent resource node.
- * @children:            point to the children resource nodes
- * @child_num:           numbe of the child resource node.
- * @is_secure            informs whether the resource is in secure mode or not
- *
- */
-struct cam_ife_hw_mgr_res {
-	struct list_head                 list;
-	enum cam_ife_hw_mgr_res_type     res_type;
-	uint32_t                         res_id;
-	uint32_t                         is_dual_vfe;
-	struct cam_isp_resource_node    *hw_res[CAM_ISP_HW_SPLIT_MAX];
-
-	/* graph */
-	struct cam_ife_hw_mgr_res       *parent;
-	struct cam_ife_hw_mgr_res       *child[CAM_IFE_HW_OUT_RES_MAX];
-	uint32_t                         num_children;
-	uint32_t                         is_secure;
-};
-
-
-
 /**
  * struct cam_vfe_hw_mgr_ctx - IFE HW manager Context object
+ *
+ * concr_ctx:             HW Context currently used from this manager context
+ * hw_mgr:                IFE hw mgr which owns this context
+ * event_cb:              event callbacks
+ * cb_priv:               event callbacks data
+ * ctx_in_use:            indicates if context is active
+ * is_offline:            indicates if context is used for offline processing
+ * ctx_idx:               index of this context
+ * stop_done_complete:    completion signaled when context is ceased operation
+ * is_stopping:           if context is about to cease operation
+ *
+ */
+struct cam_ife_hw_mgr_ctx {
+	struct cam_ife_hw_concrete_ctx *concr_ctx;
+	struct cam_ife_hw_mgr          *hw_mgr;
+	cam_hw_event_cb_func            event_cb[CAM_ISP_HW_EVENT_MAX];
+	void                           *cb_priv;
+	uint32_t                        ctx_in_use;
+	bool                            is_offline;
+	uint32_t                        ctx_idx;
+	struct completion               stop_done_complete;
+	bool                            is_stopping;
+};
+
+/**
+ * struct cam_ife_hw_concrete_ctx - IFE HW Context object
  *
  * @list:                   used by the ctx list.
  * @common:                 common acquired context data
  * @ctx_index:              acquired context id.
  * @master_hw_idx:          hw index for master core
  * @slave_hw_idx:           hw index for slave core
+ * @acquired_hw_id:         hw id that this context acquired
+ * @served_ctx_id:          contains currently and next served context ids
+ * @served_ctx_r:           index pointing to currently served context id
+ * @served_ctx_w:           index pointing to next served context id
  * @hw_mgr:                 IFE hw mgr which owns this context
  * @ctx_in_use:             flag to tell whether context is active
  * @res_list_tpg:           TPG resource list
  * @res_list_ife_in:        Starting resource(TPG,PHY0, PHY1...) Can only be
  *                          one.
- * @res_list_csid:          CSID resource list
+ * @res_list_ife_cid:       CID resource list
+ * @res_list_ife_csid:      CSID resource list
  * @res_list_ife_src:       IFE input resource list
  * @res_list_ife_in_rd      IFE input resource list for read path
  * @res_list_ife_out:       IFE output resoruces array
@@ -155,14 +145,22 @@ struct cam_ife_hw_mgr_res {
  * @hw_enabled              Array to indicate active HW
  * @internal_cdm            Indicate whether context uses internal CDM
  * @pf_mid_found            in page fault, mid found for this ctx.
+ * @ctx_state               Indicates context state
  */
-struct cam_ife_hw_mgr_ctx {
+
+struct cam_ife_hw_concrete_ctx {
 	struct list_head                list;
-	struct cam_isp_hw_mgr_ctx       common;
+	//struct cam_isp_hw_mgr_ctx       common;
+
+	void                           *tasklet_info;
 
 	uint32_t                        ctx_index;
 	uint32_t                        master_hw_idx;
 	uint32_t                        slave_hw_idx;
+	uint32_t                        acquired_hw_id;
+	uint32_t                        served_ctx_id[2];
+	uint32_t                        served_ctx_r;
+	uint32_t                        served_ctx_w;
 	struct cam_ife_hw_mgr          *hw_mgr;
 	uint32_t                        ctx_in_use;
 
@@ -210,30 +208,86 @@ struct cam_ife_hw_mgr_ctx {
 	bool                            dsp_enabled;
 	bool                            internal_cdm;
 	bool                            pf_mid_found;
+	atomic_t                        ctx_state;
 	uint32_t                        acq_common_args_ver;
 };
 
 /**
- * struct cam_ife_hw_mgr - IFE HW Manager
+ * struct cam_ife_offline_hw - Offline ife context allocation information
  *
- * @mgr_common:            common data for all HW managers
- * @csid_devices;          csid device instances array. This will be filled by
- *                         HW manager during the initialization.
- * @ife_devices:           IFE device instances array. This will be filled by
- *                         HW layer during initialization
- * @ctx_mutex:             mutex for the hw context pool
+ * @ctx_idx:                context index
+ * @custom_enabled:         update the flag if context is connected to custom HW
+ * @use_frame_header_ts     obtain qtimer ts using frame header
+ * @acquired_hw_id:         Acquired hardware mask
+ * @acquired_hw_path:       Acquired path mask for an input
+ *                          if input splits into multiple paths,
+ *                          its updated per hardware
+ * valid_acquired_hw:       Valid num of acquired hardware
+ * @ife_ctx:                HW context connected to that HW
+ *
+ */
+struct cam_ife_offline_hw {
+	uint32_t                        ctx_idx;
+	bool                            custom_enabled;
+	bool                            use_frame_header_ts;
+	uint32_t                        acquired_hw_id[CAM_MAX_ACQ_RES];
+	uint32_t                        acquired_hw_path[CAM_MAX_ACQ_RES][
+						CAM_MAX_HW_SPLIT];
+	uint32_t                        valid_acquired_hw;
+	struct cam_ife_hw_concrete_ctx *ife_ctx;
+};
+
+
+/**
+ * struct cam_ife_mgr_offline_in_queue - Offline IFE input request queue element
+ *
+ * @list:                   list private data;
+ * @request_id:             request id
+ * @ctx_idx:                context owning this request
+ * @hw_id:                  ID of hardware core servicing this request
+ * @prepare:                prepare requset data
+ * @cfg:                    config request data
+ * @ready:                  indicates if request is ready to be processed
+ *
+ */
+struct cam_ife_mgr_offline_in_queue {
+	struct list_head                  list;
+	uint64_t                          request_id;
+	uint32_t                          ctx_idx;
+	uint32_t                          hw_id;
+	struct cam_hw_prepare_update_args prepare;
+	struct cam_hw_config_args         cfg;
+	bool                              ready;
+};
+
+/**
+ * struct cam_ife_hw_mgr -     IFE HW Manager
+ *
+ * @mgr_common:                common data for all HW managers
+ * @csid_devices;              csid device instances array. This will be filled by
+ *                             HW manager during the initialization.
+ * @ife_devices:               IFE device instances array. This will be filled by
+ *                             HW layer during initialization
+ * @ctx_mutex:                 mutex for the hw context pool
  * @wm_cfg_mutex:              mutex for updating the wm configuration in CDtM
- * @free_ctx_list:         free hw context list
- * @used_ctx_list:         used hw context list
- * @ctx_pool:              context storage
- * @ife_csid_dev_caps      csid device capability stored per core
- * @ife_dev_caps           ife device capability per core
- * @work q                 work queue for IFE hw manager
- * @debug_cfg              debug configuration
- * @ctx_lock               context lock
- * @support_consumed_addr  indicate whether hw supports last consumed address
- * @hw_pid_support         hw pid support for this target
- * @max_vfe_out_res_type   max ife out res type value from hw
+ * @active_ctx_cnt:            number of active contexts
+ * @free_ctx_list:             free hw context list
+ * @used_ctx_list:             used hw context list
+ * @ctx_pool:                  context storage
+ * @virt_ctx_pool:             HW manager context storage
+ * @ife_csid_dev_caps          csid device capability stored per core
+ * @ife_dev_caps               ife device capability per core
+ * @work q                     work queue for IFE hw manager
+ * @debug_cfg                  debug configuration
+ * @ctx_lock                   context lock
+ * @num_acquired_offline_ctx:  number of acquired offline contexts
+ * @acquired_hw_pool:          offline contexts acquire data
+ * @input_queue:               input request queue for offline processing
+ * @in_proc_queue:             currently processed requests queuse
+ * @starting_offline_cnt:      number of offline HWs that are currently starting
+ * @support_consumed_addr      indicate whether hw supports last consumed address
+ * @hw_pid_support             hw pid support for this target
+ * @max_vfe_out_res_type       max ife out res type value from hw
  */
 struct cam_ife_hw_mgr {
 	struct cam_isp_hw_mgr          mgr_common;
@@ -247,7 +301,8 @@ struct cam_ife_hw_mgr {
 	atomic_t                       active_ctx_cnt;
 	struct list_head               free_ctx_list;
 	struct list_head               used_ctx_list;
-	struct cam_ife_hw_mgr_ctx      ctx_pool[CAM_IFE_CTX_MAX];
+	struct cam_ife_hw_concrete_ctx ctx_pool[CAM_IFE_CTX_MAX];
+	struct cam_ife_hw_mgr_ctx      virt_ctx_pool[CAM_IFE_CTX_MAX];
 
 	struct cam_ife_csid_hw_caps    ife_csid_dev_caps[
 						CAM_IFE_CSID_HW_NUM_MAX];
@@ -255,6 +310,11 @@ struct cam_ife_hw_mgr {
 	struct cam_req_mgr_core_workq *workq;
 	struct cam_ife_hw_mgr_debug    debug_cfg;
 	spinlock_t                     ctx_lock;
+	atomic_t                       num_acquired_offline_ctx;
+	struct cam_ife_offline_hw      acquired_hw_pool[CAM_IFE_CTX_MAX];
+	struct cam_ife_mgr_offline_in_queue   input_queue;
+	struct cam_ife_mgr_offline_in_queue   in_proc_queue;
+	uint32_t   starting_offline_cnt;
 	bool                           support_consumed_addr;
 	bool                           hw_pid_support;
 	uint32_t                       max_vfe_out_res_type;
@@ -272,7 +332,7 @@ struct cam_ife_hw_mgr {
 struct cam_ife_hw_event_recovery_data {
 	uint32_t                   error_type;
 	uint32_t                   affected_core[CAM_ISP_HW_NUM_MAX];
-	struct cam_ife_hw_mgr_ctx *affected_ctx[CAM_IFE_CTX_MAX];
+	struct cam_ife_hw_concrete_ctx *affected_ctx[CAM_IFE_CTX_MAX];
 	uint32_t                   no_of_context;
 };
 
