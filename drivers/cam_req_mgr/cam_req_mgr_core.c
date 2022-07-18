@@ -3368,6 +3368,14 @@ static int __cam_req_mgr_check_for_dual_trigger(
 		link->trigger_cnt[0][trigger] = 0;
 		link->trigger_cnt[1][trigger] = 0;
 		CAM_DBG(CAM_CRM, "Reset the trigger cnt");
+
+        // To place proper condition for SHDR2 + Dual VC usecase
+        // When IFE full and IFE Lite is used together.
+        {
+            rc=0;
+            CAM_INFO(CAM_CRM, "VCDT KERNEL, forcing return successful for dual trigger");
+        }
+
 		return rc;
 	}
 
