@@ -21,6 +21,7 @@
 #include "cam_ife_csid680_110.h"
 #include "cam_ife_csid780.h"
 #include "cam_ife_csid650.h"
+#include "cam_ife_csid636.h"
 
 #define CAM_CSID_DRV_NAME                    "csid"
 
@@ -84,6 +85,11 @@ static struct cam_ife_csid_core_info cam_ife_csid650_hw_info = {
 	.sw_version  = CAM_IFE_CSID_VER_2_0,
 };
 
+static struct cam_ife_csid_core_info cam_ife_csid636_hw_info = {
+	.csid_reg = &cam_ife_csid_636_reg_info,
+	.sw_version  = CAM_IFE_CSID_VER_2_0,
+};
+
 static const struct of_device_id cam_ife_csid_dt_match[] = {
 
 	{
@@ -133,6 +139,10 @@ static const struct of_device_id cam_ife_csid_dt_match[] = {
 	{
 		.compatible = "qcom,csid650",
 		.data = &cam_ife_csid650_hw_info,
+	},
+	{
+		.compatible = "qcom,csid636",
+		.data = &cam_ife_csid636_hw_info,
 	},
 
 	{},
