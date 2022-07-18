@@ -74,14 +74,16 @@ struct cam_ife_hw_mgr_debug {
  */
 struct cam_ife_hw_mgr_ctx {
 	struct cam_ife_hw_concrete_ctx *concr_ctx;
-	struct cam_ife_hw_mgr          *hw_mgr;
-	cam_hw_event_cb_func            event_cb[CAM_ISP_HW_EVENT_MAX];
-	void                           *cb_priv;
-	uint32_t                        ctx_in_use;
-	bool                            is_offline;
-	uint32_t                        ctx_idx;
-	struct completion               stop_done_complete;
-	bool                            is_stopping;
+	struct cam_ife_hw_mgr                *hw_mgr;
+	cam_hw_event_cb_func                  event_cb[CAM_ISP_HW_EVENT_MAX];
+	void                                 *cb_priv;
+	uint32_t                              ctx_in_use;
+	bool                                  is_offline;
+	uint32_t                              ctx_idx;
+	struct completion                     stop_done_complete;
+	bool                                  is_stopping;
+	uint32_t                              num_in_ports;
+	struct cam_isp_in_port_generic_info  *in_ports;
 };
 
 /**
