@@ -1758,6 +1758,19 @@ end:
 	return rc;
 }
 
+static int __cam_isp_ctx_offline_epoch_in_bubble_state(
+	struct cam_isp_context *ctx_isp, void *evt_data)
+{
+	int rc = 0;
+
+	CAM_DBG(CAM_ISP, "Offline IFE RUP missed!");
+	rc = __cam_isp_ctx_reg_upd_in_applied_state(ctx_isp, evt_data);
+	if (!rc)
+		rc = __cam_isp_ctx_offline_epoch_in_activated_state(ctx_isp,
+				evt_data);
+	return rc;
+}
+
 static int __cam_isp_ctx_notify_sof_in_activated_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
@@ -3096,7 +3109,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_handle_error,
 			__cam_isp_ctx_sof_in_activated_state,
 			__cam_isp_ctx_reg_upd_in_applied_state,
-			NULL,
+			__cam_isp_ctx_offline_epoch_in_bubble_state,
 			NULL,
 			__cam_isp_ctx_buf_done_in_applied,
 		},
