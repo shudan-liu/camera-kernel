@@ -519,14 +519,12 @@ static int cam_vfe_camif_ver3_resource_start(
 	camif_res->res_state = CAM_ISP_RESOURCE_STATE_STREAMING;
 
 	/* Reg Update */
-	//if (!rsrc_data->is_offline) {
-		cam_io_w_mb(rsrc_data->reg_data->reg_update_cmd_data,
-			rsrc_data->mem_base +
-			rsrc_data->camif_reg->reg_update_cmd);
-		CAM_DBG(CAM_ISP, "VFE:%d CAMIF RUP val:0x%X",
-			camif_res->hw_intf->hw_idx,
-			rsrc_data->reg_data->reg_update_cmd_data);
-	//}
+	cam_io_w_mb(rsrc_data->reg_data->reg_update_cmd_data,
+		rsrc_data->mem_base +
+		rsrc_data->camif_reg->reg_update_cmd);
+	CAM_DBG(CAM_ISP, "VFE:%d CAMIF RUP val:0x%X",
+		camif_res->hw_intf->hw_idx,
+		rsrc_data->reg_data->reg_update_cmd_data);
 
 	/* disable sof irq debug flag */
 	rsrc_data->enable_sof_irq_debug = false;

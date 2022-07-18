@@ -3718,6 +3718,55 @@ static int __cam_isp_ctx_flush_req(struct cam_context *ctx,
 	return 0;
 }
 
+static int __cam_isp_ctx_flush_offline (struct cam_context *ctx,
+	struct cam_flush_dev_cmd *cmd)
+{
+	struct cam_isp_context           *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+	struct cam_req_mgr_flush_request  flush_req;
+	struct cam_hw_cmd_args            hw_cmd_args;
+	struct cam_isp_hw_cmd_args        isp_hw_cmd_args;
+	int                               rc = 0;
+
+	memset(&hw_cmd_args, 0, sizeof(hw_cmd_args));
+	memset(&flush_req, 0, sizeof(flush_req));
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_FLUSH_OFFLINE;
+	switch (cmd->flush_type) {
+	case CAM_FLUSH_TYPE_REQ:
+		flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ;
+		isp_hw_cmd_args.u.req_id = cmd->req_id;
+		break;
+	case CAM_FLUSH_TYPE_ALL:
+		flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_ALL;
+		isp_hw_cmd_args.u.req_id = -1;
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Invalid flush command");
+		return -EINVAL;
+	}
+
+	hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "HW command failed");
+		return rc;
+	}
+
+	flush_req.req_id = cmd->req_id;
+	spin_lock_bh(&ctx->lock);
+	if (__cam_isp_ctx_flush_req(ctx, &ctx->wait_req_list, &flush_req))
+		CAM_ERR(CAM_ISP, "Flushing wait list failed!");
+	if (__cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req))
+		CAM_ERR(CAM_ISP, "Flushing pending list failed!");
+	if (__cam_isp_ctx_flush_req(ctx, &ctx->active_req_list, &flush_req))
+		CAM_ERR(CAM_ISP, "Flushing active list failed!");
+	spin_unlock_bh(&ctx->lock);
+	return rc;
+}
+
 static int __cam_isp_ctx_flush_req_in_top_state(
 	struct cam_context               *ctx,
 	struct cam_req_mgr_flush_request *flush_req)
@@ -4657,11 +4706,7 @@ static void cam_isp_ctx_sync_callback(int32_t sync_obj, int status, void *data)
 	struct cam_ctx_request *req = data;
 	struct cam_context *ctx = NULL;
 	struct cam_isp_context *ctx_isp = NULL;
-	struct cam_ctx_request *req_f;
-	struct cam_ctx_request *req_temp;
-	struct cam_isp_ctx_req *req_isp;
-	int i;
-	int rc;
+	struct cam_req_mgr_flush_request  flush_req;
 
 	if (!req) {
 		CAM_ERR(CAM_CTXT, "Invalid input param");
@@ -4682,28 +4727,19 @@ static void cam_isp_ctx_sync_callback(int32_t sync_obj, int status, void *data)
 	}
 
 	if (status != CAM_SYNC_STATE_SIGNALED_SUCCESS) {
-		list_for_each_entry_safe(req_f, req_temp,
-						&ctx->pending_req_list, list) {
-			if (req_f->request_id != req->request_id)
-				continue;
-			list_del_init(&req_f->list);
-			list_add_tail(&req_f->list, &ctx->free_req_list);
-			req_isp = (struct cam_isp_ctx_req *) req_f->req_priv;
-			CAM_DBG(CAM_CTXT,
-				"Input sync for req id %llu signalled with error %d. Drop the request",
-				req->request_id, status);
-			for (i = 0; i < req_isp->num_fence_map_out; i++) {
-				rc = cam_sync_signal(
-					req_isp->fence_map_out[i].sync_id,
-					CAM_SYNC_STATE_SIGNALED_ERROR,
-					CAM_SYNC_ISP_EVENT_BUBBLE);
-				if (rc) {
-					CAM_ERR_RATE_LIMIT(CAM_ISP,
-						"signal fence failed");
-				}
-			}
-			return;
+		CAM_DBG(CAM_CTXT,
+			"Input sync for req id %llu signalled with error %d. Drop the request",
+			req->request_id, status);
+		memset(&flush_req, 0, sizeof(flush_req));
+		flush_req.type = CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ;
+		flush_req.req_id = req->request_id;
+		spin_lock_bh(&ctx->lock);
+		if (__cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list,
+					&flush_req)) {
+			CAM_ERR(CAM_CTXT, "Error while flush req %llu",
+				req->request_id);
 		}
+		spin_unlock_bh(&ctx->lock);
 	}
 
 	if (ctx_isp->offline_context &&
@@ -6153,6 +6189,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_isp_ctx_config_dev_in_top_state,
 			.release_hw = __cam_isp_ctx_release_hw_in_activated,
 			.shutdown_dev = __cam_isp_shutdown_dev,
+			.flush_dev = __cam_isp_ctx_flush_offline,
 		},
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_activated,
