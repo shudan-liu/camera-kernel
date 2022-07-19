@@ -207,6 +207,52 @@ int cam_sensor_lite_publish_dev_info(
 	return rc;
 }
 
+static int cam_sensor_lite_handle_sof(
+	struct sensor_lite_device *dev,
+	struct cam_req_mgr_no_crm_trigger_notify *notify)
+{
+	int i = 0, rc = 0;
+	struct sensor_lite_request *req                   = NULL;
+
+	if (!dev || !notify) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid arguments ");
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_SENSOR_LITE,
+				"[%d] Got notify for frame [%lld]",
+				dev->soc_info.index,
+				notify->frame_id);
+
+	if (!list_empty(&(dev->waiting_request_q))) {
+		req = list_first_entry(&(dev->waiting_request_q),
+				struct sensor_lite_request, list);
+		list_del(&req->list);
+		for (i = 0; i < req->num_cmds; i++) {
+			rc = __send_pkt(dev,
+					req->payload[i]);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR_LITE,
+							"[%d] Apply failed req[%lld] payload[%d]",
+							dev->soc_info.index,
+							req->request_id,
+							i);
+				break;
+			}
+		}
+		dev->waiting_request_q_depth--;
+		free_request_object(
+			dev,
+			req);
+	} else {
+		CAM_INFO(CAM_SENSOR_LITE,
+				"[%d] Delay in adding request to waiting queue[%lld]",
+				dev->soc_info.index,
+				notify->frame_id);
+	}
+	return rc;
+}
+
 int cam_sensor_lite_setup_link(
 	struct cam_req_mgr_core_dev_link_setup *link)
 {
@@ -228,11 +274,13 @@ int cam_sensor_lite_setup_link(
 	if (link->link_enable) {
 		sensor_lite_dev->crm_intf.link_hdl = link->link_hdl;
 		sensor_lite_dev->crm_intf.crm_cb = link->crm_cb;
+		sensor_lite_dev->sof_notify_handler = cam_sensor_lite_handle_sof;
 		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] CRM enable link done",
 				sensor_lite_dev->soc_info.index);
 	} else {
 		sensor_lite_dev->crm_intf.link_hdl = -1;
 		sensor_lite_dev->crm_intf.crm_cb = NULL;
+		sensor_lite_dev->sof_notify_handler = NULL;
 		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] CRM disable link done",
 				sensor_lite_dev->soc_info.index);
 	}

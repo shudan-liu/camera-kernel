@@ -100,6 +100,10 @@ struct sensor_lite_device {
 	struct list_head applied_request_q;
 	int    applied_request_q_depth;
 	int    waiting_request_q_depth;
+	/* register this handler to handle sof notify */
+	int   (*sof_notify_handler)(
+		struct sensor_lite_device *dev,
+		struct cam_req_mgr_no_crm_trigger_notify *notify);
 };
 
 /**
