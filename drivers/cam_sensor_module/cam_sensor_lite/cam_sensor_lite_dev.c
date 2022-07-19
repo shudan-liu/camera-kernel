@@ -319,6 +319,11 @@ static int cam_sensor_lite_component_bind(struct device *dev,
 
 	init_completion(&(sensor_lite_dev->complete));
 
+	INIT_LIST_HEAD(&(sensor_lite_dev->waiting_request_q));
+	INIT_LIST_HEAD(&(sensor_lite_dev->applied_request_q));
+	sensor_lite_dev->applied_request_q_depth = 0;
+	sensor_lite_dev->waiting_request_q_depth = 0;
+
 	rc = cam_sensor_lite_create_debugfs_entry(sensor_lite_dev);
 	if (rc < 0)
 		goto err_exit_1;

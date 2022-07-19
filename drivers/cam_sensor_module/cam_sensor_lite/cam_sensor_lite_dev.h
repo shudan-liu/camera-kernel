@@ -30,6 +30,9 @@
 #include "cam_context.h"
 
 #define CAMX_SENOSR_LITE_DEV_NAME "cam-sensor-lite-driver"
+
+#define MAX_PAYLOAD_CMDS 10
+
 /**
  * struct sensor_lite_crm_intf_params
  * @device_hdl: Device Handle
@@ -50,6 +53,18 @@ enum cam_sensor_lite_state {
 	CAM_SENSOR_LITE_STATE_ACQUIRE,
 	CAM_SENSOR_LITE_STATE_START,
 	CAM_SENSOR_LITE_STATE_STATE_MAX
+};
+
+struct sensor_lite_request {
+	uint64_t request_id;
+	uint32_t type;
+
+	/* This is allocated based on the request type*/
+	void     *payload[MAX_PAYLOAD_CMDS];
+	uint32_t num_cmds;
+
+	/* Add members as needed */
+	struct list_head  list;
 };
 
 struct sensor_lite_device {
@@ -79,6 +94,12 @@ struct sensor_lite_device {
 	uint32_t                              phy_id;
 	uint32_t                              dump_en;
 	uint32_t                              type;
+
+	/* Request Queue */
+	struct list_head waiting_request_q;
+	struct list_head applied_request_q;
+	int    applied_request_q_depth;
+	int    waiting_request_q_depth;
 };
 
 /**

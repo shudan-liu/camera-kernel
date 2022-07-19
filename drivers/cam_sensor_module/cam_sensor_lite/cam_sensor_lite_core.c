@@ -22,9 +22,105 @@
 #define HOST_DEST_CAM  0x1
 #define SLAVE_DEST_CAM 0x2
 
+/* This should be same as pipeline delay + 1*/
+#define MAX_APPLIED_QUEUE_DEPTH 0x2
+#define MAX_WAITING_QUEUE_DEPTH 0x8
+
+static int free_request_object(
+	struct sensor_lite_device         *sensor_lite_dev,
+	struct sensor_lite_request        *req)
+{
+	int i = 0;
+
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid sensor lite device");
+		return -EINVAL;
+	}
+
+	if (!req) {
+		CAM_ERR(CAM_SENSOR_LITE,
+			"SENSOR_LITE[%d] cannot free invalid request object",
+			sensor_lite_dev->soc_info.index);
+		return -EINVAL;
+	}
+
+	for (i = 0; i < req->num_cmds; i++)
+		kfree(req->payload[i]);
+
+	kfree(req);
+	return 0;
+}
+
+static int cam_sensor_lite_request_queue_cmd(
+	struct sensor_lite_device  *dev,
+	struct sensor_lite_request *req,
+	struct sensor_lite_header  *cmd)
+{
+
+	if (!dev || !req || !cmd) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid input ");
+		return -EINVAL;
+	}
+
+	if (req->num_cmds < MAX_PAYLOAD_CMDS) {
+		/*
+		 * Alloc and memcpy
+		 * needed as we are applying after the call returns
+		 **/
+		void *payload = kzalloc(cmd->size, GFP_KERNEL);
+
+		if (!payload) {
+			CAM_ERR(CAM_SENSOR_LITE, "[%d] alloc failed",
+					dev->soc_info.index);
+			return -ENOMEM;
+		}
+		memcpy(payload, cmd, cmd->size);
+		req->payload[req->num_cmds++]    = payload;
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"[%d] Queue[%d] overflow for request[%llu]",
+				dev->soc_info.index,
+				req->num_cmds,
+				req->request_id);
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static struct sensor_lite_request *sensor_lite_create_request_object(
+	struct sensor_lite_device         *sensor_lite_dev,
+	uint64_t                           request_id,
+	uint32_t                           type)
+{
+	int i = 0;
+	struct sensor_lite_request *req = NULL;
+
+	req = kzalloc(sizeof(struct sensor_lite_request), GFP_KERNEL);
+	if (!req) {
+		CAM_ERR(CAM_SENSOR_LITE,
+			"SENSOR_LITE[%d] Cannot create request object for req[%lld]",
+			sensor_lite_dev->soc_info.index,
+			request_id);
+		goto end;
+	}
+	req->type       = type;
+	req->request_id = request_id;
+	for (i = 0; i < MAX_PAYLOAD_CMDS; i++)
+		req->payload[i]    = NULL;
+	req->num_cmds  = 0;
+
+	INIT_LIST_HEAD(&(req->list));
+end:
+	return req;
+}
+
 void cam_sensor_lite_shutdown(
 	struct sensor_lite_device *sensor_lite_dev)
 {
+
+	struct list_head *pos = NULL, *pos_next = NULL;
+	struct sensor_lite_request *entry = NULL;
+
 	CAM_INFO(CAM_SENSOR_LITE, "Shutdown[%d] called",
 		sensor_lite_dev->soc_info.index);
 	if (sensor_lite_dev->state == CAM_SENSOR_LITE_STATE_INIT) {
@@ -59,6 +155,25 @@ void cam_sensor_lite_shutdown(
 	sensor_lite_dev->start_cmd = NULL;
 	kfree(sensor_lite_dev->stop_cmd);
 	sensor_lite_dev->stop_cmd = NULL;
+
+	mutex_lock(&sensor_lite_dev->mutex);
+	/* free the queues */
+	list_for_each_safe(pos,
+		pos_next, &sensor_lite_dev->applied_request_q) {
+		entry = list_entry(pos, struct sensor_lite_request, list);
+		list_del(&entry->list);
+		free_request_object(sensor_lite_dev, entry);
+		sensor_lite_dev->applied_request_q_depth--;
+	}
+
+	list_for_each_safe(pos,
+		pos_next, &sensor_lite_dev->waiting_request_q) {
+		entry = list_entry(pos, struct sensor_lite_request, list);
+		list_del(&entry->list);
+		sensor_lite_dev->waiting_request_q_depth--;
+		free_request_object(sensor_lite_dev, entry);
+	}
+	mutex_unlock(&sensor_lite_dev->mutex);
 }
 
 int cam_sensor_lite_publish_dev_info(
@@ -84,11 +199,11 @@ int cam_sensor_lite_publish_dev_info(
 
 	info->dev_id = CAM_REQ_MGR_DEVICE_SENSOR_LITE;
 	strlcpy(info->name, CAM_SENSOR_LITE_NAME, sizeof(info->name));
-	/* Hard code for now */
-	info->p_delay = 1;
+	/* Hard code for now, piline delay should come from umd */
+	info->p_delay = 2;
 	info->trigger = CAM_TRIGGER_POINT_SOF;
 
-	CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE PD delay:%d", info->p_delay);
+	CAM_DBG(CAM_SENSOR_LITE, "SENSOR_LITE PD delay:%d", info->p_delay);
 	return rc;
 }
 
@@ -125,18 +240,68 @@ int cam_sensor_lite_setup_link(
 	return 0;
 }
 
+static int apply_active_req_unsafe(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct cam_req_mgr_apply_request *apply)
+{
+	int i = 0, rc = 0;
+	struct sensor_lite_request *reapply_request = NULL;
+	struct list_head *pos = NULL, *pos_next = NULL;
+	struct sensor_lite_request *entry = NULL;
+
+	if (!apply || !sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid argument");
+		return -EINVAL;
+	}
+
+	if (list_empty(&(sensor_lite_dev->applied_request_q))) {
+		CAM_ERR(CAM_SENSOR_LITE, "applied queue is empty");
+		return -EINVAL;
+	}
+
+	list_for_each_safe(pos,
+				pos_next, &sensor_lite_dev->applied_request_q) {
+		entry = list_entry(pos, struct sensor_lite_request, list);
+		/* This is a re apply case */
+		if (entry->request_id == apply->request_id) {
+			reapply_request = entry;
+			break;
+		}
+	}
+
+	/* if reapply needs to be done */
+	if (reapply_request) {
+		CAM_DBG(CAM_SENSOR_LITE,
+			"SENSOR_LITE[%d] reapply request[%lld] matched",
+			sensor_lite_dev->soc_info.index,
+			apply->request_id);
+		/* send  packet */
+		for (i = 0; i < reapply_request->num_cmds; i++) {
+			__send_pkt(sensor_lite_dev,
+				reapply_request->payload[i]);
+		}
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE,
+				"[%d] could not find re apply request[%lld] in applied queue",
+				sensor_lite_dev->soc_info.index,
+				apply->request_id);
+		rc = -EINVAL;
+	}
+	return rc;
+}
+
 static int cam_sensor_lite_apply_req(
 	struct cam_req_mgr_apply_request *apply)
 {
-	int rc = 0;
-	struct sensor_lite_device *sensor_lite_dev = NULL;
+	int rc = 0, i = 0;
+	struct sensor_lite_device *sensor_lite_dev        = NULL;
+	struct sensor_lite_request *oldest_active_req     = NULL;
+	struct sensor_lite_request *req                   = NULL;
 
 	if (!apply) {
 		CAM_ERR(CAM_SENSOR_LITE, "invalid parameters");
 		return -EINVAL;
 	}
-	CAM_INFO(CAM_SENSOR_LITE, "Got Apply request from crm %lld",
-			apply->request_id);
 
 	sensor_lite_dev = (struct sensor_lite_device *)
 		cam_get_device_priv(apply->dev_hdl);
@@ -146,22 +311,197 @@ static int cam_sensor_lite_apply_req(
 		return -EINVAL;
 	}
 
-	/*TODO: apply request from crm */
+	CAM_DBG(CAM_SENSOR_LITE, "[%d] Got Apply request[%lld]",
+			sensor_lite_dev->soc_info.index,
+			apply->request_id);
+
+	mutex_lock(&sensor_lite_dev->mutex);
+	if (!list_empty(&(sensor_lite_dev->waiting_request_q))) {
+		req = list_first_entry(&(sensor_lite_dev->waiting_request_q),
+						struct sensor_lite_request, list);
+		/* First check the waiting request Queue */
+		if (req->request_id == apply->request_id) {
+			list_del(&req->list);
+			list_add_tail(&(req->list), &sensor_lite_dev->applied_request_q);
+			sensor_lite_dev->applied_request_q_depth++;
+			sensor_lite_dev->waiting_request_q_depth--;
+			CAM_DBG(CAM_SENSOR_LITE,
+					"SENSOR_LITE[%d] request[%lld] matched",
+					sensor_lite_dev->soc_info.index,
+					req->request_id);
+			/* send  packet */
+			for (i = 0; i < req->num_cmds; i++) {
+				__send_pkt(sensor_lite_dev,
+						req->payload[i]);
+			}
+		} else {
+			/* There is some mismatch in apply */
+			/* Check if this is a reapply call by iterating the active request q */
+			rc = apply_active_req_unsafe(sensor_lite_dev, apply);
+		}
+	} else {
+		CAM_DBG(CAM_SENSOR_LITE,
+					"[%d] Got apply for request[%lld] when waiting queue is empty",
+					sensor_lite_dev->soc_info.index,
+					apply->request_id);
+		rc = apply_active_req_unsafe(sensor_lite_dev, apply);
+	}
+
+	if (sensor_lite_dev->applied_request_q_depth >
+				MAX_APPLIED_QUEUE_DEPTH) {
+		oldest_active_req =
+			list_first_entry(&(sensor_lite_dev->applied_request_q),
+						struct sensor_lite_request, list);
+		list_del(&oldest_active_req->list);
+		sensor_lite_dev->applied_request_q_depth--;
+		CAM_DBG(CAM_SENSOR_LITE,
+					"[%d] Freeing oldest request[%lld] from applied request queue",
+					sensor_lite_dev->soc_info.index,
+					oldest_active_req->request_id);
+		/* free the oldest request from the queue */
+		free_request_object(
+			sensor_lite_dev,
+			oldest_active_req);
+	}
+	mutex_unlock(&sensor_lite_dev->mutex);
+
 	return rc;
 }
 
 static int cam_sensor_lite_notify_frame_skip(
 	struct cam_req_mgr_apply_request *apply)
 {
-	CAM_DBG(CAM_SENSOR_LITE, "Got Skip frame from crm");
+	struct sensor_lite_device *sensor_lite_dev        = NULL;
+
+	if (!apply) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid parameters");
+		return -EINVAL;
+	}
+
+	sensor_lite_dev = (struct sensor_lite_device *)
+		cam_get_device_priv(apply->dev_hdl);
+
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Device data is NULL");
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_SENSOR_LITE,
+					"[%d] Got Skip frame from crm",
+					sensor_lite_dev->soc_info.index);
 	return 0;
+}
+
+static int cam_sensor_lite_flush_waiting_q_unsafe(
+	struct sensor_lite_device *dev,
+	int flush_type,
+	uint64_t req_id)
+{
+	int rc = 0;
+	struct list_head *pos = NULL, *pos_next = NULL;
+	struct sensor_lite_request *entry = NULL;
+
+	if (!dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid Argument");
+		return -EINVAL;
+	}
+
+	list_for_each_safe(pos,
+		pos_next, &dev->waiting_request_q) {
+		entry = list_entry(pos, struct sensor_lite_request, list);
+		if ((flush_type == CAM_FLUSH_TYPE_ALL) ||
+			(entry->request_id == req_id)) {
+			list_del(&entry->list);
+			dev->waiting_request_q_depth--;
+			free_request_object(dev, entry);
+			if (flush_type == CAM_FLUSH_TYPE_REQ)
+				break;
+		}
+	}
+	return rc;
+}
+
+static int cam_sensor_lite_flush_applied_q_unsafe(
+	struct sensor_lite_device *dev,
+	int flush_type,
+	uint64_t req_id)
+{
+	int rc = 0;
+	struct list_head *pos = NULL, *pos_next = NULL;
+	struct sensor_lite_request *entry = NULL;
+
+	if (!dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid Argument");
+		return -EINVAL;
+	}
+	list_for_each_safe(pos,
+		pos_next, &dev->applied_request_q) {
+		entry = list_entry(pos, struct sensor_lite_request, list);
+		if ((flush_type == CAM_FLUSH_TYPE_ALL) ||
+			(entry->request_id == req_id)) {
+			list_del(&entry->list);
+			free_request_object(dev, entry);
+			dev->applied_request_q_depth--;
+			if (flush_type == CAM_FLUSH_TYPE_REQ)
+				break;
+		}
+	}
+	return rc;
+}
+
+static int cam_sensor_lite_flush_req_unsafe(
+	struct sensor_lite_device *dev,
+	int flush_type,
+	uint64_t req_id)
+{
+	int rc = 0;
+
+	if (!dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid Argument");
+		return -EINVAL;
+	}
+
+	rc = cam_sensor_lite_flush_waiting_q_unsafe(
+					dev,
+					flush_type,
+					req_id);
+
+	if (rc == 0) {
+		rc = cam_sensor_lite_flush_applied_q_unsafe(
+					dev,
+					flush_type,
+					req_id);
+	}
+
+	return rc;
 }
 
 static int cam_sensor_lite_flush_req(
 	struct cam_req_mgr_flush_request *flush)
 {
-	CAM_DBG(CAM_SENSOR_LITE, "Got Flush request from crm");
-	return 0;
+	int rc = 0;
+	struct sensor_lite_device *sensor_lite_dev = NULL;
+
+	if (!flush) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid argument !");
+		return -EINVAL;
+	}
+
+	sensor_lite_dev = (struct sensor_lite_device *)
+		cam_get_device_priv(flush->dev_hdl);
+
+	if (!sensor_lite_dev) {
+		CAM_ERR(CAM_SENSOR_LITE, "Invalid dev !");
+		return -EINVAL;
+	}
+
+	mutex_lock(&sensor_lite_dev->mutex);
+	rc = cam_sensor_lite_flush_req_unsafe(
+					sensor_lite_dev,
+					flush->type,
+					flush->req_id);
+	mutex_unlock(&sensor_lite_dev->mutex);
+	return rc;
 }
 
 static int cam_sensor_lite_process_crm_evt(
@@ -328,11 +668,14 @@ static int __cam_sensor_lite_handle_release_dev(
 		sensor_lite_dev->start_cmd = NULL;
 		kfree(sensor_lite_dev->stop_cmd);
 		sensor_lite_dev->stop_cmd = NULL;
+		cam_sensor_lite_flush_req_unsafe(
+				sensor_lite_dev,
+				CAM_FLUSH_TYPE_ALL,
+				0);
 		CAM_INFO(CAM_SENSOR_LITE, "SENSOR_LITE[%d] Release Done.",
 				sensor_lite_dev->soc_info.index);
 		sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_INIT;
 	}
-
 
 	__send_pkt(sensor_lite_dev,
 		&(sensor_lite_dev->release_cmd->header));
@@ -378,57 +721,30 @@ static int __cam_sensor_lite_handle_stop_cmd(
 	return rc;
 }
 
-static int __cam_sensor_lite_handle_perframe(
-	struct sensor_lite_device         *sensor_lite_dev,
-	struct sensor_lite_perframe_cmd   *cmd,
-	uint64_t                          request_id)
+static int __cam_sensor_lite_add_crm_req(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct sensor_lite_request *req)
 {
 	int rc = 0;
 	struct cam_req_mgr_add_request add_req = {0};
 
+	if (sensor_lite_dev->waiting_request_q_depth < MAX_WAITING_QUEUE_DEPTH) {
+		list_add_tail(&(req->list), &sensor_lite_dev->waiting_request_q);
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE, "[%d] Wait queue full");
+		return -EINVAL;
+	}
+
+	/* Add request only if crm is enabled*/
 	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
 			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
 			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
 			(sensor_lite_dev->crm_intf.enable_crm)) {
 		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
 		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
-		add_req.req_id   = request_id;
-		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
-	} else {
-		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
-					sensor_lite_dev->soc_info.index,
-					sensor_lite_dev->crm_intf.enable_crm,
-					request_id);
+		add_req.req_id   = req->request_id;
+		rc = sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
 	}
-	__send_pkt(sensor_lite_dev,
-			(struct sensor_lite_header *)cmd);
-	return rc;
-}
-
-static int __cam_sensor_lite_handle_exposure_update(
-	struct sensor_lite_device         *sensor_lite_dev,
-	struct sensor_lite_exp_ctrl_cmd   *cmd,
-	uint64_t                          request_id)
-{
-	int rc = 0;
-	struct cam_req_mgr_add_request add_req = {0};
-
-	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
-			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
-			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
-			(sensor_lite_dev->crm_intf.enable_crm)) {
-		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
-		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
-		add_req.req_id   = request_id;
-		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
-	} else {
-		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
-					sensor_lite_dev->soc_info.index,
-					sensor_lite_dev->crm_intf.enable_crm,
-					request_id);
-	}
-	__send_pkt(sensor_lite_dev,
-			(struct sensor_lite_header *)cmd);
 	return rc;
 }
 
@@ -483,47 +799,32 @@ end:
 	return rc;
 }
 
-
-static int cam_sensor_lite_handle_nop(
-	struct sensor_lite_device *sensor_lite_dev,
-	struct cam_packet *packet)
-{
-	int rc = 0;
-	struct cam_req_mgr_add_request add_req = {0};
-
-	if ((sensor_lite_dev == NULL) ||
-			(packet == NULL)) {
-		return -EINVAL;
-	}
-
-	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
-			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
-			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
-			(sensor_lite_dev->crm_intf.enable_crm)) {
-		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
-		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
-		add_req.req_id   = packet->header.request_id;
-		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
-	} else {
-		CAM_ERR(CAM_SENSOR_LITE,
-				"SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
-				sensor_lite_dev->soc_info.index,
-				sensor_lite_dev->crm_intf.enable_crm,
-				packet->header.request_id);
-	}
-
-	return rc;
-}
-
 static int cam_sensor_lite_cmd_buf_parse(
 	struct sensor_lite_device *sensor_lite_dev,
 	struct cam_packet *packet)
 {
 	int rc = 0, i = 0;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
+	struct sensor_lite_request *req = NULL;
 
 	if (!sensor_lite_dev || !packet)
 		return -EINVAL;
+
+	if ((((packet->header.op_code & 0xFF)
+			== CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE) ||
+		(packet->header.op_code & 0xFF)
+			== CAM_SENSOR_LITE_PACKET_OPCODE_NOP) &&
+		(packet->header.request_id >= 1)) {
+		req = sensor_lite_create_request_object(
+				sensor_lite_dev,
+				packet->header.request_id,
+				CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE);
+	}
+
+	CAM_DBG(CAM_SENSOR_LITE, "[%d] Req[%lld] opcode: %d",
+					sensor_lite_dev->soc_info.index,
+					packet->header.request_id,
+					(packet->header.op_code & 0xFF));
 
 	for (i = 0; i < packet->num_cmd_buf; i++) {
 		uint32_t  cmd_type = -1;
@@ -532,7 +833,6 @@ static int cam_sensor_lite_cmd_buf_parse(
 			((uint32_t *)&packet->payload +
 			(packet->cmd_buf_offset / 4) +
 			(i * (sizeof(struct cam_cmd_buf_desc)/4)));
-
 		rc = cam_sensor_lite_validate_cmd_descriptor(
 				sensor_lite_dev,
 				cmd_desc,
@@ -547,7 +847,7 @@ static int cam_sensor_lite_cmd_buf_parse(
 		case SENSORLITE_CMD_TYPE_HOSTDESTINIT:
 		case SENSORLITE_CMD_TYPE_RESOLUTIONINFO:
 			__send_pkt(sensor_lite_dev,
-					(struct sensor_lite_header *)cmd_addr);
+				(struct sensor_lite_header *)cmd_addr);
 			break;
 		case SENSORLITE_CMD_TYPE_START:
 			__cam_sensor_lite_handle_start_cmd(sensor_lite_dev,
@@ -557,24 +857,31 @@ static int cam_sensor_lite_cmd_buf_parse(
 			__cam_sensor_lite_handle_stop_cmd(sensor_lite_dev,
 				(struct sensor_lite_start_stop_cmd *)cmd_addr);
 			break;
-		case SENSORLITE_CMD_TYPE_PERFRAME: {
-			__cam_sensor_lite_handle_perframe(sensor_lite_dev,
-				(struct sensor_lite_perframe_cmd *)cmd_addr,
-				packet->header.request_id);
+		case SENSORLITE_CMD_TYPE_PERFRAME:
+		case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE:
+			/* Add request to the cmd buffers */
+			rc = cam_sensor_lite_request_queue_cmd(
+						sensor_lite_dev,
+						req,
+						(struct sensor_lite_header *)cmd_addr);
 			break;
-		}
-		case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE: {
-			__cam_sensor_lite_handle_exposure_update(sensor_lite_dev,
-				(struct sensor_lite_exp_ctrl_cmd *)cmd_addr,
-				packet->header.request_id);
-			break;
-		}
 		default:
 			CAM_INFO(CAM_SENSOR_LITE,
 				"invalid packet tag received ignore for now %d",
 				((struct sensor_lite_header *)cmd_addr)->tag);
 			break;
 		}
+	}
+
+	/* Add request */
+	if ((((packet->header.op_code & 0xFF)
+			== CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE) ||
+		(packet->header.op_code & 0xFF)
+			== CAM_SENSOR_LITE_PACKET_OPCODE_NOP) &&
+		(packet->header.request_id >= 1)) {
+		rc = __cam_sensor_lite_add_crm_req(
+					sensor_lite_dev,
+					req);
 	}
 end:
 	return rc;
@@ -617,7 +924,7 @@ static int cam_sensor_lite_packet_parse(
 		goto end;
 	}
 
-	CAM_INFO(CAM_SENSOR_LITE,
+	CAM_DBG(CAM_SENSOR_LITE,
 		"SENSOR_LITE[%d] Packet opcode = %d num_cmds: %d num_ios: %d num_patch: %d",
 			sensor_lite_dev->soc_info.index,
 			(csl_packet->header.op_code & 0xFF),
@@ -625,29 +932,19 @@ static int cam_sensor_lite_packet_parse(
 			csl_packet->num_io_configs,
 			csl_packet->num_patches);
 	switch ((csl_packet->header.op_code & 0xFF)) {
-	case CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE:
-	case CAM_SENSOR_LITE_PACKET_OPCODE_INITIAL_CONFIG: {
+	case CAM_SENSOR_LITE_PACKET_OPCODE_INITIAL_CONFIG:
 		if (csl_packet->num_cmd_buf <= 0) {
 			CAM_ERR(CAM_SENSOR_LITE, "Expecting atleast one command in Init packet");
 			rc = -EINVAL;
 			goto end;
 		}
+	case CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE:
+	case CAM_SENSOR_LITE_PACKET_OPCODE_NOP: {
 		rc = cam_sensor_lite_cmd_buf_parse(sensor_lite_dev, csl_packet);
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR_LITE, "CMD buffer parse failed");
 			goto end;
 		}
-		break;
-	}
-	case CAM_SENSOR_LITE_PACKET_OPCODE_NOP: {
-		rc = cam_sensor_lite_handle_nop(sensor_lite_dev, csl_packet);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR_LITE, "Handle NOP packet failed");
-			goto end;
-		}
-		break;
-	}
-	case CAM_SENSOR_LITE_PACKET_OPCODE_PROBE_V2: {
 		break;
 	}
 	default:
@@ -967,7 +1264,7 @@ static int validate_ioctl_params(
 			cmd->handle_type);
 		rc = -EINVAL;
 	}
-	CAM_INFO(CAM_SENSOR_LITE,
+	CAM_DBG(CAM_SENSOR_LITE,
 			"SENSOR_LITE [%d] Opcode: %d",
 			sensor_lite_dev->soc_info.index,
 			cmd->op_code);
@@ -1103,6 +1400,22 @@ int cam_sensor_lite_core_cfg(
 					"SENSOR_LITE[%d] start device failed(rc = %d)",
 					sensor_lite_dev->soc_info.index,
 					rc);
+		}
+		break;
+	}
+	case CAM_FLUSH_REQ: {
+		struct cam_flush_dev_cmd flush;
+
+		if (copy_from_user(&flush, u64_to_user_ptr(cmd->handle),
+					sizeof(flush)))
+			rc = -EFAULT;
+
+		else {
+			/* Flush the requests from the queue */
+			rc = cam_sensor_lite_flush_req_unsafe(
+					sensor_lite_dev,
+					flush.flush_type,
+					flush.req_id);
 		}
 		break;
 	}
