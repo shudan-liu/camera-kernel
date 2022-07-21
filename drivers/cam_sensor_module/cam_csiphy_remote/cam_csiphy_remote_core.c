@@ -593,6 +593,7 @@ void cam_csiphy_remote_shutdown(struct csiphy_remote_device *csiphy_dev)
 	}
 
 	csiphy_dev->acquire_count = 0;
+	csiphy_dev->start_dev_count = 0;
 	csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_INIT;
 
 	cam_soc_util_disable_platform_resource(soc_info, true, true);
@@ -619,20 +620,20 @@ int cam_csiphy_remote_dump_payload_header(
 	if (header == NULL)
 		return -EINVAL;
 
-	CAM_INFO(CAM_CSIPHY_REMOTE, "version: 0x%x",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "version: 0x%x",
 			CAM_RPMSG_SLAVE_GET_HDR_VERSION(&(header->hpkt_header)));
-	CAM_INFO(CAM_CSIPHY_REMOTE, "direction: 0x%x",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "direction: 0x%x",
 			CAM_RPMSG_SLAVE_GET_HDR_DIRECTION(&(header->hpkt_header)));
-	CAM_INFO(CAM_CSIPHY_REMOTE, "num_packet: 0x%x",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "num_packet: 0x%x",
 			CAM_RPMSG_SLAVE_GET_HDR_NUM_PACKET(&(header->hpkt_header)));
-	CAM_INFO(CAM_CSIPHY_REMOTE, "packet_size: 0x%x",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "packet_size: 0x%x",
 			CAM_RPMSG_SLAVE_GET_HDR_PACKET_SZ(&(header->hpkt_header)));
-	CAM_INFO(CAM_CSIPHY_REMOTE, "payload_type: 0x%x",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "payload_type: 0x%x",
 			CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(&(header->hpkt_preamble)));
-	CAM_INFO(CAM_CSIPHY_REMOTE, "payload_size: 0x%x",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "payload_size: 0x%x",
 			CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(&(header->hpkt_preamble)));
-	CAM_INFO(CAM_CSIPHY_REMOTE, "header.version: 0x%x", header->version);
-	CAM_INFO(CAM_CSIPHY_REMOTE, "header.size: 0x%x", header->size);
+	CAM_DBG(CAM_CSIPHY_REMOTE, "header.version: 0x%x", header->version);
+	CAM_DBG(CAM_CSIPHY_REMOTE, "header.size: 0x%x", header->size);
 	return 0;
 }
 
@@ -644,27 +645,27 @@ int cam_csiphy_remote_regdump(
 	if (settings == NULL)
 		return -EINVAL;
 
-	CAM_INFO(CAM_CSIPHY_REMOTE, "Lane enable:%d",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "Lane enable:%d",
 		settings->num_lane_en_settings);
 
 	for (i = 0; i < settings->num_lane_en_settings; i++) {
-		CAM_INFO(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
+		CAM_DBG(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
 			settings->lane_en[i].reg_addr,
 			settings->lane_en[i].reg_data);
 	}
 
-	CAM_INFO(CAM_CSIPHY_REMOTE, "Lane:%d",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "Lane:%d",
 		settings->num_lane_settings);
 	for (i = 0; i < settings->num_lane_settings; i++) {
-		CAM_INFO(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
+		CAM_DBG(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
 			settings->lane[i].reg_addr,
 			settings->lane[i].reg_data);
 	}
 
-	CAM_INFO(CAM_CSIPHY_REMOTE, "Reset:%d",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "Reset:%d",
 		settings->num_reset_settings);
 	for (i = 0; i < settings->num_reset_settings; i++) {
-		CAM_INFO(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
+		CAM_DBG(CAM_CSIPHY_REMOTE, "0x%x = 0x%x",
 			settings->reset[i].reg_addr,
 			settings->reset[i].reg_data);
 	}
@@ -685,14 +686,14 @@ int cam_csiphy_remote_dump_payload(
 
 	cam_csiphy_remote_dump_payload_header(&(payload->header));
 
-	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_id: %d", payload->phy_id);
-	CAM_INFO(CAM_CSIPHY_REMOTE, "sensor_physical_id: %d", payload->sensor_physical_id);
+	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_id: %d", payload->phy_id);
+	CAM_DBG(CAM_CSIPHY_REMOTE, "sensor_physical_id: %d", payload->sensor_physical_id);
 
-	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_lane_en_config.num_settings: %d",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_lane_en_config.num_settings: %d",
 		payload->phy_lane_en_config.num_settings);
-	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_lane_config.num_settings: %d",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_lane_config.num_settings: %d",
 		payload->phy_lane_config.num_settings);
-	CAM_INFO(CAM_CSIPHY_REMOTE, "phy_reset_config.num_settings: %d",
+	CAM_DBG(CAM_CSIPHY_REMOTE, "phy_reset_config.num_settings: %d",
 		payload->phy_reset_config.num_settings);
 
 	settings = (struct phy_reg_setting *)((uint8_t *)payload + payload->phy_lane_en_config.offset);
@@ -938,7 +939,18 @@ int32_t cam_csiphy_remote_core_cfg(void *phy_dev,
 			goto free_acq_payload;
 		}
 
-		csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_ACQUIRE;
+		if (csiphy_dev->start_dev_count <= 0) {
+			CAM_ERR(CAM_CSIPHY_REMOTE,
+				"Atleast one CAM_START_PHYDEV should be called to Stop");
+			rc = -EINVAL;
+			goto free_acq_payload;
+		}
+
+		csiphy_dev->start_dev_count--;
+
+		if (csiphy_dev->start_dev_count == 0) {
+			csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_ACQUIRE;
+		}
 
 		CAM_INFO(CAM_CSIPHY_REMOTE,
 			"CAM_STOP_PHYDEV: %u, slot: %d",
@@ -1118,6 +1130,7 @@ free_payload:
 		}
 
 		csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_START;
+		csiphy_dev->start_dev_count++;
 
 		acq_payload = (struct phy_acq_payload *)kzalloc(sizeof(struct phy_acq_payload), GFP_KERNEL);
 		if (acq_payload == NULL) {
