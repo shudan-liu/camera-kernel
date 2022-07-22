@@ -1400,6 +1400,12 @@ static int ais_ife_csid_stop(void *hw_priv,
 	if (res_mask)
 		rc = ais_ife_csid_poll_stop_status(csid_hw, res_mask);
 
+	if (csid_hw->error_irq_count > 0) {
+		CAM_DBG(CAM_ISP, "CSID:%d RDI:%d error_irq_count:%d",
+			csid_hw->hw_intf->hw_idx, stop_cmd->path, csid_hw->error_irq_count);
+		csid_hw->error_irq_count--;
+	}
+
 end:
 	CAM_DBG(CAM_ISP,  "Exit (%d)", rc);
 
