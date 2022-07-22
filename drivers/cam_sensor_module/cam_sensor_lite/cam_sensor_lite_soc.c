@@ -39,5 +39,8 @@ int32_t cam_sensor_lite_parse_dt_info(struct platform_device *pdev,
 		return rc;
 	}
 
+	if (of_property_read_bool(of_node, "hw_no_ops"))
+		sensor_lite_dev->hw_no_ops = true;
+
 	return rc;
 }
