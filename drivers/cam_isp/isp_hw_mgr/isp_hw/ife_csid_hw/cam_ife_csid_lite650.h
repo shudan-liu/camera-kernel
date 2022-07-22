@@ -379,6 +379,10 @@ static struct cam_ife_csid_ver2_common_reg_info
 	.global_reset                                 = 1,
 	.rup_supported                                = 1,
 	.only_master_rup                              = 1,
+	.format_measure_height_mask_val               = 0xFFFF,
+	.format_measure_height_shift_val              = 0x10,
+	.format_measure_width_mask_val                = 0xFFFF,
+	.format_measure_width_shift_val               = 0x0,
 };
 
 static struct cam_ife_csid_csi2_rx_reg_info
