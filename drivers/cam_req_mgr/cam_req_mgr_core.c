@@ -3928,6 +3928,14 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 				}
 			if (dev->dev_info.p_delay > max_delay)
 				max_delay = dev->dev_info.p_delay;
+			if (dev->dev_info.dev_id == CAM_REQ_MGR_DEVICE_SENSOR_LITE) {
+				link_data.is_sensorlite = true;
+				link_data.sensor_pd = dev->dev_info.p_delay;
+			}
+			if (dev->dev_info.dev_id == CAM_REQ_MGR_DEVICE_SENSOR) {
+				link_data.is_sensorlite = false;
+				link_data.sensor_pd = dev->dev_info.p_delay;
+			}
 		}
 
 		if (dev->dev_info.trigger_on)

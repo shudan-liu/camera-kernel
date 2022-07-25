@@ -298,7 +298,10 @@ struct cam_isp_context_event_record {
  * @independent_crm_sof_timer: watchdog timer to check SOF freeze in independent CRM case
  * @hw_mgr_workq:              associated hw_mgr workq
  * @no_crm_mutex:              mutex for no_crm apply
- *
+ * @waitlist_req_cnt           Counter for the request in waitlist
+ * @fifo_depth                 Max fifo depth supported
+ * @sensor_pd:                 sensor pipeline delay
+ * @is_sensorlite:             Indicate whether sensorlite or sensor device is active
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -362,6 +365,10 @@ struct cam_isp_context {
 	struct cam_req_mgr_timer              *independent_crm_sof_timer;
 	struct cam_req_mgr_core_workq         *hw_mgr_workq;
 	struct mutex                           no_crm_mutex;
+	uint32_t                               waitlist_req_cnt;
+	uint32_t                               fifo_depth;
+	int8_t                                 sensor_pd;
+	bool                                   is_sensorlite;
 };
 
 /**

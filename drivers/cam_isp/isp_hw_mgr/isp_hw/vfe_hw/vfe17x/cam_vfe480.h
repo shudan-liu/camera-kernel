@@ -1612,6 +1612,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe480_bus_hw_info = {
 	.comp_cfg_needed = true,
 	.pack_align_shift = 4,
 	.support_tunneling = false,
+	.fifo_depth = 4,
 };
 
 static struct cam_irq_register_set vfe480_bus_rd_irq_reg[1] = {

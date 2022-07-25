@@ -2234,6 +2234,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe780_bus_hw_info = {
 	.max_out_res = CAM_ISP_IFE_OUT_RES_BASE + 36,
 	.pack_align_shift = 5,
 	.support_tunneling = false,
+	.fifo_depth = 4,
 };
 
 static struct cam_vfe_irq_hw_info vfe780_irq_hw_info = {

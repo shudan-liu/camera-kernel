@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_BUS_VER2_H_
@@ -185,6 +186,7 @@ struct cam_vfe_bus_ver2_vfe_out_hw_info {
  * @top_irq_shift:         Mask shift for top level BUS WR irq
  * @support_consumed_addr: Indicate if bus support consumed address
  * @max_out_res:           Max vfe out resource value supported for hw
+ * @fifo_depth:            Max fifo depth supported
  */
 struct cam_vfe_bus_ver2_hw_info {
 	struct cam_vfe_bus_ver2_reg_offset_common common_reg;
@@ -199,6 +201,7 @@ struct cam_vfe_bus_ver2_hw_info {
 	uint32_t top_irq_shift;
 	bool support_consumed_addr;
 	uint32_t max_out_res;
+	uint32_t fifo_depth;
 };
 
 /*
