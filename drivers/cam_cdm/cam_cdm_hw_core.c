@@ -786,6 +786,7 @@ int cam_hw_cdm_submit_gen_irq(
 	uint32_t len;
 	int rc;
 	bool bit_wr_enable = false;
+	unsigned long flag;
 
 	if (core->bl_fifo[fifo_idx].bl_tag >
 		(core->bl_fifo[fifo_idx].bl_depth - 1)) {
@@ -821,7 +822,10 @@ int cam_hw_cdm_submit_gen_irq(
 	node->cookie = req->data->cookie;
 	node->bl_tag = core->bl_fifo[fifo_idx].bl_tag;
 	node->userdata = req->data->userdata;
+
+	spin_lock_irqsave(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
 	list_add_tail(&node->entry, &core->bl_fifo[fifo_idx].bl_request_list);
+	spin_unlock_irqrestore(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
 	len = core->ops->cdm_required_size_genirq() *
 		core->bl_fifo[fifo_idx].bl_tag;
 	core->ops->cdm_write_genirq(
@@ -1144,8 +1148,10 @@ static void cam_hw_cdm_reset_cleanup(
 	struct cam_cdm *core = (struct cam_cdm *)cdm_hw->core_info;
 	int i;
 	struct cam_cdm_bl_cb_request_entry *node, *tnode;
+	struct list_head notify;
 	bool flush_hw = false;
 	bool reset_err = false;
+	unsigned long flag;
 
 	if (test_bit(CAM_CDM_ERROR_HW_STATUS, &core->cdm_status) ||
 		test_bit(CAM_CDM_FLUSH_HW_STATUS, &core->cdm_status))
@@ -1155,8 +1161,13 @@ static void cam_hw_cdm_reset_cleanup(
 		reset_err = true;
 
 	for (i = 0; i < core->offsets->reg_data->num_bl_fifo; i++) {
-		list_for_each_entry_safe(node, tnode,
-			&core->bl_fifo[i].bl_request_list, entry) {
+		INIT_LIST_HEAD(&notify);
+		spin_lock_irqsave(&core->bl_fifo[i].fifo_hw_lock, flag);
+		/* transfer items to temporary list and unlock */
+		list_splice_init(&core->bl_fifo[i].bl_request_list, &notify);
+		spin_unlock_irqrestore(&core->bl_fifo[i].fifo_hw_lock, flag);
+
+		list_for_each_entry_safe(node, tnode, &notify, entry) {
 			if (node->request_type ==
 					CAM_HW_CDM_BL_CB_CLIENT) {
 				CAM_DBG(CAM_CDM,
@@ -1198,6 +1209,7 @@ static void cam_hw_cdm_work(struct work_struct *work)
 	int i, fifo_idx;
 	struct cam_cdm_bl_cb_request_entry *tnode = NULL;
 	struct cam_cdm_bl_cb_request_entry *node = NULL;
+	unsigned long flag;
 
 	payload = container_of(work, struct cam_cdm_work_payload, work);
 	if (!payload) {
@@ -1245,8 +1257,10 @@ static void cam_hw_cdm_work(struct work_struct *work)
 		if (atomic_read(&core->bl_fifo[fifo_idx].work_record))
 			atomic_dec(&core->bl_fifo[fifo_idx].work_record);
 
+		spin_lock_irqsave(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
 		if (list_empty(&core->bl_fifo[fifo_idx]
 				.bl_request_list)) {
+			spin_unlock_irqrestore(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
 			CAM_INFO(CAM_CDM,
 				"Fifo list empty, idx %d tag %d arb %d",
 				fifo_idx, payload->irq_data,
@@ -1290,6 +1304,7 @@ static void cam_hw_cdm_work(struct work_struct *work)
 				"Skip GenIRQ, tag 0x%x fifo %d",
 				payload->irq_data, payload->fifo_idx);
 		}
+		spin_unlock_irqrestore(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
 		mutex_unlock(&core->bl_fifo[payload->fifo_idx]
 			.fifo_lock);
 		mutex_unlock(&cdm_hw->hw_mutex);
@@ -1887,10 +1902,7 @@ int cam_hw_cdm_handle_error(
 	struct cam_hw_info *cdm_hw,
 	uint32_t            handle)
 {
-	struct cam_cdm *cdm_core = NULL;
 	int rc = 0;
-
-	cdm_core = (struct cam_cdm *)cdm_hw->core_info;
 
 	rc = cam_hw_cdm_handle_error_info(cdm_hw, handle);
 
