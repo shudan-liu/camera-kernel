@@ -70,7 +70,7 @@ int cam_fastrpc_dev_map_dma(struct cam_mem_buf_queue *buf,
 		*v_dsp_addr = frpc_map_buf.v_dsp_addr;
 	} else {
 		CAM_ERR(CAM_MEM, "Buffer not mapped to dsp");
-		buf->fd = 0;
+		buf->fd = -1;
 	}
 
 	return rc;
@@ -82,7 +82,7 @@ int cam_fastrpc_dev_unmap_dma(struct cam_mem_buf_queue *buf)
 	int rc = 0;
 
 	/* Only if buffer is mapped to dsp */
-	if (buf->fd != 0) {
+	if (buf->fd != -1) {
 		frpc_unmap_buf.buf = buf->dma_buf;
 		CAM_DBG(CAM_MEM, "frpc_unmap_buf dma_buf %px buf_handle %x",
 			frpc_unmap_buf.buf, buf->buf_handle);

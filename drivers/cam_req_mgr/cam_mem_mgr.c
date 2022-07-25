@@ -114,6 +114,28 @@ static int cam_mem_util_get_dma_dir(uint32_t flags)
 	return rc;
 }
 
+void cam_mem_mgr_release_nsp_buf(void)
+{
+	int i, rc;
+	struct cam_mem_mgr_release_cmd cmd;
+
+	for (i = 1; i < CAM_MEM_BUFQ_MAX; i++) {
+		/*
+		 * TODO: Check if we can avoid the use of new flag is_nsp_buf
+		 * and use uapi flag itself to decide if the buffer is nsp buf
+		 * or not.
+		 */
+		if ((tbl.bufq[i].active) && (tbl.bufq[i].is_nsp_buf)) {
+			CAM_DBG(CAM_MEM,
+				"idx %d fd %d i_ino %lu size %llu flag 0x%x",
+				i, tbl.bufq[i].fd, tbl.bufq[i].i_ino,
+				tbl.bufq[i].len, tbl.bufq[i].flags);
+			cmd.buf_handle = tbl.bufq[i].buf_handle;
+			rc = cam_mem_mgr_release(&cmd);
+		}
+	}
+}
+
 static int cam_mem_util_map_cpu_va(struct dma_buf *dmabuf, uintptr_t *vaddr, size_t *len)
 {
 	int rc = 0;
@@ -1057,9 +1079,15 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 
 	if (cmd->flags & CAM_MEM_FLAG_NSP_ACCESS)
 	{
-		cam_fastrpc_dev_map_dma(&tbl.bufq[idx],
+		rc = cam_fastrpc_dev_map_dma(&tbl.bufq[idx],
 			true,
 			&cmd->out.vaddr);
+		if (rc) {
+			CAM_ERR(CAM_MEM, "dmabuf: %pK fastrpc mapping failed: %d",
+				dmabuf, rc);
+			goto map_hw_fail;
+		}
+		tbl.bufq[idx].is_nsp_buf = true;
 	}
 
 	CAM_DBG(CAM_MEM,
@@ -1174,6 +1202,11 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 	}
 
 	mutex_lock(&tbl.bufq[idx].q_lock);
+	if (cmd->flags & CAM_MEM_FLAG_NSP_ACCESS) {
+		cmd->flags = (cmd->flags & ~CAM_MEM_FLAG_NSP_ACCESS);
+		tbl.bufq[idx].is_nsp_buf = true;
+	}
+
 	tbl.bufq[idx].fd = cmd->fd;
 	tbl.bufq[idx].i_ino = i_ino;
 	tbl.bufq[idx].dma_buf = NULL;
@@ -1455,6 +1488,7 @@ static int cam_mem_util_unmap(int32_t idx,
 	tbl.bufq[idx].dma_buf = NULL;
 	tbl.bufq[idx].is_imported = false;
 	tbl.bufq[idx].is_internal = false;
+	tbl.bufq[idx].is_nsp_buf = false;
 	tbl.bufq[idx].len = 0;
 	tbl.bufq[idx].num_hdl = 0;
 	tbl.bufq[idx].kmdvaddr = 0;
