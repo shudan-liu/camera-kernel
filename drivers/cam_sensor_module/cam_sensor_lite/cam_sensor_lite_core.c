@@ -630,6 +630,28 @@ static int __cam_sensor_lite_handle_query_cap(
 	return 0;
 }
 
+static int __cam_sensor_lite_handle_query_cap_v2(
+	struct sensor_lite_device *sensor_lite_dev,
+	struct cam_sensorlite_query_cap_v2 *query)
+{
+	struct cam_hw_soc_info *soc_info = NULL;
+
+	if (!sensor_lite_dev || !query) {
+		CAM_ERR(CAM_SENSOR_LITE, "invalid argument");
+		return -EINVAL;
+	}
+
+	soc_info = &sensor_lite_dev->soc_info;
+	CAM_DBG(CAM_SENSOR_LITE, "Handling  query capability for %d ",
+			soc_info->index);
+	query->slot_info = soc_info->index;
+	query->version = 0x0;
+	query->csiphy_slot_id = sensor_lite_dev->phy_id;
+	query->queue_depth = MAX_WAITING_QUEUE_DEPTH;
+
+	return 0;
+}
+
 static int __cam_sensor_lite_handle_release_dev(
 	struct sensor_lite_device *sensor_lite_dev,
 	struct cam_release_dev_cmd *release)
@@ -1321,6 +1343,29 @@ int cam_sensor_lite_core_cfg(
 		}
 
 		rc = __cam_sensor_lite_handle_query_cap(sensor_lite_dev, &query);
+		if (rc) {
+			CAM_ERR(CAM_SENSOR_LITE, "SENSOR LITE[%d] querycap is failed(rc = %d)",
+				sensor_lite_dev->soc_info.index,
+				rc);
+			break;
+		}
+
+		if (copy_to_user(u64_to_user_ptr(cmd->handle), &query,
+			sizeof(query)))
+			rc = -EFAULT;
+
+		break;
+	}
+	case CAM_QUERY_CAP_V2: {
+		struct cam_sensorlite_query_cap_v2 query = {0};
+
+		if (copy_from_user(&query, u64_to_user_ptr(cmd->handle),
+			sizeof(query))) {
+			rc = -EFAULT;
+			break;
+		}
+
+		rc = __cam_sensor_lite_handle_query_cap_v2(sensor_lite_dev, &query);
 		if (rc) {
 			CAM_ERR(CAM_SENSOR_LITE, "SENSOR LITE[%d] querycap is failed(rc = %d)",
 				sensor_lite_dev->soc_info.index,
