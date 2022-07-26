@@ -3346,6 +3346,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 release_lock:
 	mutex_unlock(&link->req.lock);
 end:
+	kfree(task_data);
 	return rc;
 }
 
@@ -3693,13 +3694,14 @@ end:
  *
  */
 static int cam_req_mgr_cb_notify_trigger(
-	struct cam_req_mgr_trigger_notify *trigger_data)
+	struct cam_req_mgr_trigger_notify *trigger_data,
+	struct cam_req_mgr_core_workq *workq)
 {
 	int32_t                          rc = 0, trigger_id = 0;
 	uint32_t                         trigger;
 	struct cam_req_mgr_core_link    *link = NULL;
-	struct cam_req_mgr_trigger_notify   *notify_trigger;
-	struct crm_task_payload         task_data;
+	struct crm_task_payload          *payload;
+	struct crm_workq_task            *task = NULL;
 
 	if (!trigger_data) {
 		CAM_ERR(CAM_CRM, "trigger_data is NULL");
@@ -3772,19 +3774,41 @@ static int cam_req_mgr_cb_notify_trigger(
 
 	spin_unlock_bh(&link->link_state_spin_lock);
 
-	task_data.type = (trigger_data->trigger == CAM_TRIGGER_POINT_SOF) ?
+	task = cam_req_mgr_workq_get_task(workq);
+	if (!task) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task frame %lld",
+			trigger_data->frame_id);
+
+		rc = -EBUSY;
+		goto end;
+	}
+
+	payload = kzalloc(sizeof(struct crm_task_payload), GFP_KERNEL);
+	if (!payload) {
+		rc = -ENOMEM;
+		goto end;
+	}
+
+	task->payload = payload;
+	task->process_cb = &cam_req_mgr_process_trigger;
+
+	payload->type = (trigger_data->trigger == CAM_TRIGGER_POINT_SOF) ?
 		CRM_WORKQ_TASK_NOTIFY_SOF : CRM_WORKQ_TASK_NOTIFY_EOF;
-	notify_trigger = (struct cam_req_mgr_trigger_notify *)&task_data.u;
-	notify_trigger->frame_id = trigger_data->frame_id;
-	notify_trigger->link_hdl = trigger_data->link_hdl;
-	notify_trigger->dev_hdl = trigger_data->dev_hdl;
-	notify_trigger->trigger = trigger_data->trigger;
-	notify_trigger->curr_req_id = trigger_data->curr_req_id;
-	notify_trigger->req_id = trigger_data->req_id;
-	notify_trigger->sof_timestamp_val = trigger_data->sof_timestamp_val;
-	rc = cam_req_mgr_process_trigger(link, &task_data);
-	if (rc)
+
+	payload->u.notify_trigger.frame_id = trigger_data->frame_id;
+	payload->u.notify_trigger.link_hdl = trigger_data->link_hdl;
+	payload->u.notify_trigger.dev_hdl = trigger_data->dev_hdl;
+	payload->u.notify_trigger.trigger = trigger_data->trigger;
+	payload->u.notify_trigger.curr_req_id = trigger_data->curr_req_id;
+	payload->u.notify_trigger.req_id = trigger_data->req_id;
+	payload->u.notify_trigger.sof_timestamp_val = trigger_data->sof_timestamp_val;
+
+	rc = cam_req_mgr_workq_enqueue_task(task, link, CRM_TASK_PRIORITY_0);
+
+	if (rc) {
 		CAM_ERR(CAM_REQ, "Pending request processing failed:%d", rc);
+		kfree(payload);
+	}
 end:
 	return rc;
 }
