@@ -12728,6 +12728,7 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 				&isp_hw_cmd_args->u.sof_ts.curr,
 				&isp_hw_cmd_args->u.sof_ts.boot,
 				&isp_hw_cmd_args->u.sof_ts.prev);
+			break;
 		case CAM_ISP_HW_MGR_GET_ACQ_TYPE:
 			isp_hw_cmd_args->u.acquire_type = ctx->acquire_type;
 			break;
