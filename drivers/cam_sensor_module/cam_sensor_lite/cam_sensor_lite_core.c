@@ -184,7 +184,6 @@ void cam_sensor_lite_shutdown(
 	kfree(sensor_lite_dev->stop_cmd);
 	sensor_lite_dev->stop_cmd = NULL;
 
-	mutex_lock(&sensor_lite_dev->mutex);
 	/* free the queues */
 	list_for_each_safe(pos,
 		pos_next, &sensor_lite_dev->applied_request_q) {
@@ -201,7 +200,6 @@ void cam_sensor_lite_shutdown(
 		sensor_lite_dev->waiting_request_q_depth--;
 		free_request_object(sensor_lite_dev, entry);
 	}
-	mutex_unlock(&sensor_lite_dev->mutex);
 }
 
 int cam_sensor_lite_publish_dev_info(
