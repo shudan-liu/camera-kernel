@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #if !defined(_CAM_TRACE_H) || defined(TRACE_HEADER_MULTI_READ)
@@ -14,6 +15,7 @@
 #define TRACE_INCLUDE_FILE ./cam_trace
 
 #include <linux/tracepoint.h>
+#include <clocksource/arm_arch_timer.h>
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_core.h"
 #include "cam_req_mgr_interface.h"
@@ -21,6 +23,61 @@
 
 #define CAM_DEFAULT_VALUE 0xFF
 #define CAM_TRACE_PRINT_MAX_LEN 512
+
+TRACE_EVENT(cam_rpmsg,
+	TP_PROTO(const char *dev_name, const char *dir,
+		uint32_t pckt_size, const char *pckt_type),
+	TP_ARGS(dev_name, dir, pckt_size, pckt_type),
+	TP_STRUCT__entry(
+		__string(dev_name, dev_name)
+		__string(dir, dir)
+		__field(uint32_t, pckt_size)
+		__string(pckt_type, pckt_type)
+		__field(uint64_t, qtimer)
+	),
+	TP_fast_assign(
+		__assign_str(dev_name, dev_name);
+		__assign_str(dir, dir);
+		__entry->pckt_size = pckt_size;
+		__assign_str(pckt_type, pckt_type);
+		__entry->qtimer = arch_timer_read_counter();
+	),
+	TP_printk(
+		"%s: %s pckt_size=%d pckt_type=%s qtimer=%lld",
+			__get_str(dev_name), __get_str(dir),
+			__entry->pckt_size, __get_str(pckt_type),
+			__entry->qtimer
+	)
+);
+
+TRACE_EVENT(cam_rpmsg_isp,
+	TP_PROTO(const char *dev_name, const char *dir,
+		uint64_t req_id, uint32_t sensor_id,
+		uint32_t pckt_size, const char *pckt_type),
+	TP_ARGS(dev_name, dir, req_id, sensor_id, pckt_size, pckt_type),
+	TP_STRUCT__entry(
+		__string(dev_name, dev_name)
+		__string(dir, dir)
+		__field(uint64_t, req_id)
+		__field(uint32_t, sensor_id)
+		__field(uint32_t, pckt_size)
+		__string(pckt_type, pckt_type)
+	),
+	TP_fast_assign(
+		__assign_str(dev_name, dev_name);
+		__assign_str(dir, dir);
+		__entry->req_id = req_id;
+		__entry->sensor_id = sensor_id;
+		__entry->pckt_size = pckt_size;
+		__assign_str(pckt_type, pckt_type);
+	),
+	TP_printk(
+		"%s: %s req_id=%d sensor_id=0x%x pckt_size=%d pckt_type=%s",
+			__get_str(dev_name), __get_str(dir),
+			__entry->req_id, __entry->sensor_id,
+			__entry->pckt_size, __get_str(pckt_type)
+	)
+);
 
 TRACE_EVENT(cam_context_state,
 	TP_PROTO(const char *name, struct cam_context *ctx),

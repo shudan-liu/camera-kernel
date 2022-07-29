@@ -19,6 +19,7 @@
 #include "cam_common_util.h"
 #include "cam_jpeg_hw_mgr.h"
 #include "cam_fastrpc.h"
+#include "cam_trace.h"
 
 #define CAM_SLAVE_CHANNEL_NAME "AH_CAM"
 
@@ -36,6 +37,81 @@ struct cam_rpmsg_system_data {
 };
 
 struct cam_rpmsg_system_data system_data;
+
+const char *cam_rpmsg_slave_pl_type_to_string(unsigned int val)
+{
+	switch (val) {
+	case CAM_RPMSG_SLAVE_PACKET_BASE_SYSTEM:
+		return "SLAVE_BASE_SYSTEM";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_SYSTEM_PING:
+		return "SLAVE_SYSTEM_PING";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_UNUSED:
+		return "SLAVE_ISP_UNUSED";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_ACQUIRE:
+		return "SLAVE_ISP_ACQUIRE";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_RELEASE:
+		return "SLAVE_ISP_RELEASE";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_INIT_CONFIG:
+		return "SLAVE_ISP_INIT_CONFIG";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_START_DEV:
+		return "SLAVE_ISP_START_DEV";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_STOP_DEV:
+		return "SLAVE_ISP_STOP_DEV";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_ERROR:
+		return "SLAVE_ISP_ERROR";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_ISP_MAX:
+		return "SLAVE_ISP_MAX";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_UNUSED:
+		return "SLAVE_SENSOR_UNUSED";
+	case HCM_PKT_OPCODE_SENSOR_PROBE:
+		return "HCM_SENSOR_PROBE";
+	case HCM_PKT_OPCODE_SENSOR_PROBE_RESPONSE:
+		return "HCM_SENSOR_PROBE_RESPONSE";
+	case HCM_PKT_OPCODE_SENSOR_ACQUIRE:
+		return "HCM_SENSOR_ACQUIRE";
+	case HCM_PKT_OPCODE_SENSOR_RELEASE:
+		return "HCM_SENSOR_RELEASE";
+	case HCM_PKT_OPCODE_SENSOR_INIT:
+		return "HCM_SENSOR_INIT";
+	case HCM_PKT_OPCODE_SENSOR_CONFIG:
+		return "HCM_SENSOR_CONFIG";
+	case HCM_PKT_OPCODE_SENSOR_START_DEV:
+		return "HCM_SENSOR_START_DEV";
+	case HCM_PKT_OPCODE_SENSOR_STOP_DEV:
+		return "HCM_SENSOR_STOP_DEV";
+	case HCM_PKT_OPCODE_SENSOR_ERROR:
+		return "HCM_SENSOR_ERROR";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_SENSOR_MAX:
+		return "SLAVE_SENSOR_MAX";
+	case HCM_PKT_OPCODE_PHY_ACQUIRE:
+		return "HCM_PHY_ACQUIRE";
+	case HCM_PKT_OPCODE_PHY_RELEASE:
+		return "HCM_PHY_RELEASE";
+	case HCM_PKT_OPCODE_PHY_INIT_CONFIG:
+		return "HCM_PHY_INIT_CONFIG";
+	case HCM_PKT_OPCODE_PHY_START_DEV:
+		return "HCM_PHY_START_DEV";
+	case HCM_PKT_OPCODE_PHY_STOP_DEV:
+		return "HCM_PHY_STOP_DEV";
+	case HCM_PKT_OPCODE_PHY_ERROR:
+		return "HCM_PHY_ERROR";
+	case CAM_RPMSG_SLAVE_PACKET_TYPE_PHY_MAX:
+		return "SLAVE_PHY_MAX";
+	case CAM_RPMSG_SLAVE_PACKET_BASE_DEBUG:
+		return "SLAVE_BASE_DEBUG";
+	default:
+		return "UNKNOWN";
+	}
+}
+
+const char *cam_rpmsg_dev_hdl_to_string(unsigned int val)
+{
+	switch (val) {
+	case CAM_RPMSG_HANDLE_SLAVE: return "SLAVE";
+	case CAM_RPMSG_HANDLE_JPEG: return "JPEG";
+	default: return "UNKNOWN";
+	}
+}
 
 static int cam_rpmsg_system_recv_worker(void *priv, void *data)
 {
@@ -364,6 +440,16 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	int ret = 0;
 	struct rpmsg_device *rpdev;
 	struct cam_slave_pkt_hdr *hdr = (struct cam_slave_pkt_hdr *)data;
+	struct cam_rpmsg_slave_payload_desc *phdr;
+
+	if (len < (sizeof(struct cam_slave_pkt_hdr) +
+		sizeof(struct cam_rpmsg_slave_payload_desc))) {
+		CAM_ERR(CAM_RPMSG, "malformed packet, sz %d", len);
+		return -EINVAL;
+	}
+
+	phdr = (struct cam_rpmsg_slave_payload_desc *)(PTR_TO_U64(data) +
+		sizeof(struct cam_slave_pkt_hdr));
 
 	if (handle >= CAM_RPMSG_HANDLE_MAX) {
 		CAM_ERR(CAM_RPMSG, "Invalid handle %d", handle);
@@ -398,8 +484,15 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 		CAM_ERR(CAM_RPMSG, "Send in disconnect");
 		return -EBUSY;
 	}
+	trace_cam_rpmsg(cam_rpmsg_dev_hdl_to_string(handle), CAM_RPMSG_TRACE_BEGIN_TX,
+		CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(phdr),
+		cam_rpmsg_slave_pl_type_to_string(CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(phdr)));
 
 	ret = rpmsg_send(rpdev->ept, data, len);
+
+	trace_cam_rpmsg(cam_rpmsg_dev_hdl_to_string(handle), CAM_RPMSG_TRACE_END_TX,
+		CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(phdr),
+		cam_rpmsg_slave_pl_type_to_string(CAM_RPMSG_SLAVE_GET_PAYLOAD_TYPE(phdr)));
 	if (ret) {
 		CAM_ERR(CAM_RPMSG, "rpmsg_send failed dev %d, rc %d",
 			handle, ret);
@@ -418,7 +511,7 @@ struct cam_rpmsg_jpeg_payload {
 	struct work_struct work;
 };
 
-char *dsp_cmd_to_string(uint32_t val)
+static const char *__dsp_cmd_to_string(uint32_t val)
 {
 	switch(val) {
 		case CAM_CPU2DSP_SUSPEND: return "CPU2DSP_SUSPEND";
@@ -452,6 +545,8 @@ static void handle_jpeg_cb(struct work_struct *work) {
 	struct cam_mem_mgr_release_cmd release_cmd = {0};
 	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
 	struct rpmsg_device *rpdev;
+	unsigned int handle;
+	const char *dev_name = NULL;
 	int rc = 0;
 	int old_fd;
 	struct pid *pid_s = NULL;
@@ -467,7 +562,10 @@ static void handle_jpeg_cb(struct work_struct *work) {
 
 	rsp = payload->rsp;
 	rpdev = payload->rpdev;
-	CAM_DBG(CAM_RPMSG, "method %d %s", rsp->type, dsp_cmd_to_string(rsp->type));
+	handle = cam_rpmsg_get_handle_from_dev(rpdev);
+	dev_name = cam_rpmsg_dev_hdl_to_string(handle);
+	CAM_DBG(CAM_RPMSG, "method %d %s", rsp->type, __dsp_cmd_to_string(rsp->type));
+	trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_RX, rsp->len, __dsp_cmd_to_string(rsp->type));
 
 	switch(rsp->type) {
 		case CAM_DSP2CPU_POWERON:
@@ -476,7 +574,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered on");
 				mutex_unlock(&jpeg_private.jpeg_mutex);
 				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWERON;
+				trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX,
+					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 				rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+				trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX,
+					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 				break;
 			}
 			cam_jpeg_mgr_nsp_acquire_hw(&jpeg_private.jpeg_iommu_hdl);
@@ -493,7 +595,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			jpeg_private.dmabuf_f_op = NULL;
 			jpeg_private.status = CAM_JPEG_DSP_POWERON;
 			mutex_unlock(&jpeg_private.jpeg_mutex);
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			break;
 		case CAM_DSP2CPU_POWEROFF:
 			mutex_lock(&jpeg_private.jpeg_mutex);
@@ -501,7 +607,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
 				mutex_unlock(&jpeg_private.jpeg_mutex);
 				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+				trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX,
+					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 				rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+				trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX,
+					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 				break;
 			}
 			CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", rsp->pid);
@@ -512,7 +622,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			jpeg_private.dmabuf_f_op = NULL;
 			jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
 			mutex_unlock(&jpeg_private.jpeg_mutex);
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			break;
 		case CAM_DSP2CPU_MEM_ALLOC:
 			alloc_cmd.flags = CAM_MEM_FLAG_NSP_ACCESS | CAM_MEM_FLAG_HW_READ_WRITE;
@@ -539,7 +653,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			CAM_DBG(CAM_RPMSG, "ALLOC_OUT fd %d ipa 0x%x iova 0x%x buf_handle %x",
 				cmd_msg.buf_info.fd, cmd_msg.buf_info.ipa_addr,
 				cmd_msg.buf_info.iova, cmd_msg.buf_info.buf_handle);
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			CAM_DBG(CAM_RPMSG, "closing dmabuf fd %d", cmd_msg.buf_info.fd);
 			__close_fd(current->files, cmd_msg.buf_info.fd);
 			break;
@@ -611,7 +729,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			CAM_DBG(CAM_RPMSG, "closing dmabuf fd %d", map_cmd.fd);
 			__close_fd(current->files, map_cmd.fd);
 			registerEnd:
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			break;
 		case CAM_DSP2CPU_DEREGISTER_BUFFER:
 		case CAM_DSP2CPU_MEM_FREE:
@@ -624,7 +746,11 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			cmd_msg.cmd_msg_type = rsp->type;
 			cmd_msg.buf_info.fd =  rsp->buf_info.fd;
 			cmd_msg.buf_info.buf_handle = rsp->buf_info.buf_handle;
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rc = rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			break;
 		default:
 			CAM_ERR(CAM_MEM, "Invalid command %d", rsp->type);
@@ -691,6 +817,7 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 	int hdr_version, payload_type, payload_len, hdr_len;
 	unsigned long flag;
 	struct cam_rpmsg_instance_data *idata = dev_get_drvdata(&rpdev->dev);
+	unsigned int handle = cam_rpmsg_get_handle_from_dev(rpdev);
 	struct cam_slave_pkt_hdr *hdr = data;
 	struct cam_rpmsg_slave_payload_desc *payload = NULL;
 	struct cam_rpmsg_slave_pvt *pvt =
@@ -730,6 +857,9 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 		payload_len = CAM_RPMSG_SLAVE_GET_PAYLOAD_SIZE(payload);
 
 		CAM_DBG(CAM_RPMSG, "pld_type %x, pld_len %d", payload_type, payload_len);
+		trace_cam_rpmsg(cam_rpmsg_dev_hdl_to_string(handle),
+			CAM_RPMSG_TRACE_RX, payload_len,
+			cam_rpmsg_slave_pl_type_to_string(payload_type));
 
 		if (!payload_len) {
 			CAM_ERR(CAM_RPMSG, "zero length payload, type %d", payload_type);
@@ -784,6 +914,8 @@ static int cam_rpmsg_slave_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 pkt_processed:
 		processed += payload_len;
+		trace_cam_rpmsg(cam_rpmsg_dev_hdl_to_string(handle), CAM_RPMSG_TRACE_RX,
+				payload_len, cam_rpmsg_slave_pl_type_to_string(payload_type));
 	}
 
 	if (processed != len) {
