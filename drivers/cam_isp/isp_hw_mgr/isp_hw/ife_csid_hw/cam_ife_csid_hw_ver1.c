@@ -2842,6 +2842,7 @@ static int cam_ife_csid_ver1_disable_hw(
 	struct cam_hw_soc_info                   *soc_info;
 	int rc = 0;
 	unsigned long                             flags;
+	struct cam_req_mgr_core_workq            *workq;
 
 	/* Check for refcount */
 	if (!csid_hw->hw_info->open_count) {
@@ -2864,6 +2865,10 @@ static int cam_ife_csid_ver1_disable_hw(
 	/* Disable the top IRQ interrupt */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->cmn_reg->top_irq_mask_addr);
+
+	/* Flush workq */
+	workq = (struct cam_req_mgr_core_workq *)csid_hw->workq;
+	cam_req_mgr_workq_flush(workq);
 
 	rc = cam_ife_csid_disable_soc_resources(soc_info);
 	if (rc)
