@@ -147,6 +147,7 @@ struct csiphy_remote_device {
 	char                           device_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
 	struct mutex                   mutex;
 	uint32_t                       acquire_count;
+	uint32_t                       start_dev_count;
 	enum cam_csiphy_remote_state   csiphy_state;
 	struct csiphy_remote_ctrl_t    *ctrl_reg;
 	struct cam_subdev              v4l2_dev_str;
