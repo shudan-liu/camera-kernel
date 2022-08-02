@@ -534,6 +534,17 @@ struct cam_isp_ctx_mini_dump_info {
 	bool                                   use_default_apply;
 };
 
+
+
+/**
+ * cam_isp_context_set_slave_status()
+ * @brief:   set slave status whether up or down
+ * @ctx:     ISP context obj
+ * @status:  whether UP or DOWN
+ * @return:  Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_isp_context_set_slave_status(struct cam_context *ctx, bool status);
+
 /**
  * cam_isp_context_init()
  *

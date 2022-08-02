@@ -296,6 +296,7 @@ struct cam_ife_virtual_rdi_mapping {
  * @sensor_id:              Sensor id for context
  * @num_processed:          number of config_dev processed in virtual acquire
  * @mapping_table:          mapping between virtual rdi and acquired rdi
+ * @slave_status:           slave status indicating if it is in running state
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                     list;
@@ -361,6 +362,7 @@ struct cam_ife_hw_mgr_ctx {
 	uint32_t                             sensor_id;
 	uint32_t                             num_processed;
 	struct cam_ife_virtual_rdi_mapping   mapping_table;
+	bool                                 is_slave_down;
 };
 
 /**

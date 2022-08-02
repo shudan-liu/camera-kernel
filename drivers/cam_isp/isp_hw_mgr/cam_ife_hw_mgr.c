@@ -2076,6 +2076,7 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 	int index)
 {
 	uint32_t                          i;
+	int                               rc;
 	struct cam_isp_hw_mgr_res        *hw_mgr_res;
 	struct cam_isp_hw_mgr_res        *hw_mgr_res_temp;
 	struct list_head                 *ife_src_list_head;
@@ -2161,10 +2162,18 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 		ife_ctx->flags.need_csid_top_cfg = false;
 
 		if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
-				ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID)
-			cam_rpmsg_isp_send_rel(ife_ctx->sensor_id);
+			ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+			if (ife_ctx->is_slave_down) {
+				CAM_WARN(CAM_ISP, "slave not Up skip to send release");
+			} else {
+				rc = cam_rpmsg_isp_send_rel(ife_ctx->sensor_id);
+				if (rc) {
+					CAM_ERR(CAM_ISP, "fail to send release, rc=%d", rc);
+					return rc;
+				}
+			}
+		}
 	}
-
 	CAM_DBG(CAM_ISP, "release context completed ctx id:%d",
 		ife_ctx->ctx_index);
 
@@ -7867,8 +7876,14 @@ out:
 		total_pd_port, total_rdi_port, rc);
 
 	if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
-			ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID)
-		cam_rpmsg_isp_send_acq(ife_ctx->sensor_id);
+		ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+		rc = cam_rpmsg_isp_send_acq(ife_ctx->sensor_id);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "rpmsg send acquire failed, rc= %d", rc);
+			goto free_ctx;
+		}
+	}
+	ife_ctx->is_slave_down = false;
 
 	cam_ife_hw_mgr_put_ctx(&ife_hw_mgr->used_ctx_list, &ife_ctx);
 
@@ -9399,8 +9414,15 @@ reset_scratch_buffers:
 
 notify_slave:
 	if (ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
-			ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID)
-		cam_rpmsg_isp_send_stop(ctx->sensor_id);
+			ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+		if (ctx->is_slave_down)
+			CAM_WARN(CAM_ISP, "slave is not up, skip to send stop");
+		else
+			rc = cam_rpmsg_isp_send_stop(ctx->sensor_id);
+
+		if (rc)
+			CAM_ERR(CAM_ISP, "failed to send stop to slave %d", rc);
+	}
 
 end:
 	ctx->flags.dump_on_error = false;
@@ -10258,8 +10280,18 @@ start_only:
 notify_slave:
 	/* Start IFE root node: do nothing */
 	if (ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
-			ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID)
-		cam_rpmsg_isp_send_start(ctx->sensor_id);
+		ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+		if (ctx->is_slave_down)
+			CAM_WARN(CAM_ISP, "Slave is Not Up, fail to send start");
+		else
+			rc = cam_rpmsg_isp_send_start(ctx->sensor_id);
+
+		if (rc) {
+			CAM_ERR(CAM_ISP, "Start failed ctx id:%d, rc = %d",
+				ctx->ctx_index, rc);
+			return rc;
+		}
+	}
 	CAM_DBG(CAM_ISP, "Start success for ctx id:%d", ctx->ctx_index);
 
 	return 0;
@@ -15455,6 +15487,11 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			break;
 		case CAM_ISP_HW_MGR_GET_HW_CTX:
 			rc = cam_ife_mgr_get_active_hw_ctx(ctx, isp_hw_cmd_args);
+		case CAM_ISP_HW_MGR_CMD_GET_SLAVE_STATE:
+			isp_hw_cmd_args->cmd_data = &ctx->is_slave_down;
+			break;
+		case CAM_ISP_HW_MGR_CMD_SET_SLAVE_STATE:
+			ctx->is_slave_down = *(bool *)isp_hw_cmd_args->cmd_data;
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",
