@@ -407,6 +407,7 @@ static int cam_cci_create_debugfs_entry(struct cci_device *cci_dev)
 {
 	int rc = 0;
 	struct dentry *dbgfileptr = NULL;
+	char client_name[128] = {0};
 
 	if (!debugfs_root) {
 		dbgfileptr = debugfs_create_dir("cam_cci", NULL);
@@ -418,27 +419,21 @@ static int cam_cci_create_debugfs_entry(struct cci_device *cci_dev)
 		debugfs_root = dbgfileptr;
 	}
 
-	if (cci_dev->soc_info.index == 0) {
-		dbgfileptr = debugfs_create_file("en_dump_cci0", 0644,
-			debugfs_root, cci_dev, &cam_cci_debug);
-		if (IS_ERR(dbgfileptr)) {
-			if (PTR_ERR(dbgfileptr) == -ENODEV)
-				CAM_WARN(CAM_CCI, "DebugFS not enabled");
-			else {
-				rc = PTR_ERR(dbgfileptr);
-				goto end;
-			}
-		}
-	} else {
-		dbgfileptr = debugfs_create_file("en_dump_cci1", 0644,
-			debugfs_root, cci_dev, &cam_cci_debug);
-		if (IS_ERR(dbgfileptr)) {
-			if (PTR_ERR(dbgfileptr) == -ENODEV)
-				CAM_WARN(CAM_CCI, "DebugFS not enabled");
-			else {
-				rc = PTR_ERR(dbgfileptr);
-				goto end;
-			}
+	if (cci_dev->soc_info.index >= MAX_CCI) {
+		CAM_WARN(CAM_CCI,
+			"DebugFS not enabled for en_dump_cci%d", cci_dev->soc_info.index);
+		goto end;
+	}
+
+	snprintf(client_name, sizeof(client_name), "en_dump_cci%d", cci_dev->soc_info.index);
+	dbgfileptr = debugfs_create_file("client_name", 0644,
+		debugfs_root, cci_dev, &cam_cci_debug);
+	if (IS_ERR(dbgfileptr)) {
+		if (PTR_ERR(dbgfileptr) == -ENODEV)
+			CAM_WARN(CAM_CCI,
+				"DebugFS not enabled for %s", client_name);
+		else {
+			rc = PTR_ERR(dbgfileptr);
 		}
 	}
 end:
