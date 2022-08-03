@@ -1066,7 +1066,7 @@ static struct cam_ife_csid_csi2_rx_reg_info
 		.dyn_sensor_switch_shift_en      = 10,
 		.fatal_err_mask                  = 0x097A000,
 		.part_fatal_err_mask             = 0x1081800,
-		.non_fatal_err_mask              = 0x0200000,
+		.non_fatal_err_mask              = 0x0,
 		.top_irq_mask                    = 0x4,
 };
 
