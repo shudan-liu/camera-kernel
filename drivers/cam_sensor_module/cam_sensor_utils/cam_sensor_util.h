@@ -28,6 +28,9 @@
 #include "cam_sensor_io.h"
 
 #define INVALID_VREG 100
+#define GPIO_OUTPUT_LOW            (0 << 1)
+#define GPIO_OUTPUT_HIGH           (1 << 1)
+#define GPIO_INPUT_FLOATING        (2 << 1)
 
 int cam_get_dt_power_setting_data(struct device_node *of_node,
 	struct cam_hw_soc_info *soc_info,
