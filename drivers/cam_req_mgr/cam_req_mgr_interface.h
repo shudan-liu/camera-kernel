@@ -23,6 +23,7 @@ struct cam_req_mgr_apply_request;
 struct cam_req_mgr_flush_request;
 struct cam_req_mgr_link_evt_data;
 struct cam_req_mgr_dump_info;
+struct cam_req_mgr_no_crm_trigger_notify;
 
 /* Request Manager -- camera device driver interface */
 /**
@@ -240,6 +241,16 @@ struct cam_req_mgr_trigger_notify {
 };
 
 /**
+ * struct cam_req_mgr_no_crm_trigger_notify
+ * @link_hdl : link identifier
+ * @frame_id : frame id for internal tracking
+ */
+struct cam_req_mgr_no_crm_trigger_notify {
+	int32_t  link_hdl;
+	int64_t  frame_id;
+};
+
+/**
  * struct cam_req_mgr_timer_notify
  * @link_hdl : link identifier
  * @dev_hdl  : device handle which has sent this req id
@@ -331,6 +342,8 @@ struct cam_req_mgr_device_info {
  * @crm_cb          : callback funcs to communicate with req mgr
  * @trigger_id      : Unique ID provided to the triggering device
  * @stream_type     : sensor mode streaming type
+ * @sensor_pd       : sensor pipeline delay
+ * @is_sensorlite   : sensor lite active or not
  */
 struct cam_req_mgr_core_dev_link_setup {
 	int32_t                    link_enable;
@@ -339,7 +352,9 @@ struct cam_req_mgr_core_dev_link_setup {
 	enum cam_pipeline_delay    max_delay;
 	struct cam_req_mgr_crm_cb *crm_cb;
 	int32_t                    trigger_id;
-	int8_t                    stream_type;
+	int8_t                     stream_type;
+	int8_t                     sensor_pd;
+	bool                       is_sensorlite;
 };
 
 /**

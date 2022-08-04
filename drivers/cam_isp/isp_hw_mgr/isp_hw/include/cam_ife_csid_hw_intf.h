@@ -157,6 +157,7 @@ struct cam_isp_in_port_generic_info {
 	uint32_t                        sensor_id;
 	uint32_t                        sensor_mode;
 	bool                            independent_crm_mode;
+	bool                            slave_metadata_en;
 	struct cam_isp_out_port_generic_info    *data;
 };
 
@@ -206,6 +207,7 @@ struct cam_csid_secondary_evt_config {
  * @sfe_en:              Flag to indicate if SFE is enabled
  * @use_wm_pack:         [OUT]Flag to indicate if WM packing is to be used for packing
  * @is_virt:             flag to indicate virtual HW
+ * @metadata_en:         flag to indicate if slave metadta is enabled
  */
 struct cam_csid_hw_reserve_resource_args {
 	enum cam_isp_resource_type                res_type;
@@ -232,6 +234,7 @@ struct cam_csid_hw_reserve_resource_args {
 	bool                                      sfe_en;
 	bool                                      use_wm_pack;
 	bool                                      is_virtual;
+	bool                                      metadata_en;
 };
 
 /**

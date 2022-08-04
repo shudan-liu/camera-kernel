@@ -144,4 +144,11 @@ void cam_sync_util_cleanup_children_list(struct sync_table_row *row,
 void cam_sync_util_cleanup_parents_list(struct sync_table_row *row,
 	uint32_t list_clean_type, uint32_t sync_obj);
 
+/**
+ * @brief: Function to send v4l2 event to exit polling thread
+ *
+ * @return Status of operation.
+ */
+int cam_sync_util_send_exit_poll_event(void);
+
 #endif /* __CAM_SYNC_UTIL_H__ */

@@ -152,31 +152,31 @@ struct cam_ife_hw_mgr_sfe_info {
 /**
  * struct cam_ife_hw_mgr_ctx_flags - IFE HW mgr ctx flags
  *
- * @ctx_in_use:          flag to tell whether context is active
- * @init_done:           indicate whether init hw is done
- * @is_fe_enabled:       indicate whether fetch engine\read path is enabled
- * @is_dual:             indicate whether context is in dual VFE mode
- * @is_offline:          indicate whether context is for offline IFE
- * @dsp_enabled:         indicate whether dsp is enabled in this context
- * @internal_cdm:        indicate whether context uses internal CDM
- * @pf_mid_found:        in page fault, mid found for this ctx.
- * @need_csid_top_cfg:   Flag to indicate if CSID top cfg is needed.
- * @is_rdi_only_context: flag to specify the context has only rdi resource
- * @is_lite_context:     flag to specify the context has only uses lite
- *                       resources
- * @is_sfe_shdr:         indicate if stream is for SFE sHDR
- * @is_sfe_fs:           indicate if stream is for inline SFE FS
- * @dump_on_flush:       Set if reg dump triggered on flush
- * @dump_on_error:       Set if reg dump triggered on error
- * @custom_aeb_mode:     Set if custom AEB stream
- * @rdi_lcr_en:          To indicate if RDI LCR is enabled
- * @sys_cache_usage:     Per context sys cache usage
- *                       The corresponding index will be set
- *                       for the cache type
- * hybrid_acquire        Bool for categorising acquire type.
- * @secure_mode          Flag to check if any out resource is secure
- * @is_independent_crm_mode  Flag to check if isp ctx is working in independent crm mode
- *
+ * @ctx_in_use:              flag to tell whether context is active
+ * @init_done:               indicate whether init hw is done
+ * @is_fe_enabled:           indicate whether fetch engine\read path is enabled
+ * @is_dual:                 indicate whether context is in dual VFE mode
+ * @is_offline:              indicate whether context is for offline IFE
+ * @dsp_enabled:             indicate whether dsp is enabled in this context
+ * @internal_cdm:            indicate whether context uses internal CDM
+ * @pf_mid_found:            in page fault, mid found for this ctx.
+ * @need_csid_top_cfg:       Flag to indicate if CSID top cfg is needed.
+ * @is_rdi_only_context:     flag to specify the context has only rdi resource
+ * @is_lite_context:         flag to specify the context has only uses lite
+ *                           resources
+ * @is_sfe_shdr:             indicate if stream is for SFE sHDR
+ * @is_sfe_fs:               indicate if stream is for inline SFE FS
+ * @dump_on_flush:           Set if reg dump triggered on flush
+ * @dump_on_error:           Set if reg dump triggered on error
+ * @custom_aeb_mode:         Set if custom AEB stream
+ * @rdi_lcr_en:              To indicate if RDI LCR is enabled
+ * @sys_cache_usage:         Per context sys cache usage
+ *                           The corresponding index will be set
+ *                           for the cache type
+ * @hybrid_acquire:          Bool for categorising acquire type.
+ * @secure_mode:             Flag to check if any out resource is secure
+ * @is_independent_crm_mode: Flag to check if isp ctx is working in independent crm mode
+ * @slave_metadata_en:       Flag to indicate if metadata is enabled in RDI path
  */
 struct cam_ife_hw_mgr_ctx_flags {
 	bool   ctx_in_use;
@@ -200,6 +200,7 @@ struct cam_ife_hw_mgr_ctx_flags {
 	bool   hybrid_acquire;
 	bool   secure_mode;
 	bool   is_independent_crm_mode;
+	bool   slave_metadata_en;
 };
 
 /**
@@ -275,7 +276,6 @@ struct cam_ife_cdm_user_data {
  * @sensor_info:            sensor data for hybrid acquire
  * @sensor_id:              Sensor id for context
  * @num_processed:          number of config_dev processed in virtual acquire
- *
  */
 struct cam_ife_hw_mgr_ctx {
 	struct list_head                     list;
@@ -348,11 +348,13 @@ struct cam_ife_hw_mgr_ctx {
  * @max_vfe_out_res_type  :  max ife out res type value from hw
  * @max_sfe_out_res_type  :  max sfe out res type value from hw
  * @support_consumed_addr :  indicate whether hw supports last consumed address
+ * @fifo_depth            :  Max fifo depth supported
  */
 struct cam_isp_bus_hw_caps {
 	uint32_t     max_vfe_out_res_type;
 	uint32_t     max_sfe_out_res_type;
 	bool         support_consumed_addr;
+	uint32_t     fifo_depth;
 };
 
 /*

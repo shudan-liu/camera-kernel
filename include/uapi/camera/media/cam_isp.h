@@ -186,6 +186,7 @@
 #define CAM_ISP_SFE_SHDR_MODE_EN               BIT(6)
 #define CAM_ISP_AEB_MODE_EN                    BIT(7)
 #define CAM_ISP_INDEPENDENT_CRM                BIT(8)
+#define CAM_ISP_SLAVE_METADATA_EN              BIT(9)
 
 #define CAM_ISP_ACQUIRE_TYPE_NONE              0
 #define CAM_ISP_ACQUIRE_TYPE_VIRTUAL           1
@@ -204,6 +205,8 @@
  */
 #define CAM_IFE_DECODE_FORMAT_MASK      0xFF
 #define CAM_IFE_DECODE_FORMAT_SHIFT_VAL 8
+
+#define CAM_IFE_GET_QUERY_CAP_V2        1
 
 /* Query devices */
 /**
@@ -235,6 +238,28 @@ struct cam_isp_query_cap_cmd {
 	struct cam_iommu_handle     cdm_iommu;
 	__s32                       num_dev;
 	__u32                       reserved;
+	struct cam_isp_dev_cap_info dev_caps[CAM_ISP_HW_MAX];
+};
+
+/**
+ * struct cam_isp_query_cap_cmd_v2 - ISP query device capability payload
+ *
+ * @version:                    version details
+ * @num_dev:                    returned number of device capabilities
+ * @ispctx_qu_depth:            returned isp context queue depth
+ * @reserved:                   reserved field for alignment
+ * @device_iommu:               returned iommu handles for device
+ * @cdm_iommu:                  returned iommu handles for cdm
+ * @dev_caps:                   returned device capability array
+ *
+ */
+struct cam_isp_query_cap_cmd_v2 {
+	__u32                       version;
+	__s32                       num_dev;
+	__u32                       ispctx_queue_depth;
+	__u32                       reserved;
+	struct cam_iommu_handle     device_iommu;
+	struct cam_iommu_handle     cdm_iommu;
 	struct cam_isp_dev_cap_info dev_caps[CAM_ISP_HW_MAX];
 };
 

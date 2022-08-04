@@ -90,14 +90,12 @@ struct cam_hw_update_entry {
  * @sync_id:               Sync id
  * @image_buf_addr:        Image buffer address array
  * @kernel_map_buf_addr    Kernel map buffer address array
- * @slave_buf_data         Flag to identify slave buf data
  */
 struct cam_hw_fence_map_entry {
 	uint32_t           resource_handle;
 	int32_t            sync_id;
 	dma_addr_t         image_buf_addr[CAM_PACKET_MAX_PLANES];
 	uint32_t          *kernel_map_buf_addr[CAM_PACKET_MAX_PLANES];
-	bool               slave_buf_data;
 };
 
 /**
@@ -150,6 +148,7 @@ struct cam_hw_acquire_stream_caps {
  * @valid_acquired_hw:     Valid num of acquired hardware
  * @op_params:             OP Params from hw_mgr to ctx
  * @mini_dump_cb:          Mini dump callback function
+ * @out_fifo_depth:        Max output fifo depth supported
  *
  */
 struct cam_hw_acquire_args {
@@ -162,6 +161,7 @@ struct cam_hw_acquire_args {
 	void                        *ctxt_to_hw_map;
 	uint32_t                     hw_mgr_ctx_id;
 	uint32_t                     op_flags;
+	uint32_t                     out_fifo_depth;
 
 	uint32_t    acquired_hw_id[CAM_MAX_ACQ_RES];
 	uint32_t    acquired_hw_path[CAM_MAX_ACQ_RES][CAM_MAX_HW_SPLIT];
@@ -534,6 +534,8 @@ struct cam_hw_mini_dump_info {
  * @hw_mgr_priv:               HW manager object
  * @hw_get_caps:               Function pointer for get hw caps
  *                               args = cam_query_cap_cmd
+ * @hw_get_caps_v2:            Function pointer for get hw caps v2
+ *                               args = cam_query_cap_cmd
  * @hw_acquire:                Function poniter for acquire hw resources
  *                               args = cam_hw_acquire_args
  * @hw_release:                Function pointer for release hw device resource
@@ -564,6 +566,7 @@ struct cam_hw_mgr_intf {
 	void *hw_mgr_priv;
 
 	int (*hw_get_caps)(void *hw_priv, void *hw_caps_args);
+	int (*hw_get_caps_v2)(void *hw_priv, void *hw_caps_args);
 	int (*hw_acquire)(void *hw_priv, void *hw_acquire_args);
 	int (*hw_release)(void *hw_priv, void *hw_release_args);
 	int (*hw_start)(void *hw_priv, void *hw_start_args);

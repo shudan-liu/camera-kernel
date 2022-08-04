@@ -4443,7 +4443,7 @@ static int cam_tfe_mgr_prepare_hw_update(void *hw_mgr_priv,
 			NULL, CAM_ISP_TFE_OUT_RES_BASE,
 			CAM_TFE_HW_OUT_RES_MAX, fill_fence,
 			CAM_ISP_HW_TYPE_TFE,
-			&frame_header_info, &check_for_scratch);
+			&frame_header_info, &check_for_scratch, FALSE);
 
 		if (rc) {
 			CAM_ERR(CAM_ISP,

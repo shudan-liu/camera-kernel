@@ -341,12 +341,18 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 		return -EINVAL;
 	}
 
-	if (!buf_handle || !vaddr_ptr || !len)
+	if (!buf_handle || !vaddr_ptr || !len) {
+		CAM_ERR(CAM_MEM, "buf_handle %s vaddr_ptr %s len %s",
+				CAM_BOOL_TO_YESNO(buf_handle), CAM_BOOL_TO_YESNO(vaddr_ptr),
+				CAM_BOOL_TO_YESNO(len));
 		return -EINVAL;
+	}
 
 	idx = CAM_MEM_MGR_GET_HDL_IDX(buf_handle);
-	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0)
+	if (idx >= CAM_MEM_BUFQ_MAX || idx <= 0) {
+		CAM_ERR(CAM_MEM, "invalid buf_handle idx %d", idx);
 		return -EINVAL;
+	}
 
 	if (!tbl.bufq[idx].active) {
 		CAM_ERR(CAM_MEM, "Buffer at idx=%d is already unmapped,",
@@ -354,11 +360,16 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 		return -EPERM;
 	}
 
-	if (buf_handle != tbl.bufq[idx].buf_handle)
+	if (buf_handle != tbl.bufq[idx].buf_handle) {
+		CAM_ERR(CAM_MEM, "buf handle mismatch %x != %x", buf_handle,
+				tbl.bufq[idx].buf_handle);
 		return -EINVAL;
+	}
 
-	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS))
+	if (!(tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)) {
+		CAM_ERR(CAM_MEM, "KMD_ACCESS flag not present");
 		return -EINVAL;
+	}
 
 	if (tbl.bufq[idx].kmdvaddr) {
 		*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
@@ -1090,9 +1101,10 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 	int rc;
 	struct dma_buf *dmabuf;
 	dma_addr_t hw_vaddr = 0;
-	size_t len = 0;
+	size_t len = 0, klen = 0;
 	bool is_internal = false;
 	unsigned long i_ino;
+	uintptr_t kvaddr = 0;
 
 	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
@@ -1169,7 +1181,18 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 	tbl.bufq[idx].buf_handle = GET_MEM_HANDLE(idx, cmd->fd);
 	if (cmd->flags & CAM_MEM_FLAG_PROTECTED_MODE)
 		CAM_MEM_MGR_SET_SECURE_HDL(tbl.bufq[idx].buf_handle, true);
-	tbl.bufq[idx].kmdvaddr = 0;
+
+	if (!tbl.bufq[idx].kmdvaddr && cmd->flags & CAM_MEM_FLAG_KMD_ACCESS) {
+		rc = cam_mem_util_map_cpu_va(dmabuf, &kvaddr, &klen);
+		if (rc) {
+			tbl.bufq[idx].kmdvaddr = 0;
+			CAM_ERR(CAM_MEM, "dmabuf: %pK mapping failed: %d",
+					dmabuf, rc);
+			goto map_kernel_fail;
+		}
+	}
+
+	tbl.bufq[idx].kmdvaddr = kvaddr;
 
 	if (cmd->num_hdl > 0)
 		tbl.bufq[idx].vaddr = hw_vaddr;
@@ -1194,6 +1217,8 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd *cmd)
 		tbl.bufq[idx].len, tbl.bufq[idx].i_ino);
 
 	return rc;
+map_kernel_fail:
+	mutex_unlock(&tbl.bufq[idx].q_lock);
 map_fail:
 	cam_mem_put_slot(idx);
 slot_fail:
@@ -1281,9 +1306,11 @@ static void cam_mem_mgr_unmap_active_buf(int idx)
 
 	cam_mem_util_unmap_hw_va(idx, region, CAM_SMMU_MAPPING_USER);
 
-	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS)
+	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_KMD_ACCESS) {
 		cam_mem_util_unmap_cpu_va(tbl.bufq[idx].dma_buf,
 			tbl.bufq[idx].kmdvaddr);
+		tbl.bufq[idx].kmdvaddr = 0;
+	}
 }
 
 static int cam_mem_mgr_cleanup_table(void)
@@ -1402,12 +1429,6 @@ static int cam_mem_util_unmap(int32_t idx,
 		if (cam_mem_util_unmap_hw_va(idx, region, client))
 			CAM_ERR(CAM_MEM, "Failed, dmabuf=%pK",
 				tbl.bufq[idx].dma_buf);
-		/*
-		 * Workaround as smmu driver doing put_buf without get_buf for kernel mappings
-		 * Setting NULL here so that we dont call dma_buf_pt again below
-		 */
-		if (client == CAM_SMMU_MAPPING_KERNEL)
-			tbl.bufq[idx].dma_buf = NULL;
 	}
 	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_NSP_ACCESS)
 	{
@@ -1436,6 +1457,7 @@ static int cam_mem_util_unmap(int32_t idx,
 	tbl.bufq[idx].is_internal = false;
 	tbl.bufq[idx].len = 0;
 	tbl.bufq[idx].num_hdl = 0;
+	tbl.bufq[idx].kmdvaddr = 0;
 	cam_mem_mgr_reset_presil_params(idx);
 	memset(&tbl.bufq[idx].timestamp, 0, sizeof(struct timespec64));
 	mutex_unlock(&tbl.bufq[idx].q_lock);

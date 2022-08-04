@@ -103,6 +103,7 @@ struct cam_vfe_bus_ver2_common_data {
 	bool                                        hw_init;
 	bool                                        support_consumed_addr;
 	bool                                        disable_ubwc_comp;
+	uint32_t                                    fifo_depth;
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -3864,6 +3865,8 @@ static int cam_vfe_bus_process_cmd(
 		vfe_bus_cap->max_out_res_type = bus_priv->max_out_res;
 		vfe_bus_cap->support_consumed_addr =
 			bus_priv->common_data.support_consumed_addr;
+		vfe_bus_cap->out_fifo_depth =
+			bus_priv->common_data.fifo_depth;
 
 		break;
 	default:
@@ -3931,6 +3934,8 @@ int cam_vfe_bus_ver2_init(
 	bus_priv->common_data.hw_init            = false;
 	bus_priv->common_data.support_consumed_addr =
 		ver2_hw_info->support_consumed_addr;
+	bus_priv->common_data.fifo_depth =
+		ver2_hw_info->fifo_depth;
 	bus_priv->common_data.disable_ubwc_comp  = false;
 
 	mutex_init(&bus_priv->common_data.bus_mutex);

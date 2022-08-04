@@ -30,8 +30,27 @@ struct fastrpc_apps {
 	struct fastrpc_device *fastrpc_device;
 	struct completion fastrpc_probe_completion;
 };
-
+/**
+ * cam_fastrpc_driver_register()
+ *
+ * @brief:  Register nsp jpeg handle with fastrpc.
+ *
+ * @handle: handle to nsp jpeg driver.
+ *
+ * @return 0 on success
+ */
 int cam_fastrpc_driver_register(uint32_t handle);
+
+/**
+ * cam_fastrpc_driver_unregister()
+ *
+ * @brief:  unregister nsp jpeg handle with fastrpc.
+ *
+ * cam_jpeg_mgr_nsp_acquire_hw()
+ *
+ * @return 0 on success
+ */
+int cam_fastrpc_driver_unregister(uint32_t handle);
 
 int cam_fastrpc_dev_unmap_dma(
 		struct cam_mem_buf_queue *buf);

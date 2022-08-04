@@ -762,6 +762,17 @@ int cam_soc_util_reg_dump_to_cmd_buf(void *ctx,
 int cam_soc_util_print_clk_freq(struct cam_hw_soc_info *soc_info);
 
 /**
+ * cam_soc_util_util_regulators_enabled()
+ *
+ * @brief:              This function checks whether regulators of this device are enabled
+ *                      at this time.
+ * @soc_info:           Device soc struct to be populated
+ *
+ * @return:             Number of regulators enabled
+ */
+int cam_soc_util_regulators_enabled(struct cam_hw_soc_info *soc_info);
+
+/**
  * cam_soc_util_select_pinctrl_state()
  *
  * @brief:              This function gets the pinctrl handle

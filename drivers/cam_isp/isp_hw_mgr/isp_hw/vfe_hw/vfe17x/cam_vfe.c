@@ -16,6 +16,7 @@
 #include "cam_vfe680.h"
 #include "cam_vfe680_110.h"
 #include "cam_vfe780.h"
+#include "cam_vfe636.h"
 #include "cam_vfe_lite17x.h"
 #include "cam_vfe_lite48x.h"
 #include "cam_vfe_lite65x.h"
@@ -72,6 +73,10 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 		.data = &cam_vfe780_hw_info,
 	},
 	{
+		.compatible = "qcom,vfe636",
+		.data = &cam_vfe636_hw_info,
+	},
+	{
 		.compatible = "qcom,vfe-lite170",
 		.data = &cam_vfe_lite17x_hw_info,
 	},
@@ -106,6 +111,10 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 	{
 		.compatible = "qcom,vfe-lite780",
 		.data = &cam_vfe_lite78x_hw_info,
+	},
+	{
+		.compatible = "qcom,vfe-lite636",
+		.data = &cam_vfe_lite65x_hw_info,
 	},
 	{}
 };

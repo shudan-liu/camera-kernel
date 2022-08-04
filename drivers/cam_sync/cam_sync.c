@@ -618,6 +618,11 @@ static int cam_sync_handle_wait(struct cam_private_ioctl_arg *k_ioctl)
 	return 0;
 }
 
+static inline int cam_sync_handle_exit_poll(void)
+{
+	return cam_sync_util_send_exit_poll_event();
+}
+
 static int cam_sync_handle_destroy(struct cam_private_ioctl_arg *k_ioctl)
 {
 	struct cam_sync_info sync_create;
@@ -818,6 +823,9 @@ static long cam_sync_dev_ioctl(struct file *filep, void *fh,
 		((struct cam_private_ioctl_arg *)arg)->result =
 			k_ioctl.result;
 		break;
+	case CAM_SYNC_EXIT_DQ_THREAD:
+		rc = cam_sync_handle_exit_poll();
+		break;
 	default:
 		rc = -ENOIOCTLCMD;
 	}
@@ -954,6 +962,14 @@ static void cam_sync_event_queue_notify_error(const struct v4l2_event *old,
 			ev_header->evt_param[0], ev_header->evt_param[1],
 			ev_header->evt_param[2], ev_header->evt_param[3]);
 
+	} else if (sync_dev->version == CAM_SYNC_V4L_EVENT_V3) {
+		struct cam_sync_ev_header_v3 *ev_header;
+
+		ev_header = CAM_SYNC_GET_HEADER_PTR_V3((*old));
+		CAM_ERR(CAM_CRM,
+			"Fail to notify event id %d fence %d status %d reason %u",
+			old->id, ev_header->sync_obj, ev_header->status,
+			ev_header->evt_param[0]);
 	} else {
 		struct cam_sync_ev_header *ev_header;
 
@@ -971,8 +987,22 @@ static struct v4l2_subscribed_event_ops cam_sync_v4l2_ops = {
 int cam_sync_subscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
-	if (sub->type > CAM_SYNC_V4L_EVENT_V3) {
+	switch (sub->type) {
+	case CAM_SYNC_V4L_EVENT:
+	case CAM_SYNC_V4L_EVENT_V2:
+	case CAM_SYNC_V4L_EVENT_V3:
+		break;
+	default:
 		CAM_ERR(CAM_SYNC, "Non supported event type 0x%x", sub->type);
+		return -EINVAL;
+	}
+
+	switch (sub->id) {
+	case CAM_SYNC_V4L_EVENT_ID_CB_TRIG:
+	case CAM_SYNC_V4L_EVENT_ID_EXIT:
+		break;
+	default:
+		CAM_ERR(CAM_SYNC, "Non supported event id 0x%x", sub->id);
 		return -EINVAL;
 	}
 
@@ -985,8 +1015,12 @@ int cam_sync_subscribe_event(struct v4l2_fh *fh,
 int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
-	if (!((sub->type == CAM_SYNC_V4L_EVENT) ||
-	(sub->type == CAM_SYNC_V4L_EVENT_V2))) {
+	switch (sub->type) {
+	case CAM_SYNC_V4L_EVENT:
+	case CAM_SYNC_V4L_EVENT_V2:
+	case CAM_SYNC_V4L_EVENT_V3:
+		break;
+	default:
 		CAM_ERR(CAM_SYNC, "Non supported event type 0x%x", sub->type);
 		return -EINVAL;
 	}

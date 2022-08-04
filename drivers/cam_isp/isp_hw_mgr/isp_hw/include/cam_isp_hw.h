@@ -366,7 +366,6 @@ struct cam_isp_hw_cmd_buf_update {
  * @ stride:           stride of scratch buffer
  * @ slice_height:     slice height of scratch buffer
  * @ io_cfg:           IO buffer config information sent from UMD
- * @slave_buf_data     Flag to identify slave buf data
  */
 struct cam_isp_hw_get_wm_update {
 	dma_addr_t                     *image_buf;
@@ -380,7 +379,6 @@ struct cam_isp_hw_get_wm_update {
 	uint32_t                        stride;
 	uint32_t                        slice_height;
 	struct cam_buf_io_cfg          *io_cfg;
-	bool                            slave_buf_data;
 };
 
 /*
@@ -502,11 +500,13 @@ struct cam_isp_hw_intf_data {
  *
  * @support_consumed_addr:  Indicate whether HW has last consumed addr reg
  * @max_out_res_type:       Maximum value of out resource type supported by hw
+ * @out_fifo_depth:         Maximum output fifo depth
  *
  */
 struct cam_isp_hw_bus_cap {
 	bool                    support_consumed_addr;
 	uint32_t                max_out_res_type;
+	uint32_t                out_fifo_depth;
 };
 
 /**

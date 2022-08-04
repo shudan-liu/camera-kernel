@@ -205,6 +205,7 @@ static int cam_csiphy_remote_component_bind(struct device *dev,
 	new_csiphy_dev->ops.apply_req = NULL;
 
 	new_csiphy_dev->acquire_count = 0;
+	new_csiphy_dev->start_dev_count = 0;
 
 	CAM_INFO(CAM_CSIPHY, "%s component bound successfully",
 		pdev->name);

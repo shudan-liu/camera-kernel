@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CPASTOP_HW_H_
@@ -153,6 +154,7 @@ enum cam_camnoc_hw_irq_type {
  * @CAM_CAMNOC_TFE_1: Indicates TFE1 HW connection to camnoc
  * @CAM_CAMNOC_TFE_2: Indicates TFE2 HW connection to camnoc
  * @CAM_CAMNOC_OPE: Indicates OPE HW connection to camnoc
+ * @CAM_CAMNOC_IFE_LITE_1: Indicates IFE lites connection to camnoc
  */
  /* Deprecated, do not use this anymore. port_name serves the purpose instead of this */
 enum cam_camnoc_port_type {
@@ -204,6 +206,7 @@ enum cam_camnoc_port_type {
 	CAM_CAMNOC_IFE01234_RDI_WRITE,
 	CAM_CAMNOC_IFE01_NRDI_WRITE,
 	CAM_CAMNOC_IFE2_NRDI_WRITE,
+	CAM_CAMNOC_IFE_LITE_1,
 };
 
 /**
@@ -298,10 +301,12 @@ struct cam_cpas_hw_errata_wa {
  *         camnoc slave pending transactions before turning off CPAS_TOP gdsc
  * @tcsr_camera_hf_sf_ares_glitch: Errata workaround info from ignoring
  *         erroneous signals at camera start
+ * @enable_icp_clk_for_qchannel: Need to enable ICP clk while qchannel handshake
  */
 struct cam_cpas_hw_errata_wa_list {
 	struct cam_cpas_hw_errata_wa camnoc_flush_slave_pending_trans;
 	struct cam_cpas_hw_errata_wa tcsr_camera_hf_sf_ares_glitch;
+	struct cam_cpas_hw_errata_wa enable_icp_clk_for_qchannel;
 };
 
 /**

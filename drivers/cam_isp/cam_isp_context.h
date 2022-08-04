@@ -59,9 +59,8 @@
 /* AEB error count threshold */
 #define CAM_ISP_CONTEXT_AEB_ERROR_CNT_MAX 3
 
-#define CAM_ISP_SLAVE_MSB_MASK            0xFFFFFF
-#define CAM_ISP_SLAVE_TS_FIRST_INDEX      4
-#define CAM_ISP_SLAVE_TS_SECOND_INDEX     5
+#define CAM_ISP_SLAVE_TS_LSB_IDX      4
+#define CAM_ISP_SLAVE_TS_MSB_IDX      5
 
 /* forward declaration */
 struct cam_isp_context;
@@ -292,13 +291,17 @@ struct cam_isp_context_event_record {
  * @v4l2_event_sub_ids         contains individual bits representing subscribed v4l2 ids
  * @aeb_enabled:               Indicate if stream is for AEB
  * @do_internal_recovery:      Enable KMD halt/reset/resume internal recovery
- * @hybrid_acquire             flag to understand hybrid acquire model
- * @stream_type:               value for sensor mode streaming type
+ * @acquire_type               Value for acquire model: NONE, REAL, HYBRID or VIRTUAL
  * @independent_crm_en:        flag to indicate if CRM operations are skipped
+ * @slave_metadata_en:         flag to indicate if slave metadata is enabled
+ * @stream_type:               value for sensor mode streaming type
  * @independent_crm_sof_timer: watchdog timer to check SOF freeze in independent CRM case
  * @hw_mgr_workq:              associated hw_mgr workq
  * @no_crm_mutex:              mutex for no_crm apply
- *
+ * @waitlist_req_cnt           Counter for the request in waitlist
+ * @fifo_depth                 Max fifo depth supported
+ * @sensor_pd:                 sensor pipeline delay
+ * @is_sensorlite:             Indicate whether sensorlite or sensor device is active
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -357,10 +360,15 @@ struct cam_isp_context {
 	uint32_t                             *slave_pkt;
 	uint32_t                              pkt_offset;
 	bool                                  independent_crm_en;
+	bool                                  slave_metadata_en;
 	int8_t                                stream_type;
 	struct cam_req_mgr_timer              *independent_crm_sof_timer;
 	struct cam_req_mgr_core_workq         *hw_mgr_workq;
 	struct mutex                           no_crm_mutex;
+	uint32_t                               waitlist_req_cnt;
+	uint32_t                               fifo_depth;
+	int8_t                                 sensor_pd;
+	bool                                   is_sensorlite;
 };
 
 /**

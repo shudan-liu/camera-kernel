@@ -20,6 +20,8 @@
 #define SKEW_CAL_MASK             BIT(1)
 #define PREAMBLE_PATTEN_CAL_MASK  BIT(2)
 
+#define CAM_SENSOR_GET_QUERY_CAP_V2
+
 enum camera_sensor_cmd_type {
 	CAMERA_SENSOR_CMD_TYPE_INVALID,
 	CAMERA_SENSOR_CMD_TYPE_PROBE,
@@ -214,6 +216,37 @@ struct  cam_sensor_query_cap {
 } __attribute__((packed));
 
 /**
+ * struct cam_sensor_query_cap_v2 - capabilities info for sensor
+ *
+ * @slot_info        :  Indicates about the slotId or cell Index
+ * @secure_camera    :  Camera is in secure/Non-secure mode
+ * @pos_pitch        :  Sensor position pitch
+ * @pos_roll         :  Sensor position roll
+ * @pos_yaw          :  Sensor position yaw
+ * @actuator_slot_id :  Actuator slot id which connected to sensor
+ * @eeprom_slot_id   :  EEPROM slot id which connected to sensor
+ * @ois_slot_id      :  OIS slot id which connected to sensor
+ * @flash_slot_id    :  Flash slot id which connected to sensor
+ * @csiphy_slot_id   :  CSIphy slot id which connected to sensor
+ * @queue_depth      :  queue depth of waiting queue
+ *
+ */
+struct  cam_sensor_query_cap_v2 {
+	__u32        slot_info;
+	__u32        secure_camera;
+	__u32        pos_pitch;
+	__u32        pos_roll;
+	__u32        pos_yaw;
+	__u32        actuator_slot_id;
+	__u32        eeprom_slot_id;
+	__u32        ois_slot_id;
+	__u32        flash_slot_id;
+	__u32        csiphy_slot_id;
+	__u32        queue_depth;
+	__u32        reserved;
+} __attribute__((packed));
+
+/**
  * struct cam_csiphy_query_cap - capabilities info for csiphy
  *
  * @slot_info        :  Indicates about the slotId or cell Index
@@ -312,6 +345,26 @@ struct cam_sensorlite_query_cap {
 	__u32        reserved[2];
 } __attribute__((packed));
 
+/**
+ * struct cam_sensorlite_query_cap_v2 - capabilities info for sensor lite
+ *
+ * @slot_info        :  Indicates about the slotId or cell Index
+ * @version          :  sensor lite version , in msb
+ * @remote_id        :  sensor is connected remotely we need to fill ids accordingly
+ * @secure_camera    :  Camera is in secure/Non-secure mode
+ * @csiphy_slot_id   :  CSIphy slot id which connected to sensor
+ * @queue_depth      :  waiting queue depth of sensor lite driver
+ * @reserved[2]      :  Reserved for future Use
+ */
+struct cam_sensorlite_query_cap_v2 {
+	__u32        slot_info;
+	__u32        version;
+	__u32        remote_id;
+	__u32        secure_camera;
+	__u32        csiphy_slot_id;
+	__u32        queue_depth;
+	__u32        reserved[2];
+} __attribute__((packed));
 
 /**
  * struct cam_cmd_i2c_info - Contains slave I2C related info

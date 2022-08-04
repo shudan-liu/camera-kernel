@@ -277,6 +277,33 @@ int __dump_host_dest_init_cmd(
 	return 0;
 }
 
+int __dump_host_dest_init_cmd_v2(
+	struct host_dest_camera_init_payload_v3 *init)
+{
+	int i = 0;
+	/* Append the rpmsg headers */
+	__set_slave_pkt_headers(&(init->header), HCM_PKT_OPCODE_SENSOR_INIT);
+	__dump_slave_pkt_headers(&(init->header));
+
+	CAM_INFO(CAM_SENSOR_LITE, "sensor_physical_id           : 0x%x",
+			init->sensor_physical_id);
+	for (i = 0; i < ARRAY_SIZE(init->vc_map); i++) {
+		CAM_INFO(CAM_SENSOR_LITE, "vc_map[%d].version               : 0x%x",
+				i, init->vc_map[i].version);
+		CAM_INFO(CAM_SENSOR_LITE, "vc_map[%d].sensor_vc             : 0x%x",
+				i, init->vc_map[i].sensor_vc);
+		CAM_INFO(CAM_SENSOR_LITE, "vc_map[%d].aggregator_vc         : 0x%x",
+				i, init->vc_map[i].aggregator_vc);
+	}
+
+	/* TODO: validate offsets beyond size etc*/
+	__dump_reg_settings((void *)init,
+			init->init_setting_offset,
+			init->init_setting_count,
+			init->header.size);
+	return 0;
+}
+
 int __dump_exposure_config_cmd(
 	struct sensor_lite_exp_ctrl_cmd *init)
 {
@@ -424,16 +451,77 @@ int __dump_slave_dest_init_cmd(
 	return 0;
 }
 
+int __dump_settings_group_cmd(void *base,
+	off_t b_offset,
+	int count)
+{
+	struct sensor_lite_setting_groupt_cmd *p_group_cmd = NULL;
+	int i = 0;
+	int max_size = 0;
+
+	if (base == NULL)
+		return -EINVAL;
+
+	p_group_cmd = (struct sensor_lite_setting_groupt_cmd *)((uint8_t *)base + b_offset);
+	for(i = 0; i < count; i++)
+	{
+		SENSOR_LITE_INFO(
+			"sensor_lite_setting_groupt_cmd[%d]: cmd_type: %d, time_offset: %d, "
+			"group_regsettings_count: %d, group_regsettings_offset: 0x%x",
+			i+1,
+			p_group_cmd->cmd_type,
+			p_group_cmd->time_offset,
+			p_group_cmd->group_regsettings_count,
+			p_group_cmd->group_regsettings_offset);
+
+		max_size = p_group_cmd->group_regsettings_offset +
+			(p_group_cmd->group_regsettings_count * sizeof(struct reg_setting));
+		__dump_reg_settings(base, p_group_cmd->group_regsettings_offset,
+			p_group_cmd->group_regsettings_count, max_size);
+		p_group_cmd++;
+	}
+	return 0;
+}
+
+int __dump_setting_stream_cmd(void *base,
+	off_t b_offset)
+{
+	struct sensor_lite_settings_stream_cmd *p_streamCmd = NULL;
+
+	if (base == NULL)
+		return -EINVAL;
+
+	p_streamCmd = (struct sensor_lite_settings_stream_cmd *)((uint8_t *)base + b_offset);
+
+	SENSOR_LITE_INFO("channel_id: %d, tracker_id: %d, sensor_id: %d, numcmd_groups: %d, "
+		"settings_groupoffset: 0x%x",
+		p_streamCmd->channel_id,
+		p_streamCmd->tracker_id,
+		p_streamCmd->sensor_id,
+		p_streamCmd->numcmd_groups,
+		p_streamCmd->settings_groupoffset);
+
+	return __dump_settings_group_cmd(base, p_streamCmd->settings_groupoffset,
+		p_streamCmd->numcmd_groups);
+}
+
 int __dump_perframe_cmd(
 	struct sensor_lite_perframe_cmd *pf_packet)
 {
 	if (pf_packet == NULL)
 		return -EINVAL;
+
 	/* Append the rpmsg headers */
 	__set_slave_pkt_headers(&(pf_packet->header), HCM_PKT_OPCODE_SENSOR_CONFIG);
 	__dump_slave_pkt_headers(&(pf_packet->header));
 
-	return 0;
+	SENSOR_LITE_INFO("settings_id: %d, num_streams: %d, stream_offset: 0x%x, timestamp: %lld",
+		pf_packet->settings_id,
+		pf_packet->num_streams,
+		pf_packet->stream_offset,
+		pf_packet->timestamp);
+
+	return __dump_setting_stream_cmd(pf_packet, pf_packet->stream_offset);
 }
 
 int __dump_acquire_cmd(
@@ -554,8 +642,13 @@ int __dump_pkt(
 			(struct slave_dest_camera_init_payload *)header);
 		break;
 	case SENSORLITE_CMD_TYPE_HOSTDESTINIT:
-		__dump_host_dest_init_cmd(
-			(struct host_dest_camera_init_payload_v2 *)header);
+		if (header->version == 0x1) {
+			__dump_host_dest_init_cmd(
+				(struct host_dest_camera_init_payload_v2 *)header);
+		} else if (header->version == 0x2) {
+			__dump_host_dest_init_cmd_v2(
+				(struct host_dest_camera_init_payload_v3 *)header);
+		}
 		break;
 	case SENSORLITE_CMD_TYPE_EXPOSUREUPDATE:
 		__dump_exposure_config_cmd(

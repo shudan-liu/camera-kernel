@@ -15,7 +15,7 @@
 #include "cam_soc_bus.h"
 
 #define CAM_CPAS_INFLIGHT_WORKS              5
-#define CAM_CPAS_MAX_CLIENTS                 55
+#define CAM_CPAS_MAX_CLIENTS                 65
 #define CAM_CPAS_MAX_AXI_PORTS               6
 #define CAM_CPAS_MAX_TREE_LEVELS             4
 #define CAM_CPAS_MAX_RT_WR_NIU_NODES         10
@@ -93,7 +93,7 @@ struct cam_cpas_internal_ops {
 	int (*setup_qos_settings)(struct cam_hw_info *cpas_hw,
 		uint32_t selection_mask);
 	int (*print_poweron_settings)(struct cam_hw_info *cpas_hw);
-	int (*qchannel_handshake)(struct cam_hw_info *cpas_hw, bool power_on);
+	int (*qchannel_handshake)(struct cam_hw_info *cpas_hw, bool power_on, bool force_on);
 };
 
 /**
