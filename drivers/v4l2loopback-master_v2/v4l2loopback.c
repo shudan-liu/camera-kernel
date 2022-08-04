@@ -479,21 +479,26 @@ static void send_v4l2_event_ex2(struct v4l2_loopback_opener *opener, unsigned in
 	event.u.data[1] = size;
 
 	if (size == 0) {
-		v4l2_event_queue_fh(&opener->fh, &event);
-		CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
-			cmd);
+		if (opener) {
+			v4l2_event_queue_fh(&opener->fh, &event);
+			CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
+				cmd);
+		}
 	} else if (size <= MAX_AIS_V4L2_PARAM_EVNET_SIZE) {
 		if (copy_from_user(&event.u.data[2],
 					u64_to_user_ptr(payload),
 					size)) {
 			CAM_ERR(CAM_V4L2, "fail to copy from user when send v4l2");
 		} else {
-			v4l2_event_queue_fh(&opener->fh, &event);
-			CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
-				cmd);
+			if (opener) {
+				v4l2_event_queue_fh(&opener->fh, &event);
+				CAM_DBG(CAM_V4L2, "send v4l2 event for ais_v4l2loopback :%d",
+					cmd);
+			}
 		}
 	} else {
-		v4l2_event_queue_fh(&opener->fh, &event);
+		if (opener)
+			v4l2_event_queue_fh(&opener->fh, &event);
 	}
 }
 
@@ -812,43 +817,6 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 	return 0;
 }
 
-/* returns frameinterval (fps) for the set resolution
- * called on VIDIOC_ENUM_FRAMEINTERVALS
- */
- #if 0
-static int vidioc_enum_frameintervals(struct file *file, void *fh,
-		struct v4l2_frmivalenum *argp)
-{
-	struct v4l2_loopback_device *dev = v4l2loopback_getdevice(file);
-	struct v4l2_loopback_opener *opener = fh_to_opener(fh);
-	struct v4l2_streamdata *data;
-
-	if (!dev) {
-		CAM_ERR(CAM_V4L2, "dev is null");
-		return -EINVAL;
-	}
-
-	if (!opener) {
-		CAM_ERR(CAM_V4L2, "opener is null");
-		return -EINVAL;
-	}
-	data = opener->data;
-
-	if (dev->state & V4L2L_READY_FOR_CAPTURE) {
-		if (data->vidioc_enum_frameintervals_calls > 0)
-			return -EINVAL;
-		if (argp->width == data->pix_format.width &&
-				argp->height == data->pix_format.height) {
-			argp->type = V4L2_FRMIVAL_TYPE_DISCRETE;
-			argp->discrete = data->capture_param.timeperframe;
-			opener->vidioc_enum_frameintervals_calls++;
-			return 0;
-		}
-		return -EINVAL;
-	}
-	return 0;
-}
-#endif
 /* ------------------ CAPTURE ----------------------- */
 
 /* returns device formats
@@ -1436,6 +1404,12 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		CAM_ERR(CAM_V4L2, "dev is null");
 		return -EINVAL;
 	}
+
+	if (dev->state < V4L2L_READY_FOR_CAPTURE) {
+		CAM_ERR(CAM_V4L2, "proxy alread exit, need return");
+		return 0;
+	}
+
 	opener = fh_to_opener(fh);
 	data = opener->data;
 
@@ -1978,8 +1952,14 @@ static int vidioc_streamoff(struct file *file,
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		return 0;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
-		CAM_INFO(CAM_V4L2, "streamoff");
+		CAM_WARN(CAM_V4L2, "streamoff");
+
 		set_allbufs_state(data, V4L2L_BUF_PENDING);
+
+		if (dev->state < V4L2L_READY_FOR_CAPTURE) {
+			CAM_ERR(CAM_V4L2, "proxy alread exit, need return");
+			return 0;
+		}
 
 		if (opener->connected_opener) {
 			send_v4l2_event(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
@@ -2030,12 +2010,122 @@ static int cam_unsubscribe_event(struct v4l2_fh *fh,
 	return v4l2_event_unsubscribe(fh, sub);
 }
 
+static int process_capture_set_param(struct ais_v4l2_control_t *kcmd,
+	struct v4l2_loopback_opener *opener)
+{
+	int rc = 0;
+
+	if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
+		rc = -EINVAL;
+	} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_V4L2, "payload is NULL on set param");
+	} else if (!opener->data) {
+		CAM_ERR(CAM_V4L2, "data is null");
+		return -EINVAL;
+	} else if (copy_from_user(opener->data->qcarcam_param,
+			u64_to_user_ptr(kcmd->payload),
+			kcmd->size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "copy_from_user fail on set param");
+	} else {
+		CAM_DBG(CAM_V4L2, "s_param %u", kcmd->param_type);
+
+		opener->data->qcarcam_param_size = kcmd->size;
+		opener->data->qcarcam_code = kcmd->param_type;
+
+		send_v4l2_event_ex(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
+			AIS_V4L2_SET_PARAM, kcmd->param_type);
+
+		CAM_DBG(CAM_V4L2, "s_param %u debug1", kcmd->param_type);
+
+		/* wait for the signal */
+		rc = wait_for_completion_timeout(&opener->data->sparam_complete,
+				msecs_to_jiffies(SPARAM_TIMEOUT));
+
+		CAM_DBG(CAM_V4L2, "s_param %u debug2", kcmd->param_type);
+		if (rc) {
+			rc = opener->data->qcarcam_sparam_ret;
+		} else {
+			CAM_ERR(CAM_V4L2, "s_param fail, timeout %d", rc);
+			rc = -ETIMEDOUT;
+		}
+	}
+	return rc;
+}
+
+static int process_capture_get_param(struct ais_v4l2_control_t *kcmd,
+	struct v4l2_loopback_opener *opener)
+{
+	int rc = 0;
+
+	if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
+		rc = -EINVAL;
+	} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_V4L2, "payload is NULL on set param");
+	} else {
+		CAM_DBG(CAM_V4L2, "get_param %u", kcmd->param_type);
+
+		/* send the payload to userspace by v4l2_event
+		 * when payload size is large, can't send by v4l2
+		 */
+		if (!opener->data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
+
+		if (kcmd->size > MAX_AIS_V4L2_PARAM_EVNET_SIZE &&
+			copy_from_user(opener->data->qcarcam_param,
+			u64_to_user_ptr(kcmd->payload),
+			kcmd->size)) {
+			rc = -EFAULT;
+			CAM_ERR(CAM_V4L2, "copy_from_user fail on get param");
+			return rc;
+		}
+
+		opener->data->qcarcam_param_size = kcmd->size;
+		opener->data->qcarcam_code = kcmd->param_type;
+
+		/* send get_param to output end */
+		send_v4l2_event_ex2(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
+			AIS_V4L2_GET_PARAM, kcmd->param_type, kcmd->size, kcmd->payload);
+
+		/* wait for the signal */
+		rc = wait_for_completion_timeout(&opener->data->gparam_complete,
+			msecs_to_jiffies(GPARAM_TIMEOUT));
+		if (rc) {
+			rc = 0;
+		} else {
+			CAM_ERR(CAM_V4L2, "g_param fail, timeout %d", rc);
+			rc = -ETIMEDOUT;
+			return rc;
+		}
+
+		if (opener->data->qcarcam_param_size == 0) {
+			/* g_param fail */
+			rc = -EINVAL;
+			CAM_ERR(CAM_V4L2, "get param size failed");
+		} else if (copy_to_user(u64_to_user_ptr(kcmd->payload),
+					opener->data->qcarcam_param,
+					opener->data->qcarcam_param_size)) {
+			/* copy the param from kernel */
+			rc = -EFAULT;
+			CAM_ERR(CAM_V4L2, "copy_from_user fail on get param");
+		} else {
+			kcmd->size = opener->data->qcarcam_param_size;
+			kcmd->param_type = opener->data->qcarcam_code;
+			CAM_DBG(CAM_V4L2, "succeed to get param");
+		}
+	}
+	return rc;
+}
+
 static int process_capture_cmd(struct v4l2_loopback_device *dev,
 	struct ais_v4l2_control_t *kcmd, void *fh)
 {
 	int rc = 0;
 	struct v4l2_loopback_opener *opener;
-	struct v4l2_streamdata *data;
 
 	opener = fh_to_opener(fh);
 	if (!opener || !opener->connected_opener) {
@@ -2043,109 +2133,21 @@ static int process_capture_cmd(struct v4l2_loopback_device *dev,
 		return -EINVAL;
 	}
 
-	data = opener->data;
-	if (!data) {
-		CAM_ERR(CAM_V4L2, "data is null");
-		return -EINVAL;
+	if (dev->state < V4L2L_READY_FOR_CAPTURE) {
+		CAM_WARN(CAM_V4L2, "proxy alread exit when process capture cmd, need return");
+		return 0;
 	}
 
-	CAM_DBG(CAM_V4L2, "opener: %pK data: %pK cmd %d",
-		opener, data, kcmd->cmd);
+	CAM_DBG(CAM_V4L2, "opener: %p cmd %d",
+		opener, kcmd->cmd);
 
 	switch (kcmd->cmd) {
 	case AIS_V4L2_CAPTURE_PRIV_SET_PARAM: {
-		if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
-			rc = -EINVAL;
-		} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
-			rc = -EINVAL;
-			CAM_ERR(CAM_V4L2, "payload is NULL on set param");
-		} else if (copy_from_user(data->qcarcam_param,
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "copy_from_user fail on set param");
-		} else {
-			CAM_DBG(CAM_V4L2, "s_param %u", kcmd->param_type);
-
-			data->qcarcam_param_size = kcmd->size;
-			data->qcarcam_code = kcmd->param_type;
-
-			send_v4l2_event_ex(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
-				AIS_V4L2_SET_PARAM, kcmd->param_type);
-
-			CAM_DBG(CAM_V4L2, "s_param %u debug1", kcmd->param_type);
-
-			/* wait for the signal */
-			rc = wait_for_completion_timeout(&data->sparam_complete,
-					msecs_to_jiffies(SPARAM_TIMEOUT));
-			//msleep(1000);
-
-			CAM_DBG(CAM_V4L2, "s_param %u debug2", kcmd->param_type);
-			if (rc) {
-				rc = data->qcarcam_sparam_ret;
-			} else {
-				CAM_ERR(CAM_V4L2, "s_param fail, timeout %d", rc);
-				rc = -ETIMEDOUT;
-			}
-		}
-
+		rc = process_capture_set_param(kcmd, opener);
 		break;
 	}
 	case AIS_V4L2_CAPTURE_PRIV_GET_PARAM: {
-		if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
-			rc = -EINVAL;
-		} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
-			rc = -EINVAL;
-			CAM_ERR(CAM_V4L2, "payload is NULL on set param");
-		} else {
-			CAM_DBG(CAM_V4L2, "get_param %u", kcmd->param_type);
-
-			/* send the payload to userspace by v4l2_event
-			 * when payload size is large, can't send by v4l2
-			 */
-			if (kcmd->size > MAX_AIS_V4L2_PARAM_EVNET_SIZE &&
-				copy_from_user(data->qcarcam_param,
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-				rc = -EFAULT;
-				CAM_ERR(CAM_V4L2, "copy_from_user fail on get param");
-				return rc;
-			}
-
-			data->qcarcam_param_size = kcmd->size;
-			data->qcarcam_code = kcmd->param_type;
-
-			/* send get_param to output end */
-			send_v4l2_event_ex2(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
-				AIS_V4L2_GET_PARAM, kcmd->param_type, kcmd->size, kcmd->payload);
-
-			/* wait for the signal */
-			rc = wait_for_completion_timeout(&data->gparam_complete,
-				msecs_to_jiffies(GPARAM_TIMEOUT));
-			if (rc) {
-				rc = 0;
-			} else {
-				CAM_ERR(CAM_V4L2, "g_param fail, timeout %d", rc);
-				rc = -ETIMEDOUT;
-				return rc;
-			}
-
-			if (data->qcarcam_param_size == 0) {
-				/* g_param fail */
-				rc = -EINVAL;
-				CAM_ERR(CAM_V4L2, "get param size is 0");
-			} else if (copy_to_user(u64_to_user_ptr(kcmd->payload),
-						data->qcarcam_param,
-						data->qcarcam_param_size)) {
-				/* copy the param from kernel */
-				rc = -EFAULT;
-				CAM_ERR(CAM_V4L2, "copy_from_user fail on get param");
-			} else {
-				kcmd->size = data->qcarcam_param_size;
-				kcmd->param_type = data->qcarcam_code;
-				CAM_DBG(CAM_V4L2, "succeed to get param");
-			}
-		}
+		rc = process_capture_get_param(kcmd, opener);
 		break;
 	}
 	default:
@@ -2156,16 +2158,201 @@ static int process_capture_cmd(struct v4l2_loopback_device *dev,
 	return rc;
 }
 
+static int process_set_param(struct ais_v4l2_control_t *kcmd, struct v4l2_loopback_opener *opener)
+{
+	struct v4l2_event event;
+	int rc = 0;
+
+	if (kcmd->size > MAX_AIS_V4L2_PARAM_EVNET_SIZE) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_V4L2, "fail to set param event, size=%u",
+			kcmd->size);
+	} else if (copy_from_user(&event.u.data[2],
+				u64_to_user_ptr(kcmd->payload),
+				kcmd->size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail to copy from user on set param event");
+	} else {
+		event.type = AIS_V4L2_CLIENT_CAPTURE;
+		event.id = AIS_V4L2_PARAM_EVENT;
+
+		event.u.data[0] = kcmd->param_type;
+		event.u.data[1] = kcmd->size;
+
+		if (!opener->connected_opener) {
+			CAM_ERR(CAM_V4L2, "connected_opener is null");
+			return -EINVAL;
+		}
+		v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+		CAM_DBG(CAM_V4L2, "send AIS_V4L2_PARAM_EVENT :%d %d",
+				event.u.data[2], event.u.data[3]);
+	}
+	return rc;
+}
+
+static int process_get_param(struct ais_v4l2_control_t *kcmd, struct v4l2_streamdata *data)
+{
+	int rc = 0;
+
+	/* copy the param from kernel */
+	CAM_DBG(CAM_V4L2, "AIS_V4L2_OUTPUT_PRIV_GET_PARAM from opener");
+	if (copy_to_user(u64_to_user_ptr(kcmd->payload),
+					data->qcarcam_param,
+					data->qcarcam_param_size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail to AIS_V4L2_OUTPUT_PRIV_GET_PARAM");
+	} else {
+		kcmd->size = data->qcarcam_param_size;
+		kcmd->param_type = data->qcarcam_code;
+	}
+	return rc;
+}
+static int process_set_param2(struct ais_v4l2_control_t *kcmd, struct v4l2_streamdata *data)
+{
+	int rc = 0;
+
+	if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
+		rc = -EINVAL;
+	} else if (copy_from_user(data->qcarcam_param,
+				u64_to_user_ptr(kcmd->payload),
+				kcmd->size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail to AIS_V4L2_OUTPUT_PRIV_SET_PARAM2");
+	} else {
+		data->qcarcam_param_size = kcmd->size;
+		data->qcarcam_code = kcmd->param_type;
+		/* signal capture_g_param_cond */
+		complete(&data->gparam_complete);
+	}
+	return rc;
+}
+
+static int process_set_bufs(struct ais_v4l2_control_t *kcmd, struct v4l2_streamdata *data)
+{
+	struct ais_v4l2_buffers_t bufs;
+	int rc = 0;
+	struct dma_buf *dmabuf = NULL;
+	uint32_t i;
+
+	if (kcmd->size != sizeof(bufs)) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_V4L2, "kcmd->size != sizeof(bufs)");
+	} else if (copy_from_user(&bufs,
+				u64_to_user_ptr(kcmd->payload),
+				sizeof(bufs.nbufs))) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail get count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS");
+	} else {
+		if (bufs.nbufs > MAX_AIS_BUFFERS_NUM) {
+			rc = -EFAULT;
+			pr_err("invalid buffer count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
+		} else if (copy_from_user(&bufs,
+			u64_to_user_ptr(kcmd->payload),
+			sizeof(bufs.nbufs) + sizeof(int) * bufs.nbufs)) {
+			rc = -EFAULT;
+			CAM_ERR(CAM_V4L2, "fail to get fds AIS_V4L2_OUTPUT_PRIV_SET_BUFS");
+		} else {
+			CAM_INFO(CAM_V4L2, "v4l2 setbufs %u begin", bufs.nbufs);
+
+			for (i = 0; i < bufs.nbufs; ++i) {
+				dmabuf = dma_buf_get(bufs.fds[i]);
+				if (dmabuf == NULL) {
+					CAM_ERR(CAM_V4L2, "dma_buf_get failed, fd=%d",
+						bufs.fds[i]);
+					return -EINVAL;
+				}
+				data->dmabufs[i] = dmabuf;
+			}
+
+			data->allocbufs_ret = kcmd->ctrl_ret;
+			complete(&data->allocbufs_complete);
+
+			CAM_INFO(CAM_V4L2, "v4l2 setbufs %u end", bufs.nbufs);
+		}
+	}
+	return rc;
+}
+
+static int process_set_input_event(struct ais_v4l2_control_t *kcmd,
+	struct v4l2_loopback_opener *opener)
+{
+	struct v4l2_event event;
+	int rc = 0;
+
+	if (copy_from_user(&event.u.data[2],
+			u64_to_user_ptr(kcmd->payload),
+			kcmd->size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail to copy from user on input signal");
+	} else {
+		event.type = AIS_V4L2_CLIENT_CAPTURE;
+		event.id = AIS_V4L2_EVENT_INPUT_SIGNAL;
+
+		event.u.data[0] = kcmd->param_type;
+		event.u.data[1] = kcmd->size;
+		if (opener->connected_opener)
+			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+		CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_INPUT_SIGNAL : %d",
+			event.u.data[2]);
+	}
+	return rc;
+}
+
+static int process_set_error_event(struct ais_v4l2_control_t *kcmd,
+	struct v4l2_loopback_opener *opener)
+{
+	struct v4l2_event event;
+	int rc = 0;
+
+	if (copy_from_user(&event.u.data[2],
+			u64_to_user_ptr(kcmd->payload),
+			kcmd->size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail to copy from user on input signal");
+	} else {
+		event.type = AIS_V4L2_CLIENT_CAPTURE;
+		event.id = AIS_V4L2_EVENT_ERROR;
+
+		event.u.data[0] = kcmd->param_type;
+		event.u.data[1] = kcmd->size;
+		if (opener->connected_opener)
+			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+		CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_ERROR :%d",
+			event.u.data[2]);
+	}
+	return rc;
+}
+
+static int process_set_frame_drop_event(struct ais_v4l2_control_t *kcmd,
+	struct v4l2_loopback_opener *opener)
+{
+	struct v4l2_event event;
+	int rc = 0;
+
+	if (copy_from_user(&event.u.data[2],
+			u64_to_user_ptr(kcmd->payload),
+			kcmd->size)) {
+		rc = -EFAULT;
+		CAM_ERR(CAM_V4L2, "fail to copy from user on drop event\n");
+	} else {
+		event.type = AIS_V4L2_CLIENT_CAPTURE;
+		event.id = AIS_V4L2_EVENT_FRAME_DROP;
+		event.u.data[0] = kcmd->param_type;
+		event.u.data[1] = kcmd->size;
+		if (opener->connected_opener)
+			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
+		CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_FRAME_DROP :%d\n",
+			event.u.data[2]);
+	}
+	return rc;
+}
+
 static int process_output_cmd(struct v4l2_loopback_device *dev,
 	struct ais_v4l2_control_t *kcmd, void *fh)
 {
 	int rc = 0;
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_streamdata *data;
-	struct v4l2_event event;
-	struct ais_v4l2_buffers_t bufs;
-	struct dma_buf *dmabuf = NULL;
-	uint32_t i;
 
 	opener = fh_to_opener(fh);
 	if (!opener) {
@@ -2180,32 +2367,7 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 
 	switch (kcmd->cmd) {
 	case AIS_V4L2_OUTPUT_PRIV_SET_PARAM_EVENT: {
-
-		if (kcmd->size > MAX_AIS_V4L2_PARAM_EVNET_SIZE) {
-			rc = -EINVAL;
-			CAM_ERR(CAM_V4L2, "fail to set param event, size=%u",
-				kcmd->size);
-		} else if (copy_from_user(&event.u.data[2],
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "fail to copy from user on set param event");
-		} else {
-			event.type = AIS_V4L2_CLIENT_CAPTURE;
-			event.id = AIS_V4L2_PARAM_EVENT;
-
-			event.u.data[0] = kcmd->param_type;
-			event.u.data[1] = kcmd->size;
-
-			if (!opener->connected_opener) {
-				CAM_ERR(CAM_V4L2, "connected_opener is null");
-				return -EINVAL;
-			}
-
-			v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
-			CAM_DBG(CAM_V4L2, "send AIS_V4L2_PARAM_EVENT :%d %d",
-				event.u.data[2], event.u.data[3]);
-		}
+		rc = process_set_param(kcmd, opener);
 		break;
 	}
 	case AIS_V4L2_OUTPUT_PRIV_SET_PARAM_RET:
@@ -2214,32 +2376,10 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		complete(&data->sparam_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_SET_PARAM2:
-		if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
-			rc = -EINVAL;
-		} else if (copy_from_user(data->qcarcam_param,
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "fail to AIS_V4L2_OUTPUT_PRIV_SET_PARAM2");
-		} else {
-			data->qcarcam_param_size = kcmd->size;
-			data->qcarcam_code = kcmd->param_type;
-			/* signal capture_g_param_cond */
-			complete(&data->gparam_complete);
-		}
+		rc = process_set_param2(kcmd, data);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_GET_PARAM:
-		/* copy the param from kernel */
-		CAM_DBG(CAM_V4L2, "AIS_V4L2_OUTPUT_PRIV_GET_PARAM from opener");
-		if (copy_to_user(u64_to_user_ptr(kcmd->payload),
-						data->qcarcam_param,
-						data->qcarcam_param_size)) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "fail to AIS_V4L2_OUTPUT_PRIV_GET_PARAM");
-		} else {
-			kcmd->size = data->qcarcam_param_size;
-			kcmd->param_type = data->qcarcam_code;
-		}
+		rc = process_get_param(kcmd, data);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_OPEN_RET:
 		dev->qcarcam_ctrl_ret = kcmd->ctrl_ret;
@@ -2259,104 +2399,25 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		complete(&data->ctrl_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
-		if (kcmd->size != sizeof(bufs)) {
-			rc = -EINVAL;
-			CAM_ERR(CAM_V4L2, "kcmd->size != sizeof(bufs)");
-		} else if (copy_from_user(&bufs,
-				u64_to_user_ptr(kcmd->payload),
-				sizeof(bufs.nbufs))) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "fail get count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS");
-		} else {
-			if (bufs.nbufs > MAX_AIS_BUFFERS_NUM) {
-				rc = -EFAULT;
-				pr_err("invalid buffer count for AIS_V4L2_OUTPUT_PRIV_SET_BUFS\n");
-			} else if (copy_from_user(&bufs,
-				u64_to_user_ptr(kcmd->payload),
-				sizeof(bufs.nbufs) + sizeof(int) * bufs.nbufs)) {
-				rc = -EFAULT;
-				CAM_ERR(CAM_V4L2, "fail to get fds AIS_V4L2_OUTPUT_PRIV_SET_BUFS");
-			} else {
-				CAM_INFO(CAM_V4L2, "v4l2 setbufs %u begin", bufs.nbufs);
-
-				for (i = 0; i < bufs.nbufs; ++i) {
-					dmabuf = dma_buf_get(bufs.fds[i]);
-					if (dmabuf == NULL) {
-						CAM_ERR(CAM_V4L2, "dma_buf_get failed, fd=%d",
-							bufs.fds[i]);
-						return -EINVAL;
-					}
-					data->dmabufs[i] = dmabuf;
-				}
-
-				data->allocbufs_ret = kcmd->ctrl_ret;
-				complete(&data->allocbufs_complete);
-
-				CAM_INFO(CAM_V4L2, "v4l2 setbufs %u end", bufs.nbufs);
-			}
-		}
+		rc = process_set_bufs(kcmd, data);
 		break;
 	}
 	case AIS_V4L2_OUTPUT_PRIV_SET_INPUT_SIGNAL_EVENT: {
-		if (copy_from_user(&event.u.data[2],
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "fail to copy from user on input signal");
-		} else {
-			event.type = AIS_V4L2_CLIENT_CAPTURE;
-			event.id = AIS_V4L2_EVENT_INPUT_SIGNAL;
-
-			event.u.data[0] = kcmd->param_type;
-			event.u.data[1] = kcmd->size;
-			if (opener->connected_opener)
-				v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
-			CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_INPUT_SIGNAL : %d",
-				event.u.data[2]);
-		}
+		rc = process_set_input_event(kcmd, opener);
 		break;
 	}
 	case AIS_V4L2_OUTPUT_PRIV_SET_ERROR_EVENT: {
-		if (copy_from_user(&event.u.data[2],
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-			rc = -EFAULT;
-			CAM_ERR(CAM_V4L2, "fail to copy from user on input signal");
-		} else {
-			event.type = AIS_V4L2_CLIENT_CAPTURE;
-			event.id = AIS_V4L2_EVENT_ERROR;
-
-			event.u.data[0] = kcmd->param_type;
-			event.u.data[1] = kcmd->size;
-			if (opener->connected_opener)
-				v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
-			CAM_DBG(CAM_V4L2, "send AIS_V4L2_EVENT_ERROR :%d",
-				event.u.data[2]);
-		}
+		rc = process_set_error_event(kcmd, opener);
 		break;
 	}
 	case AIS_V4L2_OUTPUT_PRIV_SET_FRAME_DROP_EVENT: {
-		if (copy_from_user(&event.u.data[2],
-				u64_to_user_ptr(kcmd->payload),
-				kcmd->size)) {
-			rc = -EFAULT;
-			pr_err("fail to copy from user on drop event\n");
-		} else {
-			event.type = AIS_V4L2_CLIENT_CAPTURE;
-			event.id = AIS_V4L2_EVENT_FRAME_DROP;
-			event.u.data[0] = kcmd->param_type;
-			event.u.data[1] = kcmd->size;
-			if (opener->connected_opener)
-				v4l2_event_queue_fh(&(opener->connected_opener->fh), &event);
-			pr_debug("send AIS_V4L2_EVENT_FRAME_DROP :%d\n",
-				event.u.data[2]);
-		}
+		rc = process_set_frame_drop_event(kcmd, opener);
 		break;
 	}
+	default:
+	break;
 	}
-
 	return rc;
-
 }
 
 
@@ -2627,15 +2688,20 @@ static int v4l2_loopback_close(struct file *file)
 			dev->state = V4L2L_READY_FOR_OUTPUT;
 			atomic_set(&dev->open_count, 0);
 			dev->main_opener = NULL;
-			CAM_WARN(CAM_V4L2, "v4l2 open_count is 0");
+			CAM_WARN(CAM_V4L2, "main opener is closed");
 		} else
 			CAM_WARN(CAM_V4L2, "invalid proxy close, state %d", dev->state);
 	} else if (is_writer) {
 		// todo: refine the close flow
+		if (opener->connected_opener) {
+			CAM_WARN(CAM_V4L2, "proxy close");
+			opener->connected_opener->connected_opener = NULL;
+			opener->connected_opener = NULL;
+		}
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
 		mutex_lock(&dev->dev_mutex);
-		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when close", dev->open_count.counter);
+		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when app close", dev->open_count.counter);
 		if (dev->state >= V4L2L_READY_FOR_CAPTURE) {
 			if (opener->connected_opener) {
 
@@ -2670,7 +2736,7 @@ static int v4l2_loopback_close(struct file *file)
 		mutex_unlock(&dev->dev_mutex);
 	}
 
-	CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when close",
+	CAM_WARN(CAM_V4L2, "X v4l2 del v4l2 fh open_count is %d when close",
 		dev->open_count.counter);
 
 	v4l2_fh_del(file->private_data);
