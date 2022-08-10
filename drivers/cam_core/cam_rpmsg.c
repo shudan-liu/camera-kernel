@@ -601,6 +601,10 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			break;
+		/*
+		 * TODO: Check how poweroff/cleanup will be doen in case of
+		 * cdsp crash.
+		 */
 		case CAM_DSP2CPU_POWEROFF:
 			mutex_lock(&jpeg_private.jpeg_mutex);
 			if (CAM_JPEG_DSP_POWEROFF == jpeg_private.status) {
@@ -621,6 +625,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 
 			jpeg_private.dmabuf_f_op = NULL;
 			jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
+			cam_mem_mgr_release_nsp_buf();
 			mutex_unlock(&jpeg_private.jpeg_mutex);
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
@@ -637,11 +642,23 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			} else {
 				alloc_cmd.num_hdl = 0;
 			}
-			cam_mem_mgr_alloc_and_map(&alloc_cmd);
+			rc = cam_mem_mgr_alloc_and_map(&alloc_cmd);
+			if (rc) {
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
+				// For failure cases set vaddr as 0 for dsp to treat it as failure.
+				cmd_msg.buf_info.ipa_addr = 0;
+				goto send_ack;
+			}
 			rc = cam_mem_get_io_buf(
 				alloc_cmd.out.buf_handle,
 				jpeg_private.jpeg_iommu_hdl,
 				(dma_addr_t *)&cmd_msg.buf_info.iova, (size_t *)&cmd_msg.buf_info.size, NULL);
+			if (rc) {
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
+				// For failure cases set vaddr as 0 for dsp to treat it as failure.
+				cmd_msg.buf_info.ipa_addr = 0;
+				goto send_ack;
+			}
 			cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
 			cmd_msg.buf_info.fd = alloc_cmd.out.fd;
 			cmd_msg.buf_info.ipa_addr = alloc_cmd.out.vaddr;
@@ -650,6 +667,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				dbuf = dma_buf_get(alloc_cmd.out.fd);
 				jpeg_private.dmabuf_f_op = (const struct file_operations *)dbuf->file->f_op;
 			}
+send_ack:
 			CAM_DBG(CAM_RPMSG, "ALLOC_OUT fd %d ipa 0x%x iova 0x%x buf_handle %x",
 				cmd_msg.buf_info.fd, cmd_msg.buf_info.ipa_addr,
 				cmd_msg.buf_info.iova, cmd_msg.buf_info.buf_handle);
@@ -662,7 +680,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			__close_fd(current->files, cmd_msg.buf_info.fd);
 			break;
 		case CAM_DSP2CPU_REGISTER_BUFFER:
-			map_cmd.flags = CAM_MEM_FLAG_HW_READ_WRITE;
+			map_cmd.flags = CAM_MEM_FLAG_NSP_ACCESS | CAM_MEM_FLAG_HW_READ_WRITE;
 			map_cmd.fd = rsp->buf_info.fd;
 			map_cmd.mmu_hdls[0] = jpeg_private.jpeg_iommu_hdl;
 			map_cmd.num_hdl = 1;

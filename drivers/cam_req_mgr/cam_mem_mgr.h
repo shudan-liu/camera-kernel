@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_MEM_MGR_H_
@@ -70,6 +71,7 @@ struct cam_mem_buf_queue {
 	bool active;
 	bool is_imported;
 	bool is_internal;
+	bool is_nsp_buf;
 	struct timespec64 timestamp;
 
 #ifdef CONFIG_CAM_PRESIL
@@ -152,6 +154,13 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd);
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_mem_mgr_release(struct cam_mem_mgr_release_cmd *cmd);
+
+/**
+ * @brief: Releases all nsp buffer reference
+ *
+ * @return None
+ */
+void cam_mem_mgr_release_nsp_buf(void);
 
 /**
  * @brief Maps a buffer
