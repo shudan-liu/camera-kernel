@@ -1666,19 +1666,24 @@ static int ais_vfe_dispatch_irq(struct cam_hw_info *vfe_hw,
 
 	task = cam_req_mgr_workq_get_task(core_info->workq);
 	if (!task) {
-		CAM_ERR(CAM_ISP, "Can not get task for worker, cancel SOF evt");
+		CAM_ERR_RATE_LIMIT(CAM_ISP,
+			"I%d Can not get task for worker, cancel SOF evt",
+			core_info->vfe_idx);
 
 		cam_req_mgr_workq_cancel_task(core_info->workq,
 						ais_vfe_irq_cancel_task_filter);
 
 		if (p_work->evt_type == AIS_VFE_HW_IRQ_EVENT_SOF) {
-			CAM_DBG(CAM_ISP, "So discard this SOF event");
+			CAM_DBG(CAM_ISP, "I%d So discard this SOF event",
+					core_info->vfe_idx);
 			return -ENOMEM;
 		}
 
 		task = cam_req_mgr_workq_get_task(core_info->workq);
 		if (!task) {
-			CAM_ERR(CAM_ISP, "Still can not get task for worker");
+			CAM_ERR_RATE_LIMIT(CAM_ISP,
+					"I%d Still can not get task for worker",
+					core_info->vfe_idx);
 			return -ENOMEM;
 		}
 	}
