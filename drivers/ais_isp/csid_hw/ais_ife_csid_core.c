@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1816,6 +1817,16 @@ static irqreturn_t ais_ife_csid_irq(int irq_num, void *data)
 		}
 		if (irq_status[CSID_IRQ_STATUS_RX] &
 			CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW) {
+			fatal_err_detected = true;
+			goto handle_fatal_error;
+		}
+		if (irq_status[CSID_IRQ_STATUS_RX] &
+			CSID_CSI2_RX_ERROR_CRC) {
+			fatal_err_detected = true;
+			goto handle_fatal_error;
+		}
+		if (irq_status[CSID_IRQ_STATUS_RX] &
+			CSID_CSI2_RX_ERROR_ECC) {
 			fatal_err_detected = true;
 			goto handle_fatal_error;
 		}
