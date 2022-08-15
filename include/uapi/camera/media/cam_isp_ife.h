@@ -60,10 +60,11 @@
 #define CAM_ISP_IFE_IN_RES_PHY_3               (CAM_ISP_IFE_IN_RES_BASE + 4)
 #define CAM_ISP_IFE_IN_RES_PHY_4               (CAM_ISP_IFE_IN_RES_BASE + 5)
 #define CAM_ISP_IFE_IN_RES_PHY_5               (CAM_ISP_IFE_IN_RES_BASE + 6)
-#define CAM_ISP_IFE_IN_RES_RD                  (CAM_ISP_IFE_IN_RES_BASE + 7)
-#define CAM_ISP_IFE_IN_RES_CPHY_TPG_0          (CAM_ISP_IFE_IN_RES_BASE + 8)
-#define CAM_ISP_IFE_IN_RES_CPHY_TPG_1          (CAM_ISP_IFE_IN_RES_BASE + 9)
-#define CAM_ISP_IFE_IN_RES_CPHY_TPG_2          (CAM_ISP_IFE_IN_RES_BASE + 10)
-#define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 11)
+#define CAM_ISP_IFE_IN_RES_PHY_6               (CAM_ISP_IFE_IN_RES_BASE + 7)
+#define CAM_ISP_IFE_IN_RES_RD                  (CAM_ISP_IFE_IN_RES_BASE + 8)
+#define CAM_ISP_IFE_IN_RES_CPHY_TPG_0          (CAM_ISP_IFE_IN_RES_BASE + 9)
+#define CAM_ISP_IFE_IN_RES_CPHY_TPG_1          (CAM_ISP_IFE_IN_RES_BASE + 10)
+#define CAM_ISP_IFE_IN_RES_CPHY_TPG_2          (CAM_ISP_IFE_IN_RES_BASE + 11)
+#define CAM_ISP_IFE_IN_RES_MAX                 (CAM_ISP_IFE_IN_RES_BASE + 12)
 
 #endif /* __UAPI_CAM_ISP_IFE_H__ */
