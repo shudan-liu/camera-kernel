@@ -152,7 +152,6 @@ struct cam_vfe_mux_ver4_data {
 	uint32_t                           last_line;
 	uint32_t                           hbi_value;
 	uint32_t                           vbi_value;
-	bool                               enable_sof_irq_debug;
 	uint32_t                           irq_debug_cnt;
 	uint32_t                           camif_debug;
 	uint32_t                           horizontal_bin;
@@ -160,18 +159,19 @@ struct cam_vfe_mux_ver4_data {
 	uint32_t                           dual_hw_idx;
 	uint32_t                           is_dual;
 	uint32_t                           epoch_factor;
-	bool                               is_fe_enabled;
-	bool                               is_offline;
-	bool                               is_lite;
-	bool                               is_pixel_path;
-	bool                               sfe_binned_epoch_cfg;
-
 	struct timespec64                  sof_ts;
 	struct timespec64                  epoch_ts;
 	struct timespec64                  eof_ts;
 	struct timespec64                  error_ts;
 	enum cam_vfe_top_ver4_fsm_state    fsm_state;
 	uint32_t                           n_frame_irqs;
+	bool                               is_fe_enabled;
+	bool                               is_offline;
+	bool                               is_lite;
+	bool                               is_pixel_path;
+	bool                               sfe_binned_epoch_cfg;
+	bool                               enable_sof_irq_debug;
+	bool                               handle_camif_irq;
 };
 
 struct cam_vfe_top_ver4_hw_info {
