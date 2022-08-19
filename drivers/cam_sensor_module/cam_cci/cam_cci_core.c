@@ -2494,6 +2494,7 @@ static int cam_cci_core_process_write_array_sync_cmd(struct v4l2_subdev *sd,
 	struct ais_cci_cmd_t cci_cmd;
 	struct ais_sensor_i2c_wr_payload *wr_array;
 	int i;
+	int j;
 
 	CAM_ERR(CAM_CCI, "AIS_SENSOR_I2C_WRITE_ARRAY_SYNC");
 
@@ -2540,7 +2541,7 @@ static int cam_cci_core_process_write_array_sync_cmd(struct v4l2_subdev *sd,
 
 		if (!wr_array) {
 			rc = -ENOMEM;
-			return rc;
+			break;
 		}
 
 		copy_from_user(wr_array,
@@ -2566,10 +2567,12 @@ static int cam_cci_core_process_write_array_sync_cmd(struct v4l2_subdev *sd,
 			cci_cmd.cmd.wr_sync.wr_cfg[i].count;
 	}
 
-	rc = cam_cci_core_cfg(sd, &cci_ctrl);
+	if (!rc)
+		rc = cam_cci_core_cfg(sd, &cci_ctrl);
 
-	for (i = 0; i < cci_cmd.cmd.wr_sync.num_wr_cfg; i++)
-		kfree(cci_ctrl.cfg.cci_wr_sync.wr_cfg[i].wr_array);
+	for (j = 0; j < i; j++)
+		kfree(cci_ctrl.cfg.cci_wr_sync.wr_cfg[j].wr_array);
+
 	return rc;
 }
 

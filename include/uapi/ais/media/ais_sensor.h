@@ -19,6 +19,7 @@
 #define AIS_SENSOR_I2C_SET_SYNC_PARMS   (AIS_SENSOR_OPCODE_START + 13)
 #define AIS_SENSOR_I2C_READ_BURST       (AIS_SENSOR_OPCODE_START + 14)
 #define AIS_SENSOR_I2C_WRITE_BURST      (AIS_SENSOR_OPCODE_START + 15)
+#define AIS_SENSOR_EXEC_POWER_SEQ       (AIS_SENSOR_OPCODE_START + 16)
 #define AIS_SENSOR_EVENT_BASE      (V4L2_EVENT_PRIVATE_START)
 #define AIS_SENSOR_EVENT_TYPE      (AIS_SENSOR_EVENT_BASE + 1)
 
@@ -47,6 +48,17 @@ struct ais_power_settings {
 	uint32_t    config_val_high;
 	uint32_t    delay;
 } __attribute__((packed));
+
+/**
+ * struct ais_sensor_power_settings_seq - Contains sensor power sequence
+ *
+ * @power_seq_size      : Size of power sequence array
+ * @power_seq_settings  : power up/down sequence
+ */
+struct ais_sensor_power_settings_seq {
+	uint16_t power_seq_size;
+	struct ais_power_settings power_seq_settings[AIS_MAX_POWER_SEQ];
+};
 
 /**
  * struct ais_sensor_power_config - power up and down settings

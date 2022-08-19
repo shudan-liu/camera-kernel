@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -175,6 +176,8 @@ int ais_vfe_write(void *device_priv,
 	void *write_args, uint32_t arg_size);
 int ais_vfe_process_cmd(void *device_priv, uint32_t cmd_type,
 	void *cmd_args, uint32_t arg_size);
+void ais_ife_discard_old_frame_done_event(struct ais_vfe_hw_core_info *core_info,
+					struct ais_ife_event_data *evt_data);
 
 irqreturn_t ais_vfe_irq(int irq_num, void *data);
 

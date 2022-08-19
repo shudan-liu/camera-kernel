@@ -28,6 +28,9 @@
 #include "cam_sensor_io.h"
 
 #define INVALID_VREG 100
+#define GPIO_OUTPUT_LOW            (0 << 1)
+#define GPIO_OUTPUT_HIGH           (1 << 1)
+#define GPIO_INPUT_FLOATING        (2 << 1)
 
 int cam_get_dt_power_setting_data(struct device_node *of_node,
 	struct cam_hw_soc_info *soc_info,
@@ -44,17 +47,23 @@ int cam_sensor_util_i2c_apply_setting(struct camera_io_master *io_master_info,
 	struct i2c_settings_list *i2c_list);
 
 int32_t delete_request(struct i2c_settings_array *i2c_array);
+
 int cam_sensor_util_request_gpio_table(
 	struct cam_hw_soc_info *soc_info, int gpio_en);
 
 int cam_sensor_util_init_gpio_pin_tbl(
 	struct cam_hw_soc_info *soc_info,
 	struct msm_camera_gpio_num_info **pgpio_num_info);
-int cam_sensor_util_power_up(struct cam_sensor_power_ctrl_t *ctrl,
-		struct cam_hw_soc_info *soc_info);
 
-int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
-		struct cam_hw_soc_info *soc_info);
+int cam_sensor_util_power_apply(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info,
+	struct cam_sensor_power_setting *power_seq);
+
+int cam_sensor_disable_regulator(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info, struct cam_sensor_power_setting *ps);
+
+int cam_sensor_enable_regulator(struct cam_hw_soc_info *soc_info,
+	struct cam_sensor_power_setting *power_setting);
 
 int msm_camera_fill_vreg_params(struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_setting,
@@ -70,4 +79,15 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 
 int cam_sensor_bob_pwm_mode_switch(struct cam_hw_soc_info *soc_info,
 	int bob_reg_idx, bool flag);
+
+int32_t ais_sensor_update_power_sequence(
+	struct ais_sensor_power_settings_seq *pwr_cfg,
+	struct cam_sensor_power_seq_array *pwr_info);
+
+int cam_sensor_util_power_up_resources(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info);
+
+int cam_sensor_util_power_down_resources(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info);
+
 #endif /* _CAM_SENSOR_UTIL_H_ */
