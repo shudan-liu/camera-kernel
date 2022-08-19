@@ -5976,7 +5976,7 @@ done:
 	}
 
 	if ((ctx_isp->independent_crm_en)) {
-		if (ctx->state == CAM_CTX_ACTIVATED) {
+		if (ctx->state == CAM_CTX_ACTIVATED && ctx_isp->rdi_only_context) {
 			CAM_DBG(CAM_ISP, "independent CRM apply from config_dev");
 			mutex_lock(&ctx_isp->no_crm_mutex);
 			__cam_isp_ctx_no_crm_apply(ctx_isp, true);
