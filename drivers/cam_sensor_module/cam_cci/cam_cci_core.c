@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1926,7 +1927,7 @@ static int32_t cam_cci_i2c_set_sync_prms(struct v4l2_subdev *sd,
 
 static int32_t cam_cci_release(struct v4l2_subdev *sd)
 {
-	uint8_t rc = 0;
+	int32_t rc = 0;
 	struct cci_device *cci_dev;
 
 	cci_dev = v4l2_get_subdevdata(sd);
@@ -2040,6 +2041,9 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 	case MSM_CCI_RELEASE:
 		mutex_lock(&cci_dev->init_mutex);
 		rc = cam_cci_release(sd);
+		/* return success if release fail with -EINVAL */
+		if (-EINVAL == rc)
+			rc = 0;
 		mutex_unlock(&cci_dev->init_mutex);
 		break;
 	case MSM_CCI_I2C_READ:
