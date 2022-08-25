@@ -181,6 +181,11 @@ struct cam_isp_ctx_irq_ops {
  * @event_timestamp:           Timestamp for different stage of request
  * @cdm_reset_before_apply:    For bubble re-apply when buf done not coming set
  *                             to True
+ * @sof_cnt                    Indicates sof event received for this request
+ * @eof_cnt                    Indicates eof event received for this request
+ * @rup_cnt                    Indicates rup event received for this request
+ * @ref_req_id                 Reference request id which is applied at same frame
+ * @wait_for_rup               Indicates reg update is expected or not for the request
  *
  */
 struct cam_isp_ctx_req {
@@ -201,6 +206,11 @@ struct cam_isp_ctx_req {
 		[CAM_ISP_CTX_EVENT_MAX];
 	bool                                  bubble_detected;
 	bool                                  cdm_reset_before_apply;
+	uint32_t                              sof_cnt;
+	uint32_t                              eof_cnt;
+	uint32_t                              rup_cnt;
+	uint64_t                              ref_req_id;
+	bool                                  wait_for_rup;
 };
 
 /**
@@ -312,11 +322,12 @@ struct cam_isp_context_event_record {
  * @no_crm_mutex:              mutex for no_crm apply
  * @waitlist_req_cnt           Counter for the request in waitlist
  * @fifo_depth                 Max fifo depth supported
+ * @curr_fifo_cnt:             Current status of fifo
  * @sensor_pd:                 sensor pipeline delay
  * @is_sensorlite:             Indicate whether sensorlite or sensor device is active
  * @isp_mutex:                 isp context mutex for list traversals
- * @flush_in_progress          indicates whether flush is in progress
- *
+ * @flush_in_progress:         indicates whether flush is in progress
+ * @rdi_stats_context:         Indicate whether context is for rdi and stats
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -382,10 +393,12 @@ struct cam_isp_context {
 	struct mutex                           no_crm_mutex;
 	uint32_t                               waitlist_req_cnt;
 	uint32_t                               fifo_depth;
+	uint32_t                               curr_fifo_cnt;
 	int8_t                                 sensor_pd;
 	bool                                   is_sensorlite;
 	struct mutex                           isp_mutex;
 	atomic_t                               flush_in_progress;
+	bool                                   rdi_stats_context;
 };
 
 /**
@@ -510,6 +523,7 @@ struct cam_isp_ctx_mini_dump_info {
 	uint8_t                                wait_cnt;
 	bool                                   apply_in_progress;
 	bool                                   rdi_only_context;
+	bool                                   rdi_stats_context;
 	bool                                   offline_context;
 	bool                                   hw_acquired;
 	bool                                   init_received;
