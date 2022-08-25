@@ -989,7 +989,8 @@ static int cam_sensor_lite_cmd_buf_parse(
 			== CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE) ||
 		(packet->header.op_code & 0xFF)
 			== CAM_SENSOR_LITE_PACKET_OPCODE_NOP) &&
-		(packet->header.request_id >= 1)) {
+		(packet->header.request_id >= 1) &&
+		(req != NULL)) {
 		rc = __cam_sensor_lite_add_crm_req(
 					sensor_lite_dev,
 					req);
@@ -1350,7 +1351,12 @@ int32_t __cam_sensor_lite_handle_probe(
 
 	}
 
-	rc = __send_probe_pkt(sensor_lite_dev, ptr);
+	if (ptr != NULL) {
+		rc = __send_probe_pkt(sensor_lite_dev, ptr);
+	} else {
+		CAM_ERR(CAM_SENSOR_LITE, "ptr is NULL");
+		rc = -EINVAL;
+	}
 end:
 	return rc;
 }
