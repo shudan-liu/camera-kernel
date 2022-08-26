@@ -1190,8 +1190,8 @@ int cam_sensor_util_init_gpio_pin_tbl(
 
 	gconf = soc_info->gpio_data;
 	if (!gconf) {
-		CAM_ERR(CAM_SENSOR, "No gpio_common_table is found");
-		return -EINVAL;
+		CAM_WARN(CAM_SENSOR, "No gpio_common_table is found");
+		return 0;
 	}
 
 	if (!gconf->cam_gpio_common_tbl) {
