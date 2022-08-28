@@ -383,6 +383,7 @@ static struct cam_ife_csid_ver2_common_reg_info
 	.format_measure_height_shift_val              = 0x10,
 	.format_measure_width_mask_val                = 0xFFFF,
 	.format_measure_width_shift_val               = 0x0,
+	.camif_irq_support                            = true,
 };
 
 static struct cam_ife_csid_csi2_rx_reg_info

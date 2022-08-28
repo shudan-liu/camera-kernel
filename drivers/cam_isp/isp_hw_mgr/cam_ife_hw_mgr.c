@@ -2554,7 +2554,8 @@ static int cam_convert_hw_idx_to_ife_hw_num(int hw_idx)
 		case 5: return CAM_ISP_IFE5_LITE_HW;
 		case 6: return CAM_ISP_IFE6_LITE_HW;
 		case 7: return CAM_ISP_IFE7_LITE_HW;
-
+		case 8: return CAM_ISP_IFE8_LITE_HW;
+		case 9: return CAM_ISP_IFE9_LITE_HW;
 		}
 	} else {
 		CAM_ERR(CAM_ISP, "hw idx %d out-of-bounds", hw_idx);
