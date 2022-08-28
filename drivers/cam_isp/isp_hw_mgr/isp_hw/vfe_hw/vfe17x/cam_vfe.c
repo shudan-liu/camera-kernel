@@ -20,6 +20,7 @@
 #include "cam_vfe_lite17x.h"
 #include "cam_vfe_lite48x.h"
 #include "cam_vfe_lite65x.h"
+#include "cam_vfe_lite63x.h"
 #include "cam_vfe_lite68x.h"
 #include "cam_vfe_lite78x.h"
 #include "cam_vfe_hw_intf.h"
@@ -114,7 +115,7 @@ static const struct of_device_id cam_vfe_dt_match[] = {
 	},
 	{
 		.compatible = "qcom,vfe-lite636",
-		.data = &cam_vfe_lite65x_hw_info,
+		.data = &cam_vfe_lite63x_hw_info,
 	},
 	{}
 };
