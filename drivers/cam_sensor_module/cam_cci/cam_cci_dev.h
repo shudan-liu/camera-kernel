@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CCI_DEV_H_
@@ -59,7 +60,7 @@
 
 #define CAM_CCI_WORKQUEUE_NAME "cam_cci_wq"
 
-#define MAX_CCI 4
+#define MAX_CCI 8
 
 #define PRIORITY_QUEUE (QUEUE_0)
 #define SYNC_QUEUE (QUEUE_1)
