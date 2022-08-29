@@ -2599,7 +2599,7 @@ static int v4l2_loopback_open(struct file *file)
 				opener, connected_opener, data);
 			mutex_unlock(&dev->dev_mutex);
 		} else {
-			CAM_ERR(CAM_V4L2, "invalid operation state %d", dev->state);
+			CAM_ERR(CAM_V4L2, "invalid operation state %d, it is possible that app open earlier than proxy", dev->state);
 			return -EINVAL;
 		}
 	}
