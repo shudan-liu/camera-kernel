@@ -20,11 +20,14 @@
 #include "camera_main.h"
 
 #define PCA963X_LED_FULLY_ON  0x1     /* LED driver on */
+#define PCA963X_LED_FULLY_OFF 0x00    /* LED driver all off */
 #define PCA963X_LED_PWM       0x2     /* Controlled through PWM */
 #define PCA963X_LED0_MASK     0x3     /* LED0 output state control */
 #define PCA963X_MODE1_REG     0x00
+#define PCA963X_MODE2_REG     0x01
 #define PCA963X_PWM_BASE_REG  0x02
 #define PCA963X_LEDOUT_REG    0x08
+#define PCA963X_MODE2         0x11
 
 static int32_t cam_ir_cut_on(struct cam_ir_led_ctrl *ictrl);
 
@@ -42,6 +45,23 @@ static int32_t cam_pmic_ir_led_init(
 	struct cam_ir_led_ctrl *ictrl)
 {
 	return ictrl->func_tbl->camera_ir_led_off(ictrl);
+}
+
+static int32_t cam_i2c_ir_led_init(
+	struct cam_ir_led_ctrl *ictrl)
+{
+	if(!ictrl->io_master_info.client) {
+		CAM_ERR(CAM_IR_LED, "client is null");
+		return -EINVAL;
+	}
+
+	/* Turn off LEDs by default */
+	i2c_smbus_write_byte_data(ictrl->io_master_info.client, PCA963X_LEDOUT_REG, PCA963X_LED_FULLY_OFF);
+	/* Disable LED all-call address and power down initially */
+	i2c_smbus_write_byte_data(ictrl->io_master_info.client, PCA963X_MODE1_REG, BIT(4));
+
+	i2c_smbus_write_byte_data(ictrl->io_master_info.client, PCA963X_MODE2_REG, PCA963X_MODE2);
+	return 0;
 }
 
 static int32_t cam_pmic_ir_led_release(
@@ -838,7 +858,7 @@ static int cam_ir_led_component_bind(struct device *dev,
 	v4l2_set_subdevdata(&ictrl->v4l2_dev_str.sd, ictrl);
 	mutex_init(&(ictrl->ir_led_mutex));
 	ictrl->ir_led_state = CAM_IR_LED_STATE_INIT;
-	cam_pmic_ir_led_off(ictrl);
+	cam_i2c_ir_led_init(ictrl);
 	cam_pmic_ir_cut_off(ictrl);
 	CAM_DBG(CAM_IR_LED, "%s component bound successfully", pdev->name);
 	return rc;
@@ -908,7 +928,7 @@ static struct cam_ir_led_table cam_gpio_ir_led_table = {
 static struct cam_ir_led_table cam_i2c_ir_led_table = {
 	.ir_led_driver_type = IR_LED_DRIVER_I2C,
 	.func_tbl = {
-		.camera_ir_led_init = &cam_pmic_ir_led_init,
+		.camera_ir_led_init = &cam_i2c_ir_led_init,
 		.camera_ir_led_release = &cam_pmic_ir_led_release,
 		.camera_ir_led_off = &cam_i2c_ir_led_off,
 		.camera_ir_led_on = &cam_i2c_ir_led_on,
