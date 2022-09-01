@@ -61,12 +61,14 @@ struct camera_submodule {
 };
 
 static const struct camera_submodule_component camera_base[] = {
+#ifdef CONFIG_MSM_AIS
 	{&cam_req_mgr_init, &cam_req_mgr_exit},
 	{&cam_sync_init, &cam_sync_exit},
 	{&cam_smmu_init_module, &cam_smmu_exit_module},
 	{&cam_cpas_dev_init_module, &cam_cpas_dev_exit_module},
 	{&cam_cdm_intf_init_module, &cam_cdm_intf_exit_module},
 	{&cam_hw_cdm_init_module, &cam_hw_cdm_exit_module},
+#endif
 };
 
 static const struct camera_submodule_component camera_isp[] = {
