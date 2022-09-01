@@ -302,6 +302,7 @@ struct cam_isp_context_event_record {
  * @fifo_depth                 Max fifo depth supported
  * @sensor_pd:                 sensor pipeline delay
  * @is_sensorlite:             Indicate whether sensorlite or sensor device is active
+ * @isp_mutex:                 isp context mutex for list traversals
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -369,6 +370,7 @@ struct cam_isp_context {
 	uint32_t                               fifo_depth;
 	int8_t                                 sensor_pd;
 	bool                                   is_sensorlite;
+	struct mutex                           isp_mutex;
 };
 
 /**

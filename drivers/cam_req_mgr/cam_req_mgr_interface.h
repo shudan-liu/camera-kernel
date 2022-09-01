@@ -11,6 +11,7 @@
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_core_defs.h"
 #include "cam_req_mgr_util.h"
+#include "cam_req_mgr_workq.h"
 
 struct cam_req_mgr_trigger_notify;
 struct cam_req_mgr_error_notify;
@@ -35,7 +36,8 @@ struct cam_req_mgr_no_crm_trigger_notify;
  *                              userspace
  * @cam_req_mgr_notify_timer  : start the timer
  */
-typedef int (*cam_req_mgr_notify_trigger)(struct cam_req_mgr_trigger_notify *);
+typedef int (*cam_req_mgr_notify_trigger)(struct cam_req_mgr_trigger_notify *,
+	struct cam_req_mgr_core_workq *);
 typedef int (*cam_req_mgr_notify_err)(struct cam_req_mgr_error_notify *);
 typedef int (*cam_req_mgr_add_req)(struct cam_req_mgr_add_request *);
 typedef int (*cam_req_mgr_notify_timer)(struct cam_req_mgr_timer_notify *);
