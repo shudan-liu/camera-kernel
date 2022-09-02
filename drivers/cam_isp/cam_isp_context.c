@@ -5404,10 +5404,8 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
 		cam_req_mgr_workq_flush(ctx_isp->workq);
 
-	if (ctx_isp->independent_crm_en) {
+	if (ctx_isp->independent_crm_en)
 		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
-		ctx_isp->independent_crm_sof_timer = NULL;
-	}
 }
 
 static void __cam_isp_ctx_free_mem_hw_entries(struct cam_context *ctx)
@@ -5976,7 +5974,7 @@ done:
 	}
 
 	if ((ctx_isp->independent_crm_en)) {
-		if (ctx->state == CAM_CTX_ACTIVATED) {
+		if (ctx->state == CAM_CTX_ACTIVATED && ctx_isp->rdi_only_context) {
 			CAM_DBG(CAM_ISP, "independent CRM apply from config_dev");
 			mutex_lock(&ctx_isp->no_crm_mutex);
 			__cam_isp_ctx_no_crm_apply(ctx_isp, true);
@@ -6618,7 +6616,7 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 		ctx_isp->hw_mgr_workq = (struct cam_req_mgr_core_workq *)isp_hw_cmd_args.cmd_data;
 		ctx_isp->base->state_machine =
 			(struct cam_ctx_ops *)__cam_isp_return_no_crm_state_machine();
-		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigedn for no crm");
+		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigned for no crm");
 	}
 
 	/* Query the packet acq_type */
@@ -7163,6 +7161,11 @@ static int __cam_isp_ctx_stop_dev_in_activated(struct cam_context *ctx,
 
 	__cam_isp_ctx_stop_dev_in_activated_unlock(ctx, cmd);
 	ctx_isp->init_received = false;
+
+	/* timer may be destroyed in flush */
+	if (ctx_isp->independent_crm_sof_timer)
+		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
+
 	ctx->state = CAM_CTX_ACQUIRED;
 	trace_cam_context_state("ISP", ctx);
 	return rc;

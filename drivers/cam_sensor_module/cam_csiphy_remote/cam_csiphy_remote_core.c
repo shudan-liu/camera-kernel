@@ -553,12 +553,30 @@ reset_settings:
 	return rc;
 }
 
+int cam_csiphy_remote_send_payload(
+	struct phy_header *header)
+{
+	int handle, rc = 0;
+
+	if (header == NULL) {
+		CAM_ERR(CAM_CSIPHY_REMOTE, "phy hdr is NULL");
+		return -EINVAL;
+	}
+
+	handle = cam_rpmsg_get_handle("helios");
+	rc = cam_rpmsg_send(handle, header, header->size);
+	return rc;
+}
+
 void cam_csiphy_remote_shutdown(struct csiphy_remote_device *csiphy_dev)
 {
 	struct cam_hw_soc_info *soc_info;
 	int i;
+	struct phy_acq_payload *payload = NULL;
 
 	soc_info = &csiphy_dev->soc_info;
+
+	CAM_INFO(CAM_CSIPHY_REMOTE, "Phy[%d] shutdown", soc_info->index);
 
 	if (csiphy_dev->csiphy_state == CAM_CSIPHY_REMOTE_INIT)
 		return;
@@ -583,12 +601,23 @@ void cam_csiphy_remote_shutdown(struct csiphy_remote_device *csiphy_dev)
 	if (csiphy_dev->csiphy_state == CAM_CSIPHY_REMOTE_ACQUIRE) {
 		for (i = 0; i < csiphy_dev->acquire_count; i++) {
 			if (csiphy_dev->csiphy_info[i].hdl_data.device_hdl
-				!= -1)
+				!= -1) {
+				/* Send release pkt */
+				CAM_INFO(CAM_CSIPHY_REMOTE, "Release phy:%d slot:%d",
+					soc_info->index, i);
+				payload = (struct phy_acq_payload *)kzalloc(
+					sizeof(struct phy_acq_payload), GFP_KERNEL);
+				cam_csiphy_remote_prepare_acq_payload(csiphy_dev, i, payload);
+				cam_csiphy_remote_set_payload_header(&(payload->header),
+					HCM_PKT_OPCODE_PHY_RELEASE);
+				cam_csiphy_remote_send_payload(&(payload->header));
+
 				cam_destroy_device_hdl(
 				csiphy_dev->csiphy_info[i]
 				.hdl_data.device_hdl);
-			csiphy_dev->csiphy_info[i].hdl_data.device_hdl = -1;
-			csiphy_dev->csiphy_info[i].hdl_data.session_hdl = -1;
+				csiphy_dev->csiphy_info[i].hdl_data.device_hdl = -1;
+				csiphy_dev->csiphy_info[i].hdl_data.session_hdl = -1;
+			}
 		}
 	}
 
@@ -597,21 +626,6 @@ void cam_csiphy_remote_shutdown(struct csiphy_remote_device *csiphy_dev)
 	csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_INIT;
 
 	cam_soc_util_disable_platform_resource(soc_info, true, true);
-}
-
-int cam_csiphy_remote_send_payload(
-	struct phy_header *header)
-{
-	int handle, rc = 0;
-
-	if (header == NULL) {
-		CAM_ERR(CAM_CSIPHY_REMOTE, "phy hdr is NULL");
-		return -EINVAL;
-	}
-
-	handle = cam_rpmsg_get_handle("helios");
-	rc = cam_rpmsg_send(handle, header, header->size);
-	return rc;
 }
 
 int cam_csiphy_remote_dump_payload_header(
