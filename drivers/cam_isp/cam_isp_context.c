@@ -837,6 +837,11 @@ static int cam_isp_ctx_dump_req(
 	size_t remain_len = 0;
 	struct cam_cdm_cmd_buf_dump_info dump_info;
 
+	if (!req_isp) {
+		CAM_ERR(CAM_ISP, "Invalid ptr to req_isp");
+		return -EINVAL;
+	}
+
 	for (i = 0; i < req_isp->num_cfg; i++) {
 		rc = cam_packet_util_get_cmd_mem_addr(
 			req_isp->cfg[i].handle, &buf_addr, &len);
@@ -6365,6 +6370,11 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		 ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID)) {
 		if (!ctx_isp->slave_pkt) {
 			ctx_isp->slave_pkt = kzalloc(20*1024, GFP_KERNEL);
+			if (!ctx_isp->slave_pkt) {
+				rc = -ENOMEM;
+				CAM_ERR(CAM_ISP, "failed to allocate mem for slave_pkt");
+				goto put_ref;
+			}
 			CAM_DBG(CAM_ISP, "Alloc slave pkt for ctx %d", ctx_isp->base->ctx_id);
 			pld = (struct cam_rpmsg_isp_init_cfg_payload *)
 				ctx_isp->slave_pkt;
@@ -7444,7 +7454,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	int i;
 	struct cam_isp_start_args        start_isp;
 	struct cam_ctx_request          *req;
-	struct cam_isp_ctx_req          *req_isp;
+	struct cam_isp_ctx_req          *req_isp = NULL;
 	struct cam_isp_context          *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
@@ -7480,7 +7490,14 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 		req = list_first_entry(&ctx->pending_req_list,
 			struct cam_ctx_request, list);
 	}
+
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
+
+	if (!req_isp) {
+		CAM_ERR(CAM_ISP, "invalid ptr to request");
+		rc = -EFAULT;
+		goto end;
+	}
 
 	if (!ctx_isp->hw_ctx) {
 		CAM_ERR(CAM_ISP, "Wrong hw context pointer ctx:%d", ctx->ctx_id);
@@ -7556,6 +7573,8 @@ do_hw_start:
 		/* HW failure. user need to clean up the resource */
 		CAM_ERR(CAM_ISP, "Start HW failed");
 		ctx->state = CAM_CTX_READY;
+		if (ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL)
+			goto end;
 		if ((rc == -ETIMEDOUT) &&
 			(isp_ctx_debug.enable_cdm_cmd_buff_dump))
 			rc = cam_isp_ctx_dump_req(req_isp, 0, 0, NULL, false);

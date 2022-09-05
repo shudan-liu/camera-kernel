@@ -690,6 +690,8 @@ send_ack:
 			files = jpeg_private.jpeg_task->files;
 			if (!files) {
 				CAM_ERR(CAM_MEM, "null files");
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+				cmd_msg.ret_val = -EINVAL;
 				goto registerEnd;
 			}
 			rcu_read_lock();
@@ -700,7 +702,13 @@ send_ack:
 #else
 			file = files_lookup_fd_rcu(files, map_cmd.fd);
 #endif
-			if (file) {
+			if (!file) {
+				rcu_read_unlock();
+				CAM_ERR(CAM_RPMSG, "null file");
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+				cmd_msg.ret_val = -EINVAL;
+				goto registerEnd;
+			} else {
 				/* File object ref couldn't be taken.
 				 * dup2() atomicity guarantee is the reason
 				 * we loop to catch the new file (or NULL pointer)
@@ -708,14 +716,15 @@ send_ack:
 				if (file->f_mode & FMODE_PATH) {
 					file = NULL;
 					CAM_ERR(CAM_RPMSG, "INCORRECT FMODE", file->f_mode);
+					rcu_read_unlock();
+					cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+					cmd_msg.ret_val = -EINVAL;
+					goto registerEnd;
 				}
 				else if (!get_file_rcu_many(file, 1)) {
 					CAM_ERR(CAM_RPMSG, "get_file_rcu_many 0");
 					goto loop;
 				}
-			}
-			else {
-				CAM_ERR(CAM_RPMSG, "null file");
 			}
 			rcu_read_unlock();
 
@@ -797,6 +806,10 @@ static int cam_rpmsg_jpeg_cb(struct rpmsg_device *rpdev, void *data, int len,
 		len == sizeof(struct cam_jpeg_dsp2cpu_cmd_msg)) {
 		payload = kzalloc(sizeof(struct cam_rpmsg_jpeg_payload),
 			GFP_ATOMIC);
+		if (!payload) {
+			CAM_ERR(CAM_MEM, "failed to allocate mem for payload");
+			return -ENOMEM;
+		}
 		payload->rpdev = rpdev;
 		payload->rsp   = rsp;
 		INIT_WORK((struct work_struct *)&payload->work,
