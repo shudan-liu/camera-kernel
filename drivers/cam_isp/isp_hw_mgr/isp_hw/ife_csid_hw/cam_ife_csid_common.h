@@ -364,6 +364,8 @@ struct cam_ife_csid_rx_cfg  {
 	bool                            dynamic_sensor_switch_en;
 };
 
+int cam_ife_csid_get_phy_sel(uint32_t in_res);
+
 int cam_ife_csid_is_pix_res_format_supported(
 	uint32_t in_format);
 

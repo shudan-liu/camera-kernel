@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -38,6 +39,29 @@ const uint8_t *cam_ife_csid_irq_reg_tag[CAM_IFE_CSID_IRQ_REG_MAX] = {
 	"UDI1",
 	"UDI2",
 };
+
+int cam_ife_csid_get_phy_sel(uint32_t in_res)
+{
+	switch (in_res) {
+	case CAM_ISP_IFE_IN_RES_PHY_0:
+		return 1;
+	case CAM_ISP_IFE_IN_RES_PHY_1:
+		return 2;
+	case CAM_ISP_IFE_IN_RES_PHY_2:
+		return 3;
+	case CAM_ISP_IFE_IN_RES_PHY_3:
+		return 4;
+	case CAM_ISP_IFE_IN_RES_PHY_4:
+		return 5;
+	case CAM_ISP_IFE_IN_RES_PHY_5:
+		return 6;
+	case CAM_ISP_IFE_IN_RES_PHY_6:
+		return 7;
+	default:
+		CAM_ERR(CAM_ISP, "in _res 0x%x don't have valid phy", in_res);
+		return -EINVAL;
+	}
+}
 
 static int cam_ife_csid_get_cid(struct cam_ife_csid_cid_data *cid_data,
 	struct cam_csid_hw_reserve_resource_args  *reserve)

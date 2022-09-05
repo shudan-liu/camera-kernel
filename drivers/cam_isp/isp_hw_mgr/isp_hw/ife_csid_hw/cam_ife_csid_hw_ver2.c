@@ -2366,10 +2366,15 @@ static int cam_ife_csid_hw_ver2_config_rx(
 	default:
 		csid_hw->rx_cfg.tpg_mux_sel = 0;
 		csid_hw->rx_cfg.phy_sel =
-			(reserve->in_port->res_type & 0xFF);
+			cam_ife_csid_get_phy_sel(reserve->in_port->res_type);
 		break;
 	}
 
+	if (csid_hw->rx_cfg.phy_sel < 0) {
+		CAM_ERR(CAM_ISP, "Invalid phy sel for res %d",
+			reserve->in_port->res_type);
+		return -EINVAL;
+	}
 	csid_hw->counters.csi2_reserve_cnt++;
 	CAM_DBG(CAM_ISP,
 		"CSID:%d Rx lane param: cfg:%u type:%u num:%u res:%u",
