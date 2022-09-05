@@ -6139,14 +6139,15 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 			add_req.link_hdl = ctx->link_hdl;
 			add_req.dev_hdl  = ctx->dev_hdl;
 			add_req.req_id   = req->request_id;
-			rc = ctx->ctx_crm_intf->add_req(&add_req);
-			if (rc) {
-				CAM_ERR(CAM_ISP, "Add req failed: req id=%llu",
-					req->request_id);
-			} else {
-				__cam_isp_ctx_enqueue_request_in_order(
-					ctx, req);
+			if (!ctx_isp->independent_crm_en) {
+				rc = ctx->ctx_crm_intf->add_req(&add_req);
+				if (rc) {
+					CAM_ERR(CAM_ISP, "Add req failed: req id=%llu",
+						req->request_id);
+					goto put_ref;
+				}
 			}
+			__cam_isp_ctx_enqueue_request_in_order(ctx, req);
 		} else {
 			CAM_ERR(CAM_ISP, "Unable to add request: req id=%llu", req->request_id);
 			rc = -ENODEV;
@@ -7731,7 +7732,7 @@ static int __cam_isp_ctx_no_crm_apply(struct cam_isp_context *ctx_isp, bool chec
 	CAM_DBG(CAM_ISP, "enter no crm apply ctx:%u", cam_ctx->ctx_id);
 	mutex_lock(&ctx_isp->isp_mutex);
 	if (list_empty(&cam_ctx->pending_req_list)) {
-		CAM_ERR(CAM_ISP, "pending list empty, returning ctx:%u",
+		CAM_INFO(CAM_ISP, "pending list empty, returning ctx:%u",
 			cam_ctx->ctx_id);
 		rc = 1;
 	}
