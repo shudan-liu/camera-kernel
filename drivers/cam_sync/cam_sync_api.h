@@ -27,7 +27,7 @@ typedef void (*sync_callback)(int32_t sync_obj, int status, void *data);
  * @event_cause	   Event parameter
  */
 struct cam_sync_signal_param {
-	int32_t    sync_obj;
+	uint32_t   sync_obj;
 	uint32_t   status;
 	uint32_t   event_cause;
 };
