@@ -24,6 +24,22 @@
 #define CAM_DEFAULT_VALUE 0xFF
 #define CAM_TRACE_PRINT_MAX_LEN 512
 
+TRACE_EVENT(cam_tunnel_id,
+	TP_PROTO(uint32_t tunnel_id, uint64_t req_id),
+	TP_ARGS(tunnel_id, req_id),
+	TP_STRUCT__entry(
+		__field(uint32_t, tunnel_id)
+		__field(uint64_t, req_id)
+	),
+	TP_fast_assign(
+		__entry->tunnel_id = tunnel_id;
+		__entry->req_id = req_id;
+	),
+	TP_printk(
+		"tunnel id: 0x%x req id: %lld",
+		__entry->tunnel_id, __entry->req_id)
+);
+
 TRACE_EVENT(cam_rpmsg,
 	TP_PROTO(const char *dev_name, const char *dir,
 		uint32_t pckt_size, const char *pckt_type),

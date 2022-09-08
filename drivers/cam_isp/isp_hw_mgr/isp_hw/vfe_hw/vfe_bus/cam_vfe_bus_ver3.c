@@ -3473,6 +3473,7 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 					wm_data->tunnel_id);
 				CAM_DBG(CAM_ISP, "programmed tunneling Id :%d wm: %d",
 					wm_data->tunnel_id, wm_data->index);
+				trace_cam_tunnel_id(wm_data->tunnel_id, update_buf->req_id);
 				wm_data->tunnel_id = 0;
 			}
 			else {

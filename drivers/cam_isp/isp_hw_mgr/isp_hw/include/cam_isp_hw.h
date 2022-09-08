@@ -401,6 +401,7 @@ struct cam_isp_hw_get_res_for_mid {
  * @Brief:          Get cmd buffer update for different CMD types
  *
  * @res:             Resource node
+ * @req_id:          Request id
  * @cmd_type:        Command type for which to get update
  * @cdm_id  :        CDM id
  * @cmd:             Command buffer information
@@ -413,6 +414,7 @@ struct cam_isp_hw_get_res_for_mid {
  */
 struct cam_isp_hw_get_cmd_update {
 	struct cam_isp_resource_node     *res;
+	uint64_t                          req_id;
 	enum cam_isp_hw_cmd_type          cmd_type;
 	enum cam_cdm_id                   cdm_id;
 	struct cam_isp_hw_cmd_buf_update  cmd;
