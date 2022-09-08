@@ -13,6 +13,8 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+#define WITH_NO_CRM_MASK  0x1
+
 
 static int cam_sensor_update_req_mgr(
 	struct cam_sensor_ctrl_t *s_ctrl,
@@ -20,6 +22,10 @@ static int cam_sensor_update_req_mgr(
 {
 	int rc = 0;
 	struct cam_req_mgr_add_request add_req;
+
+	/* Don't call add request if its no crm case*/
+	if (s_ctrl->bridge_intf.enable_crm != 1)
+		return rc;
 
 	memset(&add_req, 0, sizeof(add_req));
 	add_req.link_hdl = s_ctrl->bridge_intf.link_hdl;
@@ -949,6 +955,10 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		bridge_params.media_entity_flag = 0;
 		bridge_params.priv = s_ctrl;
 		bridge_params.dev_id = CAM_SENSOR;
+		s_ctrl->bridge_intf.enable_crm = 1;
+		/* add crm callbacks only in case of with crm is enabled */
+		if (sensor_acq_dev.info_handle & WITH_NO_CRM_MASK)
+			s_ctrl->bridge_intf.enable_crm = 0;
 
 		sensor_acq_dev.device_handle =
 			cam_create_device_hdl(&bridge_params);
@@ -1071,7 +1081,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		CAM_DBG(CAM_SENSOR, "%s Sensor Queried V2", s_ctrl->sensor_name);
 		cam_sensor_query_cap_v2(s_ctrl, &sensor_cap);
 		if (copy_to_user(u64_to_user_ptr(cmd->handle),
-			&sensor_cap, sizeof(struct  cam_sensor_query_cap))) {
+			&sensor_cap, sizeof(struct  cam_sensor_query_cap_v2))) {
 			CAM_ERR(CAM_SENSOR, "Failed Copy to User");
 			rc = -EFAULT;
 			goto release_mutex;
@@ -1128,7 +1138,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			s_ctrl->sensordata->slave_info.sensor_id,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr);
 	}
-		break;
+	break;
 	case CAM_STOP_DEV: {
 		if (s_ctrl->sensor_state != CAM_SENSOR_START) {
 			rc = -EINVAL;
@@ -1304,6 +1314,85 @@ int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)
 	return rc;
 }
 
+static int cam_sensor_apply_settings_no_crm(
+	struct cam_sensor_ctrl_t *s_ctrl)
+{
+	int rc = 0, offset = -1, i;
+
+	uint64_t oldest_request = 0;
+	struct i2c_settings_array *i2c_set = NULL;
+	struct i2c_settings_list *i2c_list;
+
+	i2c_set = s_ctrl->i2c_data.per_frame;
+
+	/* find the least non zero request id */
+	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
+		/* Set oldest request to first non zero request */
+		if (!oldest_request &&
+			(i2c_set[i].request_id != 0) &&
+			(i2c_set[i].is_settings_valid)) {
+			oldest_request = i2c_set[i].request_id;
+			offset = i;
+		}
+
+		/*
+		 * if request id is lesser than oldest request id
+		 * update oldest request id to new least non zero
+		 * request id
+		 */
+		if ((i2c_set[i].request_id != 0) &&
+			(i2c_set[i].request_id < oldest_request) &&
+			(i2c_set[i].is_settings_valid)) {
+			oldest_request = i2c_set[i].request_id;
+			offset = i;
+		}
+	}
+
+	/* Apply the oldest request and delete it */
+	if ((oldest_request != 0) &&
+			(offset != -1)) {
+		list_for_each_entry(i2c_list,
+			&(i2c_set[offset].list_head), list) {
+			rc = cam_sensor_i2c_modes_util(
+				&(s_ctrl->io_master_info),
+				i2c_list);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"Failed to apply settings: %d",
+					rc);
+				return rc;
+			}
+		}
+		CAM_DBG(CAM_SENSOR, "applied req_id: %llu", oldest_request);
+		i2c_set[offset].request_id = 0;
+		rc = delete_request(
+				&(i2c_set[offset]));
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Delete request Fail:%lld rc:%d",
+				oldest_request, rc);
+		}
+	} else {
+		CAM_ERR(CAM_SENSOR,
+				"Couldnot find the request id to offset=%d oldest_request=%lld",
+				offset,
+				oldest_request);
+		rc = -EINVAL;
+	}
+
+	return rc;
+}
+
+static int cam_sensor_handle_sof(
+	struct cam_sensor_ctrl_t *s_ctrl,
+	struct cam_req_mgr_no_crm_trigger_notify *notify)
+{
+	int rc = 0;
+
+	rc = cam_sensor_apply_settings_no_crm(s_ctrl);
+	return rc;
+}
+
 int cam_sensor_establish_link(struct cam_req_mgr_core_dev_link_setup *link)
 {
 	struct cam_sensor_ctrl_t *s_ctrl = NULL;
@@ -1322,9 +1411,11 @@ int cam_sensor_establish_link(struct cam_req_mgr_core_dev_link_setup *link)
 	if (link->link_enable) {
 		s_ctrl->bridge_intf.link_hdl = link->link_hdl;
 		s_ctrl->bridge_intf.crm_cb = link->crm_cb;
+		s_ctrl->sof_notify_handler = cam_sensor_handle_sof;
 	} else {
 		s_ctrl->bridge_intf.link_hdl = -1;
 		s_ctrl->bridge_intf.crm_cb = NULL;
+		s_ctrl->sof_notify_handler = NULL;
 	}
 	mutex_unlock(&s_ctrl->cam_sensor_mutex);
 
