@@ -210,6 +210,12 @@ enum cam_isp_hw_cmd_type {
 	CAM_ISP_HW_CMD_TUNNEL_ID_UPDATE,
 	CAM_ISP_VIRT_POPULATE_REGS,
 	CAM_ISP_VIRT_POPULATE_OUT_PORTS,
+	CAM_ISP_HW_CMD_UPDATE_CSID_RES_DATA,
+	CAM_ISP_HW_CMD_UPDATE_VFE_SRC_RES_DATA,
+	CAM_ISP_HW_CMD_UPDATE_VFE_OUT_RES_DATA,
+	CAM_ISP_HW_CMD_UPDATE_CSID_RES_IRQ_MASK,
+	CAM_ISP_HW_CMD_UPDATE_VFE_SRC_RES_IRQ_MASK,
+	CAM_ISP_HW_CMD_UPDATE_VFE_OUT_RES_IRQ_MASK,
 	CAM_ISP_HW_CMD_MAX,
 };
 
@@ -240,6 +246,9 @@ enum cam_isp_hw_cmd_type {
  * @top_half_handler:             Top Half handler function
  * @bottom_half_handler:          Bottom Half handler function
  * @res_name:                     Name of resource
+ * @is_per_port_start:            Indicates start_hw is called on real streamon call or
+ *                                on per port streamon call
+ * @is_per_port_acquire:          Indicates if resource is yet to be really acquired
  */
 struct cam_isp_resource_node {
 	enum cam_isp_resource_type     res_type;
@@ -264,6 +273,8 @@ struct cam_isp_resource_node {
 	CAM_IRQ_HANDLER_TOP_HALF       top_half_handler;
 	CAM_IRQ_HANDLER_BOTTOM_HALF    bottom_half_handler;
 	uint8_t                        res_name[CAM_ISP_RES_NAME_LEN];
+	bool                           is_per_port_start;
+	bool                           is_per_port_acquire;
 };
 
 /*

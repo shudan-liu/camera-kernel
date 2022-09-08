@@ -15,6 +15,7 @@
 
 #define CAM_ISP_IN_SENSOR_ID_UNKNOWN                     0xdeadbeef
 #define CAM_ISP_IN_SENSOR_MODE_UNKNOWN                   0xdeadbeef
+#define CAM_IFE_STREAM_GRP_INDEX_NONE                    0xdeadbeef
 
 /**
  * struct cam_isp_hw_mgr_ctx - common acquired context for managers
@@ -25,13 +26,15 @@
  * @cb_priv:               first argument for the call back function
  *                         set during acquire device
  * @mini_dump_cb           Callback for mini dump
+ * @virtual_rdi_mapping_cb Callback query for virtual rdi mapping
  *
  */
 struct cam_isp_hw_mgr_ctx {
-	void                           *workq_info;
-	cam_hw_event_cb_func            event_cb;
-	void                           *cb_priv;
-	cam_ctx_mini_dump_cb_func       mini_dump_cb;
+	void                                  *workq_info;
+	cam_hw_event_cb_func                   event_cb;
+	void                                  *cb_priv;
+	cam_ctx_mini_dump_cb_func              mini_dump_cb;
+	cam_hw_get_virtual_rdi_mapping_cb_func virtual_rdi_mapping_cb;
 };
 
 /**
@@ -72,7 +75,10 @@ struct cam_isp_hw_mgr {
  *                       acquired
  * @is_secure            informs whether the resource is in secure mode or not
  * @num_children:        number of the child resource node.
+ * @vc:                  input virtual channel number
+ * @dt:                  input data type number
  * @use_wm_pack:         Flag to indicate if WM is to be used for packing
+ * @linked:              Indicates if this hw res to linked to any ife context
  *
  */
 struct cam_isp_hw_mgr_res {
@@ -83,9 +89,11 @@ struct cam_isp_hw_mgr_res {
 	struct cam_isp_resource_node    *hw_res[CAM_ISP_HW_SPLIT_MAX];
 	uint32_t                         is_secure;
 	uint32_t                         num_children;
+	uint32_t                         vc;
+	uint32_t                         dt;
 	bool                             use_wm_pack;
+	bool                             linked;
 };
-
 
 /**
  * struct cam_isp_ctx_base_info - Base hardware information for the context

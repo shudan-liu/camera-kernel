@@ -232,6 +232,7 @@ int cam_isp_add_command_buffers(
  * @kmd_buf_info:          Kmd buffer to store the change base command
  * @res_list_isp_out:      IFE/SFE out resource list
  * @res_list_ife_in_rd:    IFE/SFE in rd resource list
+ * @priv:                  hw layer context data
  * @out_base:              Base value of ISP resource (IFE/SFE)
  * @out_max:               Max of supported ISP resources(IFE/SFE)
  * @fill_fence:            If true, Fence map table will be filled
@@ -250,6 +251,7 @@ int cam_isp_add_io_buffers(
 	struct cam_kmd_buf_info                 *kmd_buf_info,
 	struct cam_isp_hw_mgr_res               *res_list_isp_out,
 	struct list_head                        *res_list_ife_in_rd,
+	void                                    *priv,
 	uint32_t                                 out_base,
 	uint32_t                                 out_max,
 	bool                                     fill_fence,

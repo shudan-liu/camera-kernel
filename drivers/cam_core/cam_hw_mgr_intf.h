@@ -584,6 +584,7 @@ struct cam_hw_mgr_intf {
 	int (*hw_reset)(void *hw_priv, void *hw_reset_args);
 	int (*hw_dump)(void *hw_priv, void *hw_dump_args);
 	int (*hw_recovery)(void *hw_priv, void *hw_recovery_args);
+	int (*hw_update_sensor_grp_stream_cfg)(void *hw_priv, void *hw_cfg_args);
 };
 
 #endif /* _CAM_HW_MGR_INTF_H_ */
