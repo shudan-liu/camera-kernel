@@ -2025,6 +2025,9 @@ static int process_capture_set_param(struct ais_v4l2_control_t *kcmd,
 	} else if (u64_to_user_ptr(kcmd->payload) == NULL) {
 		rc = -EINVAL;
 		CAM_ERR(CAM_V4L2, "payload is NULL on set param");
+	} else if (!opener->data) {
+		CAM_ERR(CAM_V4L2, "data is null");
+		return -EINVAL;
 	} else if (copy_from_user(opener->data->qcarcam_param,
 			u64_to_user_ptr(kcmd->payload),
 			kcmd->size)) {
@@ -2352,16 +2355,12 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 	struct v4l2_streamdata *data;
 
 	opener = fh_to_opener(fh);
-	if (!opener || !opener->connected_opener) {
+	if (!opener) {
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
 
 	data = opener->data;
-	if (!data) {
-		CAM_ERR(CAM_V4L2, "data is null");
-		return -EINVAL;
-	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p cmd %d",
 		opener, data, kcmd->cmd);
