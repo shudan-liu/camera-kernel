@@ -618,6 +618,10 @@ static void handle_jpeg_cb(struct work_struct *work) {
 					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 				break;
 			}
+			rc = cam_mem_mgr_release_nsp_buf();
+			if (rc)
+				CAM_ERR(CAM_RPMSG, "failed to release nsp buf, rc=%d", rc);
+
 			CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", rsp->pid);
 			rc = cam_fastrpc_driver_unregister(rsp->pid);
 			cam_jpeg_mgr_nsp_release_hw();
@@ -625,7 +629,6 @@ static void handle_jpeg_cb(struct work_struct *work) {
 
 			jpeg_private.dmabuf_f_op = NULL;
 			jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
-			cam_mem_mgr_release_nsp_buf();
 			mutex_unlock(&jpeg_private.jpeg_mutex);
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
@@ -756,14 +759,18 @@ send_ack:
 		case CAM_DSP2CPU_DEREGISTER_BUFFER:
 		case CAM_DSP2CPU_MEM_FREE:
 			release_cmd.buf_handle = rsp->buf_info.buf_handle;
+			mutex_lock(&jpeg_private.jpeg_mutex);
 			rc = cam_mem_mgr_release(&release_cmd);
+			mutex_unlock(&jpeg_private.jpeg_mutex);
 			if (rc) {
 				CAM_ERR(CAM_RPMSG, "Failed to release buffer for handle %d", rsp->buf_info.buf_handle);
-				break;
+				cmd_msg.cmd_msg_type = rsp->type;
+				cmd_msg.ret_val = rc;
+			} else {
+				cmd_msg.cmd_msg_type = rsp->type;
+				cmd_msg.buf_info.fd =  rsp->buf_info.fd;
+				cmd_msg.buf_info.buf_handle = rsp->buf_info.buf_handle;
 			}
-			cmd_msg.cmd_msg_type = rsp->type;
-			cmd_msg.buf_info.fd =  rsp->buf_info.fd;
-			cmd_msg.buf_info.buf_handle = rsp->buf_info.buf_handle;
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rc = rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
