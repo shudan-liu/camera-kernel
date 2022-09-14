@@ -1340,8 +1340,11 @@ static int cam_vfe_bus_ver3_start_wm(struct cam_isp_resource_node *wm_res)
 		rsrc_data->hw_regs->debug_status_cfg);
 
 	/* enable/disable tunneling feature */
-	if (common_data->support_tunneling) {
-		val = rsrc_data->tunnel_en << rsrc_data->hw_regs->tunnel_cfg_idx;
+	if ((common_data->support_tunneling) && (rsrc_data->tunnel_en)) {
+		val = cam_io_r_mb(common_data->mem_base +
+			rsrc_data->common_data->common_reg->tunneling_cfg);
+		val |= rsrc_data->tunnel_en << rsrc_data->hw_regs->tunnel_cfg_idx;
+		CAM_DBG(CAM_ISP, "WM %d tunn_cfg 0x%x", rsrc_data->index, val);
 		cam_io_w_mb(val,
 			common_data->mem_base +
 			rsrc_data->common_data->common_reg->tunneling_cfg);
