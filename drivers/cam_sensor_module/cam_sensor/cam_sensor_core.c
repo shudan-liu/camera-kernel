@@ -667,6 +667,7 @@ void cam_sensor_query_cap_v2(struct cam_sensor_ctrl_t *s_ctrl,
 	query_cap->pos_pitch = s_ctrl->sensordata->pos_pitch;
 	query_cap->pos_yaw = s_ctrl->sensordata->pos_yaw;
 	query_cap->secure_camera = 0;
+	query_cap->reserved = 0;
 	query_cap->actuator_slot_id =
 		s_ctrl->sensordata->subdev_id[SUB_MODULE_ACTUATOR];
 	query_cap->csiphy_slot_id =
