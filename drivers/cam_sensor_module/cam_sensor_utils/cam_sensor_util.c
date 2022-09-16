@@ -1750,8 +1750,8 @@ int cam_sensor_util_power_apply(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info,
 		struct cam_sensor_power_setting *power_setting)
 {
-	int rc = 0, ret = 0, num_vreg, j = 0, i = 0, size = 0, no_gpio = 0;
-	//struct cam_sensor_power_setting *power_setting = NULL;
+	int rc = 0, ret = 0, num_vreg, j = 0, i = 0, size = 0, no_gpio = 0, gpio_offset;
+	unsigned int gpio_number = 0;
 	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
 	struct cam_soc_gpio_data *gpio_conf = soc_info->gpio_data;
 	struct gpio *gpio_tbl = NULL;
@@ -1866,10 +1866,19 @@ int cam_sensor_util_power_apply(struct cam_sensor_power_ctrl_t *ctrl,
 			break;
 		}
 
-		rc = msm_cam_sensor_handle_reg_gpio(
-			power_setting->seq_type,
-			gpio_num_info,
-			(int) power_setting->config_val);
+		gpio_offset = power_setting->seq_type;
+		gpio_number = gpio_num_info->gpio_num[gpio_offset];
+
+		if (gpio_num_info->valid[gpio_offset] == 1) {
+			CAM_DBG(CAM_SENSOR, "VALID GPIO offset: %d", gpio_offset);
+			if (power_setting->config_val == GPIO_INPUT_FLOATING) {
+				rc = gpio_direction_input(gpio_number);
+			} else {
+				rc = gpio_direction_output(gpio_number,
+					power_setting->config_val);
+			}
+		}
+
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR,
 				"Error in handling GPIO");
