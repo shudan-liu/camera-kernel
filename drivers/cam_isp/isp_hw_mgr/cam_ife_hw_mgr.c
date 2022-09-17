@@ -4992,7 +4992,7 @@ static int cam_ife_mgr_acquire_virt_hw_for_ctx(
 {
 	int acq_csid = 0;
 	int acq_vfe = 0;
-	int rc, acquired_hw_path, acquired_hw_id;
+	int rc = 0, acquired_hw_path, acquired_hw_id;
 
 	if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID ||
 			ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL)
@@ -13844,7 +13844,7 @@ static int cam_ife_hw_mgr_handle_tunnel_overflow(
 	struct cam_isp_hw_error_event_data   error_event_data = {0};
 	struct cam_isp_hw_error_event_info   *err_evt_info;
 	uint32_t i;
-	bool found_ctx;
+	bool found_ctx = false;
 
 	err_evt_info = event_info->event_data;
 

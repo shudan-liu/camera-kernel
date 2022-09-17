@@ -1759,7 +1759,7 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 {
 	struct cam_vfe_bus_ver3_comp_grp_data *rsrc_data = NULL;
 	struct cam_vfe_soc_private *vfe_soc_private = NULL;
-	uint32_t ubwc_static_ctrl[2];
+	uint32_t ubwc_static_ctrl[2] = {0};
 
 	int ddr_type = 0;
 
