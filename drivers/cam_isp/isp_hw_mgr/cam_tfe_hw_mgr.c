@@ -5031,6 +5031,17 @@ static int cam_tfe_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 	return rc;
 }
 
+static inline void cam_tfe_hw_mgr_get_eof_timestamp(
+	uint64_t                             *timestamp,
+	uint64_t                             *boot_time)
+{
+	struct timespec64 ts;
+
+	ktime_get_boottime_ts64(&ts);
+	*timestamp = (uint64_t)((ts.tv_sec * 1000000000) + ts.tv_nsec);
+	*boot_time = *timestamp;
+}
+
 static int cam_tfe_mgr_cmd_get_sof_timestamp(
 	struct cam_tfe_hw_mgr_ctx            *tfe_ctx,
 	uint64_t                             *time_stamp,
@@ -5639,6 +5650,10 @@ static int cam_tfe_hw_mgr_handle_hw_eof(
 
 	switch (event_info->res_id) {
 	case CAM_ISP_HW_TFE_IN_CAMIF:
+		cam_tfe_hw_mgr_get_eof_timestamp(
+			&eof_done_event_data.timestamp,
+			&eof_done_event_data.boot_time);
+
 		if (atomic_read(&tfe_hw_mgr_ctx->overflow_pending))
 			break;
 		tfe_hw_irq_eof_cb(tfe_hw_mgr_ctx->common.cb_priv,

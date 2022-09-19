@@ -18,6 +18,9 @@ module_param(debug_mdl, uint, 0644);
 static uint debug_type;
 module_param(debug_type, uint, 0644);
 
+uint debug_event_report = 0;
+module_param(debug_event_report, uint, 0644);
+
 struct camera_debug_settings cam_debug;
 
 const struct camera_debug_settings *cam_debug_get_settings()

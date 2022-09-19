@@ -7784,7 +7784,7 @@ end:
 	return rc;
 }
 
-static inline void cam_ife_hw_mgr_get_offline_sof_timestamp(
+static inline void cam_ife_hw_mgr_get_timestamp(
 	uint64_t                             *timestamp,
 	uint64_t                             *boot_time)
 {
@@ -8414,7 +8414,7 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 				sof_done_event_data.boot_time);
 		} else {
 			if (ife_ctx->is_offline)
-				cam_ife_hw_mgr_get_offline_sof_timestamp(
+				cam_ife_hw_mgr_get_timestamp(
 				&sof_done_event_data.timestamp,
 				&sof_done_event_data.boot_time);
 			else
@@ -8478,6 +8478,10 @@ static int cam_ife_hw_mgr_handle_hw_eof(
 
 	switch (event_info->res_id) {
 	case CAM_ISP_HW_VFE_IN_CAMIF:
+		cam_ife_hw_mgr_get_timestamp(
+			&eof_done_event_data.timestamp,
+			&eof_done_event_data.boot_time);
+
 		if (atomic_read(&ife_ctx->overflow_pending))
 			break;
 

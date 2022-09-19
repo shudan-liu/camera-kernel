@@ -279,6 +279,24 @@ static void cam_v4l2_event_queue_notify_error(const struct v4l2_event *old,
 				ev_header->u.frame_msg.request_id,
 				ev_header->u.frame_msg.link_hdl);
 		break;
+	case V4L_EVENT_CAM_REQ_MGR_EOF_BOOT_TS:
+		if (ev_header->u.frame_msg.request_id)
+			CAM_ERR(CAM_CRM,
+				"Failed to notify EOF_BOOT_TS Sess %X FrameId %lld FrameMeta %d ReqId %lld link %X",
+				ev_header->session_hdl,
+				ev_header->u.frame_msg.frame_id,
+				ev_header->u.frame_msg.frame_id_meta,
+				ev_header->u.frame_msg.request_id,
+				ev_header->u.frame_msg.link_hdl);
+		else
+			CAM_WARN_RATE_LIMIT_CUSTOM(CAM_CRM, 5, 1,
+				"Failed to notify EOF_BOOT_TS Sess %X FrameId %lld FrameMeta %d ReqId %lld link %X",
+				ev_header->session_hdl,
+				ev_header->u.frame_msg.frame_id,
+				ev_header->u.frame_msg.frame_id_meta,
+				ev_header->u.frame_msg.request_id,
+				ev_header->u.frame_msg.link_hdl);
+		break;
 	case V4L_EVENT_CAM_REQ_MGR_ERROR:
 		CAM_ERR_RATE_LIMIT(CAM_CRM,
 			"Failed to notify ERROR Sess %X ReqId %d Link %X Type %d",

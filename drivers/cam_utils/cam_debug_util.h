@@ -54,6 +54,9 @@
 
 #define STR_BUFFER_MAX_LENGTH  512
 
+/* Event IDs used for debug_event_report */
+#define CAM_REPORT_EOF_EVENT   (1 << 0)
+
 /**
  * struct cam_cpas_debug_settings - Sysfs debug settings for cpas driver
  */
@@ -328,5 +331,7 @@ const struct camera_debug_settings *cam_debug_get_settings(void);
  */
 ssize_t cam_debug_sysfs_node_store(struct device *dev,
 		struct device_attribute *attr, const char *buf, size_t count);
+
+extern uint debug_event_report;
 
 #endif /* _CAM_DEBUG_UTIL_H_ */

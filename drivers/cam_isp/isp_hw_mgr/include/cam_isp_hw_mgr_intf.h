@@ -211,10 +211,12 @@ struct cam_isp_hw_done_event_data {
  * struct cam_isp_hw_eof_event_data - Event payload for CAM_HW_EVENT_EOF
  *
  * @timestamp:             Timestamp for the eof event
+ * @boot_time:             Boot time stamp for the eof event
  *
  */
 struct cam_isp_hw_eof_event_data {
 	uint64_t       timestamp;
+	uint64_t       boot_time;
 };
 
 /**

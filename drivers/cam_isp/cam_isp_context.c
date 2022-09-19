@@ -663,6 +663,31 @@ static uint64_t __cam_isp_ctx_get_event_ts(uint32_t evt_id, void *evt_data)
 	return ts;
 }
 
+static void __cam_isp_ctx_send_eof_boot_timestamp(
+	struct cam_isp_context *ctx_isp, uint64_t request_id)
+{
+	struct cam_req_mgr_message   req_msg;
+
+	req_msg.session_hdl = ctx_isp->base->session_hdl;
+	req_msg.u.frame_msg.frame_id = ctx_isp->frame_id;
+	req_msg.u.frame_msg.request_id = request_id;
+	req_msg.u.frame_msg.timestamp = ctx_isp->eof_boot_timestamp;
+	req_msg.u.frame_msg.link_hdl = ctx_isp->base->link_hdl;
+	req_msg.u.frame_msg.frame_id_meta = ctx_isp->frame_id_meta;
+
+	CAM_DBG(CAM_ISP,
+		"request id:%lld frame number:%lld eof boot time stamp:0x%llx",
+		 request_id, ctx_isp->frame_id,
+		 ctx_isp->eof_boot_timestamp);
+
+	if (cam_req_mgr_notify_message(&req_msg,
+		V4L_EVENT_CAM_REQ_MGR_EOF_BOOT_TS,
+		V4L_EVENT_CAM_REQ_MGR_EVENT))
+		CAM_ERR(CAM_ISP,
+			"Error in notifying the eof boot time for req id:%lld",
+			request_id);
+}
+
 static void __cam_isp_ctx_send_sof_boot_timestamp(
 	struct cam_isp_context *ctx_isp, uint64_t request_id,
 	uint32_t sof_event_status)
@@ -1993,9 +2018,27 @@ static int __cam_isp_ctx_notify_eof_in_activated_state(
 	int rc = 0;
 	struct cam_req_mgr_trigger_notify  notify;
 	struct cam_context *ctx = ctx_isp->base;
+	struct cam_isp_hw_eof_event_data *eof_event_data = evt_data;
+	uint64_t  request_id  = 0;
 
 	if (!(ctx_isp->subscribe_event & CAM_TRIGGER_POINT_EOF))
 		return rc;
+
+	if (debug_event_report & CAM_REPORT_EOF_EVENT) {
+		if (ctx_isp->reported_req_id > ctx_isp->eof_reported_req_id) {
+			request_id = ctx_isp->reported_req_id;
+			ctx_isp->eof_reported_req_id = request_id;
+		}
+
+		if (!eof_event_data) {
+			CAM_WARN(CAM_ISP, "Invalid sof event data");
+		} else {
+			ctx_isp->eof_timestamp_val  = eof_event_data->timestamp;
+			ctx_isp->eof_boot_timestamp = eof_event_data->boot_time;
+			__cam_isp_ctx_send_eof_boot_timestamp(ctx_isp,
+				request_id);
+		}
+	}
 
 	/* notify reqmgr with eof signal */
 	if (ctx->ctx_crm_intf && ctx->ctx_crm_intf->notify_trigger) {
@@ -4605,6 +4648,7 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
+	ctx_isp->eof_reported_req_id = 0;
 	ctx_isp->hw_acquired = false;
 	ctx_isp->init_received = false;
 	ctx_isp->support_consumed_addr = false;
@@ -4670,6 +4714,7 @@ static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
+	ctx_isp->eof_reported_req_id = 0;
 	ctx_isp->hw_acquired = false;
 	ctx_isp->init_received = false;
 	ctx_isp->offline_context = false;
@@ -5692,6 +5737,7 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
+	ctx_isp->eof_reported_req_id = 0;
 	ctx_isp->bubble_frame_cnt = 0;
 	ctx_isp->substate_activated = ctx_isp->rdi_only_context ?
 		CAM_ISP_CTX_ACTIVATED_APPLIED :
@@ -5870,6 +5916,7 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	ctx_isp->frame_id = 0;
 	ctx_isp->active_req_cnt = 0;
 	ctx_isp->reported_req_id = 0;
+	ctx_isp->eof_reported_req_id = 0;
 	ctx_isp->last_applied_req_id = 0;
 	ctx_isp->req_info.last_bufdone_req_id = 0;
 	ctx_isp->bubble_frame_cnt = 0;
@@ -6430,6 +6477,7 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 	ctx->use_frame_header_ts = false;
 	ctx->active_req_cnt = 0;
 	ctx->reported_req_id = 0;
+	ctx->eof_reported_req_id = 0;
 	ctx->bubble_frame_cnt = 0;
 	ctx->req_info.last_bufdone_req_id = 0;
 
