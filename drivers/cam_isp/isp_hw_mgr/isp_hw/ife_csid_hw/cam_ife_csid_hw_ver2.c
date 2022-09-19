@@ -936,6 +936,11 @@ static int cam_ife_csid_ver2_handle_event_err(
 		return 0;
 	}
 
+	if (!res) {
+		CAM_ERR(CAM_ISP, "Invalid resource node data");
+		return -EINVAL;
+	}
+
 	evt.hw_idx   = csid_hw->hw_intf->hw_idx;
 	evt.reg_val  = irq_status;
 	evt.hw_type  = CAM_ISP_HW_TYPE_CSID;
@@ -4509,8 +4514,8 @@ int cam_ife_csid_ver2_start(void *hw_priv, void *args,
 			soc_info->reg_map[CAM_IFE_CSID_CLC_MEM_BASE_ID].mem_base +
 			csid_reg->cmn_reg->rup_aup_cmd_addr);
 
-	CAM_DBG(CAM_ISP, "CSID:%u res_id: %d RUP_AUP_MUP: 0x%x at start updated: %s",
-		csid_hw->hw_intf->hw_idx, res->res_id, rup_aup_mask,
+	CAM_DBG(CAM_ISP, "CSID:%u RUP_AUP_MUP: 0x%x at start updated: %s",
+		csid_hw->hw_intf->hw_idx, rup_aup_mask,
 		CAM_BOOL_TO_YESNO(!start_args->is_internal_start));
 
 	cam_ife_csid_ver2_enable_csi2(csid_hw);

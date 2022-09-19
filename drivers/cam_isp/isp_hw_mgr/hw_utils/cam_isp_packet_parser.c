@@ -886,6 +886,7 @@ int cam_isp_add_io_buffers(
 				return -EINVAL;
 			}
 		} else if (io_cfg[i].direction == CAM_BUF_INPUT) {
+			res_type = io_cfg[i].resource_type;
 			res_id_in = res_type;
 			found = false;
 			if (!res_list_in_rd) {

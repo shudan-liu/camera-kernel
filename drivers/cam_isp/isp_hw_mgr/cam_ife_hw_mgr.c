@@ -2725,7 +2725,7 @@ static int cam_ife_hw_mgr_link_csid_resources(
 	bool                                 crop_enable,
 	int  index)
 {
-	int rc;
+	int rc = -EINVAL;
 
 	if (in_port->ipp_count || in_port->lcr_count) {
 		rc = cam_ife_hw_mgr_link_csid_pxl_resources(ife_ctx,
@@ -2780,7 +2780,7 @@ static int cam_ife_hw_mgr_link_ife_src_resources(
 	struct cam_hw_info           *hw_info;
 	struct cam_vfe_acquire_args  vfe_acquire;
 	bool                         per_port_feature_enable = false;
-	int rc;
+	int rc = -EINVAL;
 
 	list_for_each_entry(csid_res, &ife_ctx->res_list_ife_csid, list) {
 		if (csid_res->num_children && !in_port->lcr_count)
@@ -2955,7 +2955,7 @@ static int cam_ife_hw_mgr_link_res_ife_out_rdi(
 	struct cam_isp_hw_mgr_res                *ife_out_res_tmp, *ife_out_res;
 	struct cam_vfe_acquire_args               vfe_acquire;
 	uint32_t  i, vfe_out_res_id, vfe_in_res_id;
-	int out_port_res_type;
+	int out_port_res_type = -EINVAL;
 
 	/* take left resource */
 	vfe_in_res_id = ife_src_res->hw_res[0]->res_id;
@@ -3005,10 +3005,10 @@ static int cam_ife_hw_mgr_link_res_ife_out_rdi(
 		}
 	}
 
-	if (i == in_port->num_out_res) {
+	if (i == in_port->num_out_res || (out_port_res_type < 0)) {
 		CAM_ERR(CAM_ISP,
-			"Cannot acquire out resource, i=%d, num_out_res=%d",
-			i, in_port->num_out_res);
+			"Cannot acquire out resource, i=%d, num_out_res=%d out_port_res_type:%d",
+			i, in_port->num_out_res, out_port_res_type);
 		goto err;
 	}
 
@@ -5551,7 +5551,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 			ife_ctx->left_hw_idx =
 				csid_res->hw_res[0]->hw_intf->hw_idx;
 		}
-		if (ife_ctx->flags.is_sfe_shdr)
+		if (ife_ctx->flags.is_sfe_shdr && !per_port_acquire)
 			*acquired_hw_path |= cam_convert_csid_res_to_path(
 					csid_res->res_id);
 
@@ -9098,9 +9098,9 @@ static int cam_ife_hw_mgr_res_stream_on_off_grp_cfg(
 	bool                      *per_port_feature_enable,
 	bool                      *skip_hw_deinit)
 {
-	int i, j;
+	int i, j = 0;
 	int rc = -EINVAL;
-	struct cam_ife_hw_mgr_stream_grp_config *grp_cfg;
+	struct cam_ife_hw_mgr_stream_grp_config *grp_cfg = NULL;
 
 	for (i = 0; i < g_ife_sns_grp_cfg.num_grp_cfg; i++) {
 		for (j = 0; j < g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg_cnt; j++) {
@@ -9115,7 +9115,7 @@ static int cam_ife_hw_mgr_res_stream_on_off_grp_cfg(
 			break;
 	}
 
-	if (grp_cfg == NULL || !*per_port_feature_enable) {
+	if (!grp_cfg || !*per_port_feature_enable) {
 		CAM_ERR(CAM_ISP, "cannot find stream config grp for sensor: %d ctx :%d",
 			ctx->sensor_id, ctx->ctx_index);
 		return rc;
@@ -9571,7 +9571,7 @@ end:
 static int cam_ife_hw_mgr_start_ife_out_res_stream_grp(
 	int    grp_cfg_index)
 {
-	int rc;
+	int rc = -EINVAL;
 	struct cam_isp_hw_mgr_res           *hw_mgr_res;
 	uint32_t i;
 
