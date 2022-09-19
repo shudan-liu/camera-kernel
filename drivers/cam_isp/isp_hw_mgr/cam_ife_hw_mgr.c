@@ -10705,7 +10705,7 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 
 		if (blob_size < (sizeof(struct cam_isp_vfe_out_tunnel_id_config) +
 			(tunnel_config->num_ports - 1) *
-			sizeof(struct cam_isp_vfe_out_tunnel_id_config))) {
+			sizeof(struct cam_isp_tunnel_id_config))) {
 			CAM_ERR(CAM_ISP, "Invalid tunneling blob size %u expected %lu ctx %u",
 				blob_size, sizeof(struct cam_isp_vfe_out_tunnel_id_config)
 				+ (tunnel_config->num_ports - 1) *
