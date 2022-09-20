@@ -123,6 +123,236 @@ static int cam_vfe_top_ver4_pdaf_lcr_config(struct cam_vfe_top_ver4_priv *top_pr
 	return 0;
 }
 
+int cam_vfe_top_acquire_resource_update_res(
+	struct cam_isp_resource_node  *vfe_full_res,
+	void                          *acquire_param)
+{
+	struct cam_vfe_mux_ver4_data      *res_data;
+	struct cam_vfe_acquire_args       *acquire_data;
+
+	res_data  = (struct cam_vfe_mux_ver4_data *)
+		vfe_full_res->res_priv;
+	acquire_data = (struct cam_vfe_acquire_args *)acquire_param;
+
+	res_data->sync_mode      = acquire_data->vfe_in.sync_mode;
+	res_data->event_cb       = acquire_data->event_cb;
+	res_data->priv           = acquire_data->priv;
+
+	if (!res_data->is_pixel_path)
+		goto config_done;
+
+	res_data->pix_pattern    = acquire_data->vfe_in.in_port->test_pattern;
+	res_data->dsp_mode       = acquire_data->vfe_in.in_port->dsp_mode;
+	res_data->first_pixel    = acquire_data->vfe_in.in_port->left_start;
+	res_data->last_pixel     = acquire_data->vfe_in.in_port->left_stop;
+	res_data->first_line     = acquire_data->vfe_in.in_port->line_start;
+	res_data->last_line      = acquire_data->vfe_in.in_port->line_stop;
+	res_data->is_fe_enabled  = acquire_data->vfe_in.is_fe_enabled;
+	res_data->is_offline     = acquire_data->vfe_in.is_offline;
+	res_data->is_dual        = acquire_data->vfe_in.is_dual;
+	res_data->qcfa_bin       = acquire_data->vfe_in.in_port->qcfa_bin;
+	res_data->horizontal_bin =
+		acquire_data->vfe_in.in_port->horizontal_bin;
+	res_data->sfe_binned_epoch_cfg =
+		acquire_data->vfe_in.in_port->sfe_binned_epoch_cfg;
+	res_data->handle_camif_irq	 = acquire_data->vfe_in.handle_camif_irq;
+
+	if (res_data->is_dual)
+		res_data->dual_hw_idx = acquire_data->vfe_in.dual_hw_idx;
+
+config_done:
+	CAM_DBG(CAM_ISP,
+		"VFE:%d Res:[id:%d name:%s] dsp_mode:%d is_dual:%d dual_hw_idx:%d handle_camif_irq:%d",
+		vfe_full_res->hw_intf->hw_idx,
+		vfe_full_res->res_id,
+		vfe_full_res->res_name,
+		res_data->dsp_mode,
+		res_data->is_dual, res_data->dual_hw_idx,
+		res_data->handle_camif_irq);
+
+	return 0;
+}
+
+static int cam_vfe_top_ver4_update_res(struct cam_vfe_top_ver4_priv *top_priv,
+	void *reserve_args, uint32_t arg_size)
+{
+	struct cam_vfe_acquire_args             *args;
+	struct cam_vfe_resource_update          *res_update_args;
+	struct cam_vfe_hw_vfe_in_acquire_args   *acquire_args;
+	uint32_t i;
+	int rc = -EINVAL;
+
+	if (!top_priv || !reserve_args) {
+		CAM_ERR(CAM_ISP, "Error, Invalid input arguments");
+		return -EINVAL;
+	}
+
+	res_update_args = (struct cam_vfe_resource_update *)reserve_args;
+	args = (struct cam_vfe_acquire_args *)res_update_args->vfe_acquire;
+	acquire_args = &args->vfe_in;
+
+	for (i = 0; i < top_priv->top_common.num_mux; i++) {
+		if (top_priv->top_common.mux_rsrc[i].res_id ==
+			acquire_args->res_id) {
+
+			if (acquire_args->res_id == CAM_ISP_HW_VFE_IN_CAMIF) {
+				rc = cam_vfe_top_acquire_resource_update_res(
+					&top_priv->top_common.mux_rsrc[i],
+					args);
+				if (rc)
+					break;
+			}
+
+			if (acquire_args->res_id >= CAM_ISP_HW_VFE_IN_RDI0 &&
+				acquire_args->res_id < CAM_ISP_HW_VFE_IN_MAX) {
+				rc = cam_vfe_top_acquire_resource_update_res(
+					&top_priv->top_common.mux_rsrc[i],
+					args);
+				if (rc)
+					break;
+			}
+
+			top_priv->top_common.mux_rsrc[i].workq_info =
+				args->workq;
+			top_priv->top_common.mux_rsrc[i].is_per_port_acquire =
+				false;
+
+			acquire_args->rsrc_node =
+				&top_priv->top_common.mux_rsrc[i];
+
+			rc = 0;
+			break;
+		}
+	}
+	return rc;
+}
+
+static int cam_vfe_ver4_err_irq_top_half(
+	uint32_t                               evt_id,
+	struct cam_irq_th_payload             *th_payload);
+
+static int cam_vfe_top_ver4_enable_irq(
+	struct cam_vfe_top_ver4_priv *top_priv,
+	void *res_irq_mask)
+{
+	struct cam_isp_resource_node   *vfe_res;
+	struct cam_vfe_mux_ver4_data   *rsrc_data;
+	int                             rc = 0;
+	struct cam_csid_res_irq_info   *irq_args;
+
+	if (!res_irq_mask) {
+		CAM_ERR(CAM_ISP, "Error, Invalid input arguments");
+		return -EINVAL;
+	}
+
+	irq_args = (struct cam_csid_res_irq_info *)res_irq_mask;
+	vfe_res = *irq_args->node_res;
+
+	if (vfe_res->res_state != CAM_ISP_RESOURCE_STATE_STREAMING) {
+		/* possible reason can be irqs are already disabled */
+		CAM_DBG(CAM_ISP, "Error, Invalid camif res res_state:%d",
+			vfe_res->res_state);
+		return 0;
+	}
+
+	rsrc_data = (struct cam_vfe_mux_ver4_data *)vfe_res->res_priv;
+	/* Skip subscribing to timing irqs in these scenarios:
+	 *     1. Resource is dual IFE slave
+	 *     2. Resource is not primary RDI
+	 *     3. non-sfe use cases, such cases are taken care in CSID.
+	 */
+
+	CAM_DBG(CAM_ISP,
+	"sync_mode :%d  is_dual:%d is_pixel_path:%d rdi_only_ctx:%d handle_camif_irq:%d",
+		rsrc_data->sync_mode, rsrc_data->is_dual,
+		rsrc_data->is_pixel_path, vfe_res->rdi_only_ctx,
+		rsrc_data->handle_camif_irq);
+
+	if (((rsrc_data->sync_mode == CAM_ISP_HW_SYNC_SLAVE) && rsrc_data->is_dual) ||
+		(!rsrc_data->is_pixel_path && !vfe_res->rdi_only_ctx) ||
+		!rsrc_data->handle_camif_irq)
+		goto enable_err;
+
+	if (!vfe_res->is_per_port_acquire && !rsrc_data->frame_irq_handle &&
+		!vfe_res->is_per_port_start) {
+		rsrc_data->frame_irq_handle = cam_irq_controller_subscribe_irq(
+			rsrc_data->vfe_irq_controller,
+			CAM_IRQ_PRIORITY_1,
+			rsrc_data->stored_irq_masks[VFE_TOP_VER4_FRAME_IRQ_MASK],
+			vfe_res,
+			vfe_res->top_half_handler,
+			vfe_res->bottom_half_handler,
+			vfe_res->workq_info,
+			&workq_bh_api,
+			CAM_IRQ_EVT_GROUP_0);
+
+		if (rsrc_data->frame_irq_handle < 1) {
+			CAM_ERR(CAM_ISP, "Frame IRQs handle subscribe failure");
+			rc = -ENOMEM;
+			rsrc_data->frame_irq_handle = 0;
+		}
+	} else {
+		if (rsrc_data->frame_irq_handle) {
+			rc = cam_irq_controller_update_irq(
+				rsrc_data->vfe_irq_controller,
+				rsrc_data->frame_irq_handle,
+				irq_args->enable_irq,
+				rsrc_data->stored_irq_masks[VFE_TOP_VER4_FRAME_IRQ_MASK]);
+
+			if (rc) {
+				CAM_ERR(CAM_ISP, "Frame IRQs handle update failure");
+				rc = -ENOMEM;
+			}
+		} else {
+			CAM_ERR(CAM_ISP, "Frame IRQ handle not found");
+		}
+	}
+
+
+enable_err:
+
+	if (!vfe_res->is_per_port_acquire && !rsrc_data->irq_err_handle &&
+		!vfe_res->is_per_port_start) {
+		rsrc_data->irq_err_handle = cam_irq_controller_subscribe_irq(
+			rsrc_data->vfe_irq_controller,
+			CAM_IRQ_PRIORITY_0,
+			rsrc_data->stored_irq_masks[VFE_TOP_VER4_ERR_MASK],
+			vfe_res,
+			cam_vfe_ver4_err_irq_top_half,
+			vfe_res->bottom_half_handler,
+			vfe_res->workq_info,
+			&workq_bh_api,
+			CAM_IRQ_EVT_GROUP_0);
+
+		if (rsrc_data->irq_err_handle < 1) {
+			CAM_ERR(CAM_ISP, "Error IRQ handle subscribe failure");
+			rc = -ENOMEM;
+			rsrc_data->irq_err_handle = 0;
+		}
+	} else {
+		if (rsrc_data->irq_err_handle) {
+			rc = cam_irq_controller_update_irq(
+				rsrc_data->vfe_irq_controller,
+				rsrc_data->irq_err_handle,
+				irq_args->enable_irq,
+				rsrc_data->stored_irq_masks[VFE_TOP_VER4_ERR_MASK]);
+
+			if (rc) {
+				CAM_ERR(CAM_ISP, "Error IRQ handle update failure");
+				rc = -ENOMEM;
+			}
+		} else {
+			CAM_ERR(CAM_ISP, "Frame IRQ Err handle not found");
+		}
+	}
+
+	CAM_DBG(CAM_ISP, "VFE:%d Res: %s irq enable update done",
+		vfe_res->hw_intf->hw_idx,
+		vfe_res->res_name);
+
+	return rc;
+}
+
 static int cam_vfe_top_ver4_mux_get_base(struct cam_vfe_top_ver4_priv *top_priv,
 	void *cmd_args, uint32_t arg_size)
 {
@@ -697,6 +927,8 @@ int cam_vfe_top_ver4_reserve(void *device_priv,
 				args->workq;
 			top_priv->top_common.mux_rsrc[i].res_state =
 				CAM_ISP_RESOURCE_STATE_RESERVED;
+			if (acquire_args->in_port->per_port_en && args->per_port_acquire)
+				top_priv->top_common.mux_rsrc[i].is_per_port_acquire = true;
 			acquire_args->rsrc_node =
 				&top_priv->top_common.mux_rsrc[i];
 
@@ -923,6 +1155,12 @@ int cam_vfe_top_ver4_process_cmd(void *device_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_RDI_LCR_CFG:
 		rc = cam_vfe_top_ver4_pdaf_lcr_config(top_priv, cmd_args,
 			arg_size);
+		break;
+	case CAM_ISP_HW_CMD_UPDATE_VFE_SRC_RES_DATA:
+		rc = cam_vfe_top_ver4_update_res(top_priv, cmd_args, arg_size);
+		break;
+	case CAM_ISP_HW_CMD_UPDATE_VFE_SRC_RES_IRQ_MASK:
+		rc = cam_vfe_top_ver4_enable_irq(top_priv, cmd_args);
 		break;
 	default:
 		rc = -EINVAL;
@@ -1357,8 +1595,6 @@ static int cam_vfe_resource_start(
 	struct cam_vfe_mux_ver4_data   *rsrc_data;
 	uint32_t                        val = 0, epoch_factor = 50;
 	int                             rc = 0;
-	uint32_t                        err_irq_mask[CAM_IFE_IRQ_REGISTERS_MAX];
-	uint32_t                        irq_mask[CAM_IFE_IRQ_REGISTERS_MAX];
 
 	if (!vfe_res) {
 		CAM_ERR(CAM_ISP, "Error, Invalid input arguments");
@@ -1370,9 +1606,6 @@ static int cam_vfe_resource_start(
 			vfe_res->res_state);
 		return -EINVAL;
 	}
-
-	memset(err_irq_mask, 0, sizeof(err_irq_mask));
-	memset(irq_mask, 0, sizeof(irq_mask));
 
 	rsrc_data = (struct cam_vfe_mux_ver4_data *)vfe_res->res_priv;
 
@@ -1431,6 +1664,21 @@ skip_core_cfg:
 			rsrc_data->common_reg->diag_config);
 	}
 
+	rsrc_data->stored_irq_masks[VFE_TOP_VER4_ERR_MASK][CAM_IFE_IRQ_CAMIF_REG_STATUS0] =
+		rsrc_data->reg_data->error_irq_mask;
+
+	rsrc_data->stored_irq_masks[VFE_TOP_VER4_FRAME_IRQ_MASK][CAM_IFE_IRQ_CAMIF_REG_STATUS1] =
+		rsrc_data->reg_data->sof_irq_mask | rsrc_data->reg_data->epoch0_irq_mask |
+		rsrc_data->reg_data->eof_irq_mask;
+	rsrc_data->n_frame_irqs = hweight32(
+		rsrc_data->stored_irq_masks[VFE_TOP_VER4_FRAME_IRQ_MASK]
+		[CAM_IFE_IRQ_CAMIF_REG_STATUS1]);
+
+	if (vfe_res->is_per_port_start) {
+		CAM_DBG(CAM_ISP, "Skipping irq subscribe for resources that are not updated");
+		goto skip_irq_subscribe;
+	}
+
 	/* Skip subscribing to timing irqs in these scenarios:
 	 *     1. Resource is dual IFE slave
 	 *     2. Resource is not primary RDI
@@ -1441,16 +1689,11 @@ skip_core_cfg:
 		!rsrc_data->handle_camif_irq)
 		goto subscribe_err;
 
-	irq_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS1] = rsrc_data->reg_data->sof_irq_mask |
-		rsrc_data->reg_data->epoch0_irq_mask | rsrc_data->reg_data->eof_irq_mask;
-
-	rsrc_data->n_frame_irqs = hweight32(irq_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS1]);
-
 	if (!rsrc_data->frame_irq_handle) {
 		rsrc_data->frame_irq_handle = cam_irq_controller_subscribe_irq(
 			rsrc_data->vfe_irq_controller,
 			CAM_IRQ_PRIORITY_1,
-			irq_mask,
+			rsrc_data->stored_irq_masks[VFE_TOP_VER4_FRAME_IRQ_MASK],
 			vfe_res,
 			vfe_res->top_half_handler,
 			vfe_res->bottom_half_handler,
@@ -1466,13 +1709,12 @@ skip_core_cfg:
 	}
 
 subscribe_err:
-	err_irq_mask[CAM_IFE_IRQ_CAMIF_REG_STATUS0] = rsrc_data->reg_data->error_irq_mask;
 
 	if (!rsrc_data->irq_err_handle) {
 		rsrc_data->irq_err_handle = cam_irq_controller_subscribe_irq(
 			rsrc_data->vfe_irq_controller,
 			CAM_IRQ_PRIORITY_0,
-			err_irq_mask,
+			rsrc_data->stored_irq_masks[VFE_TOP_VER4_ERR_MASK],
 			vfe_res,
 			cam_vfe_ver4_err_irq_top_half,
 			vfe_res->bottom_half_handler,
@@ -1487,6 +1729,7 @@ subscribe_err:
 		}
 	}
 
+skip_irq_subscribe:
 	rsrc_data->fsm_state = VFE_TOP_VER4_FSM_SOF;
 
 	CAM_DBG(CAM_ISP, "VFE:%d Res: %s Start Done",

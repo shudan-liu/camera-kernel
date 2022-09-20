@@ -4440,8 +4440,9 @@ static int cam_tfe_mgr_prepare_hw_update(void *hw_mgr_priv,
 			hw_mgr->mgr_common.img_iommu_hdl_secure,
 			prepare, ctx->base[i].idx,
 			&kmd_buf, ctx->res_list_tfe_out,
-			NULL, CAM_ISP_TFE_OUT_RES_BASE,
-			CAM_TFE_HW_OUT_RES_MAX, fill_fence,
+			NULL, (void *)ctx->common.cb_priv,
+			CAM_ISP_TFE_OUT_RES_BASE,
+			CAM_TFE_HW_OUT_RES_MAX, 0, 0, fill_fence,
 			CAM_ISP_HW_TYPE_TFE,
 			&frame_header_info, &check_for_scratch, FALSE);
 

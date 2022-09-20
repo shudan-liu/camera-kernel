@@ -29,6 +29,7 @@
 #define CAM_ACQUIRE_HW                      (CAM_COMMON_OPCODE_BASE_v2 + 0x1)
 #define CAM_RELEASE_HW                      (CAM_COMMON_OPCODE_BASE_v2 + 0x2)
 #define CAM_DUMP_REQ                        (CAM_COMMON_OPCODE_BASE_v2 + 0x3)
+#define CAM_UPDATE_SENSOR_STREAM_CONFIG     (CAM_COMMON_OPCODE_BASE_v2 + 0x4)
 
 #define CAM_EXT_OPCODE_BASE                     0x200
 #define CAM_CONFIG_DEV_EXTERNAL                 (CAM_EXT_OPCODE_BASE + 0x1)
@@ -902,6 +903,22 @@ struct cam_dump_req_cmd {
 	__s32           session_handle;
 	__s32           link_hdl;
 	__s32           dev_handle;
+};
+
+/**
+ * struct cam_update_sensor_stream_cfg_cmd -
+ *        Information of group stream sensor configurations
+ *
+ * @size:               Handle size
+ * @handle_type:        User pointer or shared memory handle
+ * @cfg_handle:         Sensor specific configurations payload
+ * @reserved:           reserved field for alignment
+ */
+struct cam_update_sensor_stream_cfg_cmd {
+	__u32        size;
+	__u32        handle_type;
+	__u64        cfg_handle;
+	__u64        reserved;
 };
 
 #endif /* __UAPI_CAM_DEFS_H__ */

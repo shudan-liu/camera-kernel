@@ -33,8 +33,10 @@ enum cam_isp_hw_vfe_in_mux {
 	CAM_ISP_HW_VFE_IN_RDI1        = 4,
 	CAM_ISP_HW_VFE_IN_RDI2        = 5,
 	CAM_ISP_HW_VFE_IN_RDI3        = 6,
-	CAM_ISP_HW_VFE_IN_PDLIB       = 7,
-	CAM_ISP_HW_VFE_IN_LCR         = 8,
+	CAM_ISP_HW_VFE_IN_RDI4        = 7,
+	CAM_ISP_HW_VFE_IN_RDI5        = 8,
+	CAM_ISP_HW_VFE_IN_PDLIB       = 9,
+	CAM_ISP_HW_VFE_IN_LCR         = 10,
 	CAM_ISP_HW_VFE_IN_MAX,
 };
 
@@ -149,6 +151,8 @@ struct cam_vfe_hw_vfe_bus_rd_acquire_args {
  * @cdm_ops:                 CDM operations
  * @disable_ubwc_comp:       Disable UBWC compression
  * @use_wm_pack:             Use WM Packing
+ * @vfe_res_out_id:          Vfe out resource id used in case of per_port feature
+ *                           to acquire all supported out resources
  */
 struct cam_vfe_hw_vfe_out_acquire_args {
 	struct cam_isp_resource_node         *rsrc_node;
@@ -161,6 +165,7 @@ struct cam_vfe_hw_vfe_out_acquire_args {
 	struct cam_cdm_utils_ops             *cdm_ops;
 	bool                                  disable_ubwc_comp;
 	bool                                  use_wm_pack;
+	uint32_t                              vfe_res_out_id;
 };
 
 /*
@@ -202,6 +207,8 @@ struct cam_vfe_hw_vfe_in_acquire_args {
  *                           with this resource.
  * @priv:                    Context data
  * @event_cb:                Callback function to hw mgr in case of hw events
+ * @per_port_acquire:        Indicates if acquire as real acquire or per port virual
+ *                           acquire for current res path
  * @buf_done_controller:     Buf done controller for isp
  * @vfe_out:                 Acquire args for VFE_OUT
  * @vfe_bus_rd               Acquire args for VFE_BUS_READ
@@ -213,11 +220,41 @@ struct cam_vfe_acquire_args {
 	void                                *priv;
 	cam_hw_mgr_event_cb_func             event_cb;
 	void                                *buf_done_controller;
+	bool                                 per_port_acquire;
 	union {
 		struct cam_vfe_hw_vfe_out_acquire_args     vfe_out;
 		struct cam_vfe_hw_vfe_bus_rd_acquire_args  vfe_bus_rd;
 		struct cam_vfe_hw_vfe_in_acquire_args      vfe_in;
 	};
+};
+
+/**
+ * struct cam_vfe_resource_update
+ * @priv:                  Context data
+ * @res:                   HW resource to get the update from
+ * @vfe_acquire:           VFE acquire parameters
+ *
+ */
+struct cam_vfe_resource_update {
+	void                                *priv;
+	struct cam_isp_hw_mgr_res           *res;
+	struct cam_vfe_acquire_args         *vfe_acquire;
+};
+
+/**
+ * struct cam_vfe_res_irq_info
+ * @priv:                  Context data
+ * @node_res:              reource pointer array( ie CSID/IFE_SRC/IFE_OUT)
+ * @num_res:               number of resources
+ * @enable_irq:            TRUE: enables irq for requested path
+ *                         FALSE: disables irq for requested path
+ *
+ */
+struct cam_vfe_res_irq_info {
+	void                                *priv;
+	struct cam_isp_resource_node        **node_res;
+	uint32_t                             num_res;
+	bool                                 enable_irq;
 };
 
 /*

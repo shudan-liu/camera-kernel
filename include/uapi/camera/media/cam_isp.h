@@ -161,6 +161,15 @@
 #define CAM_ISP_RDI1_PATH         0x10
 #define CAM_ISP_RDI2_PATH         0x20
 #define CAM_ISP_RDI3_PATH         0x40
+#define CAM_ISP_RDI4_PATH         0x80
+#define CAM_ISP_RDI5_PATH         0x100
+#define CAM_ISP_VIRTUAL_RDI0_PATH 0x200
+#define CAM_ISP_VIRTUAL_RDI1_PATH 0x400
+#define CAM_ISP_VIRTUAL_RDI2_PATH 0x800
+#define CAM_ISP_VIRTUAL_RDI3_PATH 0x1000
+#define CAM_ISP_VIRTUAL_RDI4_PATH 0x2000
+#define CAM_ISP_VIRTUAL_RDI5_PATH 0x4000
+
 
 /* Per Path Usage Data */
 #define CAM_ISP_USAGE_INVALID     0
@@ -209,6 +218,11 @@
 #define CAM_IFE_DECODE_FORMAT_SHIFT_VAL 8
 
 #define CAM_IFE_GET_QUERY_CAP_V2        1
+
+/* ISP stream config params */
+#define CAM_ISP_STREAM_GROUP_CFG_MAX   12
+/*6 rdi paths and 1 pix path */
+#define CAM_ISP_STREAM_CFG_MAX         7
 
 /* Query devices */
 /**
@@ -1219,6 +1233,65 @@ struct cam_isp_init_config {
 struct cam_isp_lcr_rdi_config {
 	__u32                                   res_id;
 	__u32                                   reserved[5];
+};
+
+/**
+ * struct cam_isp_sensor_stream_config  -  camera sensor stream configurations
+ *
+ * @version                     : version details
+ * @sensor_id                   : camera sensor unique index
+ * @vc                          : input virtual channel number
+ * @dt                          : input data type number
+ * @decode_format               : input data format
+ * @path_id                     : indicates pxl or rdi path
+ * @reserved                    : Reserved field for allignment
+ */
+struct cam_isp_sensor_stream_config {
+	__u32     version;
+	__u32     sensor_id;
+	__u32     vc;
+	__u32     dt;
+	__u32     decode_format;
+	__u32     path_id;
+	__u64     reserved;
+};
+
+/**
+ * struct cam_isp_stream_grp_config  -  camera sensor stream group configurations
+ *
+ * @version                     : version details
+ * @res_type                    : input resource type
+ * @lane_type                   : lane type: c-phy or d-phy.
+ * @lane_num                    : active lane number
+ * @lane_cfg                    : lane configurations: 4 bits per lane
+ * @feature_mask                : feature flag
+ * @stream_cfg_cnt              : count of number of sensor configurations
+ * @reserved                    : Reserved field for allignment
+ * @stream_cfg                  : stream config data
+ */
+struct cam_isp_stream_grp_config {
+	__u32                                 version;
+	__u32                                 res_type;
+	__u32                                 lane_type;
+	__u32                                 lane_num;
+	__u32                                 lane_cfg;
+	__u32                                 feature_mask;
+	__u32                                 stream_cfg_cnt;
+	__u32                                 reserved;
+	struct cam_isp_sensor_stream_config   stream_cfg[CAM_ISP_STREAM_CFG_MAX];
+};
+
+/**
+ * struct cam_isp_sensor_group_config  -  sensor group configurations
+ *
+ * @version                     : version details
+ * @num_grp_cfg                 : count of total active group configs
+ * @stream_grp_cfg              : stream group data
+ */
+struct cam_isp_sensor_group_config {
+	__u32                             version;
+	__u32                             num_grp_cfg;
+	struct cam_isp_stream_grp_config  stream_grp_cfg[CAM_ISP_STREAM_GROUP_CFG_MAX];
 };
 
 #define CAM_VIRT_ISP_VC_DT_CFG                            10
