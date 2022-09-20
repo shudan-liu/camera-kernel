@@ -2313,6 +2313,14 @@ static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 		return -EINVAL;
 	}
 
+	spin_lock_bh(&link->link_state_spin_lock);
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
+		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
+		spin_unlock_bh(&link->link_state_spin_lock);
+		return -EINVAL;
+	}
+	spin_unlock_bh(&link->link_state_spin_lock);
+
 	in_q = link->req.in_q;
 	if (in_q) {
 		mutex_lock(&link->req.lock);
@@ -2355,7 +2363,6 @@ static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 		CAM_ERR(CAM_CRM,
 			"Error notifying SOF freeze for session %d link 0x%x rc %d",
 			session->session_hdl, link->link_hdl, rc);
-
 	return rc;
 }
 
@@ -2779,6 +2786,15 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	flush_info  = (struct cam_req_mgr_flush_info *)&task_data->u;
+
+	spin_lock_bh(&link->link_state_spin_lock);
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
+		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
+		spin_unlock_bh(&link->link_state_spin_lock);
+		return -EINVAL;
+	}
+	spin_unlock_bh(&link->link_state_spin_lock);
+
 	CAM_DBG(CAM_REQ, "link_hdl %x req_id %lld type %d",
 		flush_info->link_hdl,
 		flush_info->req_id,
@@ -2842,6 +2858,16 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	sched_req  = (struct cam_req_mgr_sched_request *)&task_data->u;
+
+	spin_lock_bh(&link->link_state_spin_lock);
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
+		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
+		spin_unlock_bh(&link->link_state_spin_lock);
+		rc =  -EINVAL;
+		goto end;
+	}
+	spin_unlock_bh(&link->link_state_spin_lock);
+
 	in_q = link->req.in_q;
 
 	CAM_DBG(CAM_CRM,
@@ -2934,6 +2960,15 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	add_req = (struct cam_req_mgr_add_request *)&task_data->u;
+
+	spin_lock_bh(&link->link_state_spin_lock);
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
+		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
+		spin_unlock_bh(&link->link_state_spin_lock);
+		rc =  -EINVAL;
+		goto end;
+	}
+	spin_unlock_bh(&link->link_state_spin_lock);
 
 	for (i = 0; i < link->num_devs; i++) {
 		device = &link->l_dev[i];
@@ -3103,6 +3138,16 @@ int cam_req_mgr_process_error(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	err_info  = (struct cam_req_mgr_error_notify *)&task_data->u;
+
+	spin_lock_bh(&link->link_state_spin_lock);
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
+		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
+		spin_unlock_bh(&link->link_state_spin_lock);
+		rc =  -EINVAL;
+		goto end;
+	}
+	spin_unlock_bh(&link->link_state_spin_lock);
+
 	CAM_DBG(CAM_CRM, "link_hdl %x req_id %lld error %d",
 		err_info->link_hdl,
 		err_info->req_id,
@@ -3234,6 +3279,15 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 	link = (struct cam_req_mgr_core_link *)priv;
 	task_data = (struct crm_task_payload *)data;
 	trigger_data = (struct cam_req_mgr_trigger_notify *)&task_data->u;
+
+	spin_lock_bh(&link->link_state_spin_lock);
+	if (link->state < CAM_CRM_LINK_STATE_READY) {
+		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
+		spin_unlock_bh(&link->link_state_spin_lock);
+		rc =  -EINVAL;
+		goto end;
+	}
+	spin_unlock_bh(&link->link_state_spin_lock);
 
 	CAM_DBG(CAM_REQ,
 		"link_hdl %x frame_id %lld, trigger %x curr req_id:%lld last buf done req_id:%lld ",
