@@ -114,9 +114,9 @@ static int cam_mem_util_get_dma_dir(uint32_t flags)
 	return rc;
 }
 
-void cam_mem_mgr_release_nsp_buf(void)
+int cam_mem_mgr_release_nsp_buf(void)
 {
-	int i, rc;
+	int i, rc = 0;
 	struct cam_mem_mgr_release_cmd cmd;
 
 	for (i = 1; i < CAM_MEM_BUFQ_MAX; i++) {
@@ -134,6 +134,8 @@ void cam_mem_mgr_release_nsp_buf(void)
 			rc = cam_mem_mgr_release(&cmd);
 		}
 	}
+
+	return rc;
 }
 
 static int cam_mem_util_map_cpu_va(struct dma_buf *dmabuf, uintptr_t *vaddr, size_t *len)
@@ -1465,7 +1467,7 @@ static int cam_mem_util_unmap(int32_t idx,
 	}
 	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_NSP_ACCESS)
 	{
-		cam_fastrpc_dev_unmap_dma(&tbl.bufq[idx]);
+		rc = cam_fastrpc_dev_unmap_dma(&tbl.bufq[idx]);
 	}
 
 	mutex_lock(&tbl.m_lock);

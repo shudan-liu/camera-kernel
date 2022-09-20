@@ -158,9 +158,9 @@ int cam_mem_mgr_release(struct cam_mem_mgr_release_cmd *cmd);
 /**
  * @brief: Releases all nsp buffer reference
  *
- * @return None
+ * @return Status of operation. Negative in case of error. Zero otherwise.
  */
-void cam_mem_mgr_release_nsp_buf(void);
+int cam_mem_mgr_release_nsp_buf(void);
 
 /**
  * @brief Maps a buffer
