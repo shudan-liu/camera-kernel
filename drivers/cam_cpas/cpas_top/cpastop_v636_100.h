@@ -271,6 +271,20 @@ static struct cam_camnoc_specific
 			.offset = 0x9420, /* IFE_0_NIU_MAXWR_LOW */
 			.value = 0x0,
 		},
+		.dynattr_mainctl = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x7108, /* IFE_0_DYNATTR_MAINCTL_LOW */
+			.value = 0x100,
+		},
+		.dynattr_tr_type_lut = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ,
+			.masked_value = 0,
+			.offset = 0x7138, /* IFE_0_DYNATTR_TRTYPELUT_LOW */
+			.value = 0x43222,
+		},
 	},
 	{
 		.port_type = CAM_CAMNOC_IFE13,
@@ -346,6 +360,20 @@ static struct cam_camnoc_specific
 			.masked_value = 0,
 			.offset = 0x9620, /* IFE_1_NIU_MAXWR_LOW */
 			.value = 0x0,
+		},
+		.dynattr_mainctl = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x7188, /* IFE_1_DYNATTR_MAINCTL_LOW */
+			.value = 0x100,
+		},
+		.dynattr_tr_type_lut = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ,
+			.masked_value = 0,
+			.offset = 0x71B8, /* IFE_1_DYNATTR_TRTYPELUT_LOW */
+			.value = 0x43222,
 		},
 	},
 	{
@@ -423,10 +451,24 @@ static struct cam_camnoc_specific
 			.offset = 0x9820, /* IFE_LITE_0_NIU_MAXWR_LOW */
 			.value = 0x0,
 		},
+		.dynattr_mainctl = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x7208, /* IFE_LITE_0_DYNATTR_MAINCTL_LOW */
+			.value = 0x100,
+		},
+		.dynattr_tr_type_lut = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ,
+			.masked_value = 0,
+			.offset = 0x7238, /* IFE_LITE_0_DYNATTR_TRTYPELUT_LOW */
+			.value = 0x43222,
+		},
 	},
 	{
 		.port_type = CAM_CAMNOC_IFE_LITE_1,
-		.port_name = "IFE-LITE_0",
+		.port_name = "IFE-LITE_1",
 		.enable = true,
 		.priority_lut_low = {
 			.enable = true,
@@ -498,6 +540,20 @@ static struct cam_camnoc_specific
 			.masked_value = 0,
 			.offset = 0x9A20, /* IFE_LITE_1_NIU_MAXWR_LOW */
 			.value = 0x0,
+		},
+		.dynattr_mainctl = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ_WRITE,
+			.masked_value = 0,
+			.offset = 0x7288, /* IFE_LITE_1_DYNATTR_MAINCTL_LOW */
+			.value = 0x100,
+		},
+		.dynattr_tr_type_lut = {
+			.enable = true,
+			.access_type = CAM_REG_TYPE_READ,
+			.masked_value = 0,
+			.offset = 0x72B8, /* IFE_LITE_1_DYNATTR_TRTYPELUT_LOW */
+			.value = 0x43222,
 		},
 	},
 	{
