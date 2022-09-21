@@ -1059,6 +1059,8 @@ static char *__cam_isp_ife_sfe_resource_handle_id_to_type(
 	case CAM_ISP_IFE_OUT_RES_STATS_BAYER_RS:        return "IFE_STATS_BAYER_RS";
 	case CAM_ISP_IFE_OUT_RES_PDAF_PARSED_DATA:      return "IFE_PDAF_PARSED_DATA";
 	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:      return "IFE_STATS_BHIST";
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1:  return "IFE_PREPROCESS_RAW1";
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2:  return "IFE_PREPROCESS_RAW2";
 
 	/* SFE output ports */
 	case CAM_ISP_SFE_OUT_RES_RDI_0:                 return "SFE_RDI_0";

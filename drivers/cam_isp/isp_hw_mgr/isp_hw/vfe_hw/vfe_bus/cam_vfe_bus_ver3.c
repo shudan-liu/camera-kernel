@@ -301,6 +301,12 @@ static enum cam_vfe_bus_ver3_vfe_out_type
 	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
 		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST;
 		break;
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1:
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW1;
+		break;
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2:
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW2;
+		break;
 	default:
 		CAM_WARN(CAM_ISP, "Invalid isp res id: %d , assigning max",
 			res_type);
@@ -425,6 +431,12 @@ static int cam_vfe_bus_ver3_get_comp_vfe_out_res_id_list(
 
 	if (comp_mask & (BIT_ULL(CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST)))
 		out_list[count++] = CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST;
+
+	if (comp_mask & (BIT_ULL(CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW1)))
+		out_list[count++] = CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1;
+
+	if (comp_mask & (BIT_ULL(CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW2)))
+		out_list[count++] = CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2;
 
 	*num_out = count;
 	return 0;
@@ -1134,7 +1146,9 @@ static int cam_vfe_bus_ver3_acquire_wm(
 		rsrc_data->height = 0;
 		rsrc_data->stride = 1;
 		rsrc_data->en_cfg = (0x1 << 16) | 0x1;
-	} else if (vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW) {
+	} else if ((vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW) ||
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW1) ||
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW2)) {
 		switch (rsrc_data->format) {
 		case CAM_FORMAT_MIPI_RAW_8:
 		case CAM_FORMAT_MIPI_RAW_10:
@@ -1326,8 +1340,11 @@ static int cam_vfe_bus_ver3_start_wm(struct cam_isp_resource_node *wm_res)
 		rsrc_data->hw_regs->debug_status_cfg);
 
 	/* enable/disable tunneling feature */
-	if (common_data->support_tunneling) {
-		val = rsrc_data->tunnel_en << rsrc_data->hw_regs->tunnel_cfg_idx;
+	if ((common_data->support_tunneling) && (rsrc_data->tunnel_en)) {
+		val = cam_io_r_mb(common_data->mem_base +
+			rsrc_data->common_data->common_reg->tunneling_cfg);
+		val |= rsrc_data->tunnel_en << rsrc_data->hw_regs->tunnel_cfg_idx;
+		CAM_DBG(CAM_ISP, "WM %d tunn_cfg 0x%x", rsrc_data->index, val);
 		cam_io_w_mb(val,
 			common_data->mem_base +
 			rsrc_data->common_data->common_reg->tunneling_cfg);
@@ -1742,7 +1759,7 @@ static int cam_vfe_bus_ver3_init_comp_grp(uint32_t index,
 {
 	struct cam_vfe_bus_ver3_comp_grp_data *rsrc_data = NULL;
 	struct cam_vfe_soc_private *vfe_soc_private = NULL;
-	uint32_t ubwc_static_ctrl[2];
+	uint32_t ubwc_static_ctrl[2] = {0};
 
 	int ddr_type = 0;
 
@@ -3459,6 +3476,7 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 					wm_data->tunnel_id);
 				CAM_DBG(CAM_ISP, "programmed tunneling Id :%d wm: %d",
 					wm_data->tunnel_id, wm_data->index);
+				trace_cam_tunnel_id(wm_data->tunnel_id, update_buf->req_id);
 				wm_data->tunnel_id = 0;
 			}
 			else {

@@ -51,6 +51,16 @@ int cam_sync_init_row(struct sync_table_row *table,
 int cam_sync_deinit_object(struct sync_table_row *table, uint32_t idx);
 
 /**
+ * @brief: Function to re-initialize a row in the sync table
+ *
+ * @param table : Pointer to the sync objects table
+ * @param idx   : Index of row to initialize
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_sync_reinit_object(struct sync_table_row *table, uint32_t idx);
+
+/**
  * @brief: Function to initialize a row in the sync table when the object is a
  *         group object, also known as a merged sync object
  *
@@ -150,5 +160,13 @@ void cam_sync_util_cleanup_parents_list(struct sync_table_row *row,
  * @return Status of operation.
  */
 int cam_sync_util_send_exit_poll_event(void);
+
+/**
+ * @brief    : Checks if the uid is equal to or greater than the current uid
+ * @sync_var : The sync uid and row id of the sync object
+ *
+ * @return Whether the sync uid is for an old object, current obj or a new one
+ */
+enum sync_is_uid_valid cam_sync_check_uid_valid(uint32_t sync_var);
 
 #endif /* __CAM_SYNC_UTIL_H__ */

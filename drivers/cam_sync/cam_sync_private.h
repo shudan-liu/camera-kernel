@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __CAM_SYNC_PRIVATE_H__
@@ -65,6 +66,12 @@ enum sync_list_clean_type {
 	SYNC_LIST_CLEAN_ALL
 };
 
+enum sync_is_uid_valid {
+	SYNC_UID_CURRENT,
+	SYNC_UID_NEW,
+	SYNC_UID_OLD
+};
+
 /**
  * struct sync_parent_info - Single node of information about a parent
  * of a sync object, usually part of the parents linked list
@@ -125,6 +132,17 @@ struct sync_user_payload {
 };
 
 /**
+ * struct sync_uid_info - Structure storing information to access
+ * the sync uid for fence reuse and mask to access the sync id that
+ * we get when new fence is created
+ */
+struct sync_uid_info {
+	uint32_t fenceIdMask;
+	int32_t uidShift;
+	uint32_t init_uid_val;
+};
+
+/**
  * struct sync_table_row - Single row of information about a sync object, used
  * for internal book keeping in the sync driver
  *
@@ -140,6 +158,9 @@ struct sync_user_payload {
  * @callback_list     : Linked list of kernel callbacks registered
  * @user_payload_list : LInked list of user space payloads registered
  * @ref_cnt           : ref count of the number of usage of the fence.
+ * @uid               : Unique ID of the current fence that is using this sync obj
+ * @struct old_fence  : Unique ID and state of previous fence that used
+ *                      same sync obj
  */
 struct sync_table_row {
 	char name[CAM_SYNC_OBJ_NAME_LEN];
@@ -155,6 +176,7 @@ struct sync_table_row {
 	struct list_head callback_list;
 	struct list_head user_payload_list;
 	atomic_t ref_cnt;
+	uint16_t uid;
 };
 
 /**

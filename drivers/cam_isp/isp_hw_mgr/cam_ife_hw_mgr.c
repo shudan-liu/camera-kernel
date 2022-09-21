@@ -2554,7 +2554,8 @@ static int cam_convert_hw_idx_to_ife_hw_num(int hw_idx)
 		case 5: return CAM_ISP_IFE5_LITE_HW;
 		case 6: return CAM_ISP_IFE6_LITE_HW;
 		case 7: return CAM_ISP_IFE7_LITE_HW;
-
+		case 8: return CAM_ISP_IFE8_LITE_HW;
+		case 9: return CAM_ISP_IFE9_LITE_HW;
 		}
 	} else {
 		CAM_ERR(CAM_ISP, "hw idx %d out-of-bounds", hw_idx);
@@ -4345,6 +4346,8 @@ static int cam_ife_hw_mgr_preprocess_port(
 			if (in_port->can_use_lite) {
 				switch(out_port->res_type) {
 				case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW:
+				case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1:
+				case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2:
 				case CAM_ISP_IFE_LITE_OUT_RES_STATS_BG:
 				case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
 					in_port->lite_path_count++;
@@ -4989,7 +4992,7 @@ static int cam_ife_mgr_acquire_virt_hw_for_ctx(
 {
 	int acq_csid = 0;
 	int acq_vfe = 0;
-	int rc, acquired_hw_path, acquired_hw_id;
+	int rc = 0, acquired_hw_path, acquired_hw_id;
 
 	if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID ||
 			ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL)
@@ -13841,7 +13844,7 @@ static int cam_ife_hw_mgr_handle_tunnel_overflow(
 	struct cam_isp_hw_error_event_data   error_event_data = {0};
 	struct cam_isp_hw_error_event_info   *err_evt_info;
 	uint32_t i;
-	bool found_ctx;
+	bool found_ctx = false;
 
 	err_evt_info = event_info->event_data;
 

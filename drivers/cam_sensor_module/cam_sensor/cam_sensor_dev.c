@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sensor_dev.h"
@@ -126,6 +127,39 @@ static const struct v4l2_subdev_internal_ops cam_sensor_internal_ops = {
 	.close = cam_sensor_subdev_close,
 };
 
+static void cam_sensor_subdev_handle_message(
+	struct v4l2_subdev *sd,
+	enum cam_subdev_message_type_t message_type,
+	void *data)
+{
+	struct cam_sensor_ctrl_t *s_ctrl = v4l2_get_subdevdata(sd);
+
+	switch (message_type) {
+		case CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY: {
+			struct cam_req_mgr_no_crm_trigger_notify *notify = NULL;
+
+			notify = (struct cam_req_mgr_no_crm_trigger_notify *)data;
+			if (!notify) {
+				CAM_ERR(CAM_SENSOR, "Invalid notify received");
+				break;
+			}
+			if (s_ctrl->bridge_intf.link_hdl == notify->link_hdl) {
+				mutex_lock(&s_ctrl->cam_sensor_mutex);
+				if (!s_ctrl->bridge_intf.enable_crm &&
+						(s_ctrl->sof_notify_handler != NULL)) {
+					s_ctrl->sof_notify_handler(s_ctrl, notify);
+				}
+				mutex_unlock(&s_ctrl->cam_sensor_mutex);
+			}
+			break;
+		}
+		default: {
+			CAM_DBG(CAM_SENSOR, "invalid message: %d ", message_type);
+			break;
+		}
+	}
+}
+
 static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 {
 	int rc = 0;
@@ -145,6 +179,8 @@ static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 	s_ctrl->v4l2_dev_str.token = s_ctrl;
 	s_ctrl->v4l2_dev_str.close_seq_prior =
 		CAM_SD_CLOSE_MEDIUM_PRIORITY;
+
+	s_ctrl->v4l2_dev_str.msg_cb = cam_sensor_subdev_handle_message;
 
 	rc = cam_register_subdev(&(s_ctrl->v4l2_dev_str));
 	if (rc)

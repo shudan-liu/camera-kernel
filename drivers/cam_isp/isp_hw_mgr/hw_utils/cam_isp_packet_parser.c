@@ -1017,6 +1017,7 @@ int cam_isp_add_io_buffers(
 			update_buf.cmd.size = kmd_buf_remain_size;
 			update_buf.wm_update = &wm_update;
 			update_buf.use_scratch_cfg = false;
+			update_buf.req_id = prepare->packet->header.request_id;
 
 			CAM_DBG(CAM_ISP, "cmd buffer 0x%pK, size %d",
 				update_buf.cmd.cmd_buf_addr,

@@ -174,7 +174,7 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 int cam_rpmsg_system_send_ping(void) {
 	int rc = 0, handle;
 	unsigned long rem_jiffies;
-	struct cam_rpmsg_system_ping_payload pkt;
+	struct cam_rpmsg_system_ping_payload pkt = {0};
 
 	reinit_completion(&system_data.complete);
 
@@ -211,7 +211,7 @@ err:
 
 int cam_rpmsg_isp_send_acq(uint32_t sensor_id)
 {
-	struct cam_rpmsg_isp_acq_payload pkt;
+	struct cam_rpmsg_isp_acq_payload pkt = {0};
 	int rc = 0, handle;
 
 	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
@@ -230,7 +230,7 @@ int cam_rpmsg_isp_send_acq(uint32_t sensor_id)
 
 int cam_rpmsg_isp_send_rel(uint32_t sensor_id)
 {
-	struct cam_rpmsg_isp_rel_payload pkt;
+	struct cam_rpmsg_isp_rel_payload pkt = {0};
 	int rc = 0, handle;
 
 	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
@@ -249,7 +249,7 @@ int cam_rpmsg_isp_send_rel(uint32_t sensor_id)
 
 int cam_rpmsg_isp_send_start(uint32_t sensor_id)
 {
-	struct cam_rpmsg_isp_start_payload pkt;
+	struct cam_rpmsg_isp_start_payload pkt = {0};
 	int rc = 0, handle;
 
 	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
@@ -268,7 +268,7 @@ int cam_rpmsg_isp_send_start(uint32_t sensor_id)
 
 int cam_rpmsg_isp_send_stop(uint32_t sensor_id)
 {
-	struct cam_rpmsg_isp_start_payload pkt;
+	struct cam_rpmsg_isp_start_payload pkt = {0};
 	int rc = 0, handle;
 
 	CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(&pkt.phdr,
@@ -539,7 +539,7 @@ static const char *__dsp_cmd_to_string(uint32_t val)
 
 static void handle_jpeg_cb(struct work_struct *work) {
 	struct cam_rpmsg_jpeg_payload *payload;
-	struct cam_jpegd_cmd_msg   cmd_msg;
+	struct cam_jpegd_cmd_msg   cmd_msg = {0};
 	struct cam_mem_mgr_alloc_cmd alloc_cmd = {0};
 	struct cam_mem_mgr_map_cmd map_cmd = {0};
 	struct cam_mem_mgr_release_cmd release_cmd = {0};
@@ -1036,13 +1036,15 @@ static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 	spin_lock_irqsave(&idata->sp_lock, flag);
 	idata->rpdev = rpdev;
 	spin_unlock_irqrestore(&idata->sp_lock, flag);
-	jpeg_private.jpeg_work_queue = alloc_workqueue("jpeg_glink_workq",
+
+	if (!jpeg_private.jpeg_work_queue)
+		jpeg_private.jpeg_work_queue = alloc_workqueue("jpeg_glink_workq",
 			WQ_UNBOUND | WQ_MEM_RECLAIM | WQ_SYSFS,
 			5);
-	if (!jpeg_private.jpeg_work_queue) {
+
+	if (!jpeg_private.jpeg_work_queue)
 		CAM_ERR(CAM_CDM,
 			"Workqueue allocation failed");
-	}
 
 	cam_rpmsg_set_recv_cb(CAM_RPMSG_HANDLE_JPEG, cam_rpmsg_jpeg_cb);
 	mutex_init(&jpeg_private.jpeg_mutex);
