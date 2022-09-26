@@ -1437,7 +1437,7 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 	uint32_t irq_context_summary = 0xF;
 	struct cam_cdm_bl_cb_request_entry *tnode = NULL;
 	struct cam_cdm_bl_cb_request_entry *node = NULL;
-	uint32_t irq_data;
+	uint32_t irq_data = 0;
 	bool work_status, skip_workq_execution = FALSE;
 	int i;
 	unsigned long flags = 0;
@@ -1519,12 +1519,13 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 				}
 
 				if (cdm_core->bl_fifo[i].last_bl_tag_done != irq_data) {
-					cdm_core->bl_fifo[i].last_bl_tag_done = irq_data;
 					list_for_each_entry_safe(node, tnode,
 						&cdm_core->bl_fifo[i].bl_request_list, entry) {
 						if (node->irq_cb_type ==
 							CAM_HW_CDM_IRQ_CB_INTERNAL) {
 							skip_workq_execution = TRUE;
+							cdm_core->bl_fifo[i].last_bl_tag_done =
+								irq_data;
 							if (node->request_type ==
 								CAM_HW_CDM_BL_CB_CLIENT)
 								cam_cdm_notify_clients(cdm_hw,
@@ -1564,6 +1565,7 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 		payload[i]->fifo_idx = i;
 		payload[i]->irq_status = irq_status[i];
 		payload[i]->hw = cdm_hw;
+		payload[i]->irq_data = irq_data;
 
 		CAM_DBG(CAM_CDM,
 			"Rcvd of fifo %d userdata 0x%x irq_stat 0x%x", i, user_data, irq_status[i]);
