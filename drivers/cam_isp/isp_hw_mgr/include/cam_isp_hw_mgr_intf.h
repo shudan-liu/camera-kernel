@@ -271,33 +271,39 @@ struct cam_isp_prepare_hw_update_data {
  *
  * @timestamp         : Time stamp for the sof event
  * @boot_time         : Boot time stamp for the sof event
+ * @res_id            : Resource for which SOF event received
  *
  */
 struct cam_isp_hw_sof_event_data {
 	uint64_t       timestamp;
 	uint64_t       boot_time;
+	uint32_t       res_id;
 };
 
 /**
  * struct cam_isp_hw_reg_update_event_data - Event payload for
  *                         CAM_HW_EVENT_REG_UPDATE
  *
- * @timestamp:     Time stamp for the reg update event
+ * @timestamp      : Time stamp for the reg update event
+ * @res_id         : Resource for which RUP event received
  *
  */
 struct cam_isp_hw_reg_update_event_data {
 	uint64_t       timestamp;
+	uint32_t       res_id;
 };
 
 /**
  * struct cam_isp_hw_epoch_event_data - Event payload for CAM_HW_EVENT_EPOCH
  *
- * @timestamp:     Time stamp for the epoch event
- * @frame_id_meta: Frame id value corresponding to this frame
+ * @timestamp         : Time stamp for the epoch event
+ * @frame_id_meta     : Frame id value corresponding to this frame
+ * @res_id            : Resource for which EPOCH event received
  */
 struct cam_isp_hw_epoch_event_data {
 	uint64_t       timestamp;
 	uint32_t       frame_id_meta;
+	uint32_t       res_id;
 };
 
 /**
@@ -321,11 +327,13 @@ struct cam_isp_hw_done_event_data {
 /**
  * struct cam_isp_hw_eof_event_data - Event payload for CAM_HW_EVENT_EOF
  *
- * @timestamp:             Timestamp for the eof event
+ * @timestamp         : Timestamp for the eof event
+ * @res_id            : Resource for which EOF event received
  *
  */
 struct cam_isp_hw_eof_event_data {
 	uint64_t       timestamp;
+	uint32_t       res_id;
 };
 
 /**
@@ -384,6 +392,7 @@ enum cam_isp_ctx_type {
 	CAM_ISP_CTX_RDI,
 	CAM_ISP_CTX_PIX,
 	CAM_ISP_CTX_OFFLINE,
+	CAM_ISP_CTX_RDI_AND_STATS,
 	CAM_ISP_CTX_MAX,
 };
 /**
@@ -447,12 +456,14 @@ struct cam_isp_hw_active_hw_ctx {
  * @is_internal_start:         Start triggered internally for reset & recovery
  * @start_only                 Send start only to hw drivers. No init to
  *                             be done.
+ * @is_trigger_type:           Indicate if usecase is trigger type or not
  *
  */
 struct cam_isp_start_args {
 	struct cam_hw_config_args hw_config;
 	bool                      is_internal_start;
 	bool                      start_only;
+	int8_t                    is_trigger_type;
 };
 
 /**
