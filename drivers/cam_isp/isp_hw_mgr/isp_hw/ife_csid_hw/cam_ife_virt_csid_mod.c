@@ -179,7 +179,13 @@ static int cam_ife_virt_csid_config_rx(
 		csid_hw->rx_cfg.epd_supported = 1;
 	csid_hw->rx_cfg.tpg_mux_sel = 0;
 	csid_hw->rx_cfg.phy_sel =
-		(reserve->in_port->res_type & 0xFF);
+		cam_ife_csid_get_phy_sel(reserve->in_port->res_type);
+
+	if (csid_hw->rx_cfg.phy_sel < 0) {
+		CAM_ERR(CAM_ISP, "Invalid phy sel for res %d",
+			reserve->in_port->res_type);
+		return -EINVAL;
+	}
 	CAM_DBG(CAM_ISP,
 		"VCSID:%d Rx lane param: cfg:%u type:%u num:%u res:%u",
 		csid_hw->hw_intf->hw_idx,
