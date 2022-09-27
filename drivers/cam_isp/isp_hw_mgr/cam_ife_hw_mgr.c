@@ -2061,16 +2061,19 @@ static int cam_ife_mgr_acquire_cid_res(
 			c_ctx, cid_res_temp, &csid_acquire,
 			&acquired_cnt, ife_ctx->dynamic_rdi_alloc) == 0)
 		goto acquire_successful;
-	/*
-	 * Try acquiring CID resource from previously acquired HW from other
-	 * used contexts
-	 */
-	list_for_each_entry(ife_ctx_iterator, &ife_hw_mgr->used_ctx_list,
-		list) {
-		if (cam_ife_mgr_attempt_reuse_cid_res(
-				ife_ctx_iterator, cid_res_temp, &csid_acquire,
-				&acquired_cnt, ife_ctx->dynamic_rdi_alloc) == 0)
-			goto acquire_successful;
+
+	if (ife_ctx->dynamic_rdi_alloc) {
+		/* Try acquiring CID resource from previously acquired HW from
+		   other used contexts */
+		list_for_each_entry(ife_ctx_iterator,
+			&ife_hw_mgr->used_ctx_list,
+			list) {
+			if (0 == cam_ife_mgr_attempt_reuse_cid_res(
+					ife_ctx_iterator, cid_res_temp,
+					&csid_acquire, &acquired_cnt,
+					ife_ctx->dynamic_rdi_alloc))
+				goto acquire_successful;
+		}
 	}
 
 	/* Acquire Left if not already acquired */
