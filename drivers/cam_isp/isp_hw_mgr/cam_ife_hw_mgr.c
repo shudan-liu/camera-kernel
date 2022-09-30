@@ -6661,7 +6661,7 @@ static int cam_ife_mgr_acquire_virt_hw_for_ctx(
 				in_port, false, false,
 				&acquired_hw_id, &acquired_hw_path);
 		if (rc) {
-			CAM_ERR(CAM_ISP, "Acquire VIFE IPP SRC failed");
+			CAM_ERR(CAM_ISP, "Acquire VIFE RDI SRC failed");
 			goto err;
 		}
 	}
