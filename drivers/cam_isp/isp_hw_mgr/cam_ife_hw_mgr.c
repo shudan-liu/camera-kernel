@@ -2080,6 +2080,8 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 	struct cam_isp_hw_mgr_res        *hw_mgr_res_temp;
 	struct list_head                 *ife_src_list_head;
 	struct list_head                 *csid_res_list_head;
+	struct list_head                 *vcsid_res_list_head;
+	struct list_head                 *vife_res_list_head;
 	struct list_head                 *free_res_list_head;
 
 	if (ife_ctx->flags.per_port_en && (index != CAM_IFE_STREAM_GRP_INDEX_NONE)) {
@@ -2093,6 +2095,8 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 	} else {
 		ife_src_list_head = &ife_ctx->res_list_ife_src;
 		csid_res_list_head = &ife_ctx->res_list_ife_csid;
+		vcsid_res_list_head = &ife_ctx->res_list_ife_vcsid;
+		vife_res_list_head = &ife_ctx->res_list_vife_src;
 		free_res_list_head = &ife_ctx->free_res_list;
 		CAM_DBG(CAM_ISP, "entered per_port disable CTX:%d", ife_ctx->ctx_index);
 	}
@@ -2142,6 +2146,20 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 	/* ife csid resource */
 	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
 		csid_res_list_head, list) {
+		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
+		cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
+	}
+
+	/* ife vcsid resource */
+	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
+		vcsid_res_list_head, list) {
+		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
+		CAM_DBG(CAM_ISP, "Releasing Virtual csid");
+		cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
+	}
+
+	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
+		vife_res_list_head, list) {
 		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
 		cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
 	}
@@ -10393,6 +10411,28 @@ static int cam_ife_hw_mgr_free_hw_ctx(
 	/* ife csid resource */
 	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
 		&ife_ctx->res_list_ife_csid, list) {
+		hw_mgr_res->linked = false;
+		list_del_init(&hw_mgr_res->list);
+		memset(hw_mgr_res, 0, sizeof(*hw_mgr_res));
+		INIT_LIST_HEAD(&hw_mgr_res->list);
+
+		cam_ife_hw_mgr_put_res(&ife_ctx->free_res_list, &hw_mgr_res);
+	}
+
+	/* ife vcsid resource */
+	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
+		&ife_ctx->res_list_ife_vcsid, list) {
+		hw_mgr_res->linked = false;
+		list_del_init(&hw_mgr_res->list);
+		memset(hw_mgr_res, 0, sizeof(*hw_mgr_res));
+		INIT_LIST_HEAD(&hw_mgr_res->list);
+
+		cam_ife_hw_mgr_put_res(&ife_ctx->free_res_list, &hw_mgr_res);
+	}
+
+	/* ife vife resource */
+	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
+		&ife_ctx->res_list_vife_src, list) {
 		hw_mgr_res->linked = false;
 		list_del_init(&hw_mgr_res->list);
 		memset(hw_mgr_res, 0, sizeof(*hw_mgr_res));
