@@ -691,7 +691,7 @@ int __send_pkt(
 	int rc = 0;
 	int handle;
 
-	CAM_INFO(CAM_SENSOR_LITE, "header->tag =  %d", header->tag);
+	CAM_DBG(CAM_SENSOR_LITE, "header->tag =  %d", header->tag);
 
 	switch (header->tag) {
 	case SENSORLITE_CMD_TYPE_PROBE:
