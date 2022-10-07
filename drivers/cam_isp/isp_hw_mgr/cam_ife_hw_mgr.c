@@ -6602,7 +6602,7 @@ static int cam_ife_mgr_acquire_virt_hw_for_ctx(
 {
 	int acq_csid = 0;
 	int acq_vfe = 0;
-	int rc = 0, acquired_hw_path, acquired_hw_id;
+	int rc = -EINVAL, acquired_hw_path, acquired_hw_id;
 
 	if (ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID ||
 			ife_ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL)

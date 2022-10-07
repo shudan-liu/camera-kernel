@@ -1025,8 +1025,8 @@ int cam_isp_add_io_buffers(
 							"split %d plane_id %d get cpu buf failed, mem_hdl=0x%x, wm res id:%d",
 							j, plane_id,
 							io_cfg[i].mem_handle[plane_id],res->res_id);
-				} else {
-						out_map_entries->kernel_map_buf_addr[plane_id] = NULL;
+				} else if (out_map_entries) {
+					out_map_entries->kernel_map_buf_addr[plane_id] = NULL;
 				}
 
 			}
