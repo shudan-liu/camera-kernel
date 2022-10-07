@@ -119,6 +119,7 @@ struct cam_sensor_ctrl_t {
 	char                           sensor_name[
 		CAM_SENSOR_NAME_MAX_SIZE];
 	bool                           is_aon_user;
+	bool                           hw_no_io_ops;
 
 	/* register this handler to handle sof notify */
 	int   (*sof_notify_handler)(

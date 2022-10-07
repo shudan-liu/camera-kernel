@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -254,6 +255,13 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		s_ctrl->is_aon_user = true;
 	}
 
+	if (of_property_read_bool(of_node, "hw_no_io_ops")) {
+		CAM_DBG(CAM_SENSOR,
+			"SENSOR cell_idx: %d hw no ops is enabled",
+			s_ctrl->soc_info.index);
+		s_ctrl->hw_no_io_ops = true;
+	}
+
 	rc = cam_sensor_util_aon_registration(
 		s_ctrl->sensordata->subdev_id[SUB_MODULE_CSIPHY],
 		s_ctrl->is_aon_user);
@@ -261,7 +269,6 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "Aon registration failed, rc: %d", rc);
 		goto FREE_SENSOR_DATA;
 	}
-
 	return rc;
 
 FREE_SENSOR_DATA:
