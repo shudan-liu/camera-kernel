@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_LITE_CMN_HEADER_
@@ -558,6 +558,8 @@ struct sensor_lite_settings_stream_cmd {
 	uint32_t                         channel_id;
 	uint32_t                         tracker_id;
 	uint32_t                         sensor_id;
+	uint32_t                         sof_to_apply_min_time;
+	uint32_t                         eof_to_trigger_min_time;
 	uint32_t                         numcmd_groups;
 	uint32_t                         settings_groupoffset;
 } __packed;
