@@ -399,6 +399,7 @@ struct cam_isp_sys_cache_info {
  * struct cam_ife_hw_mgr - IFE HW Manager
  *
  * @mgr_common:            common data for all HW managers
+ * @workq_pool:            Workq pool
  * @csid_devices;          csid device instances array. This will be filled by
  *                         HW manager during the initialization.
  * @ife_devices:           IFE device instances array. This will be filled by
@@ -422,6 +423,7 @@ struct cam_isp_sys_cache_info {
  */
 struct cam_ife_hw_mgr {
 	struct cam_isp_hw_mgr          mgr_common;
+	struct cam_req_mgr_core_workq *workq_pool[CAM_IFE_CTX_MAX];
 	struct cam_hw_intf            *csid_devices[CAM_IFE_CSID_HW_NUM_MAX];
 	struct cam_isp_hw_intf_data   *ife_devices[CAM_IFE_HW_NUM_MAX];
 	struct cam_isp_hw_intf_data   *sfe_devices[CAM_SFE_HW_NUM_MAX];

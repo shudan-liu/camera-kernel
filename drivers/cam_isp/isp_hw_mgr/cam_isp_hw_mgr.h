@@ -40,7 +40,6 @@ struct cam_isp_hw_mgr_ctx {
 /**
  * struct cam_isp_hw_mgr - ISP HW Manager common object
  *
- * @workq_pool:               Workq pool
  * @img_iommu_hdl:            iommu memory handle for regular image buffer
  * @img_iommu_hdl_secure:     iommu memory handle for secure image buffer
  * @cmd_iommu_hdl:            iommu memory handle for regular command buffer
@@ -50,7 +49,6 @@ struct cam_isp_hw_mgr_ctx {
  *
  */
 struct cam_isp_hw_mgr {
-	struct cam_req_mgr_core_workq  *workq_pool[CAM_CTX_MAX];
 	int                             img_iommu_hdl;
 	int                             img_iommu_hdl_secure;
 	int                             cmd_iommu_hdl;
