@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2022, The Linux Foundation. All rights reserved.
  */
 
 #ifndef _CAM_CSIPHY_1_2_3_HWREG_H_
@@ -29,7 +29,7 @@ struct csiphy_reg_parms_t csiphy_v1_2_3 = {
 
 struct csiphy_reg_t csiphy_common_reg_1_2_3[] = {
 	{0x0814, 0xd5, 0x00, CSIPHY_2PH_REGS},
-	{0x0814, 0x2A, 0x00, CSIPHY_3PH_REGS},
+	{0x0814, 0x00, 0x00, CSIPHY_LANE_ENABLE},
 	{0x0818, 0x01, 0x00, CSIPHY_DEFAULT_PARAMS},
 	{0x081C, 0x5A, 0x00, CSIPHY_DEFAULT_PARAMS},
 	{0x0824, 0x72, 0x00, CSIPHY_2PH_REGS},
