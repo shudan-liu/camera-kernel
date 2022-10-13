@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -12,7 +13,10 @@
 #include "cam_node.h"
 #include "cam_hw_mgr_intf.h"
 #include "cam_jpeg_hw_mgr_intf.h"
+#include "cam_jpeg_hw_mgr.h"
 #include "cam_jpeg_dev.h"
+#include "jpeg_enc_core.h"
+#include "cam_rpmsg.h"
 #include "cam_debug_util.h"
 #include "cam_smmu_api.h"
 #include "camera_main.h"
@@ -24,18 +28,46 @@ static struct cam_jpeg_dev g_jpeg_dev;
 static void cam_jpeg_dev_iommu_fault_handler(
 	struct cam_smmu_pf_info *pf_info)
 {
-	int i = 0;
+	int j, i = 0;
 	struct cam_node *node = NULL;
+	struct cam_jpeg_hw_mgr *jpeg_hw_mgr;
+	struct cam_hw_info *enc_hw = NULL;
+	struct cam_hw_soc_info *enc_soc_info;
+	struct cam_jpeg_enc_device_core_info *core_info = NULL;
+	int nsp_jpeg_core_id = -1;
 
 	if (!pf_info || !pf_info->token) {
-		CAM_ERR(CAM_ISP, "invalid token in page handler cb");
+		CAM_ERR(CAM_JPEG, "invalid token in page handler cb");
 		return;
 	}
 
 	node = (struct cam_node *)pf_info->token;
+	jpeg_hw_mgr = (struct cam_jpeg_hw_mgr *)node->hw_mgr_intf.hw_mgr_priv;
 
 	for (i = 0; i < node->ctx_size; i++)
 		cam_context_dump_pf_info(&(node->ctx_list[i]), pf_info);
+
+	for (i = 0; i < jpeg_hw_mgr->num_nsp_enc; i++) {
+		enc_hw = (struct cam_hw_info *)
+			jpeg_hw_mgr->nsp_devices[CAM_JPEG_DEV_ENC][i]->hw_priv;
+		enc_soc_info = &enc_hw->soc_info;
+		core_info    = enc_hw->core_info;
+
+		for (j = 0; j < core_info->num_pid; j++) {
+			if (core_info->pid[j] == pf_info->pid) {
+				nsp_jpeg_core_id = core_info->nsp_core_id;
+				break;
+			}
+		}
+
+		if (nsp_jpeg_core_id != -1) {
+			CAM_INFO(CAM_JPEG, "pf on NSP JPEG core %d", nsp_jpeg_core_id);
+			cam_soc_util_reg_dump(enc_soc_info, 0, 0, enc_soc_info->reg_map[0].size/4);
+			cam_rpmsg_send_cpu2dsp_error(CAM_JPEG_DSP_PF_ERROR,
+				nsp_jpeg_core_id, pf_info->iova);
+			nsp_jpeg_core_id = -1;
+		}
+	}
 }
 
 static void cam_jpeg_dev_mini_dump_cb(void *priv, void *args)
@@ -165,6 +197,7 @@ static int cam_jpeg_dev_component_bind(struct device *dev,
 	}
 
 	node->sd_handler = cam_jpeg_subdev_close_internal;
+
 	cam_smmu_set_client_page_fault_handler(iommu_hdl,
 		cam_jpeg_dev_iommu_fault_handler, node);
 

@@ -2913,7 +2913,6 @@ int cam_soc_util_reg_dump(struct cam_hw_soc_info *soc_info,
 		return -EINVAL;
 
 	base_addr = CAM_SOC_GET_REG_MAP_START(soc_info, base_index);
-
 	/*
 	 * All error checking already done above,
 	 * hence ignoring the return value below.
