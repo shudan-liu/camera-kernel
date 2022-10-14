@@ -602,7 +602,15 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				break;
 			}
 			cam_jpeg_mgr_nsp_acquire_hw(&jpeg_private.jpeg_iommu_hdl);
-			cam_fastrpc_driver_register(rsp->pid);
+			rc = cam_fastrpc_driver_register(rsp->pid);
+			if (rc) {
+				jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWERON;
+				cmd_msg.ret_val = -1;
+				mutex_unlock(&jpeg_private.jpeg_mutex);
+				goto ack;
+			}
+
 			cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWERON;
 			pid_s = find_get_pid(rsp->pid);
 			if (pid_s == NULL) {
@@ -615,6 +623,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			jpeg_private.dmabuf_f_op = NULL;
 			jpeg_private.status = CAM_JPEG_DSP_POWERON;
 			mutex_unlock(&jpeg_private.jpeg_mutex);
+ack:
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
@@ -627,7 +636,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 		 */
 		case CAM_DSP2CPU_POWEROFF:
 			mutex_lock(&jpeg_private.jpeg_mutex);
-			if (CAM_JPEG_DSP_POWEROFF == jpeg_private.status) {
+			if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF) {
 				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
 				mutex_unlock(&jpeg_private.jpeg_mutex);
 				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
@@ -665,11 +674,20 @@ static void handle_jpeg_cb(struct work_struct *work) {
 			} else {
 				alloc_cmd.num_hdl = 0;
 			}
+
+			if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF) {
+				CAM_WARN(CAM_RPMSG,
+					"JPEG DSP powered off Cannot register/Alloc buffer");
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
+				cmd_msg.buf_info.ipa_addr = 0;
+				cmd_msg.ret_val = -1;
+				goto send_ack;
+			}
 			rc = cam_mem_mgr_alloc_and_map(&alloc_cmd);
 			if (rc) {
 				cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
-				// For failure cases set vaddr as 0 for dsp to treat it as failure.
 				cmd_msg.buf_info.ipa_addr = 0;
+				cmd_msg.ret_val = -1;
 				goto send_ack;
 			}
 			rc = cam_mem_get_io_buf(
@@ -678,8 +696,8 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				(dma_addr_t *)&cmd_msg.buf_info.iova, (size_t *)&cmd_msg.buf_info.size, NULL);
 			if (rc) {
 				cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
-				// For failure cases set vaddr as 0 for dsp to treat it as failure.
 				cmd_msg.buf_info.ipa_addr = 0;
+				cmd_msg.ret_val = -1;
 				goto send_ack;
 			}
 			cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
@@ -707,6 +725,16 @@ send_ack:
 			map_cmd.fd = rsp->buf_info.fd;
 			map_cmd.mmu_hdls[0] = jpeg_private.jpeg_iommu_hdl;
 			map_cmd.num_hdl = 1;
+
+			if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF) {
+				CAM_WARN(CAM_RPMSG,
+					"JPEG DSP powered off Cannot register/Alloc buffer");
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_MEM_ALLOC;
+				cmd_msg.buf_info.ipa_addr = 0;
+				cmd_msg.ret_val = -1;
+				goto send_ack;
+			}
+
 			files = jpeg_private.jpeg_task->files;
 			if (!files) {
 				CAM_ERR(CAM_MEM, "null files");
