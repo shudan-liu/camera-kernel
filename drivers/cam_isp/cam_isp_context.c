@@ -6234,6 +6234,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	int                               is_virt = 0;
 	struct cam_rpmsg_isp_init_cfg_payload *pld;
 	int                               req_count = 0;
+	bool                             is_slave_down;
 
 	/* get free request */
 	mutex_lock(&ctx_isp->isp_mutex);
@@ -6402,7 +6403,24 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		}
 
 		pld->num_sensor_mode++;
-		if (ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+
+		hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+		isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_GET_SLAVE_STATE;
+		hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+		rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+			&hw_cmd_args);
+		if (rc) {
+			CAM_ERR(CAM_ISP, "hw_cmd for slave status failed, rc: %d", rc);
+			goto put_ref;
+		}
+
+		is_slave_down = *(bool *)isp_hw_cmd_args.cmd_data;
+		CAM_ERR(CAM_ISP, "acq type: %d, is_slave_down: %d", ctx_isp->acquire_type,
+			is_slave_down);
+		if ((ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID ||
+			ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL) &&
+			!is_slave_down) {
 			shndl = cam_rpmsg_get_handle("helios");
 			CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(
 					&pld->phdr,
@@ -8646,6 +8664,25 @@ static int cam_isp_context_debug_register(void)
 			rc = PTR_ERR(dbgfileptr);
 	}
 end:
+	return rc;
+}
+
+int cam_isp_context_set_slave_status(struct cam_context *ctx, bool status)
+{
+	struct cam_hw_cmd_args hw_cmd_args;
+	struct cam_isp_hw_cmd_args isp_hw_cmd_args;
+	int rc = 0;
+
+	hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+	hw_cmd_args.u.internal_args = &isp_hw_cmd_args;
+
+	isp_hw_cmd_args.cmd_data = &status;
+	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_CMD_SET_SLAVE_STATE;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->ctxt_to_hw_map, &hw_cmd_args);
+
+	if (rc)
+		CAM_ERR(CAM_ISP, "HW cmd CAM_ISP_HW_MGR_CMD_SET_SLAVE_STATE failed");
 	return rc;
 }
 

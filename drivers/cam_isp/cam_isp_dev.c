@@ -69,6 +69,9 @@ static int cam_isp_slave_status_update(struct notifier_block *nb,
 				V4L_EVENT_CAM_REQ_MGR_EVENT))
 				CAM_ERR(CAM_ISP, "Error in notifying slave status %d",
 					val);
+			if (val == CAM_REQ_MGR_SLAVE_DOWN)
+				cam_isp_context_set_slave_status(&g_isp_dev.ctx[i],
+					true);
 		}
 	}
 	mutex_unlock(&g_isp_dev.isp_mutex);
