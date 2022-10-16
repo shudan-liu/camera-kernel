@@ -556,6 +556,8 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 		rc = __cam_isp_ctx_no_crm_apply(ctx_isp, false);
 		if (!rc)
 			req_count--;
+		if (ctx_isp->rdi_stats_context)
+			break;
 	}
 
 	mutex_unlock(&ctx_isp->no_crm_mutex);
@@ -1359,11 +1361,17 @@ static void __cam_isp_ctx_send_sof_timestamp(
 {
 	struct cam_req_mgr_message   req_msg;
 
+	if (request_id && ctx_isp->reported_req_id >= request_id)
+		return;
+
 	if (ctx_isp->reported_frame_id == ctx_isp->frame_id) {
 		if (__cam_isp_ctx_recover_sof_timestamp(ctx_isp->base))
 			CAM_WARN(CAM_ISP, "Missed SOF. Unable to recover SOF timestamp.");
 	}
 	ctx_isp->reported_frame_id = ctx_isp->frame_id;
+
+	if (request_id)
+		ctx_isp->reported_req_id = request_id;
 
 	if ((ctx_isp->v4l2_event_sub_ids & (1 << V4L_EVENT_CAM_REQ_MGR_SOF_UNIFIED_TS))
 		&& !ctx_isp->use_frame_header_ts) {
@@ -1588,12 +1596,9 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 		}
 	} else {
 		if (!ctx_isp->use_frame_header_ts) {
-			if (ctx_isp->reported_req_id < buf_done_req_id) {
-				ctx_isp->reported_req_id = buf_done_req_id;
-				__cam_isp_ctx_send_sof_timestamp(ctx_isp,
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp,
 					buf_done_req_id,
 					CAM_REQ_MGR_SOF_EVENT_SUCCESS);
-			}
 		}
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->free_req_list);
@@ -2549,7 +2554,6 @@ static int __cam_isp_ctx_offline_epoch_in_activated_state(
 		list_for_each_entry_safe(req, req_temp, &ctx->active_req_list, list) {
 			if (req->request_id > ctx_isp->reported_req_id) {
 				request_id = req->request_id;
-				ctx_isp->reported_req_id = request_id;
 				break;
 			}
 		}
@@ -2842,9 +2846,6 @@ notify_only:
 		if (ctx_isp->substate_activated == CAM_ISP_CTX_ACTIVATED_BUBBLE)
 			request_id = 0;
 
-		if (request_id != 0)
-			ctx_isp->reported_req_id = request_id;
-
 		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
 
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
@@ -2999,7 +3000,7 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 
 		/* Send SOF event as empty frame*/
-		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 		__cam_isp_ctx_update_event_record(ctx_isp,
 			CAM_ISP_CTX_EVENT_EPOCH, NULL);
@@ -3066,7 +3067,6 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 		if ((!req_isp->bubble_report) &&
 			(req->request_id > ctx_isp->reported_req_id)) {
 			request_id = req->request_id;
-			ctx_isp->reported_req_id = request_id;
 			CAM_DBG(CAM_ISP,
 				"ctx %d reported_req_id update to %lld",
 				ctx->ctx_id, ctx_isp->reported_req_id);
@@ -3220,7 +3220,7 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 		 * Just go back to the bubble state.
 		 */
 		CAM_ERR(CAM_ISP, "ctx:%d No pending request.", ctx->ctx_id);
-		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 		__cam_isp_ctx_update_event_record(ctx_isp,
 			CAM_ISP_CTX_EVENT_EPOCH, NULL);
@@ -3268,20 +3268,19 @@ static int __cam_isp_ctx_epoch_in_bubble_applied(
 	if (!req_isp->bubble_report) {
 		if (req->request_id > ctx_isp->reported_req_id) {
 			request_id = req->request_id;
-			ctx_isp->reported_req_id = request_id;
 			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_ERROR);
 
 			__cam_isp_ctx_update_event_record(ctx_isp,
 				CAM_ISP_CTX_EVENT_EPOCH, req);
 		} else {
-			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 				CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 			__cam_isp_ctx_update_event_record(ctx_isp,
 				CAM_ISP_CTX_EVENT_EPOCH, NULL);
 		}
 	} else {
-		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 		__cam_isp_ctx_update_event_record(ctx_isp,
 			CAM_ISP_CTX_EVENT_EPOCH, NULL);
@@ -3634,7 +3633,6 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 		list_for_each_entry(req, &ctx->active_req_list, list) {
 			if (req->request_id > ctx_isp->reported_req_id) {
 				request_id = req->request_id;
-				ctx_isp->reported_req_id = request_id;
 				break;
 			}
 		}
@@ -3677,7 +3675,6 @@ static int __cam_isp_ctx_fs2_buf_done(struct cam_isp_context *ctx_isp,
 			ctx_isp->substate_activated =
 				CAM_ISP_CTX_ACTIVATED_SOF;
 			if (ctx_isp->reported_req_id < curr_req_id) {
-				ctx_isp->reported_req_id = curr_req_id;
 				__cam_isp_ctx_send_sof_timestamp(ctx_isp,
 					curr_req_id,
 					CAM_REQ_MGR_SOF_EVENT_SUCCESS);
@@ -3788,7 +3785,6 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 		list_for_each_entry(req, &ctx->active_req_list, list) {
 			if (req->request_id > ctx_isp->reported_req_id) {
 				request_id = req->request_id;
-				ctx_isp->reported_req_id = request_id;
 				break;
 			}
 		}
@@ -5252,7 +5248,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 				struct cam_ctx_request, list);
 			if (req->request_id > ctx_isp->reported_req_id) {
 				request_id = req->request_id;
-				ctx_isp->reported_req_id = request_id;
 			}
 		}
 		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
@@ -5342,7 +5337,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 	 */
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx ctx:%d",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val, ctx->ctx_id);
-	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 	__cam_isp_ctx_update_sof_ts_util(sof_event_data, ctx_isp);
@@ -5362,7 +5357,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
 
 		/* Send SOF event as empty frame*/
-		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 		goto end;
@@ -5403,14 +5398,13 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 	if (!req_isp->bubble_report) {
 		if (req->request_id > ctx_isp->reported_req_id) {
 			request_id = req->request_id;
-			ctx_isp->reported_req_id = request_id;
 			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_ERROR);
 		} else
-			__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+			__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 				CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	} else
-		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+		__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 	CAM_DBG(CAM_ISP, "next Substate[%s]",
@@ -5431,7 +5425,6 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 	struct cam_hw_cmd_args                 hw_cmd_args;
 	struct cam_isp_hw_cmd_args             isp_hw_cmd_args;
 	struct cam_sync_signal_param           param;
-	uint64_t                               request_id  = 0;
 	uint64_t                               last_cdm_done_req = 0;
 	int                                    rc = 0;
 	if (!evt_data) {
@@ -5553,13 +5546,13 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 
 end:
 	/* notify reqmgr with sof signal */
-	__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, request_id);
+	__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, 0);
 
 	/*
 	 * It is idle frame with out any applied request id, send
 	 * request id as zero
 	 */
-	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
 	if (!atomic_read(&ctx_isp->process_bubble))
@@ -5735,10 +5728,9 @@ apply:
 		__cam_isp_ctx_notify_trigger_util(CAM_TRIGGER_POINT_SOF, ctx_isp, req->request_id);
 	}
 
-	if (request_id)
-		ctx_isp->reported_req_id = request_id;
+	req = list_first_entry(&ctx->active_req_list, struct cam_ctx_request, list);
 
-	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, req->request_id,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	CAM_DBG(CAM_ISP, "next Substate[%s]",
 		__cam_isp_ctx_substate_val_to_type(
@@ -5748,7 +5740,7 @@ apply:
 	return 0;
 error:
 	/* Send SOF event as idle frame*/
-	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
+	__cam_isp_ctx_send_sof_timestamp(ctx_isp, 0,
 		CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 	__cam_isp_ctx_update_event_record(ctx_isp,
 		CAM_ISP_CTX_EVENT_RUP, NULL);
