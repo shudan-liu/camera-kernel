@@ -1545,8 +1545,7 @@ static int cam_ife_csid_ver2_ipp_bottom_half(
 		CAM_ERR(CAM_ISP, "Invalid params. evt_payload_priv: %s, handler_priv: %s",
 			CAM_IS_NULL_TO_STR(evt_payload_priv),
 			CAM_IS_NULL_TO_STR(handler_priv));
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	payload = evt_payload_priv;
@@ -1665,8 +1664,7 @@ static int cam_ife_csid_ver2_ppp_bottom_half(
 		CAM_ERR(CAM_ISP, "Invalid params. evt_payload_priv: %s, handler_priv: %s",
 			CAM_IS_NULL_TO_STR(evt_payload_priv),
 			CAM_IS_NULL_TO_STR(handler_priv));
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	payload = evt_payload_priv;
@@ -1754,8 +1752,7 @@ static int cam_ife_csid_ver2_rdi_bottom_half(
 		CAM_ERR(CAM_ISP, "Invalid params. evt_payload_priv: %s, handler_priv: %s",
 			CAM_IS_NULL_TO_STR(evt_payload_priv),
 			CAM_IS_NULL_TO_STR(handler_priv));
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
 
 	payload = evt_payload_priv;
