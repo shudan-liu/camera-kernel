@@ -178,8 +178,8 @@ struct hfi_cmd_ipebps_async {
 	uint32_t num_fw_handles;
 	uint32_t fw_handles[1];
 	union {
-		uint32_t direct[1];
-		uint32_t indirect;
+		uint64_t direct[1];
+		uint64_t indirect;
 	} payload;
 } __packed;
 
