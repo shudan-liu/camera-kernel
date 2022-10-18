@@ -222,6 +222,7 @@ static int cam_sensor_i2c_component_bind(struct device *dev,
 	s_ctrl->io_master_info.master_type = I2C_MASTER;
 	s_ctrl->is_probe_succeed = 0;
 	s_ctrl->last_flush_req = 0;
+	s_ctrl->hw_no_io_ops = false;
 
 	rc = cam_sensor_parse_dt(s_ctrl);
 	if (rc < 0) {

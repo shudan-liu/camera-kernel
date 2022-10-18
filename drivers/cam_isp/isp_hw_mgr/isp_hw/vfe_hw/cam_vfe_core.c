@@ -518,6 +518,8 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_APPLY_CLK_BW_UPDATE:
 	case CAM_ISP_HW_CMD_INIT_CONFIG_UPDATE:
 	case CAM_ISP_HW_CMD_RDI_LCR_CFG:
+	case CAM_ISP_HW_CMD_UPDATE_VFE_SRC_RES_DATA:
+	case CAM_ISP_HW_CMD_UPDATE_VFE_SRC_RES_IRQ_MASK:
 		rc = core_info->vfe_top->hw_ops.process_cmd(
 			core_info->vfe_top->top_priv, cmd_type, cmd_args,
 			arg_size);
@@ -539,6 +541,8 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_BUS_MINI_DUMP:
 	case CAM_ISP_HW_CMD_BUF_UPDATE:
 	case CAM_ISP_HW_CMD_TUNNEL_ID_UPDATE:
+	case CAM_ISP_HW_CMD_UPDATE_VFE_OUT_RES_DATA:
+	case CAM_ISP_HW_CMD_UPDATE_VFE_OUT_RES_IRQ_MASK:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);

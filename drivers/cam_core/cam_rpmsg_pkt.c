@@ -213,7 +213,6 @@ static void cam_rpmsg_isp_dump_pipeline_cfgs(
 	for(i = 0; i < n; i++) {
 		consumed = 0;
 		pipeline = U64_TO_PTR(PTR_TO_U64(cfg) + tot_consumed);
-		CAM_INFO(CAM_RPMSG, "DEL: pipeline %d @ %px", i, pipeline);
 		cam_rpmsg_isp_dump_pipeline_cfg(pipeline,
 				len - tot_consumed, &consumed);
 		tot_consumed += consumed;

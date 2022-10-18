@@ -755,6 +755,15 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
+	/* Skip Hw probe if hw_no_io_ops flag is enabled*/
+	if (s_ctrl->hw_no_io_ops) {
+		CAM_DBG(CAM_SENSOR, "%s[0x%x] probe with hw_no_io_ops[%d]",
+				s_ctrl->sensor_name,
+				slave_info->sensor_id,
+				s_ctrl->hw_no_io_ops);
+		return rc;
+	}
+
 	rc = camera_io_dev_read(
 		&(s_ctrl->io_master_info),
 		slave_info->sensor_id_reg_addr,
@@ -1352,22 +1361,28 @@ static int cam_sensor_apply_settings_no_crm(
 	/* Apply the oldest request and delete it */
 	if ((oldest_request != 0) &&
 			(offset != -1)) {
-		list_for_each_entry(i2c_list,
-			&(i2c_set[offset].list_head), list) {
-			rc = cam_sensor_i2c_modes_util(
-				&(s_ctrl->io_master_info),
-				i2c_list);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"Failed to apply settings: %d",
-					rc);
-				return rc;
+		if (s_ctrl->hw_no_io_ops) {
+			CAM_DBG(CAM_SENSOR, "hw_no_io_ops req_id: %lld bypass apply",
+					i2c_set[offset].request_id);
+			rc = 0;
+		} else {
+			list_for_each_entry(i2c_list,
+				&(i2c_set[offset].list_head), list) {
+				rc = cam_sensor_i2c_modes_util(
+					&(s_ctrl->io_master_info),
+					i2c_list);
+				if (rc < 0) {
+					CAM_ERR(CAM_SENSOR,
+						"Failed to apply settings: %d",
+						rc);
+					return rc;
+				}
 			}
+			CAM_DBG(CAM_SENSOR, "applied req_id: %llu", oldest_request);
 		}
-		CAM_DBG(CAM_SENSOR, "applied req_id: %llu", oldest_request);
 		i2c_set[offset].request_id = 0;
 		rc = delete_request(
-				&(i2c_set[offset]));
+			&(i2c_set[offset]));
 		if (rc < 0) {
 			CAM_ERR(CAM_SENSOR,
 				"Delete request Fail:%lld rc:%d",
@@ -1474,10 +1489,16 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		return rc;
 	}
 
-	rc = camera_io_init(&(s_ctrl->io_master_info));
-	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR, "cci_init failed: rc: %d", rc);
-		goto cci_failure;
+	/*
+	 * Allow to do power on however don't initialize cci
+	 * if hw no ops is enabled
+	 */
+	if (!s_ctrl->hw_no_io_ops) {
+		rc = camera_io_init(&(s_ctrl->io_master_info));
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "cci_init failed: rc: %d", rc);
+			goto cci_failure;
+		}
 	}
 
 	return rc;
@@ -1527,7 +1548,11 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 		}
 	}
 
-	camera_io_release(&(s_ctrl->io_master_info));
+	/*
+	 * Don't de init cci in case of hw_no_io_ops
+	 */
+	if (!s_ctrl->hw_no_io_ops)
+		camera_io_release(&(s_ctrl->io_master_info));
 
 	return rc;
 }
@@ -1565,7 +1590,13 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		default:
 			return 0;
 		}
-		if (i2c_set->is_settings_valid == 1) {
+
+		if (s_ctrl->hw_no_io_ops) {
+			CAM_DBG(CAM_SENSOR, "hw_no_io_ops req_id: %d opcode: %d",
+					req_id,
+					opcode);
+			rc = 0;
+		} else if (i2c_set->is_settings_valid == 1) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set->list_head), list) {
 				rc = cam_sensor_i2c_modes_util(
@@ -1587,7 +1618,12 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		else
 			i2c_set = s_ctrl->i2c_data.per_frame;
 
-		if (i2c_set[offset].is_settings_valid == 1 &&
+		if (s_ctrl->hw_no_io_ops) {
+			CAM_DBG(CAM_SENSOR, "hw_no_io_ops req_id: %d opcode: %d",
+					req_id,
+					opcode);
+			rc = 0;
+		} else if (i2c_set[offset].is_settings_valid == 1 &&
 			i2c_set[offset].request_id == req_id) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set[offset].list_head), list) {

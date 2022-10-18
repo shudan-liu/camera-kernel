@@ -171,6 +171,25 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 	return rc;
 }
 
+int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far)
+{
+	int ret = -1, handle;
+	struct cam_jpeg_cmd_msg cmd_msg;
+
+	cmd_msg.cmd_msg_type = CAM_CPU2DSP_NOTIFY_ERROR;
+	cmd_msg.error_info.core_id = core_id;
+	cmd_msg.error_info.error_type = error_type;
+	cmd_msg.error_info.far = far;
+
+	handle = cam_rpmsg_get_handle("jpeg");
+	ret = cam_rpmsg_send(handle, &cmd_msg, sizeof(cmd_msg));
+	if (ret) {
+		CAM_ERR(CAM_RPMSG, "rpmsg_send failed dev");
+		return ret;
+	}
+	return 0;
+}
+
 int cam_rpmsg_system_send_ping(void) {
 	int rc = 0, handle;
 	unsigned long rem_jiffies;
@@ -521,6 +540,7 @@ static const char *__dsp_cmd_to_string(uint32_t val)
 		case CAM_CPU2DSP_DEREGISTER_BUFFER: return "CPU2DSP_DEREGISTER_BUFFER";
 		case CAM_CPU2DSP_INIT: return "CPU2DSP_INIT";
 		case CAM_CPU2DSP_SET_DEBUG_LEVEL: return "CPU2DSP_SET_DEBUG_LEVEL";
+		case CAM_CPU2DSP_NOTIFY_ERROR: return "CPU2DSP_NOTIFY_ERROR";
 		case CAM_CPU2DSP_MAX_CMD: return "CPU2DSP_MAX_CMD";
 		case CAM_DSP2CPU_POWERON: return "DSP2CPU_POWERON";
 		case CAM_DSP2CPU_POWEROFF: return "DSP2CPU_POWEROFF";
@@ -539,7 +559,7 @@ static const char *__dsp_cmd_to_string(uint32_t val)
 
 static void handle_jpeg_cb(struct work_struct *work) {
 	struct cam_rpmsg_jpeg_payload *payload;
-	struct cam_jpegd_cmd_msg   cmd_msg = {0};
+	struct cam_jpeg_cmd_msg   cmd_msg = {0};
 	struct cam_mem_mgr_alloc_cmd alloc_cmd = {0};
 	struct cam_mem_mgr_map_cmd map_cmd = {0};
 	struct cam_mem_mgr_release_cmd release_cmd = {0};
@@ -690,6 +710,8 @@ send_ack:
 			files = jpeg_private.jpeg_task->files;
 			if (!files) {
 				CAM_ERR(CAM_MEM, "null files");
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+				cmd_msg.ret_val = -EINVAL;
 				goto registerEnd;
 			}
 			rcu_read_lock();
@@ -700,7 +722,13 @@ send_ack:
 #else
 			file = files_lookup_fd_rcu(files, map_cmd.fd);
 #endif
-			if (file) {
+			if (!file) {
+				rcu_read_unlock();
+				CAM_ERR(CAM_RPMSG, "null file");
+				cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+				cmd_msg.ret_val = -EINVAL;
+				goto registerEnd;
+			} else {
 				/* File object ref couldn't be taken.
 				 * dup2() atomicity guarantee is the reason
 				 * we loop to catch the new file (or NULL pointer)
@@ -708,14 +736,15 @@ send_ack:
 				if (file->f_mode & FMODE_PATH) {
 					file = NULL;
 					CAM_ERR(CAM_RPMSG, "INCORRECT FMODE", file->f_mode);
+					rcu_read_unlock();
+					cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
+					cmd_msg.ret_val = -EINVAL;
+					goto registerEnd;
 				}
 				else if (!get_file_rcu_many(file, 1)) {
 					CAM_ERR(CAM_RPMSG, "get_file_rcu_many 0");
 					goto loop;
 				}
-			}
-			else {
-				CAM_ERR(CAM_RPMSG, "null file");
 			}
 			rcu_read_unlock();
 
@@ -797,6 +826,10 @@ static int cam_rpmsg_jpeg_cb(struct rpmsg_device *rpdev, void *data, int len,
 		len == sizeof(struct cam_jpeg_dsp2cpu_cmd_msg)) {
 		payload = kzalloc(sizeof(struct cam_rpmsg_jpeg_payload),
 			GFP_ATOMIC);
+		if (!payload) {
+			CAM_ERR(CAM_MEM, "failed to allocate mem for payload");
+			return -ENOMEM;
+		}
 		payload->rpdev = rpdev;
 		payload->rsp   = rsp;
 		INIT_WORK((struct work_struct *)&payload->work,
@@ -971,6 +1004,7 @@ static int cam_rpmsg_cb(struct rpmsg_device *rpdev, void *data, int len,
 
 	return rc;
 }
+
 int cam_rpmsg_set_recv_cb(unsigned int handle, cam_rpmsg_recv_cb cb)
 {
 	struct cam_rpmsg_instance_data *idata;

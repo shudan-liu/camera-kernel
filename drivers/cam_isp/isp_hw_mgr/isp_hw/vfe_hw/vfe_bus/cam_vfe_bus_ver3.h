@@ -18,6 +18,7 @@
 #define CAM_VFE_BUS_VER3_MAX_CLIENTS         28
 #define CAM_VFE_BUS_VER3_ERR_IRQ_REG_MAX     2
 #define CAM_VFE_BUS_VER3_PAYLOAD_MAX         256
+#define CAM_VFE_BUS_VER3_IRQ_MAX             2
 
 #define MAX_BUF_UPDATE_REG_NUM   \
 	((sizeof(struct cam_vfe_bus_ver3_reg_offset_bus_client) +  \
@@ -218,6 +219,12 @@ struct cam_vfe_bus_ver3_reg_offset_bus_client {
 	uint32_t tunnel_cfg_idx;
 };
 
+enum cam_vfe_bus_ver3_stored_irq_masks {
+	CAM_VFE_BUS_VER3_BUF_DONE_MASK,
+	CAM_VFE_BUS_VER3_RUP_MASK,
+	CAM_VFE_BUS_VER3_MAX_STORED_MASKS,
+};
+
 struct cam_vfe_bus_ver3_vfe_out_data {
 	uint32_t                              out_type;
 	uint32_t                              source_group;
@@ -244,6 +251,7 @@ struct cam_vfe_bus_ver3_vfe_out_data {
 	void                            *priv;
 	uint32_t                         mid[CAM_VFE_BUS_VER3_MAX_MID_PER_PORT];
 	bool                             limiter_enabled;
+	uint32_t   stored_irq_masks[CAM_VFE_BUS_VER3_MAX_STORED_MASKS][CAM_VFE_BUS_VER3_IRQ_MAX];
 };
 
 /*

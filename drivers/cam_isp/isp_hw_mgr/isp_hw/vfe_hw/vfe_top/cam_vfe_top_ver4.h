@@ -124,6 +124,12 @@ enum cam_vfe_top_ver4_fsm_state {
 	VFE_TOP_VER4_FSM_MAX,
 };
 
+enum cam_vfe_top_ver4_stored_irq_masks {
+	VFE_TOP_VER4_FRAME_IRQ_MASK = 0,
+	VFE_TOP_VER4_ERR_MASK,
+	VFE_TOP_VER4_MAX_STORED_MASKS,
+};
+
 struct cam_vfe_mux_ver4_data {
 	void __iomem                                *mem_base;
 	struct cam_hw_soc_info                      *soc_info;
@@ -172,6 +178,7 @@ struct cam_vfe_mux_ver4_data {
 	bool                               sfe_binned_epoch_cfg;
 	bool                               enable_sof_irq_debug;
 	bool                               handle_camif_irq;
+	uint32_t  stored_irq_masks[VFE_TOP_VER4_MAX_STORED_MASKS][CAM_IFE_IRQ_REGISTERS_MAX];
 };
 
 struct cam_vfe_top_ver4_hw_info {

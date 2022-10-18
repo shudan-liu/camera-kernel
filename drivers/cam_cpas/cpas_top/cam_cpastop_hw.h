@@ -226,6 +226,7 @@ enum cam_camnoc_port_type {
  * @qosgen_shaping_high: qosgen shaping high configuration for this connection
  * @maxwr_low: maxwr low configuration for this connection
  * @dynattr_mainctl: Dynamic attribute main control register for this connection
+ * @dynattr_tr_type_lut: Dynamic attribute tr type register for this connection
  *
  */
 struct cam_camnoc_specific {
@@ -244,6 +245,7 @@ struct cam_camnoc_specific {
 	struct cam_cpas_reg qosgen_shaping_high;
 	struct cam_cpas_reg maxwr_low;
 	struct cam_cpas_reg dynattr_mainctl;
+	struct cam_cpas_reg dynattr_tr_type_lut;
 };
 
 /**

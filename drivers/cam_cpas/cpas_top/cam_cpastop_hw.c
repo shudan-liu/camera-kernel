@@ -785,6 +785,8 @@ static int cam_cpastop_print_poweron_settings(struct cam_hw_info *cpas_hw)
 				&camnoc_info->specific[i].qosgen_shaping_low);
 			cam_cpas_util_reg_read(cpas_hw, CAM_CPAS_REG_CAMNOC,
 				&camnoc_info->specific[i].qosgen_shaping_high);
+			cam_cpas_util_reg_read(cpas_hw, CAM_CPAS_REG_CAMNOC,
+				&camnoc_info->specific[i].dynattr_tr_type_lut);
 		}
 	}
 
@@ -826,6 +828,8 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 				&camnoc_info->specific[i].qosgen_shaping_low);
 			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
 				&camnoc_info->specific[i].qosgen_shaping_high);
+			cam_cpas_util_reg_update(cpas_hw, CAM_CPAS_REG_CAMNOC,
+				&camnoc_info->specific[i].dynattr_tr_type_lut);
 		}
 	}
 

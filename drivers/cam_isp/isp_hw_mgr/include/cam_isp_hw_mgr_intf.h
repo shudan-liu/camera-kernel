@@ -57,6 +57,9 @@
  */
 #define CAM_ISP_SFE_CTX_CFG_MAX                 40
 
+/* ctx get virtual rdi mapping callback function type */
+typedef int (*cam_hw_get_virtual_rdi_mapping_cb_func)(void *context,
+	uint32_t out_port, bool is_virtual_rdi);
 
 /**
  *  enum cam_isp_hw_event_type - Collection of the ISP hardware events
@@ -225,20 +228,23 @@ struct cam_isp_bw_clk_config_info {
 /**
  * struct cam_isp_prepare_hw_update_data - hw prepare data
  *
- * @isp_mgr_ctx:            ISP HW manager Context for current request
- * @packet_opcode_type:     Packet header opcode in the packet header
- *                          this opcode defines, packet is init packet or
- *                          update packet
- * @frame_header_cpu_addr:  Frame header cpu addr
- * @frame_header_iova:      Frame header iova
- * @frame_header_res_id:    Out port res_id corresponding to frame header
- * @bw_clk_config:          BW and clock config info
- * @reg_dump_buf_desc:     cmd buffer descriptors for reg dump
- * @num_reg_dump_buf:      Count of descriptors in reg_dump_buf_desc
- * @packet:                CSL packet from user mode driver
- * @mup_val:               MUP value if configured
- * @num_exp:               Num of exposures
- * @mup_en:                Flag if dynamic sensor switch is enabled
+ * @isp_mgr_ctx:              ISP HW manager Context for current request
+ * @packet_opcode_type:       Packet header opcode in the packet header
+ *                            this opcode defines, packet is init packet or
+ *                            update packet
+ * @frame_header_cpu_addr:    Frame header cpu addr
+ * @frame_header_iova:        Frame header iova
+ * @frame_header_res_id:      Out port res_id corresponding to frame header
+ * @bw_clk_config:            BW and clock config info
+ * @reg_dump_buf_desc:       cmd buffer descriptors for reg dump
+ * @num_reg_dump_buf:        Count of descriptors in reg_dump_buf_desc
+ * @packet:                  CSL packet from user mode driver
+ * @mup_val:                 MUP value if configured
+ * @num_exp:                 Num of exposures
+ * @mup_en:                  Flag if dynamic sensor switch is enabled
+ * @virtual_rdi_mapping_cb:  virtual rdi mapping cb function for
+ *                           respective sensor via ife_ctx
+ * @per_port_enable:         Indicates if perport feature is enabled or not
  *
  */
 struct cam_isp_prepare_hw_update_data {
@@ -254,6 +260,8 @@ struct cam_isp_prepare_hw_update_data {
 	struct cam_packet                    *packet;
 	uint32_t                              mup_val;
 	uint32_t                              num_exp;
+	cam_hw_get_virtual_rdi_mapping_cb_func virtual_rdi_mapping_cb;
+	bool                                  per_port_enable;
 	bool                                  mup_en;
 };
 
@@ -263,33 +271,39 @@ struct cam_isp_prepare_hw_update_data {
  *
  * @timestamp         : Time stamp for the sof event
  * @boot_time         : Boot time stamp for the sof event
+ * @res_id            : Resource for which SOF event received
  *
  */
 struct cam_isp_hw_sof_event_data {
 	uint64_t       timestamp;
 	uint64_t       boot_time;
+	uint32_t       res_id;
 };
 
 /**
  * struct cam_isp_hw_reg_update_event_data - Event payload for
  *                         CAM_HW_EVENT_REG_UPDATE
  *
- * @timestamp:     Time stamp for the reg update event
+ * @timestamp      : Time stamp for the reg update event
+ * @res_id         : Resource for which RUP event received
  *
  */
 struct cam_isp_hw_reg_update_event_data {
 	uint64_t       timestamp;
+	uint32_t       res_id;
 };
 
 /**
  * struct cam_isp_hw_epoch_event_data - Event payload for CAM_HW_EVENT_EPOCH
  *
- * @timestamp:     Time stamp for the epoch event
- * @frame_id_meta: Frame id value corresponding to this frame
+ * @timestamp         : Time stamp for the epoch event
+ * @frame_id_meta     : Frame id value corresponding to this frame
+ * @res_id            : Resource for which EPOCH event received
  */
 struct cam_isp_hw_epoch_event_data {
 	uint64_t       timestamp;
 	uint32_t       frame_id_meta;
+	uint32_t       res_id;
 };
 
 /**
@@ -313,11 +327,13 @@ struct cam_isp_hw_done_event_data {
 /**
  * struct cam_isp_hw_eof_event_data - Event payload for CAM_HW_EVENT_EOF
  *
- * @timestamp:             Timestamp for the eof event
+ * @timestamp         : Timestamp for the eof event
+ * @res_id            : Resource for which EOF event received
  *
  */
 struct cam_isp_hw_eof_event_data {
 	uint64_t       timestamp;
+	uint32_t       res_id;
 };
 
 /**
@@ -365,6 +381,11 @@ enum cam_isp_hw_mgr_command {
 	CAM_ISP_HW_MGR_VIRT_ACQUIRE,
 	CAM_ISP_HW_MGR_VIRT_RELEASE,
 	CAM_ISP_HW_MGR_CMD_GET_WORKQ,
+	CAM_ISP_HW_MGR_GET_ACTIVE_HW_CTX_CNT,
+	CAM_ISP_HW_MGR_UPDATE_FLUSH_IN_PROGRESS,
+	CAM_ISP_HW_MGR_GET_HW_CTX,
+	CAM_ISP_HW_MGR_CMD_GET_SLAVE_STATE,
+	CAM_ISP_HW_MGR_CMD_SET_SLAVE_STATE,
 	CAM_ISP_HW_MGR_CMD_MAX,
 };
 
@@ -373,6 +394,7 @@ enum cam_isp_ctx_type {
 	CAM_ISP_CTX_RDI,
 	CAM_ISP_CTX_PIX,
 	CAM_ISP_CTX_OFFLINE,
+	CAM_ISP_CTX_RDI_AND_STATS,
 	CAM_ISP_CTX_MAX,
 };
 /**
@@ -385,6 +407,12 @@ enum cam_isp_ctx_type {
  * @packet_op_code:        Packet opcode
  * @last_cdm_done:         Last cdm done request
  * @sof_ts:                SOF timestamps (current, boot and previous)
+ * @hw_ctx_cnt:            count of active ife ctxs
+ * @stream_grp_cfg_index:  index of sensor group stream configuration
+ * @acquire_type:          indicates whether it is  virtual/hybrid/real acquire
+ * @sensor_id:             unique sensor id
+ * @out_port_id:           out resource id
+ * @ptr:                   void pointer out param
  */
 struct cam_isp_hw_cmd_args {
 	uint32_t                          cmd_type;
@@ -399,10 +427,28 @@ struct cam_isp_hw_cmd_args {
 			uint64_t                      prev;
 			uint64_t                      boot;
 		} sof_ts;
+		struct {
+			uint32_t                  hw_ctx_cnt;
+			int                       stream_grp_cfg_index;
+		} active_hw_ctx;
 		uint32_t                      acquire_type;
 		uint32_t                      sensor_id;
 		bool                          enable;
+		uint32_t                      out_port_id;
+		void                         *ptr;
 	} u;
+};
+
+/**
+ * struct cam_isp_hw_active_hw_ctx
+ *
+ * @index:                 index of active hw ctx
+ * @stream_grp_cfg_index:  sensor group configuration index
+ *
+ */
+struct cam_isp_hw_active_hw_ctx {
+	int         index;
+	int         stream_grp_cfg_index;
 };
 
 /**
@@ -412,12 +458,14 @@ struct cam_isp_hw_cmd_args {
  * @is_internal_start:         Start triggered internally for reset & recovery
  * @start_only                 Send start only to hw drivers. No init to
  *                             be done.
+ * @is_trigger_type:           Indicate if usecase is trigger type or not
  *
  */
 struct cam_isp_start_args {
 	struct cam_hw_config_args hw_config;
 	bool                      is_internal_start;
 	bool                      start_only;
+	int8_t                    is_trigger_type;
 };
 
 /**

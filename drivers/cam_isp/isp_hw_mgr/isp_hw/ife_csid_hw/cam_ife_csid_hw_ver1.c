@@ -1471,10 +1471,15 @@ static int cam_ife_csid_hw_ver1_rx_cfg(
 		break;
 	default:
 		csid_hw->rx_cfg.phy_sel =
-			(reserve->in_port->res_type & 0xFF) - 1;
+			cam_ife_csid_get_phy_sel(reserve->in_port->res_type) - 1;
 		break;
 	}
 
+	if (csid_hw->rx_cfg.phy_sel < 0) {
+		CAM_ERR(CAM_ISP, "Invalid phy sel for res %d",
+			reserve->in_port->res_type);
+		return -EINVAL;
+	}
 	csid_hw->counters.csi2_reserve_cnt++;
 	CAM_DBG(CAM_ISP,
 		"CSID:%u Lane cfg:0x%x type:%u num:%u res:0x%x, res_cnt %u",

@@ -21,6 +21,7 @@
 #include "cam_io_util.h"
 #include "cam_jpeg_hw_intf.h"
 #include "cam_jpeg_hw_mgr_intf.h"
+#include "cam_jpeg_hw_mgr.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
 #include "cam_common_util.h"

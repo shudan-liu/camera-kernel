@@ -68,6 +68,28 @@ void cam_node_put_ctxt_to_free_list(struct kref *ref)
 	mutex_unlock(&node->list_mutex);
 }
 
+static int __cam_node_handle_update_sensor_stream_cap(
+	struct cam_node *node,
+	struct cam_update_sensor_stream_cfg_cmd *update_sensor_stream)
+{
+	int rc = -EFAULT;
+
+	if (!update_sensor_stream || !node) {
+		CAM_ERR(CAM_CORE, "Invalid params");
+		return -EINVAL;
+	}
+
+	if (node->hw_mgr_intf.hw_update_sensor_grp_stream_cfg) {
+		rc = node->hw_mgr_intf.hw_update_sensor_grp_stream_cfg(
+			node->hw_mgr_intf.hw_mgr_priv, update_sensor_stream);
+	}
+
+	if (rc)
+		CAM_ERR(CAM_ISP, "update_sensor_static data failed: %d", rc);
+
+	return rc;
+}
+
 static int __cam_node_handle_query_cap(struct cam_node *node,
 	struct cam_query_cap_cmd *query)
 {
@@ -1024,6 +1046,21 @@ release_kfree:
 			    "Dump device %s copy_to_user fail",
 			    node->name);
 			rc = -EFAULT;
+		}
+		break;
+	}
+	case CAM_UPDATE_SENSOR_STREAM_CONFIG: {
+		struct cam_update_sensor_stream_cfg_cmd update_sensor_stream;
+
+		if (copy_from_user(&update_sensor_stream, u64_to_user_ptr(cmd->handle),
+			sizeof(update_sensor_stream)))
+			rc = -EFAULT;
+		else {
+			rc = __cam_node_handle_update_sensor_stream_cap(node,
+				&update_sensor_stream);
+			if (rc)
+				CAM_ERR(CAM_CORE,
+					"update sensor stream config failed(rc = %d)", rc);
 		}
 		break;
 	}

@@ -592,9 +592,6 @@ void cam_csiphy_remote_shutdown(struct csiphy_remote_device *csiphy_dev)
 	}
 
 	if (csiphy_dev->csiphy_state == CAM_CSIPHY_REMOTE_START) {
-		for (i = 0; i < csiphy_dev->acquire_count; i++)
-			cam_csiphy_remote_reset_phyconfig_param(csiphy_dev, i);
-
 		csiphy_dev->csiphy_state = CAM_CSIPHY_REMOTE_ACQUIRE;
 	}
 
@@ -615,6 +612,7 @@ void cam_csiphy_remote_shutdown(struct csiphy_remote_device *csiphy_dev)
 				cam_destroy_device_hdl(
 				csiphy_dev->csiphy_info[i]
 				.hdl_data.device_hdl);
+				cam_csiphy_remote_reset_phyconfig_param(csiphy_dev, i);
 				csiphy_dev->csiphy_info[i].hdl_data.device_hdl = -1;
 				csiphy_dev->csiphy_info[i].hdl_data.session_hdl = -1;
 			}
