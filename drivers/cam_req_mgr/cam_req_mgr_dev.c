@@ -297,7 +297,7 @@ static void cam_v4l2_event_queue_notify_error(const struct v4l2_event *old,
 			ev_header->u.node_msg.event_cause);
 		break;
 	default:
-		CAM_ERR(CAM_CRM, "Failed to notify crm event id %d",
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Failed to notify crm event id %d",
 			old->id);
 	}
 }
