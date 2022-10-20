@@ -97,7 +97,7 @@ static int cam_ipe_component_bind(struct device *dev,
 
 	rc = cam_cpas_get_hw_info(&query.camera_family,
 			&query.camera_version, &query.cpas_version,
-			&cam_caps, NULL);
+			&cam_caps, NULL, NULL);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "failed to get hw info rc=%d", rc);
 		return rc;

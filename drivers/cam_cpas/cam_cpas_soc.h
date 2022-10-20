@@ -165,6 +165,7 @@ struct cam_cpas_smart_qos_info {
  * @enable_smart_qos: Whether to enable Smart QoS mechanism on current chipset
  * @smart_qos_info: Pointer to smart qos info
  * @icp_clk_index: Index of optional icp clk
+ * @rt_bw_voting_needed: RB BW voting needed for virtual DDR port on current chipset
  */
 struct cam_cpas_private_soc {
 	const char *arch_compat;
@@ -190,6 +191,7 @@ struct cam_cpas_private_soc {
 	bool enable_smart_qos;
 	struct cam_cpas_smart_qos_info *smart_qos_info;
 	int32_t icp_clk_index;
+	bool rt_bw_voting_needed;
 };
 
 void cam_cpas_util_debug_parse_data(struct cam_cpas_private_soc *soc_private);
