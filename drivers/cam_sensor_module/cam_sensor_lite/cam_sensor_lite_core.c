@@ -24,7 +24,7 @@
 
 /* This should be same as pipeline delay + 1*/
 #define MAX_APPLIED_QUEUE_DEPTH 0x2
-#define MAX_WAITING_QUEUE_DEPTH 0x8
+#define MAX_WAITING_QUEUE_DEPTH 0x4
 
 static int free_request_object(
 	struct sensor_lite_device         *sensor_lite_dev,
