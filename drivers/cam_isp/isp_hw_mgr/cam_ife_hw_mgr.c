@@ -6834,6 +6834,8 @@ static int cam_ife_hw_mgr_acquire_ife_src_stream_grp(
 				"Acquire IFE IPP SRC resource Failed");
 			goto err;
 		}
+		CAM_DBG(CAM_ISP, "No need to acquire RDI again");
+		return 0;
 	}
 
 	if (g_ife_sns_grp_cfg.grp_cfg[index].rdi_stream_cfg_cnt) {
