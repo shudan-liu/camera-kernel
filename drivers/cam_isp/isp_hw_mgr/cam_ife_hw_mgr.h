@@ -34,6 +34,10 @@
 #define CAM_IFE_HW_STATE_BUSY     3
 #define CAM_IFE_HW_STATE_STOPPING 4
 
+/* CDM HW POWER STATE */
+#define CAM_CDM_POWER_STATE_OFF 0
+#define CAM_CDM_POWER_STATE_ON  1
+
 /**
  * struct cam_ife_hw_mgr_debug - contain the debug information
  *
@@ -150,6 +154,7 @@ struct cam_ife_hw_mgr_ctx {
  *                          context
  * @cdm_done                flag to indicate cdm has finished writing shadow
  *                          registers
+ * @cdm_power_on            flag to check cdm power state
  * @last_cdm_done_req:      Last cdm done request
  * @is_rdi_only_context     flag to specify the context has only rdi resource
  * @config_done_complete    indicator for configuration complete
@@ -211,6 +216,7 @@ struct cam_ife_hw_concrete_ctx {
 	uint32_t                        eof_cnt[CAM_IFE_HW_NUM_MAX];
 	atomic_t                        overflow_pending;
 	atomic_t                        cdm_done;
+	atomic_t                        cdm_power_on;
 	uint64_t                        last_cdm_done_req;
 	uint32_t                        is_rdi_only_context;
 	struct completion               config_done_complete;
