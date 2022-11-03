@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2018, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -63,7 +64,7 @@ enum crm_workq_context {
 struct crm_workq_task {
 	int32_t                  priority;
 	void                    *payload;
-	int32_t                (*process_cb)(void *, void *);
+	int32_t                (*process_cb)(void *priv, void *data);
 	void                    *parent;
 	struct list_head         entry;
 	uint8_t                  cancel;
@@ -148,4 +149,14 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
 struct crm_workq_task *cam_req_mgr_workq_get_task(
 	struct cam_req_mgr_core_workq *workq);
 
+typedef bool (*PFnCancelTaskFilter)(void *, void *);
+
+/**
+ * cam_req_mgr_workq_cancel_task()
+ * @brief: cancel some waiting process task
+ * @workq: workqueue
+ * @match: filter function, return true, then cancel this task
+ */
+void cam_req_mgr_workq_cancel_task(
+	struct cam_req_mgr_core_workq *workq, PFnCancelTaskFilter filter);
 #endif
