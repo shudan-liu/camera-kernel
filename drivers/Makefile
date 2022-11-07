@@ -173,7 +173,9 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	cam_sensor_module/cam_res_mgr/cam_res_mgr.o \
 	cam_sensor_module/cam_ir_led/cam_ir_led_dev.o \
 	cam_sensor_module/cam_ir_led/cam_ir_led_soc.o \
-	cam_sensor_module/cam_ir_led/cam_ir_led_core.o
+	cam_sensor_module/cam_ir_led/cam_ir_led_core.o \
+	cam_sensor_module/cam_hdmi_bdg/cam_hdmi_bdg_dev.o \
+	cam_sensor_module/cam_hdmi_bdg/cam_hdmi_bdg_core.o
 
 camera-$(CONFIG_LEDS_QPNP_FLASH_V2) += \
 	cam_sensor_module/cam_flash/cam_flash_dev.o \

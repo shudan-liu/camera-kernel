@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_CMN_HEADER_
@@ -157,6 +157,8 @@ enum cam_sensor_packet_opcodes {
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_READ,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_FRAME_SKIP_UPDATE,
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_POWERON_REG,
+	CAM_SENSOR_PACKET_OPCODE_SENSOR_POWEROFF_REG,
 	CAM_SENSOR_PACKET_OPCODE_SENSOR_NOP = 127
 };
 
@@ -311,6 +313,8 @@ struct i2c_data_settings {
 	struct i2c_settings_array streamon_settings;
 	struct i2c_settings_array streamoff_settings;
 	struct i2c_settings_array read_settings;
+	struct i2c_settings_array poweron_reg_settings;
+	struct i2c_settings_array poweroff_reg_settings;
 	struct i2c_settings_array *per_frame;
 	struct i2c_settings_array *frame_skip;
 };
