@@ -30,7 +30,7 @@
 #define CAM_TFE_CTX_MAX      4
 
 /* maximum context numbers for IFE */
-#define CAM_IFE_CTX_MAX      8
+#define CAM_IFE_CTX_MAX      16
 
 /* Appliacble vote paths for dual ife, based on no. of UAPI definitions */
 #define CAM_ISP_MAX_PER_PATH_VOTES 40
