@@ -3954,6 +3954,9 @@ static int cam_ife_csid_ver2_enable_csi2(struct cam_ife_csid_ver2_hw *csid_hw)
 		(csid_hw->rx_cfg.lane_type == CAM_ISP_LANE_TYPE_DPHY))
 		val &= ~IFE_CSID_VER2_RX_CPHY_EOT_RECEPTION;
 
+	if (csid_hw->debug_info.debug_val & CAM_IFE_CSID_DEBUG_DISABLE_CRC)
+		val &= ~IFE_CSID_VER2_RX_ERROR_CRC;
+
 	irq_mask[CAM_IFE_CSID_IRQ_REG_RX] = val;
 
 	csid_hw->rx_cfg.err_irq_handle =
