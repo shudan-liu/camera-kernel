@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -41,11 +42,15 @@ void cam_req_mgr_core_link_reset(struct cam_req_mgr_core_link *link)
 	link->open_req_cnt = 0;
 	link->last_flush_id = 0;
 	link->initial_sync_req = -1;
-	link->dual_trigger = false;
+	link->multi_trigger = false;
 	link->trigger_cnt[0][CAM_TRIGGER_POINT_SOF] = 0;
 	link->trigger_cnt[0][CAM_TRIGGER_POINT_EOF] = 0;
 	link->trigger_cnt[1][CAM_TRIGGER_POINT_SOF] = 0;
 	link->trigger_cnt[1][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[2][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[2][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[3][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[3][CAM_TRIGGER_POINT_EOF] = 0;
 	link->in_msync_mode = false;
 	link->retry_cnt = 0;
 	link->is_shutdown = false;
@@ -578,6 +583,10 @@ static void __cam_req_mgr_flush_req_slot(
 	link->trigger_cnt[0][CAM_TRIGGER_POINT_EOF] = 0;
 	link->trigger_cnt[1][CAM_TRIGGER_POINT_SOF] = 0;
 	link->trigger_cnt[1][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[2][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[2][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[3][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[3][CAM_TRIGGER_POINT_EOF] = 0;
 }
 
 /**
@@ -949,7 +958,7 @@ static int __cam_req_mgr_send_req(struct cam_req_mgr_core_link *link,
 			 */
 			if (link->retry_cnt > 0) {
 				if (!apply_req.report_if_bubble &&
-					link->dual_trigger)
+					link->multi_trigger)
 					apply_req.re_apply = true;
 			}
 
@@ -3340,48 +3349,66 @@ end:
 	return rc;
 }
 
-static int __cam_req_mgr_check_for_dual_trigger(
+static int __cam_req_mgr_check_for_multi_trigger(
 	struct cam_req_mgr_core_link    *link,
 	uint32_t                         trigger)
 {
 	int rc  = -EAGAIN;
 
-	CAM_DBG(CAM_CRM, "%s trigger_cnt [%u: %u]",
+	CAM_DBG(CAM_CRM, "%s trigger_cnt [%u: %u: %u: %u]",
 		(trigger == CAM_TRIGGER_POINT_SOF) ? "SOF" : "EOF",
-		link->trigger_cnt[0][trigger], link->trigger_cnt[1][trigger]);
+		link->trigger_cnt[0][trigger], link->trigger_cnt[1][trigger],
+		link->trigger_cnt[2][trigger],link->trigger_cnt[3][trigger]);
 
-	if (link->trigger_cnt[0][trigger] == link->trigger_cnt[1][trigger]) {
+	if (link->num_trigger_devices == 2 &&
+	(link->trigger_cnt[0][trigger] == link->trigger_cnt[1][trigger])) {
+		CAM_INFO(CAM_CRM, "link->num_trigger_devices: %u",
+		link->num_trigger_devices);
 		link->trigger_cnt[0][trigger] = 0;
 		link->trigger_cnt[1][trigger] = 0;
-		rc = 0;
-		return rc;
+		return 0;
 	}
 
-	if ((link->trigger_cnt[0][trigger] &&
-		(link->trigger_cnt[0][trigger] - link->trigger_cnt[1][trigger] > 1)) ||
-		(link->trigger_cnt[1][trigger] &&
-		(link->trigger_cnt[1][trigger] - link->trigger_cnt[0][trigger] > 1))) {
-
-		CAM_WARN(CAM_CRM,
-			"One of the devices could not generate trigger");
-
+	if (link->num_trigger_devices == 3 && ((link->trigger_cnt[0][trigger]
+	== link->trigger_cnt[1][trigger]) &&
+	(link->trigger_cnt[0][trigger] == link->trigger_cnt[2][trigger]))) {
+		CAM_INFO(CAM_CRM, "link->num_trigger_devices: %u",
+		link->num_trigger_devices);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[0][trigger]: %u , trigger: %u",
+		link->trigger_cnt[0][trigger], trigger);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[1][trigger]: %u , trigger: %u",
+		link->trigger_cnt[1][trigger], trigger);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[2][trigger]: %u , trigger: %u",
+		link->trigger_cnt[2][trigger], trigger);
 		link->trigger_cnt[0][trigger] = 0;
 		link->trigger_cnt[1][trigger] = 0;
-		CAM_DBG(CAM_CRM, "Reset the trigger cnt");
+		link->trigger_cnt[2][trigger] = 0;
+		return 0;
+	}
 
-        // To place proper condition for SHDR2 + Dual VC usecase
-        // When IFE full and IFE Lite is used together.
-        {
-            rc=0;
-            CAM_INFO(CAM_CRM, "VCDT KERNEL, forcing return successful for dual trigger");
-        }
-
-		return rc;
+	if (link->num_trigger_devices == 4 && (link->trigger_cnt[0][trigger]
+	== link->trigger_cnt[1][trigger]) &&
+	(link->trigger_cnt[0][trigger] == link->trigger_cnt[2][trigger]) &&
+	(link->trigger_cnt[0][trigger] == link->trigger_cnt[3][trigger])) {
+		CAM_INFO(CAM_CRM, "link->num_trigger_devices: %u",
+		link->num_trigger_devices);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[0][trigger]: %u , trigger: %u",
+		link->trigger_cnt[0][trigger], trigger);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[1][trigger]: %u , trigger: %u",
+		link->trigger_cnt[1][trigger], trigger);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[2][trigger]: %u , trigger: %u",
+		link->trigger_cnt[2][trigger], trigger);
+		CAM_DBG(CAM_CRM, "link->trigger_cnt[3][trigger]: %u , trigger: %u",
+		link->trigger_cnt[2][trigger], trigger);
+		link->trigger_cnt[0][trigger] = 0;
+		link->trigger_cnt[1][trigger] = 0;
+		link->trigger_cnt[2][trigger] = 0;
+		link->trigger_cnt[3][trigger] = 0;
+		return 0;
 	}
 
 	CAM_DBG(CAM_CRM, "Only one device has generated trigger for %s",
 		(trigger == CAM_TRIGGER_POINT_SOF) ? "SOF" : "EOF");
-
 	return rc;
 }
 
@@ -3563,11 +3590,12 @@ static int cam_req_mgr_cb_notify_trigger(
 		(trigger == CAM_TRIGGER_POINT_SOF))
 		link->watchdog->pause_timer = false;
 
-	if (link->dual_trigger) {
+	if (link->multi_trigger) {
 		if ((trigger_id >= 0) && (trigger_id <
 			CAM_REQ_MGR_MAX_TRIGGERS)) {
 			link->trigger_cnt[trigger_id][trigger]++;
-			rc = __cam_req_mgr_check_for_dual_trigger(link, trigger);
+			CAM_DBG(CAM_CRM, "trigger_id: %u", trigger_id);
+			rc = __cam_req_mgr_check_for_multi_trigger(link, trigger);
 			if (rc) {
 				spin_unlock_bh(&link->link_state_spin_lock);
 				goto end;
@@ -3745,8 +3773,10 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 	link_data.link_hdl = link->link_hdl;
 	link_data.crm_cb = &cam_req_mgr_ops;
 	link_data.max_delay = max_delay;
-	if (num_trigger_devices == CAM_REQ_MGR_MAX_TRIGGERS)
-		link->dual_trigger = true;
+	if (num_trigger_devices > 1) {
+		link->multi_trigger = true;
+		link->num_trigger_devices = num_trigger_devices;
+	}
 
 	num_trigger_devices = 0;
 	for (i = 0; i < num_devices; i++) {
@@ -3789,7 +3819,7 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			dev->dev_bit, dev->dev_info.name, pd_tbl->pd,
 			pd_tbl->dev_mask);
 		link_data.trigger_id = -1;
-		if ((dev->dev_info.trigger_on) && (link->dual_trigger)) {
+		if ((dev->dev_info.trigger_on) && (link->multi_trigger)) {
 			link_data.trigger_id = num_trigger_devices;
 			num_trigger_devices++;
 		}
@@ -4196,6 +4226,10 @@ int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info)
 	link->trigger_cnt[0][CAM_TRIGGER_POINT_EOF] = 0;
 	link->trigger_cnt[1][CAM_TRIGGER_POINT_SOF] = 0;
 	link->trigger_cnt[1][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[2][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[2][CAM_TRIGGER_POINT_EOF] = 0;
+	link->trigger_cnt[3][CAM_TRIGGER_POINT_SOF] = 0;
+	link->trigger_cnt[3][CAM_TRIGGER_POINT_EOF] = 0;
 
 	mutex_unlock(&link->lock);
 	mutex_unlock(&g_crm_core_dev->crm_lock);
