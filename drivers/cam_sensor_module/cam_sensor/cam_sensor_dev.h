@@ -89,6 +89,7 @@ struct sensor_intf_params {
  * @pipeline_delay: Sensor pipeline delay
  * @sensor_name: Sensor name
  * @is_aon_user: To determine whether sensor is AON user or not
+ * @hw_no_ops: To determine whether HW operations need to be disabled
  */
 struct cam_sensor_ctrl_t {
 	char                           device_name[
@@ -120,6 +121,7 @@ struct cam_sensor_ctrl_t {
 		CAM_SENSOR_NAME_MAX_SIZE];
 	bool                           is_aon_user;
 	bool                           hw_no_io_ops;
+	bool                           hw_no_ops;
 
 	/* register this handler to handle sof notify */
 	int   (*sof_notify_handler)(

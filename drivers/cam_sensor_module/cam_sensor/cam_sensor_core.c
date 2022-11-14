@@ -755,12 +755,13 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 		return -EINVAL;
 	}
 
-	/* Skip Hw probe if hw_no_io_ops flag is enabled*/
-	if (s_ctrl->hw_no_io_ops) {
-		CAM_DBG(CAM_SENSOR, "%s[0x%x] probe with hw_no_io_ops[%d]",
+	/* Skip hw probe if either hw_no_io_ops or hw_no_ops flag is enabled */
+	if (s_ctrl->hw_no_io_ops || s_ctrl->hw_no_ops) {
+		CAM_DBG(CAM_SENSOR, "%s[0x%x] probe with hw_no_io_ops[%d] hw_no_ops[%d]",
 				s_ctrl->sensor_name,
 				slave_info->sensor_id,
-				s_ctrl->hw_no_io_ops);
+				s_ctrl->hw_no_io_ops,
+				s_ctrl->hw_no_ops);
 		return rc;
 	}
 
@@ -1255,9 +1256,10 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		if (s_ctrl->i2c_data.read_settings.is_settings_valid) {
-			rc = cam_sensor_i2c_read_data(
-				&s_ctrl->i2c_data.read_settings,
-				&s_ctrl->io_master_info);
+			if (!s_ctrl->hw_no_ops)
+				rc = cam_sensor_i2c_read_data(
+					&s_ctrl->i2c_data.read_settings,
+					&s_ctrl->io_master_info);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR, "%s: cannot read data: %d",
 					s_ctrl->sensor_name, rc);
@@ -1454,7 +1456,7 @@ int cam_sensor_power(struct v4l2_subdev *sd, int on)
 
 int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 {
-	int rc;
+	int rc = 0;
 	struct cam_sensor_power_ctrl_t *power_info;
 	struct cam_camera_slave_info *slave_info;
 	struct cam_hw_soc_info *soc_info =
@@ -1464,6 +1466,9 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "failed: %pK", s_ctrl);
 		return -EINVAL;
 	}
+
+	if (s_ctrl->hw_no_ops)
+		return rc;
 
 	power_info = &s_ctrl->sensordata->power_info;
 	slave_info = &(s_ctrl->sensordata->slave_info);
@@ -1491,7 +1496,7 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 
 	/*
 	 * Allow to do power on however don't initialize cci
-	 * if hw no ops is enabled
+	 * if hw no io ops is enabled
 	 */
 	if (!s_ctrl->hw_no_io_ops) {
 		rc = camera_io_init(&(s_ctrl->io_master_info));
@@ -1520,6 +1525,9 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 		CAM_ERR(CAM_SENSOR, "failed: s_ctrl %pK", s_ctrl);
 		return -EINVAL;
 	}
+
+	if (s_ctrl->hw_no_ops)
+		return rc;
 
 	power_info = &s_ctrl->sensordata->power_info;
 	soc_info = &s_ctrl->soc_info;
@@ -1591,8 +1599,8 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 			return 0;
 		}
 
-		if (s_ctrl->hw_no_io_ops) {
-			CAM_DBG(CAM_SENSOR, "hw_no_io_ops req_id: %d opcode: %d",
+		if (s_ctrl->hw_no_io_ops || s_ctrl->hw_no_ops) {
+			CAM_DBG(CAM_SENSOR, "Skip apply for no-op sensor: req_id: %d opcode: %d",
 					req_id,
 					opcode);
 			rc = 0;
@@ -1618,8 +1626,8 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 		else
 			i2c_set = s_ctrl->i2c_data.per_frame;
 
-		if (s_ctrl->hw_no_io_ops) {
-			CAM_DBG(CAM_SENSOR, "hw_no_io_ops req_id: %d opcode: %d",
+		if (s_ctrl->hw_no_io_ops || s_ctrl->hw_no_ops) {
+			CAM_DBG(CAM_SENSOR, "Skip apply for no-op sensor: req_id: %d opcode: %d",
 					req_id,
 					opcode);
 			rc = 0;
