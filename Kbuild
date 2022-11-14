@@ -31,6 +31,10 @@ ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 ccflags-y += ${ccflags-m}
 
+ifeq ($(QTI_TECHPACK), true)
+ccflags-y += -D__AGL__=1
+endif
+
 ais-$(CONFIG_MSM_AIS) += \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
 	drivers/cam_req_mgr/cam_req_mgr_dev.o \
