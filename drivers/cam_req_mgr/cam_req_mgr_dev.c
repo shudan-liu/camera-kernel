@@ -32,6 +32,9 @@
 
 static struct cam_req_mgr_device g_dev;
 struct kmem_cache *g_cam_req_mgr_timer_cachep;
+#ifdef __AGL__
+	static struct cam_req_mgr_device g_mgr_dev = {};
+#endif
 
 DECLARE_RWSEM(rwsem_lock);
 
@@ -95,6 +98,13 @@ reg_fail:
 
 static void cam_v4l2_device_cleanup(void)
 {
+#ifdef __AGL__
+	if (g_mgr_dev.v4l2_dev) {
+		v4l2_device_unregister(g_mgr_dev.v4l2_dev);
+		kfree(g_mgr_dev.v4l2_dev);
+		g_mgr_dev.v4l2_dev = NULL;
+	}
+#endif
 	v4l2_device_unregister(g_dev.v4l2_dev);
 	kfree(g_dev.v4l2_dev);
 	g_dev.v4l2_dev = NULL;
@@ -622,6 +632,13 @@ EXPORT_SYMBOL(cam_req_mgr_notify_message);
 
 static void cam_video_device_cleanup(void)
 {
+#ifdef __AGL__
+	if (g_mgr_dev.video) {
+		video_unregister_device(g_mgr_dev.video);
+		video_device_release(g_mgr_dev.video);
+		g_mgr_dev.video = NULL;
+	}
+#endif
 	media_entity_cleanup(&g_dev.video->entity);
 	video_unregister_device(g_dev.video);
 	video_device_release(g_dev.video);
@@ -788,6 +805,53 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 	}
 	CAM_INFO(CAM_CRM,
 		"All components bound successfully, AIS camera driver initialized");
+
+#ifdef __AGL__
+	/* create device when bind all done for ais_server.service*/
+	g_mgr_dev.v4l2_dev = kzalloc(sizeof(g_mgr_dev.v4l2_dev),
+		GFP_KERNEL);
+	if (!g_mgr_dev.v4l2_dev)
+		return -ENOMEM;
+
+	snprintf(g_mgr_dev.v4l2_dev->name, sizeof(g_mgr_dev.v4l2_dev->name),
+			"bind_done");
+
+	rc = v4l2_device_register(NULL, g_mgr_dev.v4l2_dev);
+	if (rc){
+		CAM_ERR(CAM_CRM, "v4l2_device_register failed");
+		kfree(g_mgr_dev.v4l2_dev);
+		g_mgr_dev.v4l2_dev = NULL;
+		return rc;
+	}
+
+	g_mgr_dev.video = video_device_alloc();
+	if (!g_mgr_dev.video) {
+		CAM_ERR(CAM_CRM, "video_device_alloc failed");
+		return -ENOMEM;
+	}
+
+	g_mgr_dev.video->v4l2_dev = g_mgr_dev.v4l2_dev;
+
+	strlcpy(g_mgr_dev.video->name, "bind_done",
+		sizeof(g_mgr_dev.video->name));
+	g_mgr_dev.video->release = video_device_release_empty;
+	g_mgr_dev.video->fops = &g_cam_fops;
+	g_mgr_dev.video->ioctl_ops = &g_cam_ioctl_ops;
+	g_mgr_dev.video->minor = -1;
+	g_mgr_dev.video->vfl_type = VFL_TYPE_VIDEO;
+	g_mgr_dev.video->device_caps = V4L2_CAP_VIDEO_CAPTURE;
+
+	rc = video_register_device(g_mgr_dev.video, VFL_TYPE_VIDEO, 98);
+	if (rc) {
+		CAM_ERR(CAM_CRM, "video_register_device failed rc=%d",rc);
+		video_device_release(g_mgr_dev.video);
+		g_mgr_dev.video = NULL;
+		return rc;
+	} else {
+		g_mgr_dev.video->entity.name = video_device_node_name(g_mgr_dev.video);
+		CAM_INFO(CAM_CRM, "register video device name=%s", g_mgr_dev.video->entity.name);
+	}
+#endif
 
 	return rc;
 
