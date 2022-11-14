@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/ratelimit.h>
@@ -19,6 +20,7 @@
 #include "cam_vfe_core.h"
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
+#include "cam_vfe_soc.h"
 
 static const char drv_name[] = "vfe_bus";
 
@@ -102,6 +104,8 @@ struct cam_vfe_bus_ver2_common_data {
 	bool                                        hw_init;
 	bool                                        support_consumed_addr;
 	bool                                        disable_ubwc_comp;
+	bool                                        is_lite;
+
 };
 
 struct cam_vfe_bus_ver2_wm_resource_data {
@@ -1026,8 +1030,9 @@ static int cam_vfe_bus_acquire_wm(
 	rsrc_data->offset  = 0;
 	CAM_DBG(CAM_ISP, "WM %d width %d height %d", rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
+	CAM_DBG(CAM_ISP, "is_lite: %d", ver2_bus_priv->common_data.is_lite);
 
-	if (rsrc_data->index < 3) {
+	if (rsrc_data->index < 4 &&  ver2_bus_priv->common_data.is_lite ) {
 		/* Write master 0-2 refers to RDI 0/ RDI 1/RDI 2 */
 		switch (rsrc_data->format) {
 		case CAM_FORMAT_MIPI_RAW_6:
@@ -1071,7 +1076,53 @@ static int cam_vfe_bus_acquire_wm(
 				rsrc_data->format);
 			return -EINVAL;
 		}
-	} else if ((rsrc_data->index < 5) ||
+	}
+	else if (rsrc_data->index < 3 ) {
+		/* Write master 0-2 refers to RDI 0/ RDI 1/RDI 2 */
+		switch (rsrc_data->format) {
+		case CAM_FORMAT_MIPI_RAW_6:
+		case CAM_FORMAT_MIPI_RAW_8:
+		case CAM_FORMAT_MIPI_RAW_10:
+		case CAM_FORMAT_MIPI_RAW_12:
+		case CAM_FORMAT_MIPI_RAW_14:
+		case CAM_FORMAT_MIPI_RAW_16:
+		case CAM_FORMAT_MIPI_RAW_20:
+		case CAM_FORMAT_PLAIN128:
+			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
+			rsrc_data->height = 0;
+			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
+			rsrc_data->pack_fmt = 0x0;
+			rsrc_data->en_cfg = 0x3;
+			break;
+		case CAM_FORMAT_PLAIN8:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0x1;
+			rsrc_data->width = rsrc_data->width * 2;
+			rsrc_data->stride = rsrc_data->width;
+			break;
+		case CAM_FORMAT_PLAIN16_10:
+		case CAM_FORMAT_PLAIN16_10_LSB:
+		case CAM_FORMAT_PLAIN16_12:
+		case CAM_FORMAT_PLAIN16_14:
+		case CAM_FORMAT_PLAIN16_16:
+		case CAM_FORMAT_PLAIN32_20:
+			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
+			rsrc_data->height = 0;
+			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
+			rsrc_data->pack_fmt = 0x0;
+			rsrc_data->en_cfg = 0x3;
+			break;
+		case CAM_FORMAT_PLAIN64:
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->pack_fmt = 0xA;
+			break;
+		default:
+			CAM_ERR(CAM_ISP, "Unsupported RDI format %d",
+				rsrc_data->format);
+			return -EINVAL;
+		}
+	}
+	else if ((rsrc_data->index < 5) ||
 		(rsrc_data->index == 7) || (rsrc_data->index == 8) ||
 		(rsrc_data->index == 20) || (rsrc_data->index == 21)) {
 		/*
@@ -1281,7 +1332,7 @@ static int cam_vfe_bus_start_wm(
 		common_data->mem_base + rsrc_data->hw_regs->packer_cfg);
 
 	/* Configure stride for RDIs */
-	if (rsrc_data->index < 3)
+	if (rsrc_data->index < 3 || common_data->is_lite)
 		cam_io_w_mb(rsrc_data->stride, (common_data->mem_base +
 			rsrc_data->hw_regs->stride));
 
@@ -3025,7 +3076,7 @@ static int cam_vfe_bus_update_wm(void *priv, void *cmd_args,
 				val);
 
 		if ((wm_data->stride != val ||
-			!wm_data->init_cfg_done) && (wm_data->index >= 3)) {
+			!wm_data->init_cfg_done) && (wm_data->index >= 3 && !bus_priv->common_data.is_lite)) {
 			CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 				wm_data->hw_regs->stride,
 				io_cfg->planes[i].plane_stride);
@@ -3830,6 +3881,7 @@ int cam_vfe_bus_ver2_init(
 	struct cam_vfe_bus_ver2_priv    *bus_priv = NULL;
 	struct cam_vfe_bus              *vfe_bus_local;
 	struct cam_vfe_bus_ver2_hw_info *ver2_hw_info = bus_hw_info;
+	struct cam_vfe_soc_private      *soc_private = NULL;
 
 	CAM_DBG(CAM_ISP, "Enter");
 
@@ -3839,6 +3891,13 @@ int cam_vfe_bus_ver2_init(
 			soc_info, hw_intf, bus_hw_info);
 		CAM_ERR(CAM_ISP, "controller: %pK", vfe_irq_controller);
 		rc = -EINVAL;
+		goto end;
+	}
+
+	soc_private = soc_info->soc_private;
+	if (!soc_private) {
+		CAM_ERR(CAM_ISP, "Invalid soc_private");
+		rc = -ENODEV;
 		goto end;
 	}
 
@@ -3876,6 +3935,7 @@ int cam_vfe_bus_ver2_init(
 	bus_priv->common_data.support_consumed_addr =
 		ver2_hw_info->support_consumed_addr;
 	bus_priv->common_data.disable_ubwc_comp  = false;
+	bus_priv->common_data.is_lite = soc_private->is_ife_lite;
 
 	mutex_init(&bus_priv->common_data.bus_mutex);
 
