@@ -1994,6 +1994,7 @@ int cam_vfe_top_ver4_init(
 	vfe_top->top_priv = top_priv;
 	top_priv->top_common.applied_clk_rate = 0;
 
+	mutex_init(&top_priv->top_common.lock);
 	if (hw_info->num_mux > CAM_VFE_TOP_MUX_MAX) {
 		CAM_ERR(CAM_ISP, "Invalid number of input rsrc: %d, max: %d",
 			hw_info->num_mux, CAM_VFE_TOP_MUX_MAX);
