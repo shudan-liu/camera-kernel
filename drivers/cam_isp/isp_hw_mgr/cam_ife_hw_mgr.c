@@ -2083,8 +2083,8 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 	struct cam_isp_hw_mgr_res        *hw_mgr_res_temp;
 	struct list_head                 *ife_src_list_head;
 	struct list_head                 *csid_res_list_head;
-	struct list_head                 *vcsid_res_list_head;
-	struct list_head                 *vife_res_list_head;
+	struct list_head                 *vcsid_res_list_head = NULL;
+	struct list_head                 *vife_res_list_head  = NULL;
 	struct list_head                 *free_res_list_head;
 
 	if (ife_ctx->flags.per_port_en && (index != CAM_IFE_STREAM_GRP_INDEX_NONE)) {
@@ -2154,17 +2154,21 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 	}
 
 	/* ife vcsid resource */
-	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
-		vcsid_res_list_head, list) {
-		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
-		CAM_DBG(CAM_ISP, "Releasing Virtual csid");
-		cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
+	if (vcsid_res_list_head) {
+		list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
+			vcsid_res_list_head, list) {
+			cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
+			CAM_DBG(CAM_ISP, "Releasing Virtual csid");
+			cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
+		}
 	}
 
-	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
-		vife_res_list_head, list) {
-		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
-		cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
+	if (vife_res_list_head) {
+		list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
+			vife_res_list_head, list) {
+			cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
+			cam_ife_hw_mgr_put_res(free_res_list_head, &hw_mgr_res);
+		}
 	}
 
 	if (ife_ctx->flags.per_port_en && (index != CAM_IFE_STREAM_GRP_INDEX_NONE)) {
@@ -10677,6 +10681,7 @@ static int cam_ife_hw_mgr_free_hw_ctx(
 	/* ife vcsid resource */
 	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
 		&ife_ctx->res_list_ife_vcsid, list) {
+		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
 		hw_mgr_res->linked = false;
 		list_del_init(&hw_mgr_res->list);
 		memset(hw_mgr_res, 0, sizeof(*hw_mgr_res));
@@ -10688,6 +10693,7 @@ static int cam_ife_hw_mgr_free_hw_ctx(
 	/* ife vife resource */
 	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_temp,
 		&ife_ctx->res_list_vife_src, list) {
+		cam_ife_hw_mgr_free_hw_res(hw_mgr_res);
 		hw_mgr_res->linked = false;
 		list_del_init(&hw_mgr_res->list);
 		memset(hw_mgr_res, 0, sizeof(*hw_mgr_res));
