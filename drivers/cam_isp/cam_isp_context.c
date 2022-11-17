@@ -5785,9 +5785,7 @@ static struct cam_ctx_ops
 	/* APPLIED */
 	{
 		.ioctl_ops = {},
-		.crm_ops = {
-			.apply_req = __cam_isp_ctx_rdi_only_apply_req_top_state,
-		},
+		.crm_ops = {},
 		.irq_ops = NULL,
 	},
 	/* EPOCH */
