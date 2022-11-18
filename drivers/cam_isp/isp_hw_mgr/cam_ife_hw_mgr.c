@@ -2442,8 +2442,13 @@ static int cam_ife_hw_mgr_update_vfe_res_data(
 	res_update.priv = ife_ctx;
 	res_update.res = hw_mgr_res;
 	res_update.vfe_acquire = vfe_acquire;
+	res_update.disable_line_based_mode =
+		g_ife_hw_mgr.debug_cfg.disable_line_based_mode;
 
-	CAM_DBG(CAM_ISP, "ctx:%d res:%d", ife_ctx->ctx_index, hw_mgr_res->hw_res[0]->res_id);
+	CAM_DBG(CAM_ISP, "ctx:%d res:%d disable_line_based_mode:%d",
+		ife_ctx->ctx_index, hw_mgr_res->hw_res[0]->res_id,
+		res_update.disable_line_based_mode);
+
 	rc = hw_intf->hw_ops.process_cmd(
 			hw_intf->hw_priv,
 			cmd_type,
@@ -17604,6 +17609,9 @@ static int cam_ife_hw_mgr_debug_register(void)
 		&g_ife_hw_mgr.debug_cfg.disable_ife_mmu_prefetch);
 	debugfs_create_file("sfe_cache_debug", 0644,
 		g_ife_hw_mgr.debug_cfg.dentry, NULL, &cam_ife_sfe_cache_debug);
+	debugfs_create_bool("disable_line_based_mode", 0644,
+		g_ife_hw_mgr.debug_cfg.dentry,
+		&g_ife_hw_mgr.debug_cfg.disable_line_based_mode);
 end:
 	g_ife_hw_mgr.debug_cfg.enable_csid_recovery = 1;
 	return rc;

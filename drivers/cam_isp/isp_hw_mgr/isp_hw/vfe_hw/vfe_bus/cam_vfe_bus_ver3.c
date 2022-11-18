@@ -4150,6 +4150,14 @@ static int cam_vfe_bus_ver3_update_res_wm(
 	wm_res->is_per_port_acquire = false;
 	rsrc_data = wm_res->res_priv;
 	wm_idx = rsrc_data->index;
+
+	if ((vfe_out_res_id >= CAM_VFE_BUS_VER3_VFE_OUT_RDI0) &&
+		(vfe_out_res_id <= CAM_VFE_BUS_VER3_VFE_OUT_RDI3)) {
+		if (out_acq_args->disable_line_based_mode)
+			rsrc_data->default_line_based =
+				!(out_acq_args->disable_line_based_mode);
+	}
+
 	rsrc_data->format = out_acq_args->out_port_info->format;
 	rsrc_data->use_wm_pack = out_acq_args->use_wm_pack;
 	rsrc_data->pack_fmt = cam_vfe_bus_ver3_get_packer_fmt(rsrc_data->format,
@@ -4165,9 +4173,10 @@ static int cam_vfe_bus_ver3_update_res_wm(
 
 	/* Set WM offset value to default */
 	rsrc_data->offset  = 0;
-	CAM_DBG(CAM_ISP, "WM:%d width %d height %d is_per_port:%d",
+	CAM_DBG(CAM_ISP, "WM:%d width %d height %d is_per_port:%d default_line_based:%d",
 		rsrc_data->index, rsrc_data->width,
-		rsrc_data->height, wm_res->is_per_port_acquire);
+		rsrc_data->height, wm_res->is_per_port_acquire,
+		rsrc_data->default_line_based);
 
 	rc = cam_vfe_bus_ver3_res_update_config_wm(ver3_bus_priv, vfe_out_res_id,
 		plane, wm_res, comp_grp_id, wm_mode, sizeof(wm_mode));
@@ -4245,6 +4254,7 @@ static int cam_vfe_bus_ver3_update_res_vfe_out(void *bus_priv, void *acquire_arg
 	acq_args = res_update_args->vfe_acquire;
 
 	out_acquire_args = &acq_args->vfe_out;
+	out_acquire_args->disable_line_based_mode = res_update_args->disable_line_based_mode;
 	format = out_acquire_args->out_port_info->format;
 
 	CAM_DBG(CAM_ISP, "VFE:%d Acquire out_type:0x%X",

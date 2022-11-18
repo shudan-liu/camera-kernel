@@ -53,6 +53,8 @@ enum cam_ife_ctx_master_type {
  * @per_req_reg_dump:          Enable per request reg dump
  * @disable_ubwc_comp:         Disable UBWC compression
  * @disable_ife_mmu_prefetch:  Disable MMU prefetch for IFE bus WR
+ * @disable_line_based_mode:   Disable line based mode for per port
+ *                             feature with duplicate sensors
  *
  */
 struct cam_ife_hw_mgr_debug {
@@ -68,6 +70,7 @@ struct cam_ife_hw_mgr_debug {
 	bool           per_req_reg_dump;
 	bool           disable_ubwc_comp;
 	bool           disable_ife_mmu_prefetch;
+	bool           disable_line_based_mode;
 };
 
 /**
