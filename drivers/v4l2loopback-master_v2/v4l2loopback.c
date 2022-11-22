@@ -1656,23 +1656,31 @@ static int vidioc_qbuf(struct file *file,
 	dev = v4l2loopback_getdevice(file);
 	if (!dev) {
 		CAM_ERR(CAM_V4L2, "dev is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		return rc;
 	}
 
+	mutex_lock(&dev->dev_mutex);
+
 	opener = fh_to_opener(private_data);
-	if (!opener) {
-		CAM_ERR(CAM_V4L2, "opener is null");
-		return -EINVAL;
+	if (!opener || !opener->connected_opener) {
+		CAM_ERR(CAM_V4L2, "opener is null, type: %d", buf->type);
+		rc = -EINVAL;
+		goto end;
 	}
 
 	data = opener->data;
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
-	if (buf->index > max_buffers)
-		return -EINVAL;
+
+	if (buf->index > max_buffers) {
+		rc = -EINVAL;
+		goto end;
+	}
 
 	index = buf->index % data->used_buffers;
 	b = &data->buffers[index];
@@ -1696,7 +1704,7 @@ static int vidioc_qbuf(struct file *file,
 					AIS_V4L2_OUTPUT_BUF_READY);
 			}
 		}
-		return rc;
+		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT: {
 		__u64 payload = 0;
 
@@ -1730,12 +1738,16 @@ static int vidioc_qbuf(struct file *file,
 
 			wake_up_all(&data->read_event);
 		}
-		return rc;
+		break;
 	}
 	default:
 		CAM_ERR(CAM_V4L2, "unsupported buf type %d", buf->type);
-		return -EINVAL;
+		rc = -EINVAL;
+		break;
 	}
+end:
+	mutex_unlock(&dev->dev_mutex);
+	return rc;
 }
 
 /* put buffer to dequeue
@@ -2754,13 +2766,14 @@ static int v4l2_loopback_close(struct file *file)
 				free_stream_data(opener->data);
 				opener->data = NULL;
 			}
+			opener->connected_opener = NULL;
 		} else {
 			CAM_WARN(CAM_V4L2, "invalid close state %d", dev->state);
 		}
 		mutex_unlock(&dev->dev_mutex);
 	}
 
-	CAM_WARN(CAM_V4L2, "X v4l2 del v4l2 fh open_count is %d when close",
+	CAM_WARN(CAM_V4L2, "x v4l2 del v4l2 fh open_count is %d when close",
 		dev->open_count.counter);
 
 	v4l2_fh_del(file->private_data);
