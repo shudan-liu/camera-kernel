@@ -246,10 +246,12 @@ struct cam_req_mgr_trigger_notify {
  * struct cam_req_mgr_no_crm_trigger_notify
  * @link_hdl : link identifier
  * @frame_id : frame id for internal tracking
+ * @request_id : Request id applied by isp
  */
 struct cam_req_mgr_no_crm_trigger_notify {
 	int32_t  link_hdl;
 	int64_t  frame_id;
+	int64_t request_id;
 };
 
 /**

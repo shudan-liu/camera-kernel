@@ -39,7 +39,7 @@ static struct cam_isp_ctx_debug isp_ctx_debug;
 #define CAM_ISP_FIRST_OUT_PORT_EVENT 1
 
 static int __cam_isp_ctx_no_crm_apply(struct cam_isp_context *ctx_isp,
-	bool check_applied_state);
+	bool check_applied_state, int *applied_req);
 
 static int32_t __cam_isp_ctx_independent_sof_timer(void *priv, void *data);
 
@@ -533,7 +533,7 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 	struct cam_isp_context                      *ctx_isp = NULL;
 	struct cam_context                              *ctx = NULL;
 	struct cam_req_mgr_no_crm_trigger_notify *sof_notify = NULL;
-	int                                               rc = 0;
+	int                                               rc = 0, req_id = 0;
 
 	if (!priv || !data) {
 		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
@@ -547,10 +547,11 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 
 	CAM_DBG(CAM_ISP, "no_crm apply from trigger_util");
 	mutex_lock(&ctx_isp->no_crm_mutex);
-	rc = __cam_isp_ctx_no_crm_apply(ctx_isp, false);
+	rc = __cam_isp_ctx_no_crm_apply(ctx_isp, false, &req_id);
 	mutex_unlock(&ctx_isp->no_crm_mutex);
 
-	if (!rc && (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
+	if (!rc && req_id && (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
+		sof_notify->request_id = req_id;
 		CAM_DBG(CAM_ISP,
 			"Notify sensor %s on frame: %llu ctx: %u link: 0x%x is_sensorlite:%d",
 			__cam_isp_ctx_crm_trigger_point_to_string(CAM_TRIGGER_POINT_SOF),
@@ -616,8 +617,13 @@ static int __cam_isp_ctx_notify_trigger_util(
 		sof_notify.link_hdl = ctx->link_hdl;
 		sof_notify.frame_id = ctx_isp->frame_id;
 
-		if (ctx_isp->frame_id == 1 && (ctx_isp->sensor_pd > 1) &&
-			(ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
+		if (list_empty(&ctx->pending_req_list)) {
+			CAM_INFO(CAM_ISP, "pending list empty, skipping");
+			return -EINVAL;
+		}
+		if ((ctx_isp->sensor_pd > 1) &&
+			(ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE) &&
+			!ctx_isp->sensor_pd_handled) {
 			/* Do not apply ife request just notify sensor to apply request */
 			if (ctx_isp->is_sensorlite)
 				cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
@@ -625,6 +631,7 @@ static int __cam_isp_ctx_notify_trigger_util(
 			else
 				cam_subdev_notify_message(CAM_SENSOR_DEVICE_TYPE,
 					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)&sof_notify);
+			ctx_isp->sensor_pd_handled = true;
 			return -EINVAL;
 		}
 
@@ -6142,7 +6149,7 @@ err_out:
 static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_context *ctx, struct cam_config_dev_cmd *cmd)
 {
-	int rc = 0, i;
+	int rc = 0, i, req_id = 0;
 	struct cam_ctx_request           *req = NULL;
 	struct cam_isp_ctx_req           *req_isp;
 	struct cam_packet                *packet;
@@ -6457,7 +6464,7 @@ done:
 		if (ctx->state == CAM_CTX_ACTIVATED && ctx_isp->rdi_only_context) {
 			CAM_DBG(CAM_ISP, "independent CRM apply from config_dev");
 			mutex_lock(&ctx_isp->no_crm_mutex);
-			__cam_isp_ctx_no_crm_apply(ctx_isp, true);
+			__cam_isp_ctx_no_crm_apply(ctx_isp, true, &req_id);
 			mutex_unlock(&ctx_isp->no_crm_mutex);
 		}
 	}
@@ -7287,6 +7294,7 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 	ctx_isp->trigger_id = link->trigger_id;
 	ctx_isp->sensor_pd = link->sensor_pd;
 	ctx_isp->is_sensorlite = link->is_sensorlite;
+	ctx_isp->sensor_pd_handled = false;
 
 	/* change state only if we had the init config */
 	if (ctx_isp->init_received) {
@@ -8042,7 +8050,7 @@ static int __cam_isp_ctx_apply_req(struct cam_context *ctx,
 }
 
 static int __cam_isp_ctx_no_crm_apply(
-	struct cam_isp_context *ctx_isp, bool check_applied_state)
+	struct cam_isp_context *ctx_isp, bool check_applied_state, int *applied_req)
 {
 	int rc = 0;
 	struct cam_ctx_request           *req;
@@ -8112,8 +8120,9 @@ static int __cam_isp_ctx_no_crm_apply(
 				"Apply failed in active Substate[%s] rc %d ctx:%u",
 				__cam_isp_ctx_substate_val_to_type(
 				ctx_isp->substate_activated), rc, cam_ctx->ctx_id);
+		} else {
+			*applied_req = apply_req.request_id;
 		}
-
 		crm_timer_reset(ctx_isp->independent_crm_sof_timer);
 	}
 
