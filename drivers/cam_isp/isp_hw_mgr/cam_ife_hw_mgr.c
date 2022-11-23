@@ -15608,7 +15608,7 @@ static int cam_ife_mgr_get_active_hw_ctx(
 {
 	struct cam_ife_hw_mgr_ctx        *ife_ctx;
 	struct cam_isp_hw_active_hw_ctx  *active_hw_ctx_info;
-	int i, j;
+	int i = 0, j = 0;
 
 	active_hw_ctx_info = (struct cam_isp_hw_active_hw_ctx  *)isp_hw_cmd_args->cmd_data;
 	i = active_hw_ctx_info->stream_grp_cfg_index;
@@ -15622,12 +15622,11 @@ static int cam_ife_mgr_get_active_hw_ctx(
 				ife_ctx =
 					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].priv;
 				isp_hw_cmd_args->u.ptr = (void *)ife_ctx->common.cb_priv;
-				active_hw_ctx_info->index = j++;
+				active_hw_ctx_info->index = ++j;
 				break;
 			}
 		}
-		mutex_unlock(&g_ife_sns_grp_cfg.grp_cfg[
-			active_hw_ctx_info->stream_grp_cfg_index].lock);
+		mutex_unlock(&g_ife_sns_grp_cfg.grp_cfg[i].lock);
 	}
 
 	CAM_DBG(CAM_ISP,
