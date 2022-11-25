@@ -216,18 +216,16 @@ static int cam_isp_dev_component_bind(struct device *dev,
 	node = (struct cam_node *) g_isp_dev.sd.token;
 
 	memset(&hw_mgr_intf, 0, sizeof(hw_mgr_intf));
-	g_isp_dev.ctx = kcalloc(g_isp_dev.max_context,
-		sizeof(struct cam_context),
-		GFP_KERNEL);
+	g_isp_dev.ctx = vzalloc(g_isp_dev.max_context *
+		sizeof(struct cam_context));
 	if (!g_isp_dev.ctx) {
 		CAM_ERR(CAM_ISP,
 			"Mem Allocation failed for ISP base context");
 		goto unregister;
 	}
 
-	g_isp_dev.ctx_isp = kcalloc(g_isp_dev.max_context,
-		sizeof(struct cam_isp_context),
-		GFP_KERNEL);
+	g_isp_dev.ctx_isp = vzalloc(g_isp_dev.max_context *
+		sizeof(struct cam_isp_context));
 	if (!g_isp_dev.ctx_isp) {
 		CAM_ERR(CAM_ISP,
 			"Mem Allocation failed for Isp private context");

@@ -593,6 +593,16 @@ int __send_probe_pkt(
 	memset(&sensor_lite_dev->probe_info, 0, sizeof(struct sensor_probe_response));
 	sensor_lite_dev->probe_info.status = PROBE_FAILURE;
 
+	if (sensor_lite_dev->hw_no_ops) {
+		sensor_lite_dev->probe_info.vt = 0;
+		sensor_lite_dev->probe_info.sensor_id = sensor_lite_dev->soc_info.index;
+		sensor_lite_dev->probe_info.status = PROBE_SUCCESS;
+		complete(&sensor_lite_dev->complete);
+		CAM_INFO(CAM_SENSOR_LITE, "Probe success for no-ops sensor: %d",
+			sensor_lite_dev->soc_info.index);
+		return rc;
+	}
+
 	handle = cam_rpmsg_get_handle("helios");
 	__set_slave_pkt_headers(header, HCM_PKT_OPCODE_SENSOR_PROBE);
 	rc = cam_rpmsg_send(handle, header, header->size);
@@ -736,7 +746,10 @@ int __send_pkt(
 	if (sensor_lite_dev->dump_en == 1)
 		__dump_pkt(sensor_lite_dev, header);
 
-	handle = cam_rpmsg_get_handle("helios");
-	rc = cam_rpmsg_send(handle, header, header->size);
+	if (!sensor_lite_dev->hw_no_ops) {
+		handle = cam_rpmsg_get_handle("helios");
+		rc = cam_rpmsg_send(handle, header, header->size);
+	}
+
 	return rc;
 }

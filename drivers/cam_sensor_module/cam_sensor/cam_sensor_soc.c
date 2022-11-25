@@ -257,9 +257,16 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 
 	if (of_property_read_bool(of_node, "hw_no_io_ops")) {
 		CAM_DBG(CAM_SENSOR,
-			"SENSOR cell_idx: %d hw no ops is enabled",
+			"SENSOR cell_idx: %d hw no io ops is enabled",
 			s_ctrl->soc_info.index);
 		s_ctrl->hw_no_io_ops = true;
+	}
+
+	if (of_property_read_bool(of_node, "hw_no_ops")) {
+		CAM_DBG(CAM_SENSOR,
+			"SENSOR cell_idx: %d hw no ops is enabled",
+			s_ctrl->soc_info.index);
+		s_ctrl->hw_no_ops = true;
 	}
 
 	rc = cam_sensor_util_aon_registration(

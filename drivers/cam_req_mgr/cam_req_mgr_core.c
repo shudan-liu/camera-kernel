@@ -2802,22 +2802,25 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 
 	trace_cam_flush_req(link, flush_info);
 
-	mutex_lock(&link->req.lock);
 	switch (flush_info->flush_type) {
 	case CAM_REQ_MGR_FLUSH_TYPE_ALL:
+		mutex_lock(&link->req.lock);
 		link->last_flush_id = flush_info->req_id;
 		CAM_INFO(CAM_CRM, "Last request id to flush is %lld",
 			flush_info->req_id);
 		__cam_req_mgr_flush_req_slot(link);
 		__cam_req_mgr_reset_apply_data(link);
-		__cam_req_mgr_flush_dev_with_max_pd(link, flush_info, link->max_delay);
 		link->open_req_cnt = 0;
+		mutex_unlock(&link->req.lock);
+		__cam_req_mgr_flush_dev_with_max_pd(link, flush_info, link->max_delay);
 		break;
 	case CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ:
+		mutex_lock(&link->req.lock);
 		rc = __cam_req_mgr_try_cancel_req(link, flush_info);
 		if (rc)
 			CAM_WARN(CAM_CRM, "cannot cancel req_id %lld on link 0x%x",
 				flush_info->req_id, flush_info->link_hdl);
+		mutex_unlock(&link->req.lock);
 		break;
 	default:
 		CAM_ERR(CAM_CRM, "Invalid flush type %u", flush_info->flush_type);
@@ -2826,7 +2829,6 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 	}
 
 	complete(&link->workq_comp);
-	mutex_unlock(&link->req.lock);
 
 	return rc;
 }

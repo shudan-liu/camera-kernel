@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_TFE_HW_MGR_H_
@@ -132,6 +133,7 @@ struct cam_tfe_hw_mgr_ctx {
  * struct cam_tfe_hw_mgr - TFE HW Manager
  *
  * @mgr_common:            common data for all HW managers
+ * @workq_pool:            Workq pool
  * @csid_devices:          csid device instances array. This will be filled by
  *                         HW manager during the initialization.
  * @tfe_devices:           TFE device instances array. This will be filled by
@@ -151,6 +153,7 @@ struct cam_tfe_hw_mgr_ctx {
  */
 struct cam_tfe_hw_mgr {
 	struct cam_isp_hw_mgr          mgr_common;
+	struct cam_req_mgr_core_workq *workq_pool[CAM_CTX_MAX];
 	struct cam_hw_intf            *csid_devices[CAM_TFE_CSID_HW_NUM_MAX];
 	struct cam_isp_hw_intf_data   *tfe_devices[CAM_TFE_HW_NUM_MAX];
 	struct cam_soc_reg_map        *cdm_reg_map[CAM_TFE_HW_NUM_MAX];

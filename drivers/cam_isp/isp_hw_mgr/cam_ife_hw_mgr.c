@@ -6834,6 +6834,8 @@ static int cam_ife_hw_mgr_acquire_ife_src_stream_grp(
 				"Acquire IFE IPP SRC resource Failed");
 			goto err;
 		}
+		CAM_DBG(CAM_ISP, "No need to acquire RDI again");
+		return 0;
 	}
 
 	if (g_ife_sns_grp_cfg.grp_cfg[index].rdi_stream_cfg_cnt) {
@@ -18019,7 +18021,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 		g_ife_hw_mgr.ctx_pool[i].sensor_info = NULL;
 
 		rc = cam_req_mgr_workq_create("cam_isp_worker", 256,
-			&g_ife_hw_mgr.mgr_common.workq_pool[i],
+			&g_ife_hw_mgr.workq_pool[i],
 			CRM_WORKQ_USAGE_IRQ, 0,
 			cam_req_mgr_process_workq_cam_isp_worker);
 		if (rc < 0) {
@@ -18028,7 +18030,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 		}
 
 		g_ife_hw_mgr.ctx_pool[i].common.workq_info =
-			g_ife_hw_mgr.mgr_common.workq_pool[i];
+			g_ife_hw_mgr.workq_pool[i];
 		init_completion(&g_ife_hw_mgr.ctx_pool[i].config_done_complete);
 		list_add_tail(&g_ife_hw_mgr.ctx_pool[i].list,
 			&g_ife_hw_mgr.free_ctx_list);
@@ -18088,7 +18090,7 @@ end:
 	if (rc) {
 		for (i = 0; i < CAM_IFE_CTX_MAX; i++) {
 			cam_req_mgr_workq_destroy(
-				&g_ife_hw_mgr.mgr_common.workq_pool[i]);
+				&g_ife_hw_mgr.workq_pool[i]);
 			g_ife_hw_mgr.ctx_pool[i].cdm_cmd = NULL;
 			kfree(g_ife_hw_mgr.ctx_pool[i].res_list_ife_out);
 			g_ife_hw_mgr.ctx_pool[i].res_list_ife_out = NULL;
@@ -18114,7 +18116,7 @@ void cam_ife_hw_mgr_deinit(void)
 
 	for (i = 0; i < CAM_IFE_CTX_MAX; i++) {
 		cam_req_mgr_workq_destroy(
-			&g_ife_hw_mgr.mgr_common.workq_pool[i]);
+			&g_ife_hw_mgr.workq_pool[i]);
 		g_ife_hw_mgr.ctx_pool[i].cdm_cmd = NULL;
 		kfree(g_ife_hw_mgr.ctx_pool[i].res_list_ife_out);
 		g_ife_hw_mgr.ctx_pool[i].res_list_ife_out = NULL;

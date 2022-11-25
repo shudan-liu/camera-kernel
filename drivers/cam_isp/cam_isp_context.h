@@ -184,8 +184,6 @@ struct cam_isp_ctx_irq_ops {
  * @sof_cnt                    Indicates sof event received for this request
  * @eof_cnt                    Indicates eof event received for this request
  * @rup_cnt                    Indicates rup event received for this request
- * @ref_req_id                 Reference request id which is applied at same frame
- * @wait_for_rup               Indicates reg update is expected or not for the request
  *
  */
 struct cam_isp_ctx_req {
@@ -209,8 +207,6 @@ struct cam_isp_ctx_req {
 	uint32_t                              sof_cnt;
 	uint32_t                              eof_cnt;
 	uint32_t                              rup_cnt;
-	uint64_t                              ref_req_id;
-	bool                                  wait_for_rup;
 };
 
 /**
@@ -322,7 +318,6 @@ struct cam_isp_context_event_record {
  * @no_crm_mutex:              mutex for no_crm apply
  * @waitlist_req_cnt           Counter for the request in waitlist
  * @fifo_depth                 Max fifo depth supported
- * @curr_fifo_cnt:             Current status of fifo
  * @sensor_pd:                 sensor pipeline delay
  * @is_sensorlite:             Indicate whether sensorlite or sensor device is active
  * @isp_mutex:                 isp context mutex for list traversals
@@ -393,7 +388,6 @@ struct cam_isp_context {
 	struct mutex                           no_crm_mutex;
 	uint32_t                               waitlist_req_cnt;
 	uint32_t                               fifo_depth;
-	uint32_t                               curr_fifo_cnt;
 	int8_t                                 sensor_pd;
 	bool                                   is_sensorlite;
 	struct mutex                           isp_mutex;
