@@ -901,6 +901,12 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 					goto err;
 			}
 			grp_cfg->stream_cfg_cnt++;
+			if (grp_cfg->stream_cfg_cnt >= CAM_ISP_STREAM_CFG_MAX) {
+				CAM_ERR(CAM_ISP,
+					"stream config count exceed maxs upported value");
+				rc = -EFAULT;
+				goto err;
+			}
 		}
 
 		grp_cfg->rdi_stream_cfg_cnt =
@@ -2662,7 +2668,7 @@ static int cam_ife_hw_mgr_link_csid_rdi_resources(
 	struct cam_csid_hw_reserve_resource_args  rdi_csid_acquire;
 	int i;
 	bool per_port_feature_enable = false;
-	int rc;
+	int rc = -EINVAL;
 
 	for (i = 0; i < in_port->num_out_res; i++) {
 		out_port = &in_port->data[i];
@@ -5700,6 +5706,7 @@ static int cam_ife_hw_mgr_acquire_csid_res_stream_grp(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port,
 	bool                                 crop_enable,
+	uint32_t                            *acquired_hw_path,
 	int                                  index)
 {
 	int rc = 0;
@@ -5717,8 +5724,8 @@ static int cam_ife_hw_mgr_acquire_csid_res_stream_grp(
 	}
 
 	if (g_ife_sns_grp_cfg.grp_cfg[index].rdi_stream_cfg_cnt) {
-		rc = cam_ife_hw_mgr_acquire_res_ife_csid_rdi(ife_ctx, in_port, NULL,
-			index);
+		rc = cam_ife_hw_mgr_acquire_res_ife_csid_rdi(ife_ctx, in_port,
+			acquired_hw_path, index);
 		if (rc) {
 			CAM_ERR(CAM_ISP,
 				"Acquire IFE CSID RDI resource Failed");
@@ -6961,7 +6968,7 @@ static int cam_ife_hw_mgr_acquire_res_stream_grp(
 				} else {
 					/*acquire csid resources*/
 					rc = cam_ife_hw_mgr_acquire_csid_res_stream_grp(ife_ctx,
-						in_port, crop_enable, i);
+						in_port, crop_enable, acquired_hw_path, i);
 					if (rc) {
 						CAM_ERR(CAM_ISP,
 							"Cannot acquire csid resources for sensor:0x%x ife-ctx:%d",
