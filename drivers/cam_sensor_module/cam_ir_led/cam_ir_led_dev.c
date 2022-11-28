@@ -371,7 +371,10 @@ static int32_t cam_i2c_ir_led_on(
 		return ret;
 	}
 
-	ret = cam_ir_cut_on(ictrl);
+
+	if (ictrl->ir_led_state != CAM_IR_LED_STATE_ON) {
+		ret = cam_ir_cut_on(ictrl);
+	}
 
 	return ret;
 }
