@@ -64,7 +64,7 @@ static void cam_jpeg_dev_iommu_fault_handler(
 			CAM_INFO(CAM_JPEG, "pf on NSP JPEG core %d", nsp_jpeg_core_id);
 			cam_soc_util_reg_dump(enc_soc_info, 0, 0, enc_soc_info->reg_map[0].size/4);
 			cam_rpmsg_send_cpu2dsp_error(CAM_JPEG_DSP_PF_ERROR,
-				nsp_jpeg_core_id, pf_info->iova);
+				nsp_jpeg_core_id, &pf_info->iova);
 			nsp_jpeg_core_id = -1;
 		}
 	}
@@ -130,7 +130,7 @@ static int cam_jpeg_subdev_close_internal(struct v4l2_subdev *sd,
 	if (g_jpeg_dev.open_cnt == 0) {
 		cam_node_shutdown(node);
 		if (jpeg_hw_mgr->num_nsp_enc)
-			cam_rpmsg_send_cpu2dsp_error(CAM_JPEG_DSP_PC_ERROR, 0, 0);
+			cam_rpmsg_send_cpu2dsp_error(CAM_JPEG_DSP_PC_ERROR, 0, NULL);
 	}
 end:
 	mutex_unlock(&g_jpeg_dev.jpeg_mutex);
