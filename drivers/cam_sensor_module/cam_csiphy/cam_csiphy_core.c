@@ -2438,6 +2438,14 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 		break;
 	}
+	case CAM_FLUSH_REQ: {
+		CAM_DBG(CAM_CSIPHY,
+				"Invalid flush request. Nothing to flush for CSIPHY: %d, Type: %s, combo: %u",
+				soc_info->index,
+				g_phy_data[soc_info->index].is_3phase ? "CPHY" : "DPHY",
+				csiphy_dev->combo_mode);
+		break;
+	}
 	default:
 		CAM_ERR(CAM_CSIPHY, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;
