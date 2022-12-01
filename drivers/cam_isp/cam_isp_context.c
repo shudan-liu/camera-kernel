@@ -4803,7 +4803,7 @@ static int cam_isp_ctx_flush_all_affected_ctx_stream_grp(
 	int                               stream_grp_cfg_index;
 	struct cam_isp_hw_active_hw_ctx   active_hw_ctx;
 	int active_hw_ctx_cnt;
-	int i;
+	int i = 0, stream_index = 0;
 
 	hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
 	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
@@ -4819,20 +4819,21 @@ static int cam_isp_ctx_flush_all_affected_ctx_stream_grp(
 	CAM_DBG(CAM_ISP, "active hw context count :%d stream_grp_cfg_index :%u",
 		active_hw_ctx_cnt, stream_grp_cfg_index);
 
-	active_hw_ctx.stream_grp_cfg_index = stream_grp_cfg_index;
-	active_hw_ctx.index = 0;
-
-	hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
-	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
-	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_GET_HW_CTX;
-	isp_hw_cmd_args.cmd_data = &active_hw_ctx;
-
 	for (i = 0; i < active_hw_ctx_cnt; i++) {
+		active_hw_ctx.stream_grp_cfg_index = stream_grp_cfg_index;
+		active_hw_ctx.index = stream_index;
+
+		hw_cmd_args.ctxt_to_hw_map = ctx->ctxt_to_hw_map;
+		hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+		isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_GET_HW_CTX;
+		isp_hw_cmd_args.cmd_data = &active_hw_ctx;
 		hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+
 		ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
 			&hw_cmd_args);
 
 		active_ctx = (struct cam_context *)isp_hw_cmd_args.u.ptr;
+		stream_index = active_hw_ctx.index;
 
 		if (active_ctx->ctx_id == ctx->ctx_id)
 			continue;
