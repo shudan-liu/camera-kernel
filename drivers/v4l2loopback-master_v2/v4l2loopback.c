@@ -36,7 +36,6 @@
 #include <linux/dma-buf.h>
 #include <linux/ion.h>
 #include <linux/msm_ion.h>
-#include <linux/delay.h>
 
 #include <media/ais_v4l2loopback.h>
 #include <media/cam_defs.h>
@@ -367,7 +366,6 @@ struct v4l2_streamdata {
 	int used_buffers; /* number of the actually used buffers */
 	unsigned int use_buf_width;
 	u8 is_streaming;
-	u8 is_queueing;
 
 	struct list_head outbufs_list; /* buffers in output DQBUF order */
 	struct list_head capbufs_list; /* buffers in capture DQBUF order */
@@ -1657,24 +1655,31 @@ static int vidioc_qbuf(struct file *file,
 	dev = v4l2loopback_getdevice(file);
 	if (!dev) {
 		CAM_ERR(CAM_V4L2, "dev is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		return rc;
 	}
 
+	mutex_lock(&dev->dev_mutex);
+
 	opener = fh_to_opener(private_data);
-	if (!opener) {
-		CAM_ERR(CAM_V4L2, "opener is null");
-		return -EINVAL;
+	if (!opener || !opener->connected_opener) {
+		CAM_ERR(CAM_V4L2, "opener is null, type: %d", buf->type);
+		rc = -EINVAL;
+		goto end;
 	}
 
 	data = opener->data;
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 
-	if (buf->index > max_buffers)
-		return -EINVAL;
+	if (buf->index > max_buffers) {
+		rc = -EINVAL;
+		goto end;
+	}
 
 	index = buf->index % data->used_buffers;
 	b = &data->buffers[index];
@@ -1682,7 +1687,6 @@ static int vidioc_qbuf(struct file *file,
 	switch (buf->type) {
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE:
 		CAM_DBG(CAM_V4L2, "[dev %s] capture QBUF index: %d", dev->vdev->name, index);
-		data->is_queueing = 1;
 		rc = set_bufstate(data, b, V4L2L_BUF_READY_Q);
 		if (rc < 0)
 			CAM_ERR(CAM_V4L2, "[dev %s] capture QBUF index: %d fail",
@@ -1699,8 +1703,7 @@ static int vidioc_qbuf(struct file *file,
 					AIS_V4L2_OUTPUT_BUF_READY);
 			}
 		}
-		data->is_queueing = 0;
-		return rc;
+		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT: {
 		__u64 payload = 0;
 
@@ -1734,12 +1737,16 @@ static int vidioc_qbuf(struct file *file,
 
 			wake_up_all(&data->read_event);
 		}
-		return rc;
+		break;
 	}
 	default:
 		CAM_ERR(CAM_V4L2, "unsupported buf type %d", buf->type);
-		return -EINVAL;
+		rc = -EINVAL;
+		break;
 	}
+end:
+	mutex_unlock(&dev->dev_mutex);
+	return rc;
 }
 
 /* put buffer to dequeue
@@ -2661,7 +2668,6 @@ static int v4l2_loopback_open(struct file *file)
 			opener->connected_opener = connected_opener;
 			connected_opener->connected_opener = opener;
 			opener->data = connected_opener->data;
-			opener->data->is_queueing = 0;
 
 			CAM_INFO(CAM_V4L2, "capture opener %p, proxy opener %p, data %p",
 				opener, connected_opener, data);
@@ -2731,10 +2737,8 @@ static int v4l2_loopback_close(struct file *file)
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
 		mutex_lock(&dev->dev_mutex);
-		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when app close", dev->open_count.counter);
+		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when app closed", dev->open_count.counter);
 		if (dev->state >= V4L2L_READY_FOR_CAPTURE) {
-			if (data->is_streaming == 1)
-				data->is_streaming = 0;
 			if (opener->connected_opener) {
 				opener->connected_opener->connected_opener = NULL;
 				send_v4l2_event(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
@@ -2754,11 +2758,6 @@ static int v4l2_loopback_close(struct file *file)
 					dev->vdev->name, rc);
 				}
 
-				while (data->is_queueing != 0 && cnt > 0) {
-					usleep_range(1000, 1500);
-					cnt--;
-				}
-
 				atomic_dec(&dev->open_count);
 				if (dev->open_count.counter < max_openers)
 					dev->state = V4L2L_READY_FOR_CAPTURE;
@@ -2767,6 +2766,7 @@ static int v4l2_loopback_close(struct file *file)
 				free_stream_data(opener->data);
 				opener->data = NULL;
 			}
+			opener->connected_opener = NULL;
 		} else {
 			CAM_WARN(CAM_V4L2, "invalid close state %d", dev->state);
 		}
