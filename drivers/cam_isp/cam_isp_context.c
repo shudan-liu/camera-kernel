@@ -5826,18 +5826,16 @@ static struct cam_ctx_ops
 static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	struct cam_flush_dev_cmd *cmd)
 {
+	int rc = 0;
 	struct cam_isp_context *ctx_isp = ctx->ctx_priv;
 	struct cam_req_mgr_flush_request flush_req;
 
-	if (!ctx_isp->offline_context && !ctx_isp->independent_crm_en) {
+	if (!(ctx_isp->offline_context || ctx_isp->independent_crm_en)) {
 		CAM_ERR(CAM_ISP,
 			"flush dev only supported in offline ctx or no CRM mode ctx:%d",
 			ctx->ctx_id);
 		return -EINVAL;
 	}
-
-	if (ctx_isp->independent_crm_en)
-		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
 
 	flush_req.type = (cmd->flush_type == CAM_FLUSH_TYPE_ALL) ? CAM_REQ_MGR_FLUSH_TYPE_ALL :
 			CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ;
@@ -5848,16 +5846,22 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	switch (ctx->state) {
 	case CAM_CTX_ACQUIRED:
 	case CAM_CTX_ACTIVATED:
-		return __cam_isp_ctx_flush_req_in_top_state(ctx, &flush_req);
+		rc = __cam_isp_ctx_flush_req_in_top_state(ctx, &flush_req);
+		break;
 	case CAM_CTX_READY:
-		return __cam_isp_ctx_flush_req_in_ready(ctx, &flush_req);
+		rc = __cam_isp_ctx_flush_req_in_ready(ctx, &flush_req);
+		break;
 	default:
 		CAM_ERR(CAM_ISP, "flush dev in wrong state: %d ctx:%d", ctx->state, ctx->ctx_id);
-		return -EINVAL;
+		rc = -EINVAL;
 	}
 
-	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
+	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL && ctx_isp->workq)
 		cam_req_mgr_workq_flush(ctx_isp->workq);
+
+	if (ctx_isp->independent_crm_en)
+		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
+	return rc;
 }
 
 static void __cam_isp_ctx_free_mem_hw_entries(struct cam_context *ctx)
