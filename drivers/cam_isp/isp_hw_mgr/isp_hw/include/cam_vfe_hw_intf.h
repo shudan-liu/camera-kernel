@@ -151,6 +151,8 @@ struct cam_vfe_hw_vfe_bus_rd_acquire_args {
  * @cdm_ops:                 CDM operations
  * @disable_ubwc_comp:       Disable UBWC compression
  * @use_wm_pack:             Use WM Packing
+ * @disable_line_based_mode: Disable line based mode for rdi ports for
+ *                           per port feature with duplicate sensors
  * @vfe_res_out_id:          Vfe out resource id used in case of per_port feature
  *                           to acquire all supported out resources
  */
@@ -165,6 +167,7 @@ struct cam_vfe_hw_vfe_out_acquire_args {
 	struct cam_cdm_utils_ops             *cdm_ops;
 	bool                                  disable_ubwc_comp;
 	bool                                  use_wm_pack;
+	bool                                  disable_line_based_mode;
 	uint32_t                              vfe_res_out_id;
 };
 
@@ -230,15 +233,17 @@ struct cam_vfe_acquire_args {
 
 /**
  * struct cam_vfe_resource_update
- * @priv:                  Context data
- * @res:                   HW resource to get the update from
- * @vfe_acquire:           VFE acquire parameters
+ * @priv:                    Context data
+ * @res:                     HW resource to get the update from
+ * @vfe_acquire:             VFE acquire parameters
+ * @disable_line_based_mode: Enable/disable line based mode
  *
  */
 struct cam_vfe_resource_update {
 	void                                *priv;
 	struct cam_isp_hw_mgr_res           *res;
 	struct cam_vfe_acquire_args         *vfe_acquire;
+	bool                                 disable_line_based_mode;
 };
 
 /**

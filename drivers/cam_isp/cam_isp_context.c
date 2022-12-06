@@ -5830,12 +5830,15 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	struct cam_isp_context *ctx_isp = ctx->ctx_priv;
 	struct cam_req_mgr_flush_request flush_req;
 
-	if (!ctx_isp->offline_context || !ctx_isp->independent_crm_en) {
+	if (!ctx_isp->offline_context && !ctx_isp->independent_crm_en) {
 		CAM_ERR(CAM_ISP,
 			"flush dev only supported in offline ctx or no CRM mode ctx:%d",
 			ctx->ctx_id);
 		return -EINVAL;
 	}
+
+	if (ctx_isp->independent_crm_en)
+		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
 
 	flush_req.type = (cmd->flush_type == CAM_FLUSH_TYPE_ALL) ? CAM_REQ_MGR_FLUSH_TYPE_ALL :
 			CAM_REQ_MGR_FLUSH_TYPE_CANCEL_REQ;
@@ -5856,9 +5859,6 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 
 	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL)
 		cam_req_mgr_workq_flush(ctx_isp->workq);
-
-	if (ctx_isp->independent_crm_en)
-		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
 }
 
 static void __cam_isp_ctx_free_mem_hw_entries(struct cam_context *ctx)

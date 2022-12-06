@@ -1552,14 +1552,14 @@ static int cam_ife_csid_ver2_ipp_bottom_half(
 	res   =  handler_priv;
 	hw_info = (struct cam_hw_info *)res->hw_intf->hw_priv;
 	csid_hw = (struct cam_ife_csid_ver2_hw *)hw_info->core_info;
-	csid_reg = csid_hw->core_info->csid_reg;
-	path_cfg = (struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
 
 	if (!csid_hw) {
 		CAM_ERR(CAM_ISP, "null csid_hw");
-		rc = -EINVAL;
-		goto end;
+		return -EINVAL;
 	}
+
+	csid_reg = csid_hw->core_info->csid_reg;
+	path_cfg = (struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
 
 	if (!path_cfg || (path_cfg->irq_reg_idx >= CAM_IFE_CSID_IRQ_REG_MAX)) {
 		CAM_ERR(CAM_ISP, "Invalid params: path_cfg: %pK, irq_reg_idx: %d",

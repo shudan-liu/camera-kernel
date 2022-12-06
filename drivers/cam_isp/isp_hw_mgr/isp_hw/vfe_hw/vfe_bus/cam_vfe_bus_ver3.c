@@ -1000,6 +1000,10 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 			}
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->height /= 2;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1039,6 +1043,14 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->stride = ALIGNUP(rsrc_data->width * 2, 8);
+				rsrc_data->en_cfg = 0x1;
+				/* LSB aligned */
+				rsrc_data->pack_fmt |= (1 <<
+					ver3_bus_priv->common_data.pack_align_shift);
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1061,6 +1073,11 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 				ver3_bus_priv->common_data.pack_align_shift);
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->stride = ALIGNUP(rsrc_data->width * 2, 8);
+				rsrc_data->en_cfg = 0x1;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1084,6 +1101,13 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->width = 0;
+				rsrc_data->height = 0;
+				rsrc_data->stride = 1;
+				rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1096,6 +1120,11 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 			rsrc_data->en_cfg = 0x1;
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->stride = ALIGNUP(rsrc_data->width * 2, 8);
+				rsrc_data->en_cfg = 0x1;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1108,6 +1137,11 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 			rsrc_data->en_cfg = 0x1;
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->stride = ALIGNUP(rsrc_data->width * 4, 16);
+				rsrc_data->en_cfg = 0x1;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1137,6 +1171,13 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->width = 0;
+				rsrc_data->height = 0;
+				rsrc_data->stride = 1;
+				rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1151,6 +1192,13 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->width = 0;
+				rsrc_data->height = 0;
+				rsrc_data->stride = 1;
+				rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1167,6 +1215,14 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 
 			break;
 		default:
+			if (wm_res->is_per_port_acquire) {
+				rsrc_data->stride = ALIGNUP(rsrc_data->width * 2, 8);
+				rsrc_data->en_cfg = 0x1;
+				/* LSB aligned */
+				rsrc_data->pack_fmt |= (1 <<
+					ver3_bus_priv->common_data.pack_align_shift);
+				break;
+			}
 			CAM_ERR(CAM_ISP, "Invalid format %d out_type:%d",
 				rsrc_data->format, vfe_out_res_id);
 			return -EINVAL;
@@ -1234,8 +1290,12 @@ static int cam_vfe_bus_ver3_acquire_wm(
 
 	/* Set WM offset value to default */
 	rsrc_data->offset  = 0;
-	CAM_DBG(CAM_ISP, "WM:%d width %d height %d", rsrc_data->index,
-		rsrc_data->width, rsrc_data->height);
+	CAM_DBG(CAM_ISP, "WM:%d width %d height %d per_port_en %d",
+		rsrc_data->index, rsrc_data->width,
+		rsrc_data->height, is_per_port_acquire);
+
+	if (is_per_port_acquire)
+		wm_res->is_per_port_acquire = true;
 
 	rc = cam_vfe_bus_ver3_res_update_config_wm(ver3_bus_priv, vfe_out_res_id,
 		plane, wm_res, comp_grp_id, wm_mode, sizeof(wm_mode));
@@ -1243,8 +1303,6 @@ static int cam_vfe_bus_ver3_acquire_wm(
 		return rc;
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
-	if (is_per_port_acquire)
-		wm_res->is_per_port_acquire = true;
 	wm_res->workq_info = workq;
 
 	CAM_DBG(CAM_ISP,
@@ -1569,11 +1627,13 @@ static int cam_vfe_bus_ver3_acquire_comp_grp(
 		}
 	}
 
-	CAM_DBG(CAM_ISP, "Acquire VFE:%d comp_grp:%u",
-		rsrc_data->common_data->core_index, rsrc_data->comp_grp_type);
-
 	if (is_per_port_acquire)
 		comp_grp_local->is_per_port_acquire = true;
+
+	CAM_DBG(CAM_ISP, "Acquire VFE:%d comp_grp:%u is_per_port_acquire :%d",
+		rsrc_data->common_data->core_index,
+		rsrc_data->comp_grp_type, comp_grp_local->is_per_port_acquire);
+
 	rsrc_data->acquire_dev_cnt++;
 	rsrc_data->composite_mask |= comp_acq_args->composite_mask;
 	*comp_grp = comp_grp_local;
@@ -4087,8 +4147,17 @@ static int cam_vfe_bus_ver3_update_res_wm(
 
 	memset(wm_mode, '\0', sizeof(wm_mode));
 
+	wm_res->is_per_port_acquire = false;
 	rsrc_data = wm_res->res_priv;
 	wm_idx = rsrc_data->index;
+
+	if ((vfe_out_res_id >= CAM_VFE_BUS_VER3_VFE_OUT_RDI0) &&
+		(vfe_out_res_id <= CAM_VFE_BUS_VER3_VFE_OUT_RDI3)) {
+		if (out_acq_args->disable_line_based_mode)
+			rsrc_data->default_line_based =
+				!(out_acq_args->disable_line_based_mode);
+	}
+
 	rsrc_data->format = out_acq_args->out_port_info->format;
 	rsrc_data->use_wm_pack = out_acq_args->use_wm_pack;
 	rsrc_data->pack_fmt = cam_vfe_bus_ver3_get_packer_fmt(rsrc_data->format,
@@ -4104,8 +4173,10 @@ static int cam_vfe_bus_ver3_update_res_wm(
 
 	/* Set WM offset value to default */
 	rsrc_data->offset  = 0;
-	CAM_DBG(CAM_ISP, "WM:%d width %d height %d", rsrc_data->index,
-		rsrc_data->width, rsrc_data->height);
+	CAM_DBG(CAM_ISP, "WM:%d width %d height %d is_per_port:%d default_line_based:%d",
+		rsrc_data->index, rsrc_data->width,
+		rsrc_data->height, wm_res->is_per_port_acquire,
+		rsrc_data->default_line_based);
 
 	rc = cam_vfe_bus_ver3_res_update_config_wm(ver3_bus_priv, vfe_out_res_id,
 		plane, wm_res, comp_grp_id, wm_mode, sizeof(wm_mode));
@@ -4113,8 +4184,6 @@ static int cam_vfe_bus_ver3_update_res_wm(
 		return rc;
 
 	wm_res->workq_info = workq;
-	wm_res->is_per_port_acquire = false;
-
 	CAM_DBG(CAM_ISP,
 		"VFE:%d WM:%d %s processed width:%d height:%d stride:%d format:0x%X en_ubwc:%d %s",
 		rsrc_data->common_data->core_index, rsrc_data->index,
@@ -4132,7 +4201,6 @@ static int cam_vfe_bus_ver3_update_res_comp_grp(
 	struct cam_isp_resource_node       **comp_grp,
 	struct cam_vfe_bus_ver3_comp_grp_acquire_args *comp_acq_args)
 {
-	int rc = 0;
 	struct cam_isp_resource_node           *comp_grp_local = NULL;
 	struct cam_vfe_bus_ver3_comp_grp_data  *rsrc_data = NULL;
 	bool previously_acquired = false;
@@ -4141,46 +4209,14 @@ static int cam_vfe_bus_ver3_update_res_comp_grp(
 	previously_acquired = cam_vfe_bus_ver3_match_comp_grp(
 		ver3_bus_priv, &comp_grp_local, comp_acq_args->comp_grp_id);
 
-	if (!comp_grp_local) {
+	if (!comp_grp_local || !previously_acquired) {
 		CAM_ERR(CAM_ISP, "Invalid comp_grp:%d",
 			comp_acq_args->comp_grp_id);
 		return -ENODEV;
 	}
 
 	rsrc_data = comp_grp_local->res_priv;
-
-	if (!previously_acquired) {
-		rsrc_data->intra_client_mask = 0x1;
-		comp_grp_local->workq_info = workq;
-		if (comp_grp_local->is_per_port_acquire != true) {
-			CAM_ERR(CAM_ISP,
-				"comp_grp:%u, state:%d, Comp group update resource failed",
-				rsrc_data->comp_grp_type,
-				comp_grp_local->res_state);
-			return -EALREADY;
-		}
-
-		rsrc_data->is_master = is_master;
-		rsrc_data->is_dual = is_dual;
-
-		if (is_master)
-			rsrc_data->addr_sync_mode = 0;
-		else
-			rsrc_data->addr_sync_mode = 1;
-
-	} else {
-		rsrc_data = comp_grp_local->res_priv;
-		/* Do not support runtime change in composite mask */
-		if ((comp_grp_local->res_state ==
-			CAM_ISP_RESOURCE_STATE_STREAMING) &&
-			!comp_grp_local->is_per_port_acquire) {
-			CAM_ERR(CAM_ISP, "Invalid State %d comp_grp:%u",
-				comp_grp_local->res_state,
-				rsrc_data->comp_grp_type);
-			return -EBUSY;
-		}
-	}
-
+	/* Do not support runtime change in composite mask */
 	CAM_DBG(CAM_ISP, "Update res VFE:%d comp_grp:%u",
 		rsrc_data->common_data->core_index, rsrc_data->comp_grp_type);
 
@@ -4189,7 +4225,7 @@ static int cam_vfe_bus_ver3_update_res_comp_grp(
 	*comp_grp = comp_grp_local;
 	comp_grp_local->is_per_port_acquire = false;
 
-	return rc;
+	return 0;
 }
 
 static int cam_vfe_bus_ver3_update_res_vfe_out(void *bus_priv, void *acquire_args,
@@ -4218,6 +4254,7 @@ static int cam_vfe_bus_ver3_update_res_vfe_out(void *bus_priv, void *acquire_arg
 	acq_args = res_update_args->vfe_acquire;
 
 	out_acquire_args = &acq_args->vfe_out;
+	out_acquire_args->disable_line_based_mode = res_update_args->disable_line_based_mode;
 	format = out_acquire_args->out_port_info->format;
 
 	CAM_DBG(CAM_ISP, "VFE:%d Acquire out_type:0x%X",
