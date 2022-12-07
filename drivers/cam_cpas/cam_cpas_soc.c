@@ -71,7 +71,7 @@ void cam_cpas_util_debug_parse_data(
 		CAM_INFO(CAM_CPAS,
 			"NODE cell_idx: %d, level: %d, name: %s, axi_port_idx: %d, merge_type: %d, parent_name: %s camnoc_max_needed: %d",
 			curr_node->cell_idx, curr_node->level_idx,
-			curr_node->node_name, curr_node->axi_port_idx,
+			curr_node->node_name, curr_node->axi_port_idx_arr[CAM_CPAS_PORT_AXI_PORT],
 			curr_node->merge_type, curr_node->parent_node ?
 			curr_node->parent_node->node_name : "no parent",
 			curr_node->camnoc_max_needed);
@@ -100,6 +100,8 @@ int cam_cpas_node_tree_cleanup(struct cam_cpas *cpas_core,
 
 	for (i = 0; i < CAM_CPAS_MAX_TREE_NODES; i++) {
 		if (soc_private->tree_node[i]) {
+			kfree(soc_private->tree_node[i]->axi_port_idx_arr);
+			soc_private->tree_node[i]->axi_port_idx_arr = NULL;
 			of_node_put(soc_private->tree_node[i]->tree_dev_node);
 			kfree(soc_private->tree_node[i]);
 			soc_private->tree_node[i] = NULL;
@@ -182,6 +184,134 @@ static int cam_cpas_update_camnoc_node(struct cam_cpas *cpas_core,
 	return 0;
 }
 
+static int cam_cpas_parse_mnoc_node(struct cam_cpas *cpas_core,
+	struct cam_cpas_private_soc *soc_private, struct cam_cpas_tree_node *curr_node_ptr,
+	struct device_node *mnoc_node, int *mnoc_idx)
+{
+	int rc = 0, count = 0, i;
+	bool ib_voting_needed = false, is_rt_port = false;
+	struct of_phandle_args src_args = {0}, dst_args = {0};
+
+	ib_voting_needed = of_property_read_bool(curr_node_ptr->tree_dev_node,
+		"ib-bw-voting-needed");
+	is_rt_port = of_property_read_bool(curr_node_ptr->tree_dev_node, "rt-axi-port");
+
+	if (soc_private->bus_icc_based) {
+		count = of_property_count_strings(mnoc_node, "interconnect-names");
+		if (count <= 0) {
+			CAM_ERR(CAM_CPAS, "no interconnect-names found");
+			count = 0;
+			return -EINVAL;
+		} else if (count > CAM_CPAS_MAX_VIRT_PORTS) {
+			CAM_ERR(CAM_CPAS, "Number of interconnects %d greater than max ports %d",
+				count, CAM_CPAS_MAX_VIRT_PORTS);
+			count = 0;
+			return -EINVAL;
+		}
+
+		for (i = 0; i < count; i++) {
+			if ((i > 0) && !soc_private->rt_bw_voting_needed)
+				break;
+
+			if (*mnoc_idx >= CAM_CPAS_MAX_AXI_PORTS) {
+				CAM_ERR(CAM_CPAS, "Invalid mnoc index: %d", *mnoc_idx);
+				return -EINVAL;
+			}
+
+			cpas_core->axi_port[*mnoc_idx].axi_port_node = mnoc_node;
+			rc = of_property_read_string_index(mnoc_node, "interconnect-names", i,
+				&cpas_core->axi_port[*mnoc_idx].bus_client.common_data.name);
+			if (rc) {
+				CAM_ERR(CAM_CPAS, "failed to read interconnect-names rc=%d", rc);
+				return rc;
+			}
+
+			rc = of_parse_phandle_with_args(mnoc_node, "interconnects",
+				"#interconnect-cells", (2 * i), &src_args);
+			if (rc) {
+				CAM_ERR(CAM_CPAS,
+					"failed to read axi bus src info rc=%d",
+					rc);
+				return -EINVAL;
+			}
+
+			of_node_put(src_args.np);
+			if (src_args.args_count != 1) {
+				CAM_ERR(CAM_CPAS, "Invalid number of axi src args: %d",
+					src_args.args_count);
+				return -EINVAL;
+			}
+
+			cpas_core->axi_port[*mnoc_idx].bus_client.common_data.src_id =
+				src_args.args[0];
+
+			rc = of_parse_phandle_with_args(mnoc_node, "interconnects",
+				"#interconnect-cells", ((2 * i) + 1), &dst_args);
+			if (rc) {
+				CAM_ERR(CAM_CPAS, "failed to read axi bus dst info rc=%d", rc);
+				return -EINVAL;
+			}
+
+			of_node_put(dst_args.np);
+			if (dst_args.args_count != 1) {
+				CAM_ERR(CAM_CPAS, "Invalid number of axi dst args: %d",
+					dst_args.args_count);
+				return -EINVAL;
+			}
+
+			cpas_core->axi_port[*mnoc_idx].bus_client.common_data.dst_id =
+				dst_args.args[0];
+			cpas_core->axi_port[*mnoc_idx].bus_client.common_data.num_usecases = 2;
+			cpas_core->axi_port[*mnoc_idx].axi_port_name =
+				cpas_core->axi_port[*mnoc_idx].bus_client.common_data.name;
+
+			if (i > CAM_CPAS_PORT_AXI_PORT) {
+				cpas_core->axi_port[*mnoc_idx].bus_client.common_data.is_virt_port =
+					true;
+			}
+
+			/*
+			 * The indexes of axi_port_idx_arr map to drv_voting_idx,
+			 * with 0 pointing to hlos drv bus ID
+			 */
+			curr_node_ptr->axi_port_idx_arr[i] = *mnoc_idx;
+			cpas_core->axi_port[*mnoc_idx].ib_bw_voting_needed = ib_voting_needed;
+			cpas_core->axi_port[*mnoc_idx].is_rt = is_rt_port;
+			CAM_DBG(CAM_PERF, "Adding Bus Client=[%s] : src=%d, dst=%d mnoc_idx:%d",
+				cpas_core->axi_port[*mnoc_idx].bus_client.common_data.name,
+				cpas_core->axi_port[*mnoc_idx].bus_client.common_data.src_id,
+				cpas_core->axi_port[*mnoc_idx].bus_client.common_data.dst_id,
+				*mnoc_idx);
+			(*mnoc_idx)++;
+			cpas_core->num_axi_ports++;
+		}
+	} else {
+		if (soc_private->rt_bw_voting_needed) {
+			CAM_ERR(CAM_CPAS, "VIRT port not supported for old bus scaling clients");
+			return -EPERM;
+		}
+
+		cpas_core->axi_port[*mnoc_idx].axi_port_node = mnoc_node;
+		rc =  of_property_read_string(curr_node_ptr->tree_dev_node, "qcom,axi-port-name",
+			&cpas_core->axi_port[*mnoc_idx].bus_client.common_data.name);
+		if (rc) {
+			CAM_ERR(CAM_CPAS,
+				"failed to read mnoc-port-name rc=%d",
+				rc);
+			return rc;
+		}
+
+		cpas_core->axi_port[*mnoc_idx].axi_port_name =
+			cpas_core->axi_port[*mnoc_idx].bus_client.common_data.name;
+		curr_node_ptr->axi_port_idx_arr[0] = *mnoc_idx;
+		cpas_core->axi_port[*mnoc_idx].ib_bw_voting_needed = ib_voting_needed;
+		cpas_core->axi_port[*mnoc_idx].is_rt = is_rt_port;
+		(*mnoc_idx)++;
+		cpas_core->num_axi_ports++;
+	}
+	return 0;
+}
+
 static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 	struct device_node *of_node, struct cam_cpas_private_soc *soc_private)
 {
@@ -198,7 +328,7 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 	const char *client_name = NULL;
 	uint32_t client_idx = 0, cell_idx = 0;
 	uint8_t niu_idx = 0;
-	int rc = 0, count = 0, i;
+	int rc = 0, count = 0, i, j, num_virt_ports;
 
 	camera_bus_node = of_get_child_by_name(of_node, "camera-bus-nodes");
 	if (!camera_bus_node) {
@@ -225,6 +355,11 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 
 	if (soc_private->enable_smart_qos)
 		soc_private->smart_qos_info->num_rt_wr_nius = 0;
+
+	if (soc_private->rt_bw_voting_needed)
+		num_virt_ports = CAM_CPAS_MAX_VIRT_PORTS;
+	else
+		num_virt_ports = 1;
 
 	for (level_idx = (CAM_CPAS_MAX_TREE_LEVELS - 1); level_idx >= 0;
 		level_idx--) {
@@ -272,6 +407,13 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 					"failed to read node-name rc=%d",
 					rc);
 				return rc;
+			}
+
+			curr_node_ptr->axi_port_idx_arr = kzalloc((sizeof(int) * num_virt_ports),
+				GFP_KERNEL);
+			if (!curr_node_ptr->axi_port_idx_arr) {
+				CAM_ERR(CAM_CPAS, "Failed in allocating memory for port indices");
+				return -ENOMEM;
 			}
 
 			if (soc_private->enable_smart_qos &&
@@ -325,7 +467,9 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 				"traffic-merge-type",
 				&curr_node_ptr->merge_type);
 
-			curr_node_ptr->axi_port_idx = -1;
+			for (j = 0; j < num_virt_ports; j++)
+				curr_node_ptr->axi_port_idx_arr[j] = -1;
+
 			mnoc_node = of_get_child_by_name(curr_node,
 				"qcom,axi-port-mnoc");
 			if (mnoc_node) {
@@ -336,95 +480,13 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 					return -EINVAL;
 				}
 
-				cpas_core->axi_port[mnoc_idx].axi_port_node
-					= mnoc_node;
-				if (soc_private->bus_icc_based) {
-					struct of_phandle_args src_args = {0},
-						dst_args = {0};
-
-					rc = of_property_read_string(mnoc_node,
-						"interconnect-names",
-						&cpas_core->axi_port[mnoc_idx]
-						.bus_client.common_data.name);
-					if (rc) {
-						CAM_ERR(CAM_CPAS,
-							"failed to read interconnect-names rc=%d",
-							rc);
-						return rc;
-					}
-
-					rc = of_parse_phandle_with_args(
-						mnoc_node, "interconnects",
-						"#interconnect-cells", 0,
-						&src_args);
-					if (rc) {
-						CAM_ERR(CAM_CPAS,
-							"failed to read axi bus src info rc=%d",
-							rc);
-						return -EINVAL;
-					}
-
-					of_node_put(src_args.np);
-					if (src_args.args_count != 1) {
-						CAM_ERR(CAM_CPAS,
-							"Invalid number of axi src args: %d",
-							src_args.args_count);
-						return -EINVAL;
-					}
-
-					cpas_core->axi_port[mnoc_idx].bus_client
-					.common_data.src_id = src_args.args[0];
-
-					rc = of_parse_phandle_with_args(
-						mnoc_node, "interconnects",
-						"#interconnect-cells", 1,
-						&dst_args);
-					if (rc) {
-						CAM_ERR(CAM_CPAS,
-							"failed to read axi bus dst info rc=%d",
-							rc);
-						return -EINVAL;
-					}
-
-					of_node_put(dst_args.np);
-					if (dst_args.args_count != 1) {
-						CAM_ERR(CAM_CPAS,
-							"Invalid number of axi dst args: %d",
-							dst_args.args_count);
-						return -EINVAL;
-					}
-
-					cpas_core->axi_port[mnoc_idx].bus_client
-					.common_data.dst_id = dst_args.args[0];
-					cpas_core->axi_port[mnoc_idx].bus_client
-						.common_data.num_usecases = 2;
-				} else {
-					rc =  of_property_read_string(
-						curr_node, "qcom,axi-port-name",
-						&cpas_core->axi_port[mnoc_idx]
-						.bus_client.common_data.name);
-					if (rc) {
-						CAM_ERR(CAM_CPAS,
-							"failed to read mnoc-port-name rc=%d",
-							rc);
-						return rc;
-					}
+				rc = cam_cpas_parse_mnoc_node(cpas_core, soc_private, curr_node_ptr,
+					mnoc_node, &mnoc_idx);
+				if (rc) {
+					CAM_ERR(CAM_CPAS, "failed to parse mnoc node info rc=%d",
+						rc);
+					return rc;
 				}
-
-				cpas_core->axi_port[mnoc_idx].axi_port_name =
-					cpas_core->axi_port[mnoc_idx]
-						.bus_client.common_data.name;
-				cpas_core->axi_port
-					[mnoc_idx].ib_bw_voting_needed
-					= of_property_read_bool(curr_node,
-					"ib-bw-voting-needed");
-				cpas_core->axi_port
-					[mnoc_idx].is_rt
-					= of_property_read_bool(curr_node,
-					"rt-axi-port");
-				curr_node_ptr->axi_port_idx = mnoc_idx;
-				mnoc_idx++;
-				cpas_core->num_axi_ports++;
 			}
 
 			if (!soc_private->control_camnoc_axi_clk) {
