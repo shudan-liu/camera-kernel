@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -41,6 +42,7 @@ int cam_jpeg_dma_init_hw(void *device_priv,
 	struct cam_jpeg_dma_device_core_info *core_info = NULL;
 	struct cam_ahb_vote ahb_vote;
 	struct cam_axi_vote axi_vote = {0};
+	uint64_t jpeg_vote;
 	int rc;
 
 	if (!device_priv) {
@@ -64,20 +66,24 @@ int cam_jpeg_dma_init_hw(void *device_priv,
 		return 0;
 	}
 
+	if (core_info->is_nsp_controlled)
+		jpeg_vote = NSP_JPEG_VOTE;
+	else
+		jpeg_vote = JPEG_VOTE;
+
 	ahb_vote.type = CAM_VOTE_ABSOLUTE;
 	ahb_vote.vote.level = CAM_LOWSVS_VOTE;
 	axi_vote.num_paths = 2;
 	axi_vote.axi_path[0].path_data_type = CAM_AXI_PATH_DATA_ALL;
 	axi_vote.axi_path[0].transac_type = CAM_AXI_TRANSACTION_READ;
-	axi_vote.axi_path[0].camnoc_bw = JPEG_VOTE;
-	axi_vote.axi_path[0].mnoc_ab_bw = JPEG_VOTE;
-	axi_vote.axi_path[0].mnoc_ib_bw = JPEG_VOTE;
+	axi_vote.axi_path[0].camnoc_bw = jpeg_vote;
+	axi_vote.axi_path[0].mnoc_ab_bw = jpeg_vote;
+	axi_vote.axi_path[0].mnoc_ib_bw = jpeg_vote;
 	axi_vote.axi_path[1].path_data_type = CAM_AXI_PATH_DATA_ALL;
 	axi_vote.axi_path[1].transac_type = CAM_AXI_TRANSACTION_WRITE;
-	axi_vote.axi_path[1].camnoc_bw = JPEG_VOTE;
-	axi_vote.axi_path[1].mnoc_ab_bw = JPEG_VOTE;
-	axi_vote.axi_path[1].mnoc_ib_bw = JPEG_VOTE;
-
+	axi_vote.axi_path[1].camnoc_bw = jpeg_vote;
+	axi_vote.axi_path[1].mnoc_ab_bw = jpeg_vote;
+	axi_vote.axi_path[1].mnoc_ib_bw = jpeg_vote;
 
 	rc = cam_cpas_start(core_info->cpas_handle,
 		&ahb_vote, &axi_vote);
