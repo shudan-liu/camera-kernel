@@ -16348,8 +16348,6 @@ static int cam_ife_hw_mgr_util_csid_error(
 	err_evt_info = (struct cam_isp_hw_error_event_info *)event_info->event_data;
 	err_type = err_evt_info->err_type;
 
-	spin_lock(&g_ife_hw_mgr.ctx_lock);
-
 	if (err_type & CAM_ISP_HW_ERROR_CSID_SENSOR_FRAME_DROP)
 		cam_ife_hw_mgr_handle_csid_frame_drop(event_info, ctx);
 
@@ -16390,7 +16388,6 @@ end:
 		err_type);
 
 skip_recovery:
-	spin_unlock(&g_ife_hw_mgr.ctx_lock);
 	return 0;
 }
 
@@ -16421,36 +16418,35 @@ static int cam_ife_hw_mgr_handle_csid_error(
 	if (ctx->flags.hybrid_acquire) {
 		rc = cam_ife_hw_mgr_util_csid_error(event_info, ctx);
 		return rc;
-	} else {
-		spin_lock(&g_ife_hw_mgr.ctx_lock);
-		if ((err_type & CAM_ISP_HW_ERROR_CSID_FATAL) &&
-			g_ife_hw_mgr.debug_cfg.enable_csid_recovery) {
+	}
 
-			error_event_data.error_type = CAM_ISP_HW_ERROR_CSID_FATAL;
-			error_event_data.error_code = CAM_REQ_MGR_CSID_FATAL_ERROR;
-			rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
-				event_info->hw_idx, &recovery_data);
-			goto end;
-		}
+	if ((err_type & CAM_ISP_HW_ERROR_CSID_FATAL) &&
+		g_ife_hw_mgr.debug_cfg.enable_csid_recovery) {
 
-		if (err_type & (CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW |
-			CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW |
-			CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)) {
+		error_event_data.error_type = CAM_ISP_HW_ERROR_CSID_FATAL;
+		error_event_data.error_code = CAM_REQ_MGR_CSID_FATAL_ERROR;
+		rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
+			event_info->hw_idx, &recovery_data);
+		goto end;
+	}
 
-			cam_ife_hw_mgr_notify_overflow(event_info, ctx);
-			error_event_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
-			if (err_type & CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW)
-				error_event_data.error_code |=
-					CAM_REQ_MGR_CSID_FIFO_OVERFLOW_ERROR;
-			if (err_type & CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW)
-				error_event_data.error_code |=
-					CAM_REQ_MGR_CSID_RECOVERY_OVERFLOW_ERROR;
-			if (err_type & CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)
-				error_event_data.error_code |=
-					CAM_REQ_MGR_CSID_PIXEL_COUNT_MISMATCH;
-			rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
-				event_info->hw_idx, &recovery_data);
-		}
+	if (err_type & (CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW |
+		CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW |
+		CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)) {
+
+		cam_ife_hw_mgr_notify_overflow(event_info, ctx);
+		error_event_data.error_type = CAM_ISP_HW_ERROR_OVERFLOW;
+		if (err_type & CAM_ISP_HW_ERROR_CSID_FIFO_OVERFLOW)
+			error_event_data.error_code |=
+				CAM_REQ_MGR_CSID_FIFO_OVERFLOW_ERROR;
+		if (err_type & CAM_ISP_HW_ERROR_RECOVERY_OVERFLOW)
+			error_event_data.error_code |=
+				CAM_REQ_MGR_CSID_RECOVERY_OVERFLOW_ERROR;
+		if (err_type & CAM_ISP_HW_ERROR_CSID_FRAME_SIZE)
+			error_event_data.error_code |=
+				CAM_REQ_MGR_CSID_PIXEL_COUNT_MISMATCH;
+		rc = cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
+			event_info->hw_idx, &recovery_data);
 	}
 
 end:
@@ -16464,7 +16460,6 @@ end:
 		err_type);
 
 skip_recovery:
-	spin_unlock(&g_ife_hw_mgr.ctx_lock);
 	return 0;
 }
 
@@ -16756,7 +16751,6 @@ static int cam_ife_hw_mgr_handle_sfe_hw_error(
 		event_info->hw_idx, err_evt_info->err_type,
 		event_info->res_type);
 
-	spin_lock(&g_ife_hw_mgr.ctx_lock);
 	/* Only report error to userspace */
 	if (err_evt_info->err_type & CAM_SFE_IRQ_STATUS_VIOLATION) {
 		error_event_data.error_type = CAM_ISP_HW_ERROR_VIOLATION;
@@ -16765,7 +16759,6 @@ static int cam_ife_hw_mgr_handle_sfe_hw_error(
 		cam_ife_hw_mgr_find_affected_ctx(&error_event_data,
 			event_info->hw_idx, &recovery_data);
 	}
-	spin_unlock(&g_ife_hw_mgr.ctx_lock);
 
 	return 0;
 }
@@ -16848,7 +16841,6 @@ static int cam_ife_hw_mgr_handle_hw_err(
 		goto end;
 	}
 
-	spin_lock(&g_ife_hw_mgr.ctx_lock);
 	if (event_info->res_type ==
 		CAM_ISP_RESOURCE_VFE_IN &&
 		!ife_hw_mgr_ctx->flags.is_rdi_only_context &&
@@ -16889,7 +16881,6 @@ static int cam_ife_hw_mgr_handle_hw_err(
 
 	cam_ife_hw_mgr_do_error_recovery(&recovery_data);
 end:
-	spin_unlock(&g_ife_hw_mgr.ctx_lock);
 	return rc;
 }
 
@@ -17889,7 +17880,6 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	memset(&g_ife_sns_grp_cfg, 0, sizeof(g_ife_sns_grp_cfg));
 
 	mutex_init(&g_ife_hw_mgr.ctx_mutex);
-	spin_lock_init(&g_ife_hw_mgr.ctx_lock);
 
 	if (CAM_IFE_HW_NUM_MAX != CAM_IFE_CSID_HW_NUM_MAX) {
 		CAM_ERR(CAM_ISP, "CSID num is different then IFE num");
