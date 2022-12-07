@@ -13,6 +13,9 @@ obj-$(CONFIG_MSM_AIS) += cam_icp/
 obj-$(CONFIG_MSM_AIS) += cam_jpeg/
 obj-$(CONFIG_MSM_AIS) += cam_fd/
 obj-$(CONFIG_MSM_AIS) += cam_lrme/
+#cam_v4l_nodes must be called at last as it creates subdev nodes for all
+#registered drivers
+obj-$(CONFIG_MSM_AIS) += cam_v4l_nodes/
 obj-$(CONFIG_V4L2_LOOPBACK_V2) += v4l2loopback-master_v2/
 
 
