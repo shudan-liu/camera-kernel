@@ -2167,6 +2167,7 @@ static int cam_cpas_hw_get_hw_info(void *hw_priv,
 	CAM_INFO(CAM_CPAS, "fuse info->num_fuses %d",
 		hw_caps->fuse_info.num_fuses);
 
+	hw_caps->rt_bw_voting_needed = soc_private->rt_bw_voting_needed;
 	return 0;
 }
 

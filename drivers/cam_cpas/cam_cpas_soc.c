@@ -1000,6 +1000,9 @@ int cam_cpas_get_custom_dt_info(struct cam_hw_info *cpas_hw,
 	soc_private->control_camnoc_axi_clk = of_property_read_bool(of_node,
 		"control-camnoc-axi-clk");
 
+	soc_private->rt_bw_voting_needed = of_property_read_bool(of_node,
+		"virt-rt-bw-enabled");
+
 	if (soc_private->control_camnoc_axi_clk == true) {
 		rc = of_property_read_u32(of_node, "camnoc-bus-width",
 			&soc_private->camnoc_bus_width);

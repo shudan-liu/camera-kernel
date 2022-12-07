@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_CPAS_H__
@@ -126,6 +127,26 @@ struct cam_cpas_query_cap_v2 {
 	struct cam_hw_version     camera_version;
 	struct cam_hw_version     cpas_version;
 	struct cam_cpas_fuse_info fuse_info;
+};
+
+/**
+ * struct cam_cpas_query_cap - CPAS query device capability payload
+ *
+ * @camera_family       : Camera family type
+ * @reserved            : Reserved field for alignment
+ * @camera_version      : Camera platform version
+ * @cpas_version        : Camera CPAS version within camera platform
+ * @fuse_info           : Camera fuse info
+ * @rt_bw_voting_needed : RT BW voting required
+ *
+ */
+struct cam_cpas_query_cap_v3 {
+	__u32                     camera_family;
+	__u32                     reserved;
+	struct cam_hw_version     camera_version;
+	struct cam_hw_version     cpas_version;
+	struct cam_cpas_fuse_info fuse_info;
+	__u32                     rt_bw_voting_needed;
 };
 
 /**

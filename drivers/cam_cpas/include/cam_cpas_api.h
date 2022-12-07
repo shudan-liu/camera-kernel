@@ -635,13 +635,14 @@ int cam_cpas_reg_read(
  *
  * @brief: API to get camera hw information
  *
- * @camera_family  : Camera family type. One of
- *                   CAM_FAMILY_CAMERA_SS
- *                   CAM_FAMILY_CPAS_SS
- * @camera_version : Camera platform version
- * @cpas_version   : Camera cpas version
- * @cam_caps       : Camera capability
- * @cam_fuse_info  : Camera fuse info
+ * @camera_family       : Camera family type. One of
+ *                        CAM_FAMILY_CAMERA_SS
+ *                        CAM_FAMILY_CPAS_SS
+ * @camera_version      : Camera platform version
+ * @cpas_version        : Camera cpas version
+ * @cam_caps            : Camera capability
+ * @cam_fuse_info       : Camera fuse info
+ * @rt_bw_voting_needed : RB bw voting
  *
  * @return 0 on success.
  *
@@ -651,7 +652,8 @@ int cam_cpas_get_hw_info(
 	struct cam_hw_version     *camera_version,
 	struct cam_hw_version     *cpas_version,
 	uint32_t                  *cam_caps,
-	struct cam_cpas_fuse_info *cam_fuse_info);
+	struct cam_cpas_fuse_info *cam_fuse_info,
+	uint32_t                  *rt_bw_voting_needed);
 
 /**
  * cam_cpas_get_cpas_hw_version()
