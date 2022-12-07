@@ -323,6 +323,7 @@ struct cam_isp_context_event_record {
  * @isp_mutex:                 isp context mutex for list traversals
  * @flush_in_progress:         indicates whether flush is in progress
  * @rdi_stats_context:         Indicate whether context is for rdi and stats
+ * @sensor_pd_handled:         Indicate if sensor pd is handled in independent crm case
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -393,6 +394,7 @@ struct cam_isp_context {
 	struct mutex                           isp_mutex;
 	atomic_t                               flush_in_progress;
 	bool                                   rdi_stats_context;
+	bool                                   sensor_pd_handled;
 };
 
 /**
