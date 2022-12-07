@@ -107,6 +107,7 @@ static int cam_jpeg_subdev_close_internal(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
 	int rc = 0;
+	struct cam_jpeg_hw_mgr *jpeg_hw_mgr;
 	struct cam_node *node = v4l2_get_subdevdata(sd);
 
 	mutex_lock(&g_jpeg_dev.jpeg_mutex);
@@ -124,9 +125,13 @@ static int cam_jpeg_subdev_close_internal(struct v4l2_subdev *sd,
 		goto end;
 	}
 
-	if (g_jpeg_dev.open_cnt == 0)
-		cam_node_shutdown(node);
+	jpeg_hw_mgr = (struct cam_jpeg_hw_mgr *)node->hw_mgr_intf.hw_mgr_priv;
 
+	if (g_jpeg_dev.open_cnt == 0) {
+		cam_node_shutdown(node);
+		if (jpeg_hw_mgr->num_nsp_enc)
+			cam_rpmsg_send_cpu2dsp_error(CAM_JPEG_DSP_PC_ERROR, 0, 0);
+	}
 end:
 	mutex_unlock(&g_jpeg_dev.jpeg_mutex);
 	return rc;
