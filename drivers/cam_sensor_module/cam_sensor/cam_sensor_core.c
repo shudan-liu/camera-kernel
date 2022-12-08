@@ -1065,6 +1065,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			"CAM_START_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
 			s_ctrl->sensordata->slave_info.sensor_id,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr);
+		place_marker("M - Hibernation: Sensor Start dev success");
 	}
 		break;
 	case CAM_STOP_DEV: {
