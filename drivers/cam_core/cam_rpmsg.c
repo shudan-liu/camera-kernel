@@ -208,7 +208,6 @@ static const char *__dsp_cmd_to_string(uint32_t val)
 int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far)
 {
 	int ret = 0;
-	uint32_t handle;
 	unsigned long rem_jiffies;
 	struct cam_jpeg_cmd_msg cmd_msg = {0};
 	struct rpmsg_device *rpdev;
@@ -220,8 +219,13 @@ int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far)
 	if (error_type == CAM_JPEG_DSP_PC_ERROR)
 		reinit_completion(&jpeg_private.error_data.complete);
 
-	handle = cam_rpmsg_get_handle("jpeg");
-	rpdev = cam_rpdev_idata[handle].rpdev;
+	rpdev = cam_rpdev_idata[CAM_RPMSG_HANDLE_JPEG].rpdev;
+	if (!rpdev) {
+		CAM_ERR(CAM_RPMSG, "unexpected rpmsg device state");
+		ret = -ENODEV;
+		goto err;
+	}
+
 	trace_cam_rpmsg("jpeg", CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 		__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 	rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
