@@ -554,6 +554,8 @@ static int cam_sensor_lite_flush_req(
 	struct cam_req_mgr_flush_request *flush)
 {
 	int rc = 0;
+	int flush_type = 0;
+
 	struct sensor_lite_device *sensor_lite_dev = NULL;
 
 	if (!flush) {
@@ -569,10 +571,14 @@ static int cam_sensor_lite_flush_req(
 		return -EINVAL;
 	}
 
+	flush_type =
+		(flush->type == CAM_REQ_MGR_FLUSH_TYPE_ALL) ? CAM_FLUSH_TYPE_ALL :
+			CAM_FLUSH_TYPE_REQ;
+
 	mutex_lock(&sensor_lite_dev->mutex);
 	rc = cam_sensor_lite_flush_req_unsafe(
 					sensor_lite_dev,
-					flush->type,
+					flush_type,
 					flush->req_id);
 	mutex_unlock(&sensor_lite_dev->mutex);
 	return rc;
