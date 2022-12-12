@@ -811,8 +811,8 @@ send_ack:
 				 * we loop to catch the new file (or NULL pointer)
 				 */
 				if (file->f_mode & FMODE_PATH) {
-					file = NULL;
 					CAM_ERR(CAM_RPMSG, "INCORRECT FMODE", file->f_mode);
+					file = NULL;
 					rcu_read_unlock();
 					cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
 					cmd_msg.ret_val = -EINVAL;

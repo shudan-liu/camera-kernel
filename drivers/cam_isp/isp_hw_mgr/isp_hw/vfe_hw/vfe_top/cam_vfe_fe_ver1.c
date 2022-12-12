@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -597,7 +598,8 @@ int cam_vfe_fe_ver1_init(
 
 	fe_node->res_priv = fe_priv;
 
-	fe_priv->mem_base    = soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
+	fe_priv->mem_base    =
+		soc_info ? soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base : NULL;
 	fe_priv->fe_reg  = fe_info->fe_reg;
 	fe_priv->common_reg  = fe_info->common_reg;
 	fe_priv->reg_data    = fe_info->reg_data;
