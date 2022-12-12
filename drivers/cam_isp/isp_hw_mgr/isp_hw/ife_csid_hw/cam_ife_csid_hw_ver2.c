@@ -2379,6 +2379,19 @@ static int cam_ife_csid_hw_ver2_config_path_data(
 				goto end;
 			}
 		}
+
+		if (reserve->in_port->per_port_en) {
+			if (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt !=
+				reserve->decode_fmt) {
+				CAM_ERR(CAM_ISP, "decode_fmt MISMATCH: expected : %d actual %d",
+				reserve->decode_fmt,
+				path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt);
+				return -EINVAL;
+			}
+		}
+	} else {
+		path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].decode_fmt =
+			reserve->decode_fmt;
 	}
 
 end:
@@ -2919,6 +2932,180 @@ static int cam_ife_csid_ver2_res_master_slave_cfg(
 	return 0;
 }
 
+static int  cam_ife_csid_ver2_program_init_cfg1_pxl_path(
+	struct cam_ife_csid_ver2_hw *csid_hw,
+	struct cam_isp_resource_node *res)
+{
+	const struct cam_ife_csid_ver2_reg_info        *csid_reg;
+	struct cam_hw_soc_info                         *soc_info;
+	struct cam_ife_csid_ver2_path_cfg              *path_cfg;
+	struct cam_csid_soc_private                    *soc_private;
+	const struct cam_ife_csid_ver2_path_reg_info   *path_reg = NULL;
+	const struct cam_ife_csid_ver2_common_reg_info *cmn_reg = NULL;
+	void __iomem *mem_base;
+	uint32_t cfg1 = 0;
+
+	soc_info = &csid_hw->hw_info->soc_info;
+	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
+			csid_hw->core_info->csid_reg;
+	path_reg = csid_reg->path_reg[res->res_id];
+	soc_private = (struct cam_csid_soc_private *)
+		soc_info->soc_private;
+
+	if (!path_reg) {
+		CAM_ERR(CAM_ISP,
+			"CSID:%d path res type:%d res_id:%d res state %d",
+			csid_hw->hw_intf->hw_idx,
+			res->res_type, res->res_id, res->res_state);
+		return -EINVAL;
+	}
+
+	cmn_reg = csid_reg->cmn_reg;
+	path_cfg = (struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
+	mem_base = soc_info->reg_map[CAM_IFE_CSID_CLC_MEM_BASE_ID].mem_base;
+
+	/*configure cfg1 addr
+	 * Binning
+	 * Crop/Drop parameters
+	 * Early Eof
+	 * Timestamp enable and strobe selection
+	 * Pix store enable
+	 */
+
+	if (csid_hw->flags.binning_enabled) {
+
+		if (path_reg->binning_supported & CAM_IFE_CSID_BIN_HORIZONTAL)
+			cfg1 |= path_cfg->horizontal_bin <<
+				path_reg->bin_h_en_shift_val;
+
+		if (path_reg->binning_supported & CAM_IFE_CSID_BIN_VERTICAL)
+			cfg1 |= path_cfg->vertical_bin <<
+				path_reg->bin_v_en_shift_val;
+
+		if (path_reg->binning_supported & CAM_IFE_CSID_BIN_QCFA)
+			cfg1 |= path_cfg->qcfa_bin <<
+				path_reg->bin_qcfa_en_shift_val;
+
+		if (path_cfg->qcfa_bin || path_cfg->vertical_bin ||
+				path_cfg->horizontal_bin)
+			cfg1 |= 1  << path_reg->bin_en_shift_val;
+	}
+
+	cfg1 |= (path_cfg->crop_enable << path_reg->crop_h_en_shift_val) |
+		(path_cfg->crop_enable <<
+		 path_reg->crop_v_en_shift_val);
+
+	if (cmn_reg->drop_supported)
+		cfg1 |= (path_cfg->drop_enable <<
+				path_reg->drop_v_en_shift_val) |
+			(path_cfg->drop_enable <<
+				path_reg->drop_h_en_shift_val);
+
+	if (((soc_private->is_ife_csid_lite) && (path_reg->capabilities &
+		CAM_IFE_CSID_CAP_LITE_PIX_STORE)) || (!soc_private->is_ife_csid_lite))
+		cfg1 |= (1 << path_reg->pix_store_en_shift_val);
+
+	/*enable early eof based on crop enable */
+	if (!(csid_hw->debug_info.debug_val &
+		    CAM_IFE_CSID_DEBUG_DISABLE_EARLY_EOF) &&
+		cmn_reg->early_eof_supported &&
+		path_cfg->crop_enable)
+		cfg1 |= (1 << path_reg->early_eof_en_shift_val);
+
+	if (csid_hw->debug_info.debug_val &
+		CAM_IFE_CSID_DEBUG_ENABLE_HBI_VBI_INFO)
+		cfg1 |= 1 << path_reg->format_measure_en_shift_val;
+
+	if (!cmn_reg->timestamp_enabled_in_cfg0)
+		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
+			(cmn_reg->timestamp_strobe_val <<
+				cmn_reg->timestamp_stb_sel_shift_val);
+
+	CAM_DBG(CAM_ISP, "CSID[%d] res:%d cfg1_addr 0x%x",
+		csid_hw->hw_intf->hw_idx, res->res_id, cfg1);
+	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
+
+	return 0;
+}
+
+static int  cam_ife_csid_ver2_program_init_cfg1_rdi_path(
+	struct cam_ife_csid_ver2_hw *csid_hw,
+	struct cam_isp_resource_node *res)
+{
+	const struct cam_ife_csid_ver2_reg_info        *csid_reg;
+	struct cam_hw_soc_info                         *soc_info;
+	struct cam_ife_csid_ver2_path_cfg              *path_cfg;
+	struct cam_csid_soc_private                    *soc_private;
+	const struct cam_ife_csid_ver2_path_reg_info   *path_reg = NULL;
+	const struct cam_ife_csid_ver2_common_reg_info *cmn_reg = NULL;
+	void __iomem *mem_base;
+	uint32_t cfg1 = 0;
+
+	soc_info = &csid_hw->hw_info->soc_info;
+	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
+			csid_hw->core_info->csid_reg;
+	path_reg = csid_reg->path_reg[res->res_id];
+	soc_private = (struct cam_csid_soc_private *)
+		soc_info->soc_private;
+
+	if (!path_reg) {
+		CAM_ERR(CAM_ISP,
+			"CSID:%d path res type:%d res_id:%d res state %d",
+			csid_hw->hw_intf->hw_idx,
+			res->res_type, res->res_id, res->res_state);
+		return -EINVAL;
+	}
+
+	cmn_reg = csid_reg->cmn_reg;
+	path_cfg = (struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
+	mem_base = soc_info->reg_map[CAM_IFE_CSID_CLC_MEM_BASE_ID].mem_base;
+
+	/*configure cfg1 addr
+	 * Crop/Drop parameters
+	 * Timestamp enable and strobe selection
+	 * Plain format
+	 * Packing format
+	 */
+	cfg1 = (path_cfg->crop_enable << path_reg->crop_h_en_shift_val) |
+		(path_cfg->crop_enable <<
+		 path_reg->crop_v_en_shift_val);
+
+	if (cmn_reg->drop_supported)
+		cfg1 |= (path_cfg->drop_enable <<
+				path_reg->drop_v_en_shift_val) |
+			(path_cfg->drop_enable <<
+				path_reg->drop_h_en_shift_val);
+
+	if (path_reg->mipi_pack_supported)
+		cfg1 |= path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].packing_fmt <<
+			path_reg->packing_fmt_shift_val;
+
+	cfg1 |= (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].plain_fmt <<
+			path_reg->plain_fmt_shift_val);
+
+	if (csid_hw->debug_info.debug_val &
+		CAM_IFE_CSID_DEBUG_ENABLE_HBI_VBI_INFO)
+		cfg1 |= 1 << path_reg->format_measure_en_shift_val;
+
+	if (!cmn_reg->timestamp_enabled_in_cfg0)
+		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
+			(cmn_reg->timestamp_strobe_val <<
+				cmn_reg->timestamp_stb_sel_shift_val);
+
+	/* We use line smoothting only on RDI_0 in all usecases */
+	if ((path_reg->capabilities &
+		CAM_IFE_CSID_CAP_LINE_SMOOTHING_IN_RDI) &&
+		(res->res_id == CAM_IFE_PIX_PATH_RES_RDI_0))
+		cfg1 |= 1 << path_reg->pix_store_en_shift_val;
+
+	CAM_DBG(CAM_ISP, "CSID[%d] %s cfg1_addr 0x%x",
+		csid_hw->hw_intf->hw_idx, res->res_name, cfg1);
+
+	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
+
+	return 0;
+}
+
 static int cam_ife_csid_ver2_init_config_rdi_path(
 	struct cam_ife_csid_ver2_hw *csid_hw,
 	struct cam_isp_resource_node    *res)
@@ -2928,7 +3115,7 @@ static int cam_ife_csid_ver2_init_config_rdi_path(
 	struct cam_hw_soc_info                   *soc_info;
 	const struct cam_ife_csid_ver2_path_reg_info *path_reg = NULL;
 	const struct cam_ife_csid_ver2_common_reg_info *cmn_reg = NULL;
-	uint32_t  val, cfg0 = 0, cfg1 = 0;
+	uint32_t  val, cfg0 = 0;
 	struct cam_ife_csid_ver2_path_cfg *path_cfg;
 	struct cam_ife_csid_cid_data *cid_data;
 	void __iomem *mem_base;
@@ -3024,45 +3211,7 @@ static int cam_ife_csid_ver2_init_config_rdi_path(
 		cam_io_w_mb(val, mem_base + path_reg->multi_vcdt_cfg0_addr);
 	}
 
-	/*configure cfg1 addr
-	 * Crop/Drop parameters
-	 * Timestamp enable and strobe selection
-	 * Plain format
-	 * Packing format
-	 */
-	cfg1 = (path_cfg->crop_enable << path_reg->crop_h_en_shift_val) |
-		(path_cfg->crop_enable <<
-		 path_reg->crop_v_en_shift_val);
-
-	if (cmn_reg->drop_supported)
-		cfg1 |= (path_cfg->drop_enable <<
-				path_reg->drop_v_en_shift_val) |
-			(path_cfg->drop_enable <<
-				path_reg->drop_h_en_shift_val);
-
-	if (path_reg->mipi_pack_supported)
-		cfg1 |= path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].packing_fmt <<
-			path_reg->packing_fmt_shift_val;
-
-	cfg1 |= (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].plain_fmt <<
-			path_reg->plain_fmt_shift_val);
-
-	if (csid_hw->debug_info.debug_val &
-		CAM_IFE_CSID_DEBUG_ENABLE_HBI_VBI_INFO)
-		cfg1 |= 1 << path_reg->format_measure_en_shift_val;
-
-	if (!cmn_reg->timestamp_enabled_in_cfg0)
-		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
-			(cmn_reg->timestamp_strobe_val <<
-				cmn_reg->timestamp_stb_sel_shift_val);
-
-	/* We use line smoothting only on RDI_0 in all usecases */
-	if ((path_reg->capabilities &
-		CAM_IFE_CSID_CAP_LINE_SMOOTHING_IN_RDI) &&
-		(res->res_id == CAM_IFE_PIX_PATH_RES_RDI_0))
-		cfg1 |= 1 << path_reg->pix_store_en_shift_val;
-
-	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
+	rc = cam_ife_csid_ver2_program_init_cfg1_rdi_path(csid_hw, res);
 
 	/* set frame drop pattern to 0 and period to 1 */
 	cam_io_w_mb(1, mem_base + path_reg->frm_drop_period_addr);
@@ -3115,7 +3264,7 @@ static int cam_ife_csid_ver2_init_config_pxl_path(
 	struct cam_hw_soc_info                   *soc_info;
 	const struct cam_ife_csid_ver2_path_reg_info *path_reg = NULL;
 	const struct cam_ife_csid_ver2_common_reg_info *cmn_reg = NULL;
-	uint32_t val = 0, cfg0 = 0, cfg1 = 0;
+	uint32_t val = 0, cfg0 = 0;
 	struct cam_ife_csid_ver2_path_cfg *path_cfg;
 	struct cam_ife_csid_cid_data *cid_data;
 	void __iomem *mem_base;
@@ -3193,67 +3342,7 @@ static int cam_ife_csid_ver2_init_config_pxl_path(
 		cam_io_w_mb(val, mem_base + path_reg->multi_vcdt_cfg0_addr);
 	}
 
-	val = 0;
-	/*configure cfg1 addr
-	 * Binning
-	 * Crop/Drop parameters
-	 * Early Eof
-	 * Timestamp enable and strobe selection
-	 * Pix store enable
-	 */
-
-	if (csid_hw->flags.binning_enabled) {
-
-		if (path_reg->binning_supported & CAM_IFE_CSID_BIN_HORIZONTAL)
-			cfg1 |= path_cfg->horizontal_bin <<
-				path_reg->bin_h_en_shift_val;
-
-		if (path_reg->binning_supported & CAM_IFE_CSID_BIN_VERTICAL)
-			cfg1 |= path_cfg->vertical_bin <<
-				path_reg->bin_v_en_shift_val;
-
-		if (path_reg->binning_supported & CAM_IFE_CSID_BIN_QCFA)
-			cfg1 |= path_cfg->qcfa_bin <<
-				path_reg->bin_qcfa_en_shift_val;
-
-		if (path_cfg->qcfa_bin || path_cfg->vertical_bin ||
-				path_cfg->horizontal_bin)
-			cfg1 |= 1  << path_reg->bin_en_shift_val;
-	}
-
-	cfg1 |= (path_cfg->crop_enable << path_reg->crop_h_en_shift_val) |
-		(path_cfg->crop_enable <<
-		 path_reg->crop_v_en_shift_val);
-
-	if (cmn_reg->drop_supported)
-		cfg1 |= (path_cfg->drop_enable <<
-				path_reg->drop_v_en_shift_val) |
-			(path_cfg->drop_enable <<
-				path_reg->drop_h_en_shift_val);
-
-	if (((soc_private->is_ife_csid_lite) && (path_reg->capabilities &
-		CAM_IFE_CSID_CAP_LITE_PIX_STORE)) || (!soc_private->is_ife_csid_lite))
-		cfg1 |= (1 << path_reg->pix_store_en_shift_val);
-
-	/*enable early eof based on crop enable */
-	if (!(csid_hw->debug_info.debug_val &
-		    CAM_IFE_CSID_DEBUG_DISABLE_EARLY_EOF) &&
-		cmn_reg->early_eof_supported &&
-		path_cfg->crop_enable)
-		cfg1 |= (1 << path_reg->early_eof_en_shift_val);
-
-	if (csid_hw->debug_info.debug_val &
-		CAM_IFE_CSID_DEBUG_ENABLE_HBI_VBI_INFO)
-		cfg1 |= 1 << path_reg->format_measure_en_shift_val;
-
-	if (!cmn_reg->timestamp_enabled_in_cfg0)
-		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
-			(cmn_reg->timestamp_strobe_val <<
-				cmn_reg->timestamp_stb_sel_shift_val);
-
-	CAM_DBG(CAM_ISP, "CSID[%d] res:%d cfg1_addr 0x%x",
-		csid_hw->hw_intf->hw_idx, res->res_id, cfg1);
-	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
+	rc = cam_ife_csid_ver2_program_init_cfg1_pxl_path(csid_hw, res);
 
 	/* set frame drop pattern to 0 and period to 1 */
 	cam_io_w_mb(1, mem_base + path_reg->frm_drop_period_addr);
@@ -5391,6 +5480,42 @@ static int cam_ife_csid_ver2_update_res_data(struct cam_ife_csid_ver2_hw *csid_h
 			CAM_ERR(CAM_ISP, "CSID[%d] camif config failed",
 				csid_hw->hw_intf->hw_idx);
 			goto end;
+		}
+		if (res->res_state == CAM_ISP_RESOURCE_STATE_STREAMING) {
+			switch (res->res_id) {
+			case CAM_IFE_PIX_PATH_RES_RDI_0:
+			case CAM_IFE_PIX_PATH_RES_RDI_1:
+			case CAM_IFE_PIX_PATH_RES_RDI_2:
+			case CAM_IFE_PIX_PATH_RES_RDI_3:
+			case CAM_IFE_PIX_PATH_RES_RDI_4:
+			case CAM_IFE_PIX_PATH_RES_RDI_5:
+				rc = cam_ife_csid_ver2_program_init_cfg1_rdi_path(csid_hw, res);
+				if (rc) {
+					CAM_ERR(CAM_ISP,
+						"failed to update cfg1 for CSID:%d res:%d %s",
+						csid_hw->hw_intf->hw_idx,
+						res->res_id, res->res_name);
+					goto end;
+				}
+				break;
+			case CAM_IFE_PIX_PATH_RES_IPP:
+			case CAM_IFE_PIX_PATH_RES_PPP:
+				rc = cam_ife_csid_ver2_program_init_cfg1_pxl_path(csid_hw, res);
+				if (rc) {
+					CAM_ERR(CAM_ISP,
+						"failed to update cfg1 for CSID:%d res:%d %s",
+						csid_hw->hw_intf->hw_idx,
+						res->res_id, res->res_name);
+					goto end;
+				}
+				break;
+			default:
+				rc = -EINVAL;
+				CAM_ERR(CAM_ISP, "Invalid res:%d %s for CSID:%d",
+					res->res_id, res->res_name,
+					csid_hw->hw_intf->hw_idx);
+				break;
+			}
 		}
 	}
 

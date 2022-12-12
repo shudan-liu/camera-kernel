@@ -217,6 +217,9 @@ struct cam_csid_secondary_evt_config {
  * @per_port_acquire:    Indicates if acquire as real acquire or per port
  *                       virtual acquire for current res path
  * @per_port_group_index: Group index if per port is enabled
+ * @vc:                  input virtual channel number
+ * @dt:                  input data type number
+ * @decode_fmt:          decode format
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -248,6 +251,9 @@ struct cam_csid_hw_reserve_resource_args {
 	bool                                      handle_camif_irq;
 	bool                                      per_port_acquire;
 	int                                       per_port_grp_index;
+	uint32_t                                  vc;
+	uint32_t                                  dt;
+	uint32_t                                  decode_fmt;
 };
 
 /**
