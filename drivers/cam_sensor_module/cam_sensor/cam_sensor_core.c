@@ -1071,6 +1071,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		s_ctrl->streamon_count = 0;
 		s_ctrl->streamoff_count = 0;
 		s_ctrl->last_flush_req = 0;
+		s_ctrl->last_applied_req = 0;
 	}
 		break;
 	case CAM_QUERY_CAP: {
@@ -1172,6 +1173,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 
 		cam_sensor_release_per_frame_resource(s_ctrl);
 		s_ctrl->last_flush_req = 0;
+		s_ctrl->last_applied_req = 0;
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 
 		CAM_GET_TIMESTAMP(ts);
@@ -1326,78 +1328,155 @@ int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)
 	return rc;
 }
 
-static int cam_sensor_apply_settings_no_crm(
-	struct cam_sensor_ctrl_t *s_ctrl)
+static int dump_settings_array(
+	int index,
+	uint64_t req_id,
+	struct cam_sensor_i2c_reg_setting *s_array)
 {
-	int rc = 0, offset = -1, i;
+	int i = 0;
+	struct cam_sensor_i2c_reg_array *setting_array = NULL;
 
-	uint64_t oldest_request = 0;
+	if (!s_array)
+		return 0;
+
+	setting_array = s_array->reg_setting;
+
+	if (!setting_array)
+		return 0;
+
+	for (i = 0; i < s_array->size; i++) {
+		CAM_INFO(CAM_SENSOR,
+				"slot[%d] req[%llu] reg = %x data = %x\n",
+				index,
+				req_id,
+				setting_array[i].reg_addr,
+				setting_array[i].reg_data);
+	}
+
+	return 0;
+}
+
+static uint64_t cam_sensor_find_latest_req(
+	struct cam_sensor_ctrl_t *s_ctrl,
+	uint64_t request_id,
+	uint64_t last_applied_req_id)
+{
+	int i, offset = -1;
+	uint64_t latest_request_id = 0;
 	struct i2c_settings_array *i2c_set = NULL;
-	struct i2c_settings_list *i2c_list;
-
 	i2c_set = s_ctrl->i2c_data.per_frame;
+	offset = request_id % MAX_PER_FRAME_ARRAY;
 
-	/* find the least non zero request id */
+	/* if current request is non nop send it anyways */
+	if ((i2c_set[offset].request_id == request_id) &&
+		(i2c_set[offset].is_settings_valid) &&
+		(!list_empty(&i2c_set[offset].list_head))) {
+		return i2c_set[offset].request_id;
+	}
+
+	/* TODO: Better to search in reverse order from request */
+	/* find the latest non nop request id which is valid */
 	for (i = 0; i < MAX_PER_FRAME_ARRAY; i++) {
-		/* Set oldest request to first non zero request */
-		if (!oldest_request &&
-			(i2c_set[i].request_id != 0) &&
-			(i2c_set[i].is_settings_valid)) {
-			oldest_request = i2c_set[i].request_id;
-			offset = i;
-		}
-
-		/*
-		 * if request id is lesser than oldest request id
-		 * update oldest request id to new least non zero
-		 * request id
-		 */
-		if ((i2c_set[i].request_id != 0) &&
-			(i2c_set[i].request_id < oldest_request) &&
-			(i2c_set[i].is_settings_valid)) {
-			oldest_request = i2c_set[i].request_id;
-			offset = i;
+		if ((i2c_set[i].request_id > latest_request_id) &&
+			(i2c_set[i].is_settings_valid) &&
+			(i2c_set[i].request_id <= request_id) &&
+			(i2c_set[i].request_id > last_applied_req_id) &&
+			(!list_empty(&i2c_set[i].list_head))) {
+			latest_request_id = i2c_set[i].request_id;
 		}
 	}
 
-	/* Apply the oldest request and delete it */
-	if ((oldest_request != 0) &&
-			(offset != -1)) {
-		if (s_ctrl->hw_no_io_ops) {
-			CAM_DBG(CAM_SENSOR, "hw_no_io_ops req_id: %lld bypass apply",
-					i2c_set[offset].request_id);
-			rc = 0;
-		} else {
-			list_for_each_entry(i2c_list,
-				&(i2c_set[offset].list_head), list) {
-				rc = cam_sensor_i2c_modes_util(
-					&(s_ctrl->io_master_info),
-					i2c_list);
-				if (rc < 0) {
-					CAM_ERR(CAM_SENSOR,
-						"Failed to apply settings: %d",
-						rc);
-					return rc;
-				}
+	/*
+	 * not able to find any request id in queue
+	 * We can send current request id if its in queue
+	 * even if its nop as we are not able to find any
+	 * non nop in the queue anyways, if non nop is still
+	 * not available in kmd send req id as 0
+	 **/
+	if ((!latest_request_id) &&
+		(i2c_set[offset].request_id == request_id) &&
+		(i2c_set[offset].is_settings_valid))
+		latest_request_id = request_id;
+
+	return latest_request_id;
+}
+
+static int cam_sensor_apply_settings_no_crm(
+	struct cam_sensor_ctrl_t *s_ctrl,
+	struct cam_req_mgr_no_crm_trigger_notify *notify)
+{
+
+	int rc                                = 0;
+	uint64_t isp_req_id                   = 0;
+	int sensor_pd                         = 2;
+	int isp_pd                            = 1;
+	uint64_t sensor_req_id                = 0;
+	struct i2c_settings_array *i2c_set    = NULL;
+	enum cam_sensor_packet_opcodes opcode;
+
+	if (!s_ctrl || !notify) {
+		CAM_ERR(CAM_SENSOR, "Invalid params");
+		return -EINVAL;
+	}
+
+	isp_req_id    = notify->request_id;
+	sensor_pd     = s_ctrl->pipeline_delay;
+	sensor_req_id = isp_req_id + (sensor_pd - isp_pd);
+	opcode        = CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE;
+	i2c_set       = s_ctrl->i2c_data.per_frame;
+
+	CAM_DBG(CAM_SENSOR,
+				"slot[%d] isp[%llu] sensor[%llu] sensor_pd[%d]",
+				s_ctrl->soc_info.index, isp_req_id, sensor_req_id, sensor_pd);
+
+	/* detected a skip */
+	if ((sensor_req_id - s_ctrl->last_applied_req) > 1) {
+		uint64_t new_req_id = 0;
+
+		new_req_id = cam_sensor_find_latest_req(
+							s_ctrl,
+							sensor_req_id,
+							s_ctrl->last_applied_req);
+		if (new_req_id > 0) {
+			rc = cam_sensor_apply_settings(
+					s_ctrl,
+					new_req_id,
+					opcode);
+			if (!rc) {
+				s_ctrl->last_applied_req = new_req_id;
+				CAM_ERR(CAM_SENSOR,
+							"slot[%d] skiped apply[%llu]",
+							s_ctrl->soc_info.index,
+							s_ctrl->last_applied_req);
 			}
-			CAM_DBG(CAM_SENSOR, "applied req_id: %llu", oldest_request);
-		}
-		i2c_set[offset].request_id = 0;
-		rc = delete_request(
-			&(i2c_set[offset]));
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR,
-				"Delete request Fail:%lld rc:%d",
-				oldest_request, rc);
+		} else {
+			CAM_INFO(CAM_SENSOR,
+					"slot[%d] RequestId[%d] not in queue ",
+					s_ctrl->soc_info.index,
+					sensor_req_id);
 		}
 	} else {
-		CAM_ERR(CAM_SENSOR,
-				"Couldnot find the request id to offset=%d oldest_request=%lld",
-				offset,
-				oldest_request);
-		rc = -EINVAL;
-	}
+		/* This is a no skip case */
+		int offset = sensor_req_id % MAX_PER_FRAME_ARRAY;
+		struct i2c_settings_array *i2c_set = s_ctrl->i2c_data.per_frame;
 
+		if (i2c_set[offset].request_id != sensor_req_id) {
+			CAM_INFO(CAM_SENSOR,
+						"slot[%d] RequestId[%d] not in queue ",
+						s_ctrl->soc_info.index,
+						sensor_req_id);
+		} else {
+			rc = cam_sensor_apply_settings(s_ctrl,
+						sensor_req_id,
+						opcode);
+			if (!rc) {
+				s_ctrl->last_applied_req = sensor_req_id;
+				CAM_DBG(CAM_SENSOR, "slot[%d] apply[%llu]",
+								s_ctrl->soc_info.index,
+								s_ctrl->last_applied_req);
+			}
+		}
+	}
 	return rc;
 }
 
@@ -1407,7 +1486,7 @@ static int cam_sensor_handle_sof(
 {
 	int rc = 0;
 
-	rc = cam_sensor_apply_settings_no_crm(s_ctrl);
+	rc = cam_sensor_apply_settings_no_crm(s_ctrl, notify);
 	return rc;
 }
 
@@ -1635,6 +1714,14 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 			i2c_set[offset].request_id == req_id) {
 			list_for_each_entry(i2c_list,
 				&(i2c_set[offset].list_head), list) {
+				struct cam_sensor_i2c_reg_setting *s_array =
+						&(i2c_list->i2c_settings);
+
+				if (s_ctrl->en_perframe_reg_dump)
+					dump_settings_array(
+						s_ctrl->soc_info.index,
+						req_id,
+						s_array);
 				rc = cam_sensor_i2c_modes_util(
 					&(s_ctrl->io_master_info),
 					i2c_list);

@@ -10,6 +10,41 @@
 #include "cam_sensor_core.h"
 #include "camera_main.h"
 
+#define SENSOR_DEBUGFS_NAME_MAX_SIZE 10
+
+static int cam_sensor_debug_register(
+		struct cam_sensor_ctrl_t *s_ctrl)
+{
+	char debugfs_name[SENSOR_DEBUGFS_NAME_MAX_SIZE];
+
+	if (!s_ctrl) {
+		CAM_ERR(CAM_SENSOR, "null s_ctrl ptr");
+		return -EINVAL;
+	}
+
+	/* Create the sensor-* directory for this sensor*/
+	snprintf(debugfs_name, SENSOR_DEBUGFS_NAME_MAX_SIZE, "sensor-%d",
+		s_ctrl->soc_info.index);
+	s_ctrl->root_dentry = debugfs_create_dir(debugfs_name, s_ctrl->root_dentry);
+	if (IS_ERR(s_ctrl->root_dentry)) {
+		CAM_ERR(CAM_SENSOR, "Could not create a debugfs subdirectory rc: %ld",
+			s_ctrl->root_dentry);
+		return -ENOENT;
+	}
+
+	debugfs_create_bool("en_perframe_reg_dump", 0644,
+		s_ctrl->root_dentry, &s_ctrl->en_perframe_reg_dump);
+
+	return 0;
+}
+
+static void cam_sensor_debug_unregister(
+	struct cam_sensor_ctrl_t *s_ctrl)
+{
+	debugfs_remove_recursive(s_ctrl->root_dentry);
+	s_ctrl->root_dentry = NULL;
+}
+
 static int cam_sensor_subdev_close_internal(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
 {
@@ -222,6 +257,7 @@ static int cam_sensor_i2c_component_bind(struct device *dev,
 	s_ctrl->io_master_info.master_type = I2C_MASTER;
 	s_ctrl->is_probe_succeed = 0;
 	s_ctrl->last_flush_req = 0;
+	s_ctrl->last_applied_req = 0;
 	s_ctrl->hw_no_io_ops = false;
 
 	rc = cam_sensor_parse_dt(s_ctrl);
@@ -271,6 +307,7 @@ static int cam_sensor_i2c_component_bind(struct device *dev,
 	s_ctrl->bridge_intf.ops.flush_req = cam_sensor_flush_request;
 
 	s_ctrl->sensordata->power_info.dev = soc_info->dev;
+	cam_sensor_debug_register(s_ctrl);
 
 	return rc;
 free_perframe:
@@ -312,6 +349,7 @@ static void cam_sensor_i2c_component_unbind(struct device *dev,
 	kfree(s_ctrl->i2c_data.per_frame);
 	kfree(s_ctrl->i2c_data.frame_skip);
 	v4l2_set_subdevdata(&(s_ctrl->v4l2_dev_str.sd), NULL);
+	cam_sensor_debug_unregister(s_ctrl);
 	kfree(s_ctrl);
 }
 
