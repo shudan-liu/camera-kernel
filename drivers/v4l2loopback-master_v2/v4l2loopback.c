@@ -2729,7 +2729,7 @@ static int v4l2_loopback_close(struct file *file)
 		CAM_WARN(CAM_V4L2, "v4l2 open_count is %d when app close", dev->open_count.counter);
 		if (dev->state >= V4L2L_READY_FOR_CAPTURE) {
 			if (opener->connected_opener) {
-
+				opener->connected_opener->connected_opener = NULL;
 				send_v4l2_event(opener->connected_opener, AIS_V4L2_CLIENT_OUTPUT,
 					AIS_V4L2_CLOSE_INPUT);
 				rc = wait_for_completion_timeout(&dev->close_complete,
