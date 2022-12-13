@@ -352,6 +352,7 @@ struct v4l2_streamdata {
 	long qcarcam_param_size;
 	struct completion sparam_complete;
 	struct completion gparam_complete;
+	int gparam_timeout;
 	int qcarcam_sparam_ret;
 
 	struct v4l2_crop frame_crop;
@@ -2117,6 +2118,7 @@ static int process_capture_get_param(struct ais_v4l2_control_t *kcmd,
 		if (rc) {
 			rc = 0;
 		} else {
+			opener->data->gparam_timeout = 1;
 			CAM_ERR(CAM_V4L2, "g_param fail, timeout %d", rc);
 			rc = -ETIMEDOUT;
 			return rc;
@@ -2231,7 +2233,8 @@ static int process_set_param2(struct ais_v4l2_control_t *kcmd, struct v4l2_strea
 {
 	int rc = 0;
 
-	if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE) {
+	if (kcmd->size > MAX_AIS_V4L2_PAYLOAD_SIZE || data->gparam_timeout) {
+		data->gparam_timeout = 0;
 		rc = -EINVAL;
 	} else if (copy_from_user(data->qcarcam_param,
 				u64_to_user_ptr(kcmd->payload),
@@ -2919,7 +2922,7 @@ int init_stream_data(struct v4l2_streamdata *data)
 	data->buffer_size = PAGE_ALIGN(data->pix_format.sizeimage);
 
 	data->io_mode = V4L2L_IO_MODE_DMABUF;
-
+	data->gparam_timeout = 0;
 	CAM_DBG(CAM_V4L2, "buffer_size = %ld (=%d)",
 		data->buffer_size, data->pix_format.sizeimage);
 
