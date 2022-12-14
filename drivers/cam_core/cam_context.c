@@ -199,7 +199,7 @@ int cam_context_handle_crm_notify_frame_skip(
 		return -EINVAL;
 	}
 
-	if (ctx->dev_id == CAM_REQ_MGR_DEVICE_IFE) {
+	if (ctx->dev_id == CAM_ISP) {
 		CAM_DBG(CAM_CORE, "Skip notify_frame_skip for IFE");
 		return rc;
 	}
