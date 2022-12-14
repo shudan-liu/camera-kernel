@@ -8952,6 +8952,8 @@ static int cam_ife_mgr_check_start_processing(void *hw_mgr_priv,
 			if (ife_ctx->waiting_start &&
 				c_elem->ctx_idx != ife_ctx->start_ctx_idx)
 				continue;
+			if (!c_elem->ready)
+				continue;
 			if (ife_hw_mgr->starting_offline_cnt == 0 &&
 				c_elem->request_id == 0) {
 				c_elem->hw_id = ife_ctx->acquired_hw_id;
@@ -8966,22 +8968,20 @@ static int cam_ife_mgr_check_start_processing(void *hw_mgr_priv,
 				c_elem->prepare.packet->header.request_id)
 				CAM_ERR(CAM_ISP,
 					"Request id mismatch. Packet recycled before use!");
-			if (c_elem->ready) {
-				run_hw_mgr_ctx =
-				    &ife_hw_mgr->virt_ctx_pool[c_elem->ctx_idx];
-				if (!run_hw_mgr_ctx->ctx_in_use)
-					CAM_ERR(CAM_ISP, "UNUSED CONTEXT %d",
-							c_elem->ctx_idx);
-				run_hw_mgr_ctx->concr_ctx = ife_ctx;
-				c_elem->prepare.ctxt_to_hw_map = run_hw_mgr_ctx;
-				c_elem->cfg.ctxt_to_hw_map = run_hw_mgr_ctx;
-				found = true;
-				list_del_init(&c_elem->list);
-				c_elem->hw_id = ife_ctx->acquired_hw_id;
-				list_add_tail(&c_elem->list,
-					&ife_hw_mgr->in_proc_queue.list);
-				break;
-			}
+			run_hw_mgr_ctx =
+			    &ife_hw_mgr->virt_ctx_pool[c_elem->ctx_idx];
+			if (!run_hw_mgr_ctx->ctx_in_use)
+				CAM_ERR(CAM_ISP, "UNUSED CONTEXT %d",
+						c_elem->ctx_idx);
+			run_hw_mgr_ctx->concr_ctx = ife_ctx;
+			c_elem->prepare.ctxt_to_hw_map = run_hw_mgr_ctx;
+			c_elem->cfg.ctxt_to_hw_map = run_hw_mgr_ctx;
+			found = true;
+			list_del_init(&c_elem->list);
+			c_elem->hw_id = ife_ctx->acquired_hw_id;
+			list_add_tail(&c_elem->list,
+				&ife_hw_mgr->in_proc_queue.list);
+			break;
 		}
 		if (found) {
 
