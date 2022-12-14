@@ -1012,7 +1012,7 @@ static int cam_mem_mgr_cleanup_table(void)
 		}
 
 		mutex_lock(&tbl.bufq[i].q_lock);
-		if (tbl.bufq[i].dma_buf) {
+		if (tbl.bufq[i].dma_buf && tbl.bufq[i].fd >= 0) {
 			dma_buf_put(tbl.bufq[i].dma_buf);
 			tbl.bufq[i].dma_buf = NULL;
 		}
