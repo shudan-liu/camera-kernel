@@ -59,6 +59,7 @@
 #define CAM_IFE_CSID_DEBUG_ENABLE_HBI_VBI_INFO            BIT(7)
 #define CAM_IFE_CSID_DEBUG_DISABLE_EARLY_EOF              BIT(8)
 #define CAM_IFE_DEBUG_ENABLE_UNMAPPED_VC_DT_IRQ           BIT(9)
+#define CAM_IFE_CSID_DEBUG_DISABLE_CRC                    BIT(10)
 
 /* Binning supported masks. Binning support changes for specific paths
  * and also for targets. With the mask, we handle the supported features
