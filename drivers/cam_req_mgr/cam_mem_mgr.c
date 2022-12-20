@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -38,6 +38,7 @@ static atomic_t cam_mem_mgr_state = ATOMIC_INIT(CAM_MEM_MGR_UNINITIALIZED);
 static void cam_mem_mgr_put_dma_heaps(void);
 static int cam_mem_mgr_get_dma_heaps(void);
 #endif
+static void cam_mem_mgr_unmap_active_buf(int);
 
 #ifdef CONFIG_CAM_PRESIL
 static inline void cam_mem_mgr_reset_presil_params(int idx)
@@ -1090,7 +1091,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 		if (rc) {
 			CAM_ERR(CAM_MEM, "dmabuf: %pK fastrpc mapping failed: %d",
 				dmabuf, rc);
-			goto map_hw_fail;
+			goto fastrpc_map_fail;
 		}
 		tbl.bufq[idx].is_nsp_buf = true;
 	}
@@ -1104,6 +1105,8 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 
 map_kernel_fail:
 	mutex_unlock(&tbl.bufq[idx].q_lock);
+fastrpc_map_fail:
+	cam_mem_mgr_unmap_active_buf(idx);
 map_hw_fail:
 	cam_mem_put_slot(idx);
 slot_fail:
