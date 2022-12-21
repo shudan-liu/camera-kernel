@@ -1268,7 +1268,7 @@ int cam_vfe_camif_lite_ver3_init(
 	camif_lite_node->res_priv = camif_lite_priv;
 
 	camif_lite_priv->mem_base         =
-		soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
+		soc_info ? soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base : NULL;
 	camif_lite_priv->camif_lite_reg     = camif_lite_info->camif_lite_reg;
 	camif_lite_priv->common_reg         = camif_lite_info->common_reg;
 	camif_lite_priv->reg_data           = camif_lite_info->reg_data;
