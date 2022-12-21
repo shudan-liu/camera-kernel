@@ -1195,8 +1195,8 @@ int32_t __cam_sensor_lite_handle_probe(
 	uint32_t cmd)
 {
 	int rc = 0, i;
-	uint32_t *cmd_buf;
-	void *ptr;
+	uint32_t *cmd_buf = NULL;
+	void *ptr = NULL;
 	size_t len;
 	struct cam_packet *pkt = NULL;
 	struct cam_cmd_buf_desc *cmd_desc = NULL;
