@@ -870,36 +870,46 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		/* Power up and probe sensor */
-		rc = cam_sensor_power_up(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR,
-				"Power up failed for %s sensor_id: 0x%x, slave_addr: 0x%x",
-				s_ctrl->sensor_name,
-				s_ctrl->sensordata->slave_info.sensor_id,
-				s_ctrl->sensordata->slave_info.sensor_slave_addr
-				);
-			goto free_power_settings;
-		}
 
-		/* Match sensor ID */
-		rc = cam_sensor_match_id(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR,
-				"Probe failed for %s slot:%d, slave_addr:0x%x, sensor_id:0x%x",
+		if (!(s_ctrl->hw_no_probe_pw_ops)) {
+			rc = cam_sensor_power_up(s_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"Power up failed for %s sensor_id: 0x%x, slave_addr: 0x%x",
+					s_ctrl->sensor_name,
+					s_ctrl->sensordata->slave_info.sensor_id,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr
+					);
+				goto free_power_settings;
+			}
+			rc = cam_sensor_match_id(s_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"Probe failed for %s slot:%d, slave_addr:0x%x, sensor_id:0x%x",
+					s_ctrl->sensor_name,
+					s_ctrl->soc_info.index,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr,
+					s_ctrl->sensordata->slave_info.sensor_id);
+
+				if (!(s_ctrl->hw_no_probe_pw_ops))
+					cam_sensor_power_down(s_ctrl);
+				msleep(20);
+				goto free_power_settings;
+			}
+		} else {
+			CAM_DBG(CAM_SENSOR, "%s-slot[%d] probe with hw_no_probe_pw_ops[%d]",
 				s_ctrl->sensor_name,
 				s_ctrl->soc_info.index,
-				s_ctrl->sensordata->slave_info.sensor_slave_addr,
-				s_ctrl->sensordata->slave_info.sensor_id);
-			cam_sensor_power_down(s_ctrl);
-			msleep(20);
-			goto free_power_settings;
+				s_ctrl->hw_no_probe_pw_ops);
 		}
 
-		rc = cam_sensor_power_down(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "Fail in %s sensor Power Down",
-				s_ctrl->sensor_name);
-			goto free_power_settings;
+		if (!(s_ctrl->hw_no_probe_pw_ops)) {
+			rc = cam_sensor_power_down(s_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR, "Fail in %s sensor Power Down",
+					s_ctrl->sensor_name);
+				goto free_power_settings;
+			}
 		}
 
 		if (s_ctrl->is_aon_user) {

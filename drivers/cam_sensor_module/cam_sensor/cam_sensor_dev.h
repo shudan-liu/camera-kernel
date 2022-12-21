@@ -126,7 +126,7 @@ struct cam_sensor_ctrl_t {
 	bool                           is_aon_user;
 	bool                           hw_no_io_ops;
 	bool                           hw_no_ops;
-
+	bool                           hw_no_probe_pw_ops;
 	/* register this handler to handle sof notify */
 	int   (*sof_notify_handler)(
 			struct cam_sensor_ctrl_t *s_ctrl,
