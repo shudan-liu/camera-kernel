@@ -306,6 +306,7 @@ struct cam_ife_csid_debug_info {
  * @rdi_lcr_en:             flag to indicate if RDI to lcr is enabled
  * @sfe_en:                 flag to indicate if SFE is enabled
  * @metadata_en:            flag to indicate if slave metadta is enabled
+ * @per_port_en:            flag to indicate if per port is enabled
  */
 struct cam_ife_csid_hw_flags {
 	bool                  device_enabled;
@@ -321,6 +322,7 @@ struct cam_ife_csid_hw_flags {
 	bool                  rdi_lcr_en;
 	bool                  sfe_en;
 	bool                  metadata_en;
+	bool                  per_port_en;
 };
 
 /*
