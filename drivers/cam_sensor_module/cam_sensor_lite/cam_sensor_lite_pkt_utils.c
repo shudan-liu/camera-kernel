@@ -484,25 +484,38 @@ int __dump_settings_group_cmd(void *base,
 }
 
 int __dump_setting_stream_cmd(void *base,
-	off_t b_offset)
+	off_t b_offset,
+	int count)
 {
 	struct sensor_lite_settings_stream_cmd *p_streamCmd = NULL;
+	int i = 0;
 
 	if (base == NULL)
 		return -EINVAL;
 
-	p_streamCmd = (struct sensor_lite_settings_stream_cmd *)((uint8_t *)base + b_offset);
+	for (i = 0; i < count; i++) {
+		p_streamCmd =
+			(struct sensor_lite_settings_stream_cmd *)((uint8_t *)base + b_offset);
 
-	SENSOR_LITE_INFO("channel_id: %d, tracker_id: %d, sensor_id: %d, numcmd_groups: %d, "
-		"settings_groupoffset: 0x%x",
-		p_streamCmd->channel_id,
-		p_streamCmd->tracker_id,
-		p_streamCmd->sensor_id,
-		p_streamCmd->numcmd_groups,
-		p_streamCmd->settings_groupoffset);
+		SENSOR_LITE_INFO(
+			"channel_id: %d, tracker_id: %d, sensor_id: %d",
+			p_streamCmd->channel_id,
+			p_streamCmd->tracker_id,
+			p_streamCmd->sensor_id);
 
-	return __dump_settings_group_cmd(base, p_streamCmd->settings_groupoffset,
-		p_streamCmd->numcmd_groups);
+		SENSOR_LITE_INFO(
+			"numcmd_groups: %d, settings_groupoffset: 0x%x, reserved: 0x%x, is_pkt_active: %d",
+			p_streamCmd->numcmd_groups,
+			p_streamCmd->settings_groupoffset,
+			p_streamCmd->header.reserved,
+			p_streamCmd->header.is_pkt_active);
+
+		__dump_settings_group_cmd(base, p_streamCmd->settings_groupoffset,
+			p_streamCmd->numcmd_groups);
+		b_offset += p_streamCmd->header.size;
+	}
+
+	return 0;
 }
 
 int __dump_perframe_cmd(
@@ -521,7 +534,8 @@ int __dump_perframe_cmd(
 		pf_packet->stream_offset,
 		pf_packet->timestamp);
 
-	return __dump_setting_stream_cmd(pf_packet, pf_packet->stream_offset);
+	return __dump_setting_stream_cmd(pf_packet, pf_packet->stream_offset,
+		pf_packet->num_streams);
 }
 
 int __dump_acquire_cmd(
@@ -701,7 +715,9 @@ int __send_pkt(
 	int rc = 0;
 	int handle;
 
-	CAM_DBG(CAM_SENSOR_LITE, "header->tag =  %d", header->tag);
+	CAM_DBG(CAM_SENSOR_LITE, "SENSOR_LITE[%d] header->tag = %d",
+		sensor_lite_dev->soc_info.index,
+		header->tag);
 
 	switch (header->tag) {
 	case SENSORLITE_CMD_TYPE_PROBE:

@@ -57,27 +57,12 @@ static int __cam_sensor_lite_handle_perframe(
 	uint64_t                          request_id)
 {
 	int rc = 0;
-	struct cam_req_mgr_add_request add_req = {0};
 
-	if ((sensor_lite_dev->crm_intf.link_hdl != -1) &&
-			(sensor_lite_dev->crm_intf.device_hdl != -1) &&
-			(sensor_lite_dev->crm_intf.crm_cb != NULL) &&
-			(sensor_lite_dev->crm_intf.enable_crm)) {
-		add_req.link_hdl = sensor_lite_dev->crm_intf.link_hdl;
-		add_req.dev_hdl  = sensor_lite_dev->crm_intf.device_hdl;
-		add_req.req_id   = request_id;
-		sensor_lite_dev->crm_intf.crm_cb->add_req(&add_req);
-	} else {
-		CAM_ERR(CAM_SENSOR_LITE, "SENSOR_LITE[%d] crm[%d] invalid link req: %llu",
-					sensor_lite_dev->soc_info.index,
-					sensor_lite_dev->crm_intf.enable_crm,
-					request_id);
-	}
-	__send_pkt(sensor_lite_dev,
+	/* Send packet regardless of whether CRM is enabled */
+	rc = __send_pkt(sensor_lite_dev,
 			(struct sensor_lite_header *)cmd);
 	return rc;
 }
-
 
 static int cam_sensor_lite_request_queue_cmd(
 	struct sensor_lite_device  *dev,
@@ -800,6 +785,11 @@ static int __cam_sensor_lite_handle_start_cmd(
 
 		__set_slave_pkt_headers(&cmd->header, HCM_PKT_OPCODE_SENSOR_START_DEV);
 		memcpy(sensor_lite_dev->start_cmd, cmd, cmd->header.size);
+
+		CAM_DBG(CAM_SENSOR_LITE, "SENSOR_LITE[%d] start settings size: %d trigger mode:%d",
+			sensor_lite_dev->soc_info.index,
+			sensor_lite_dev->start_cmd->start_stop_settings_size,
+			(sensor_lite_dev->start_cmd->start_stop_settings_size == 0));
 	}
 	return rc;
 }
@@ -960,9 +950,7 @@ static int cam_sensor_lite_cmd_buf_parse(
 				(struct sensor_lite_start_stop_cmd *)cmd_addr);
 			break;
 		case SENSORLITE_CMD_TYPE_PERFRAME:
-			CAM_DBG(CAM_SENSOR_LITE, "Start settings size: %d",
-				sensor_lite_dev->start_cmd->start_stop_settings_size);
-
+			/* In FSIN mode, start settings should be empty */
 			if (!sensor_lite_dev->start_cmd->start_stop_settings_size) {
 				__cam_sensor_lite_handle_perframe(sensor_lite_dev,
 					(struct sensor_lite_perframe_cmd *)cmd_addr,
@@ -991,7 +979,8 @@ static int cam_sensor_lite_cmd_buf_parse(
 	}
 
 	/* Add request */
-	if ((((packet->header.op_code & 0xFF)
+	if ((sensor_lite_dev->start_cmd->start_stop_settings_size) &&
+		(((packet->header.op_code & 0xFF)
 			== CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE) ||
 		(packet->header.op_code & 0xFF)
 			== CAM_SENSOR_LITE_PACKET_OPCODE_NOP) &&
@@ -1087,16 +1076,11 @@ int __cam_sensor_lite_handle_start_dev(
 				sensor_lite_dev->soc_info.index, sensor_lite_dev->state);
 		return -EINVAL;
 	}
-	if (rc) {
-		CAM_ERR(CAM_SENSOR_LITE,
-				"SENSOR_LITE[%d] START_DEV failed",
-				sensor_lite_dev->soc_info.index);
-	} else {
-		sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_START;
-		CAM_INFO(CAM_SENSOR_LITE,
-				"SENSOR_LITE[%d] START_DEV done.",
-				sensor_lite_dev->soc_info.index);
-	}
+
+	sensor_lite_dev->state = CAM_SENSOR_LITE_STATE_START;
+	CAM_INFO(CAM_SENSOR_LITE,
+			"SENSOR_LITE[%d] START_DEV done.",
+			sensor_lite_dev->soc_info.index);
 
 	if (sensor_lite_dev->start_cmd != NULL) {
 		__send_pkt(sensor_lite_dev,
@@ -1529,24 +1513,11 @@ int cam_sensor_lite_core_cfg(
 		break;
 	}
 	case CAM_START_DEV: {
-		struct cam_start_stop_dev_cmd start;
-
-		if (copy_from_user(&start, u64_to_user_ptr(cmd->handle),
-			sizeof(start)))
-			rc = -EFAULT;
-		else {
 			/* As all sensors are connnected to Co-Processer For Single camera     */
 			/* and multicamrea usecases, all Sensors start_dev should happen after */
 			/* Aggregator PHY Start, The present code doesn't do that, to fix that */
 			/* implemented a subdev notify from PHY to Sensor lite node to stream  */
 			/* line the sensor start dev                                           */
-			/* rc = __cam_sensor_lite_handle_start_dev(sensor_lite_dev, &start);   */
-			if (rc)
-				CAM_ERR(CAM_SENSOR_LITE,
-					"SENSOR_LITE[%d] start device failed(rc = %d)",
-					sensor_lite_dev->soc_info.index,
-					rc);
-		}
 		break;
 	}
 	case CAM_FLUSH_REQ: {

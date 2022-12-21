@@ -175,6 +175,7 @@ struct sensor_power_setting {
  *                    : reserved : 8 bits
  * @version           : version of this packet
  * @tag               : tag to identify the packet type
+ * @is_pkt_active     : whether pkt is active
  * @reserved          : for future use
  * @size              : size of entire packet
  */
@@ -183,7 +184,8 @@ struct sensor_lite_header {
 	struct cam_rpmsg_slave_payload_desc hpkt_preamble;
 	uint8_t                             version;
 	uint8_t                             tag;
-	uint16_t                            reserved;
+	uint16_t                            is_pkt_active : 1;
+	uint16_t                            reserved      : 15;
 	uint32_t                            size;
 } __packed;
 
