@@ -202,7 +202,6 @@ static int cam_req_mgr_close(struct file *filep)
 		return -EINVAL;
 	}
 
-	cam_req_mgr_handle_core_shutdown();
 	g_dev.shutdown_state = true;
 
 	list_for_each_entry(csd, &cam_req_mgr_ordered_sd_list, list) {
@@ -216,6 +215,7 @@ static int cam_req_mgr_close(struct file *filep)
 				CAM_SD_SHUTDOWN, subdev_fh);
 		}
 	}
+	cam_req_mgr_handle_core_shutdown();
 
 	g_dev.open_cnt--;
 	g_dev.shutdown_state = false;
