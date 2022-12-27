@@ -1,4 +1,5 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -506,12 +507,6 @@ static int ais_ife_csid_disable_csi2(struct ais_ife_csid_hw *csid_hw)
 	/* Disable the CSI2 rx inerrupts */
 	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_irq_mask_addr);
-
-	/* Reset the Rx CFG registers */
-	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
-		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
-	cam_io_w_mb(0, soc_info->reg_map[0].mem_base +
-		csid_reg->csi2_reg->csid_csi2_rx_cfg1_addr);
 
 	return rc;
 }
@@ -1816,6 +1811,16 @@ static irqreturn_t ais_ife_csid_irq(int irq_num, void *data)
 		}
 		if (irq_status[CSID_IRQ_STATUS_RX] &
 			CSID_CSI2_RX_ERROR_LANE3_FIFO_OVERFLOW) {
+			fatal_err_detected = true;
+			goto handle_fatal_error;
+		}
+		if (irq_status[CSID_IRQ_STATUS_RX] &
+			CSID_CSI2_RX_ERROR_CRC) {
+			fatal_err_detected = true;
+			goto handle_fatal_error;
+		}
+		if (irq_status[CSID_IRQ_STATUS_RX] &
+			CSID_CSI2_RX_ERROR_ECC) {
 			fatal_err_detected = true;
 			goto handle_fatal_error;
 		}

@@ -12,5 +12,9 @@ modules dtbs:
 modules_install:
 	$(MAKE) M=$(M) -C $(KERNEL_SRC) modules_install
 
+%:
+	$(MAKE) -C $(KERNEL_SRC) M=$(M) $@ $(KBUILD_OPTIONS)
+
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
+	rm -f *.o *.ko *.mod.c *.mod.o *~ .*.cmd Module.symvers
+	rm -rf .tmp_versions

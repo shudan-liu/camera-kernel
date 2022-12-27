@@ -8,6 +8,11 @@ ifeq (y, $(findstring y, $(CONFIG_ARCH_SA8155) $(CONFIG_ARCH_SA6155) $(CONFIG_AR
 include $(CAMERA_KERNEL_ROOT)/config/gen3auto.mk
 endif
 
+# Include GVM Configurations
+ifeq ($(CONFIG_QTI_QUIN_GVM), y)
+include $(CAMERA_KERNEL_ROOT)/config/gen3gvm.mk
+endif
+
 # List of all camera-kernel headers
 cam_include_dirs := $(shell dirname `find $(CAMERA_KERNEL_ROOT) -name '*.h'` | uniq)
 
@@ -25,6 +30,10 @@ ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 ccflags-y += ${ccflags-m}
+
+ifeq ($(QTI_TECHPACK), true)
+ccflags-y += -D__AGL__=1
+endif
 
 ais-$(CONFIG_MSM_AIS) += \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
@@ -216,7 +225,7 @@ ais-$(CONFIG_SPECTRA_LRME) += \
 ais-$(CONFIG_V4L2_LOOPBACK_V2) += \
 	drivers/v4l2loopback-master_v2/v4l2loopback.o
 
-ais-$(CONFIG_MSM_AIS) += drivers/ais_main.o
+ais-y += drivers/ais_main.o
 
 obj-m += ais.o
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/ais.ko

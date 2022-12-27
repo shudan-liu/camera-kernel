@@ -64,6 +64,11 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 
 	irq_status0 = cam_io_r_mb(base + CCI_IRQ_STATUS_0_ADDR);
 	irq_status1 = cam_io_r_mb(base + CCI_IRQ_STATUS_1_ADDR);
+
+	cam_io_w_mb(irq_status0, base + CCI_IRQ_CLEAR_0_ADDR);
+	cam_io_w_mb(irq_status1, base + CCI_IRQ_CLEAR_1_ADDR);
+	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
+
 	CAM_DBG(CAM_CCI, "BASE: %pK", base);
 	CAM_DBG(CAM_CCI, "irq0:%x irq1:%x", irq_status0, irq_status1);
 
@@ -220,7 +225,7 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		struct cam_cci_master_info *cci_master_info;
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_NACK_ERROR_BMSK)
-			CAM_DBG(CAM_CCI, "Base:%pK, M0 NACK ERROR: 0x%x",
+			CAM_ERR(CAM_CCI, "Base:%pK, M0 NACK ERROR: 0x%x",
 				base, irq_status0);
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_ERROR_BMSK)
 			CAM_ERR(CAM_CCI,
@@ -270,8 +275,6 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 			complete(&cci_master_info->report_q[QUEUE_1]);
 		}
 	}
-
-	cam_io_w_mb(irq_status0, base + CCI_IRQ_CLEAR_0_ADDR);
 
 	reg_bmsk = CCI_IRQ_MASK_1_RMSK;
 	if ((irq_status1 & CCI_IRQ_STATUS_1_I2C_M1_RD_THRESHOLD) &&
@@ -327,9 +330,6 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		cam_io_w_mb(irq_update_rd_done, base + CCI_IRQ_MASK_1_ADDR);
 	}
 
-
-	cam_io_w_mb(irq_status1, base + CCI_IRQ_CLEAR_1_ADDR);
-	cam_io_w_mb(0x1, base + CCI_IRQ_GLOBAL_CLEAR_CMD_ADDR);
 	return IRQ_HANDLED;
 }
 
