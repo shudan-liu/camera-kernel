@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_CONTEXT_H_
@@ -324,6 +324,7 @@ struct cam_isp_context_event_record {
  * @flush_in_progress:         indicates whether flush is in progress
  * @rdi_stats_context:         Indicate whether context is for rdi and stats
  * @sensor_pd_handled:         Indicate if sensor pd is handled in independent crm case
+ * @additional_timeout:        Additional timeout required for last applied request
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -395,6 +396,7 @@ struct cam_isp_context {
 	atomic_t                               flush_in_progress;
 	bool                                   rdi_stats_context;
 	bool                                   sensor_pd_handled;
+	int32_t                                additional_timeout;
 };
 
 /**

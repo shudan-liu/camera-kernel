@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -821,11 +821,13 @@ static inline void __cam_isp_ctx_update_sof_ts_util(
 
 	if (ctx_isp->independent_crm_en) {
 		if (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)
-			crm_timer_reset(ctx_isp->independent_crm_sof_timer);
+			crm_timer_modify(ctx_isp->independent_crm_sof_timer,
+				ctx_isp->additional_timeout +
+				CAM_REQ_MGR_WATCHDOG_TIMEOUT);
 
 		else
 			crm_timer_modify(ctx_isp->independent_crm_sof_timer,
-				CAM_REQ_MGR_WATCHDOG_TIMEOUT_MAX);
+				CAM_REQ_MGR_WATCHDOG_MAX_TIMEOUT);
 	}
 }
 
@@ -900,6 +902,31 @@ static int cam_isp_ctx_dump_req(
 	return rc;
 }
 
+static void cam_isp_ctx_sof_independent_timer_cb(struct timer_list *timer_data)
+{
+	struct crm_workq_task     *task = NULL;
+	struct cam_isp_context    *ctx_isp;
+	struct cam_req_mgr_timer  *timer =
+		container_of(timer_data, struct cam_req_mgr_timer, sys_timer);
+
+	ctx_isp = (struct cam_isp_context *)timer->parent;
+
+	if (!ctx_isp->hw_mgr_workq) {
+		CAM_ERR(CAM_ISP, "No worker for isp context");
+		return;
+	}
+
+	task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+
+	if (!task) {
+		CAM_ERR(CAM_ISP, "No task for worker");
+		return;
+	}
+
+	task->process_cb = __cam_isp_ctx_independent_sof_timer;
+	cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
+}
+
 static int __cam_isp_ctx_enqueue_request_in_order(
 	struct cam_context *ctx, struct cam_ctx_request *req)
 {
@@ -907,6 +934,7 @@ static int __cam_isp_ctx_enqueue_request_in_order(
 	struct cam_ctx_request           *req_prev;
 	struct list_head                  temp_list;
 	struct cam_isp_context           *ctx_isp;
+	int    rc = 0;
 
 	ctx_isp = (struct cam_isp_context *) ctx->ctx_priv;
 	INIT_LIST_HEAD(&temp_list);
@@ -937,6 +965,14 @@ static int __cam_isp_ctx_enqueue_request_in_order(
 					&ctx->pending_req_list);
 			}
 		}
+	}
+	if (ctx_isp->independent_crm_en && !ctx_isp->independent_crm_sof_timer &&
+		 ctx->state == CAM_CTX_ACTIVATED) {
+		rc = crm_timer_init(&ctx_isp->independent_crm_sof_timer,
+			CAM_REQ_MGR_WATCHDOG_TIMEOUT, ctx_isp,
+			&cam_isp_ctx_sof_independent_timer_cb);
+		if (rc)
+			CAM_ERR(CAM_ISP, "Failed to start timer");
 	}
 	__cam_isp_ctx_update_event_record(ctx_isp,
 		CAM_ISP_CTX_EVENT_SUBMIT, req);
@@ -7320,6 +7356,7 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 	ctx_isp->sensor_pd = link->sensor_pd;
 	ctx_isp->is_sensorlite = link->is_sensorlite;
 	ctx_isp->sensor_pd_handled = false;
+	ctx_isp->additional_timeout = 0;
 
 	/* change state only if we had the init config */
 	if (ctx_isp->init_received) {
@@ -7379,32 +7416,6 @@ static inline void __cam_isp_context_reset_ctx_params(
 	ctx_isp->recovery_req_id = 0;
 	ctx_isp->aeb_error_cnt = 0;
 }
-
-static void cam_isp_ctx_sof_independent_timer_cb(struct timer_list *timer_data)
-{
-	struct crm_workq_task     *task = NULL;
-	struct cam_isp_context    *ctx_isp;
-	struct cam_req_mgr_timer  *timer =
-		container_of(timer_data, struct cam_req_mgr_timer, sys_timer);
-
-	ctx_isp = (struct cam_isp_context *)timer->parent;
-
-	if (!ctx_isp->hw_mgr_workq) {
-		CAM_ERR(CAM_ISP, "No worker for isp context");
-		return;
-	}
-
-	task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
-
-	if (!task) {
-		CAM_ERR(CAM_ISP, "No task for worker");
-		return;
-	}
-
-	task->process_cb = __cam_isp_ctx_independent_sof_timer;
-	cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
-}
-
 static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
@@ -7542,13 +7553,6 @@ do_hw_start:
 		goto end;
 	}
 
-	if (ctx_isp->independent_crm_en) {
-		rc = crm_timer_init(&ctx_isp->independent_crm_sof_timer,
-			CAM_REQ_MGR_WATCHDOG_TIMEOUT, ctx_isp,
-			&cam_isp_ctx_sof_independent_timer_cb);
-		if (rc)
-			CAM_ERR(CAM_ISP, "Failed to start timer");
-	}
 	CAM_DBG(CAM_ISP, "start device success ctx %u", ctx->ctx_id);
 
 end:
@@ -8147,6 +8151,8 @@ static int __cam_isp_ctx_no_crm_apply(
 				ctx_isp->substate_activated), rc, cam_ctx->ctx_id);
 		} else {
 			*applied_req = apply_req.request_id;
+			ctx_isp->additional_timeout =
+				cam_req_mgr_link_get_additional_timeout(ctx_isp->base->link_hdl);
 		}
 		crm_timer_reset(ctx_isp->independent_crm_sof_timer);
 	}
