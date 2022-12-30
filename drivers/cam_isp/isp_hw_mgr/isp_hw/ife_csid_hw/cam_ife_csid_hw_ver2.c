@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -2652,8 +2652,9 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 	struct cam_ife_csid_ver2_path_cfg    *path_cfg;
 	const struct cam_ife_csid_ver2_reg_info *csid_reg;
 	uint32_t cid;
-	int rc = 0;
-	bool is_per_port_acquire = false;
+	int rc = 0, i;
+	bool is_per_port_acquire = false, found = false;
+	bool token_data_empty = true;
 
 	reserve = (struct cam_csid_hw_reserve_resource_args  *)reserve_args;
 
@@ -2677,6 +2678,24 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 
 	if (reserve->in_port->per_port_en && reserve->per_port_acquire)
 		is_per_port_acquire = true;
+
+	if (!is_per_port_acquire) {
+		for (i = 0; i < CAM_IFE_PIX_PATH_RES_MAX; i++) {
+			if (csid_hw->token_data[i].token) {
+				token_data_empty = false;
+				if (csid_hw->token_data[i].token == reserve->cb_priv) {
+					found = true;
+					break;
+				}
+			}
+		}
+	}
+
+	if (!token_data_empty && !found) {
+		CAM_DBG(CAM_ISP, "CSID %d already acquired in another context",
+			csid_hw->hw_intf->hw_idx);
+		return -EBUSY;
+	}
 
 	if (reserve->res_id < CAM_IFE_PIX_PATH_RES_MAX) {
 		csid_hw->token_data[reserve->res_id].token = reserve->cb_priv;
