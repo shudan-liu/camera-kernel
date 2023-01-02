@@ -6,56 +6,12 @@ $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
 endif
 
 # Include Architecture configurations
-ifeq ($(CONFIG_ARCH_NEO), y)
-include $(CAMERA_KERNEL_ROOT)/config/neo.mk
-endif
-
-ifeq ($(CONFIG_ARCH_ANORAK), y)
-include $(CAMERA_KERNEL_ROOT)/config/anorak.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KALAMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kalama.mk
-endif
-
 ifeq ($(CONFIG_ARCH_WAIPIO), y)
 include $(CAMERA_KERNEL_ROOT)/config/waipio.mk
 endif
 
-ifeq ($(CONFIG_ARCH_LAHAINA), y)
-include $(CAMERA_KERNEL_ROOT)/config/lahaina.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KONA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kona.mk
-endif
-
-ifeq ($(CONFIG_ARCH_BENGAL), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_HOLI), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_LITO), y)
-include $(CAMERA_KERNEL_ROOT)/config/lito.mk
-endif
-
-ifeq ($(CONFIG_ARCH_SHIMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/shima.mk
-endif
-
-ifeq ($(CONFIG_ARCH_DIWALI), y)
-include $(CAMERA_KERNEL_ROOT)/config/diwali.mk
-endif
-
-ifeq ($(CONFIG_ARCH_CAPE), y)
-include $(CAMERA_KERNEL_ROOT)/config/cape.mk
-endif
-
-ifeq ($(CONFIG_ARCH_PARROT), y)
-include $(CAMERA_KERNEL_ROOT)/config/parrot.mk
+ifeq ($(CONFIG_ARCH_LEMANS), y)
+include $(CAMERA_KERNEL_ROOT)/config/lemans.mk
 endif
 
 # List of all camera-kernel headers
@@ -74,7 +30,8 @@ LINUXINCLUDE +=                                 \
 ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm/synx
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
-ccflags-y += ${ccflags-m}
+# stack frame size error limit is 2048 by default, increasing it to 4096
+ccflags-y += ${ccflags-m} -Wframe-larger-than=4096
 
 camera-y := \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
