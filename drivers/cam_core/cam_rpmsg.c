@@ -597,13 +597,12 @@ static int cam_rpmsg_handle_jpeg_poweroff(struct cam_rpmsg_jpeg_payload *payload
 	handle = cam_rpmsg_get_handle_from_dev(rpdev);
 	dev_name = cam_rpmsg_dev_hdl_to_string(handle);
 
-	if (rsp)
-		mutex_lock(&jpeg_private.jpeg_mutex);
+	mutex_lock(&jpeg_private.jpeg_mutex);
 	if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF)  {
+		mutex_unlock(&jpeg_private.jpeg_mutex);
 		if (!rsp)
 			return 0;
 		CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
-		mutex_unlock(&jpeg_private.jpeg_mutex);
 		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
 		trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX,
 				sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
@@ -624,8 +623,8 @@ static int cam_rpmsg_handle_jpeg_poweroff(struct cam_rpmsg_jpeg_payload *payload
 
 	jpeg_private.dmabuf_f_op = NULL;
 	jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
+	mutex_unlock(&jpeg_private.jpeg_mutex);
 	if (rsp) {
-		mutex_unlock(&jpeg_private.jpeg_mutex);
 		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
 		trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
@@ -1206,8 +1205,8 @@ static void cam_rpmsg_jpeg_remove(struct rpmsg_device *rpdev)
 	payload->rpdev = idata->rpdev;
 	payload->rsp   = NULL;
 
-	spin_lock_irqsave(&idata->sp_lock, flag);
 	cam_rpmsg_handle_jpeg_poweroff(payload);
+	spin_lock_irqsave(&idata->sp_lock, flag);
 	idata->rpdev = NULL;
 	complete(&jpeg_private.error_data.complete);
 	spin_unlock_irqrestore(&idata->sp_lock, flag);
