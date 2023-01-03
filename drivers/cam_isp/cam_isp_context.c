@@ -535,8 +535,8 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 	struct cam_req_mgr_no_crm_trigger_notify *sof_notify = NULL;
 	int                                               rc = 0, req_id = 0;
 
-	if (!priv || !data) {
-		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
+	if (!priv) {
+		CAM_ERR(CAM_CRM, "input args NULL %pK", priv);
 		rc = -EINVAL;
 		return rc;
 	}
@@ -547,10 +547,10 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 
 	CAM_DBG(CAM_ISP, "no_crm apply from trigger_util");
 	mutex_lock(&ctx_isp->no_crm_mutex);
-	rc = __cam_isp_ctx_no_crm_apply(ctx_isp, false, &req_id);
+	rc = __cam_isp_ctx_no_crm_apply(ctx_isp, true, &req_id);
 	mutex_unlock(&ctx_isp->no_crm_mutex);
 
-	if (!rc && req_id && (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
+	if (sof_notify && !rc && (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
 		sof_notify->request_id = req_id;
 		CAM_DBG(CAM_ISP,
 			"Notify sensor %s on frame: %llu ctx: %u link: 0x%x is_sensorlite:%d",
@@ -563,9 +563,9 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 		else
 			cam_subdev_notify_message(CAM_SENSOR_DEVICE_TYPE,
 				CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
+		kfree(sof_notify);
 	}
 
-	kfree(sof_notify);
 	CAM_DBG(CAM_ISP, "no_crm exit from trigger_util");
 
 	return rc;
@@ -6152,7 +6152,7 @@ err_out:
 static int __cam_isp_ctx_config_dev_in_top_state(
 	struct cam_context *ctx, struct cam_config_dev_cmd *cmd)
 {
-	int rc = 0, i, req_id = 0;
+	int rc = 0, i;
 	struct cam_ctx_request           *req = NULL;
 	struct cam_isp_ctx_req           *req_isp;
 	struct cam_packet                *packet;
@@ -6163,6 +6163,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		(struct cam_isp_context *) ctx->ctx_priv;
 	struct cam_hw_cmd_args            hw_cmd_args;
 	struct cam_isp_hw_cmd_args        isp_hw_cmd_args;
+	struct crm_workq_task            *task = NULL;
 	uint32_t                          packet_opcode = 0;
 	uint32_t                          shndl;
 	uint32_t                         *slave_pkt, *pkt_offset;
@@ -6466,9 +6467,18 @@ done:
 	if (ctx_isp->independent_crm_en && ctx_isp->stream_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
 		if (ctx->state == CAM_CTX_ACTIVATED && ctx_isp->rdi_only_context) {
 			CAM_DBG(CAM_ISP, "independent CRM apply from config_dev");
-			mutex_lock(&ctx_isp->no_crm_mutex);
-			__cam_isp_ctx_no_crm_apply(ctx_isp, true, &req_id);
-			mutex_unlock(&ctx_isp->no_crm_mutex);
+			task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+			if (!task) {
+				CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task");
+				return -EBUSY;
+			}
+
+			task->process_cb = __cam_isp_ctx_no_crm_apply_trigger_util;
+			task->payload = NULL;
+
+			rc = cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
+			if (rc)
+				CAM_ERR(CAM_REQ, "Pending request processing failed:%d", rc);
 		}
 	}
 
