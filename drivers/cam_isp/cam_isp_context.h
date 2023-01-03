@@ -324,6 +324,7 @@ struct cam_isp_context {
 	struct cam_req_mgr_core_workq        *workq;
 	int32_t                               trigger_id;
 	int64_t                               last_bufdone_err_apply_req_id;
+	bool                                  is_irq_disorder;
 };
 
 /**
