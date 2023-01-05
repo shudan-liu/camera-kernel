@@ -1289,6 +1289,15 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 	}
 		break;
+	case CAM_FLUSH_REQ: {
+		CAM_DBG(CAM_SENSOR,
+				"Invalid Flush request for %s slot: %d, sensor_id:0x%x, slave_addr:0x%x. ",
+				s_ctrl->sensor_name,
+				s_ctrl->soc_info.index,
+				s_ctrl->sensordata->slave_info.sensor_id,
+				s_ctrl->sensordata->slave_info.sensor_slave_addr);
+	}
+		break;
 	default:
 		CAM_ERR(CAM_SENSOR, "%s: Invalid Opcode: %d",
 			s_ctrl->sensor_name, cmd->op_code);
