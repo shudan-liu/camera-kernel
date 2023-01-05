@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CSID_HW_INTF_H_
@@ -216,6 +216,7 @@ struct cam_csid_secondary_evt_config {
  * @handle_camif_irq:    Flag to indicate if CSID IRQ is enabled
  * @per_port_acquire:    Indicates if acquire as real acquire or per port
  *                       virtual acquire for current res path
+ * @per_port_group_index: Group index if per port is enabled
  *
  */
 struct cam_csid_hw_reserve_resource_args {
@@ -246,6 +247,7 @@ struct cam_csid_hw_reserve_resource_args {
 	bool                                      metadata_en;
 	bool                                      handle_camif_irq;
 	bool                                      per_port_acquire;
+	int                                       per_port_grp_index;
 };
 
 /**

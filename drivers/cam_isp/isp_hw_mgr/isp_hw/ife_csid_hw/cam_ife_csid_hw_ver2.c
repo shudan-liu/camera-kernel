@@ -2697,6 +2697,18 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 		return -EBUSY;
 	}
 
+	if (is_per_port_acquire && csid_hw->counters.csi2_reserve_cnt &&
+		csid_hw->per_port_group_index != reserve->per_port_grp_index) {
+		/**
+		 * intentionally set as DBG log to since this log gets printed when hw manager
+		 * checks if new csid is available
+		 */
+		CAM_DBG(CAM_ISP, "CSID %d group index mismatch %d %d",
+			csid_hw->hw_intf->hw_idx, csid_hw->per_port_group_index,
+			reserve->per_port_grp_index);
+		return -EBUSY;
+	}
+
 	if (reserve->res_id < CAM_IFE_PIX_PATH_RES_MAX) {
 		csid_hw->token_data[reserve->res_id].token = reserve->cb_priv;
 		csid_hw->token_data[reserve->res_id].res_id = reserve->res_id;
@@ -2758,6 +2770,7 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 	csid_hw->flags.offline_mode = reserve->is_offline;
 	reserve->need_top_cfg = csid_reg->need_top_cfg;
 	csid_hw->flags.metadata_en = reserve->metadata_en;
+	csid_hw->per_port_group_index = reserve->per_port_grp_index;
 
 	if (is_per_port_acquire)
 		csid_hw->flags.per_port_en = true;
@@ -2852,6 +2865,7 @@ int cam_ife_csid_ver2_release(void *hw_priv,
 			csid_hw->token_data[i].token = NULL;
 			csid_hw->token_data[i].res_id = -1;
 		}
+		csid_hw->per_port_group_index = -1;
 	}
 
 	res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
@@ -6082,6 +6096,7 @@ int cam_ife_csid_hw_ver2_init(struct cam_hw_intf *hw_intf,
 	}
 	csid_hw->debug_info.debug_val = 0;
 	csid_hw->counters.error_irq_count = 0;
+	csid_hw->per_port_group_index = -1;
 
 	return 0;
 
