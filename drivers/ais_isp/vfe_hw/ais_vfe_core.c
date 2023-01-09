@@ -1826,6 +1826,13 @@ irqreturn_t ais_vfe_irq(int irq_num, void *data)
 							path));
 					cam_io_w_mb(core_info->irq_mask1,
 							core_info->mem_base + AIS_VFE_IRQ_MASK1);
+
+					/* Print RDI Overflow Error Info*/
+					core_info->csid_hw->hw_ops.process_cmd(
+						core_info->csid_hw->hw_priv,
+						AIS_IFE_CSID_CMD_OVERFLOW_INFO,
+						&path,
+						sizeof(path));
 				}
 
 				CAM_ERR_RATE_LIMIT(CAM_ISP,
