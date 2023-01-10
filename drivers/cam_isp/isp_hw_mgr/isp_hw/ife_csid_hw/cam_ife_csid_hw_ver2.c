@@ -2045,7 +2045,8 @@ int cam_ife_csid_ver2_reset(void *hw_priv,
 	reset   = (struct cam_csid_reset_cfg_args  *)reset_args;
 
 	mutex_lock(&csid_hw->hw_info->hw_mutex);
-	if (atomic_read(&csid_hw->init_global_reset_cnt))
+	if (atomic_read(&csid_hw->init_global_reset_cnt) &&
+		csid_hw->flags.per_port_en)
 		goto skip_reset;
 
 	switch (reset->reset_type) {
@@ -2738,6 +2739,9 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 	csid_hw->flags.offline_mode = reserve->is_offline;
 	reserve->need_top_cfg = csid_reg->need_top_cfg;
 	csid_hw->flags.metadata_en = reserve->metadata_en;
+
+	if (is_per_port_acquire)
+		csid_hw->flags.per_port_en = true;
 
 	CAM_DBG(CAM_ISP, "CSID[%u] Resource[id: %d name:%s] state %d cid %d",
 		csid_hw->hw_intf->hw_idx, reserve->res_id, res->res_name,
@@ -3953,6 +3957,9 @@ static int cam_ife_csid_ver2_enable_csi2(struct cam_ife_csid_ver2_hw *csid_hw)
 	if (csid_hw->rx_cfg.epd_supported &&
 		(csid_hw->rx_cfg.lane_type == CAM_ISP_LANE_TYPE_DPHY))
 		val &= ~IFE_CSID_VER2_RX_CPHY_EOT_RECEPTION;
+
+	if (csid_hw->debug_info.debug_val & CAM_IFE_CSID_DEBUG_DISABLE_CRC)
+		val &= ~IFE_CSID_VER2_RX_ERROR_CRC;
 
 	irq_mask[CAM_IFE_CSID_IRQ_REG_RX] = val;
 

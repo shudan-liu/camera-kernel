@@ -59,6 +59,7 @@
 #define CAM_IFE_CSID_DEBUG_ENABLE_HBI_VBI_INFO            BIT(7)
 #define CAM_IFE_CSID_DEBUG_DISABLE_EARLY_EOF              BIT(8)
 #define CAM_IFE_DEBUG_ENABLE_UNMAPPED_VC_DT_IRQ           BIT(9)
+#define CAM_IFE_CSID_DEBUG_DISABLE_CRC                    BIT(10)
 
 /* Binning supported masks. Binning support changes for specific paths
  * and also for targets. With the mask, we handle the supported features
@@ -305,6 +306,7 @@ struct cam_ife_csid_debug_info {
  * @rdi_lcr_en:             flag to indicate if RDI to lcr is enabled
  * @sfe_en:                 flag to indicate if SFE is enabled
  * @metadata_en:            flag to indicate if slave metadta is enabled
+ * @per_port_en:            flag to indicate if per port is enabled
  */
 struct cam_ife_csid_hw_flags {
 	bool                  device_enabled;
@@ -320,6 +322,7 @@ struct cam_ife_csid_hw_flags {
 	bool                  rdi_lcr_en;
 	bool                  sfe_en;
 	bool                  metadata_en;
+	bool                  per_port_en;
 };
 
 /*

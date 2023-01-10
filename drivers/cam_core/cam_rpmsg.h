@@ -257,7 +257,8 @@ enum cam_jpeg_dsp_status {
 enum cam_jpeg_dsp_error_type {
 	CAM_JPEG_DSP_INVALID  = 0,
 	CAM_JPEG_DSP_PF_ERROR  = 1,
-	CAM_JPEG_DSP_MAX_ERROR = 2,
+	CAM_JPEG_DSP_PC_ERROR  = 2,
+	CAM_JPEG_DSP_MAX_ERROR = 3,
 };
 
 enum cam_jpeg_dsp_cmd {
@@ -409,17 +410,33 @@ struct cam_rpmsg_slave_pvt {
 	struct cam_rpmsg_slave_cbs cbs[CAM_RPMSG_SLAVE_CLIENT_MAX];
 };
 
+
+/** struct cam_rpmsg_jpeg_error_data - jpeg error data
+ *
+ * @complete: signals completetion of error handling
+ */
+struct cam_rpmsg_jpeg_error_data {
+	struct completion complete;
+};
+
 /** struct cam_rpmsg_jpeg_pvt - jpeg channel private data
  *
- * @cbs : slave client callback data
+ * @status:          DSP state (POWERON/POWEROFF)
+ * @jpeg_work_queue: workqeue for nsp jpeg
+ * @jpeg_iommu_hdl:  jpeg Iommu handle
+ * @jpeg_task:       jpeg tasklets
+ * @dmabuf_f_op:     dma buffer info
+ * @error_data:      error related info
+ * @jpeg_mutex:      Jpeg mutex
  */
 struct cam_rpmsg_jpeg_pvt {
-	enum cam_jpeg_dsp_status      status;
-	struct workqueue_struct      *jpeg_work_queue;
-	uint32_t                      jpeg_iommu_hdl;
-	struct task_struct           *jpeg_task;
-	const struct file_operations *dmabuf_f_op;
-	struct mutex                  jpeg_mutex;
+	enum cam_jpeg_dsp_status           status;
+	struct workqueue_struct           *jpeg_work_queue;
+	uint32_t                           jpeg_iommu_hdl;
+	struct task_struct                *jpeg_task;
+	const struct file_operations      *dmabuf_f_op;
+	struct cam_rpmsg_jpeg_error_data   error_data;
+	struct mutex                       jpeg_mutex;
 };
 
 /** struct cam_rpmsg_instance_data - rpmsg per channel data

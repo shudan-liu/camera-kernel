@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -196,6 +197,11 @@ int cam_context_handle_crm_notify_frame_skip(
 	if (!apply) {
 		CAM_ERR(CAM_CORE, "Invalid apply request payload");
 		return -EINVAL;
+	}
+
+	if (ctx->dev_id == CAM_ISP) {
+		CAM_DBG(CAM_CORE, "Skip notify_frame_skip for IFE");
+		return rc;
 	}
 
 	mutex_lock(&ctx->ctx_mutex);

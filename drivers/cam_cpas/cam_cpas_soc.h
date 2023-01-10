@@ -32,7 +32,8 @@ struct cam_cpas_vdd_ahb_mapping {
  *
  * @cell_idx: Index to identify node from device tree and its parent
  * @level_idx: Index to identify at what level the node is present
- * @axi_port_idx: Index to identify which axi port to vote the consolidated bw
+ * @axi_port_idx_arr: Index to identify which axi port to vote the consolidated bw.
+ *                    It can point to multiple indexes in case of camera virtual ports
  * @camnoc_axi_port_idx: Index to find which axi port to vote consolidated bw
  * @path_data_type: Traffic type info from device tree (ife-vid, ife-disp etc)
  * @path_trans_type: Transaction type info from device tree (rd, wr)
@@ -61,7 +62,7 @@ struct cam_cpas_vdd_ahb_mapping {
 struct cam_cpas_tree_node {
 	uint32_t cell_idx;
 	int level_idx;
-	int axi_port_idx;
+	int *axi_port_idx_arr;
 	int camnoc_axi_port_idx;
 	const char *node_name;
 	uint32_t path_data_type;
@@ -165,6 +166,7 @@ struct cam_cpas_smart_qos_info {
  * @enable_smart_qos: Whether to enable Smart QoS mechanism on current chipset
  * @smart_qos_info: Pointer to smart qos info
  * @icp_clk_index: Index of optional icp clk
+ * @rt_bw_voting_needed: RB BW voting needed for virtual DDR port on current chipset
  */
 struct cam_cpas_private_soc {
 	const char *arch_compat;
@@ -190,6 +192,7 @@ struct cam_cpas_private_soc {
 	bool enable_smart_qos;
 	struct cam_cpas_smart_qos_info *smart_qos_info;
 	int32_t icp_clk_index;
+	bool rt_bw_voting_needed;
 };
 
 void cam_cpas_util_debug_parse_data(struct cam_cpas_private_soc *soc_private);

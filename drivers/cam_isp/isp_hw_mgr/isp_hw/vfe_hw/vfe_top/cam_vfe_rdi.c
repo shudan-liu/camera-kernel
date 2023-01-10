@@ -601,7 +601,8 @@ int cam_vfe_rdi_ver2_init(
 
 	rdi_node->res_priv = rdi_priv;
 
-	rdi_priv->mem_base   = soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base;
+	rdi_priv->mem_base   =
+		soc_info ? soc_info->reg_map[VFE_CORE_BASE_IDX].mem_base : NULL;
 	rdi_priv->hw_intf    = hw_intf;
 	rdi_priv->common_reg = rdi_info->common_reg;
 	rdi_priv->rdi_reg    = rdi_info->rdi_reg;

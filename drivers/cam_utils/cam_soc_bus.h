@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SOC_BUS_H_
@@ -30,6 +31,7 @@ struct cam_soc_bus_client_ab_ib {
  * @name: Name of bus client
  * @src_id: Bus master/src id
  * @dst_id: Bus slave/dst id
+ * @is_virt_port: If virtual port
  * @num_usecases: Number of use cases for this client
  * @bw_pair: Bandwidth values for applicable usecases
  */
@@ -37,6 +39,7 @@ struct cam_soc_bus_client_common_data {
 	const char *name;
 	uint32_t src_id;
 	uint32_t dst_id;
+	bool is_virt_port;
 	int num_usecases;
 	struct cam_soc_bus_client_ab_ib bw_pair[CAM_SOC_BUS_MAX_NUM_USECASES];
 };

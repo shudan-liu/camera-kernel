@@ -29,6 +29,13 @@ static struct cam_rpmsg_instance_data cam_rpdev_idata[CAM_RPMSG_HANDLE_MAX];
 struct cam_rpmsg_slave_pvt slave_private;
 static struct cam_rpmsg_jpeg_pvt jpeg_private;
 
+struct cam_rpmsg_jpeg_payload {
+	struct rpmsg_device *rpdev;
+	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
+	ktime_t workq_scheduled_ts;
+	struct work_struct work;
+};
+
 #define CAM_RPMSG_WORKQ_NUM_TASK 10
 
 struct cam_rpmsg_system_data {
@@ -171,23 +178,76 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 	return rc;
 }
 
+static const char *__dsp_cmd_to_string(uint32_t val)
+{
+	switch (val) {
+	case CAM_CPU2DSP_SUSPEND: return "CPU2DSP_SUSPEND";
+	case CAM_CPU2DSP_RESUME: return "CPU2DSP_RESUME";
+	case CAM_CPU2DSP_SHUTDOWN: return "CPU2DSP_SHUTDOWN";
+	case CAM_CPU2DSP_REGISTER_BUFFER: return "CPU2DSP_REGISTER_BUFFER";
+	case CAM_CPU2DSP_DEREGISTER_BUFFER: return "CPU2DSP_DEREGISTER_BUFFER";
+	case CAM_CPU2DSP_INIT: return "CPU2DSP_INIT";
+	case CAM_CPU2DSP_SET_DEBUG_LEVEL: return "CPU2DSP_SET_DEBUG_LEVEL";
+	case CAM_CPU2DSP_NOTIFY_ERROR: return "CPU2DSP_NOTIFY_ERROR";
+	case CAM_CPU2DSP_MAX_CMD: return "CPU2DSP_MAX_CMD";
+	case CAM_DSP2CPU_POWERON: return "DSP2CPU_POWERON";
+	case CAM_DSP2CPU_POWEROFF: return "DSP2CPU_POWEROFF";
+	case CAM_DSP2CPU_START: return "DSP2CPU_START";
+	case CAM_DSP2CPU_DETELE_SESSION: return "DSP2CPU_DETELE_SESSION";
+	case CAM_DSP2CPU_POWER_REQUEST: return "DSP2CPU_POWER_REQUEST";
+	case CAM_DSP2CPU_POWER_CANCEL: return "DSP2CPU_POWER_CANCEL";
+	case CAM_DSP2CPU_REGISTER_BUFFER: return "DSP2CPU_REGISTER_BUFFER";
+	case CAM_DSP2CPU_DEREGISTER_BUFFER: return "DSP2CPU_DEREGISTER_BUFFER";
+	case CAM_DSP2CPU_MEM_ALLOC: return "DSP2CPU_MEM_ALLOC";
+	case CAM_DSP2CPU_MEM_FREE: return "DSP2CPU_MEM_FREE";
+	case CAM_JPEG_DSP_MAX_CMD: return "JPEG_DSP_MAX_CMD";
+	default: return "Unknown";
+	}
+}
+
 int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far)
 {
-	int ret = -1, handle;
-	struct cam_jpeg_cmd_msg cmd_msg;
+	int ret = 0;
+	unsigned long rem_jiffies;
+	struct cam_jpeg_cmd_msg cmd_msg = {0};
+	struct rpmsg_device *rpdev;
 
 	cmd_msg.cmd_msg_type = CAM_CPU2DSP_NOTIFY_ERROR;
 	cmd_msg.error_info.core_id = core_id;
 	cmd_msg.error_info.error_type = error_type;
 	cmd_msg.error_info.far = far;
+	if (error_type == CAM_JPEG_DSP_PC_ERROR)
+		reinit_completion(&jpeg_private.error_data.complete);
 
-	handle = cam_rpmsg_get_handle("jpeg");
-	ret = cam_rpmsg_send(handle, &cmd_msg, sizeof(cmd_msg));
-	if (ret) {
-		CAM_ERR(CAM_RPMSG, "rpmsg_send failed dev");
-		return ret;
+	rpdev = cam_rpdev_idata[CAM_RPMSG_HANDLE_JPEG].rpdev;
+	if (!rpdev) {
+		CAM_ERR(CAM_RPMSG, "unexpected rpmsg device state");
+		ret = -ENODEV;
+		goto err;
 	}
-	return 0;
+
+	trace_cam_rpmsg("jpeg", CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+		__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+	rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+	trace_cam_rpmsg("jpeg", CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+		__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+
+	if (error_type == CAM_JPEG_DSP_PC_ERROR) {
+		CAM_DBG(CAM_RPMSG, "Waiting for error ACK %d", error_type);
+		/* wait for ping ack */
+		rem_jiffies = cam_common_wait_for_completion_timeout(
+				&jpeg_private.error_data.complete, msecs_to_jiffies(100));
+		if (!rem_jiffies) {
+			ret = -ETIMEDOUT;
+			CAM_ERR(CAM_RPMSG, "Jpeg response timed out %d\n", rem_jiffies);
+			goto err;
+		}
+
+		CAM_DBG(CAM_RPMSG, "received ACK");
+	}
+
+err:
+	return ret;
 }
 
 int cam_rpmsg_system_send_ping(void) {
@@ -522,39 +582,58 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	return ret;
 }
 
-/* struct cam_cdm_work_payload - struct for cdm work payload data.*/
-struct cam_rpmsg_jpeg_payload {
-	struct rpmsg_device *rpdev;
-	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
-	ktime_t workq_scheduled_ts;
-	struct work_struct work;
-};
-
-static const char *__dsp_cmd_to_string(uint32_t val)
+static int cam_rpmsg_handle_jpeg_poweroff(struct cam_rpmsg_jpeg_payload *payload)
 {
-	switch(val) {
-		case CAM_CPU2DSP_SUSPEND: return "CPU2DSP_SUSPEND";
-		case CAM_CPU2DSP_RESUME: return "CPU2DSP_RESUME";
-		case CAM_CPU2DSP_SHUTDOWN: return "CPU2DSP_SHUTDOWN";
-		case CAM_CPU2DSP_REGISTER_BUFFER: return "CPU2DSP_REGISTER_BUFFER";
-		case CAM_CPU2DSP_DEREGISTER_BUFFER: return "CPU2DSP_DEREGISTER_BUFFER";
-		case CAM_CPU2DSP_INIT: return "CPU2DSP_INIT";
-		case CAM_CPU2DSP_SET_DEBUG_LEVEL: return "CPU2DSP_SET_DEBUG_LEVEL";
-		case CAM_CPU2DSP_NOTIFY_ERROR: return "CPU2DSP_NOTIFY_ERROR";
-		case CAM_CPU2DSP_MAX_CMD: return "CPU2DSP_MAX_CMD";
-		case CAM_DSP2CPU_POWERON: return "DSP2CPU_POWERON";
-		case CAM_DSP2CPU_POWEROFF: return "DSP2CPU_POWEROFF";
-		case CAM_DSP2CPU_START: return "DSP2CPU_START";
-		case CAM_DSP2CPU_DETELE_SESSION: return "DSP2CPU_DETELE_SESSION";
-		case CAM_DSP2CPU_POWER_REQUEST: return "DSP2CPU_POWER_REQUEST";
-		case CAM_DSP2CPU_POWER_CANCEL: return "DSP2CPU_POWER_CANCEL";
-		case CAM_DSP2CPU_REGISTER_BUFFER: return "DSP2CPU_REGISTER_BUFFER";
-		case CAM_DSP2CPU_DEREGISTER_BUFFER: return "DSP2CPU_DEREGISTER_BUFFER";
-		case CAM_DSP2CPU_MEM_ALLOC: return "DSP2CPU_MEM_ALLOC";
-		case CAM_DSP2CPU_MEM_FREE: return "DSP2CPU_MEM_FREE";
-		case CAM_JPEG_DSP_MAX_CMD: return "JPEG_DSP_MAX_CMD";
-		default: return "Unknown";
+	struct cam_jpeg_cmd_msg cmd_msg = {0};
+	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
+	struct rpmsg_device *rpdev;
+	unsigned int handle;
+	const char *dev_name = NULL;
+
+	int rc;
+
+	rsp = payload->rsp;
+	rpdev = payload->rpdev;
+	handle = cam_rpmsg_get_handle_from_dev(rpdev);
+	dev_name = cam_rpmsg_dev_hdl_to_string(handle);
+
+	mutex_lock(&jpeg_private.jpeg_mutex);
+	if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF)  {
+		mutex_unlock(&jpeg_private.jpeg_mutex);
+		if (!rsp)
+			return 0;
+		CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
+		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+		trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX,
+				sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+		rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+		trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX,
+				sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+		return 0;
 	}
+	rc = cam_mem_mgr_release_nsp_buf();
+	if (rc)
+		CAM_ERR(CAM_RPMSG, "failed to release nsp buf, rc=%d", rc);
+
+	if (rsp) {
+		CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", rsp->pid);
+		rc = cam_fastrpc_driver_unregister(rsp->pid);
+	}
+	cam_jpeg_mgr_nsp_release_hw();
+
+	jpeg_private.dmabuf_f_op = NULL;
+	jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
+	mutex_unlock(&jpeg_private.jpeg_mutex);
+	if (rsp) {
+		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+		trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+		rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
+		trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
+				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+	}
+
+	return rc;
 }
 
 static void handle_jpeg_cb(struct work_struct *work) {
@@ -629,41 +708,10 @@ ack:
 			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+			reinit_completion(&jpeg_private.error_data.complete);
 			break;
-		/*
-		 * TODO: Check how poweroff/cleanup will be doen in case of
-		 * cdsp crash.
-		 */
 		case CAM_DSP2CPU_POWEROFF:
-			mutex_lock(&jpeg_private.jpeg_mutex);
-			if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF) {
-				CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
-				mutex_unlock(&jpeg_private.jpeg_mutex);
-				cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
-				trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX,
-					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
-				rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
-				trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX,
-					sizeof(cmd_msg), __dsp_cmd_to_string(cmd_msg.cmd_msg_type));
-				break;
-			}
-			rc = cam_mem_mgr_release_nsp_buf();
-			if (rc)
-				CAM_ERR(CAM_RPMSG, "failed to release nsp buf, rc=%d", rc);
-
-			CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", rsp->pid);
-			rc = cam_fastrpc_driver_unregister(rsp->pid);
-			cam_jpeg_mgr_nsp_release_hw();
-			cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
-
-			jpeg_private.dmabuf_f_op = NULL;
-			jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
-			mutex_unlock(&jpeg_private.jpeg_mutex);
-			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
-				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
-			rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
-			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
-				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+			cam_rpmsg_handle_jpeg_poweroff(payload);
 			break;
 		case CAM_DSP2CPU_MEM_ALLOC:
 			alloc_cmd.flags = CAM_MEM_FLAG_NSP_ACCESS | CAM_MEM_FLAG_HW_READ_WRITE;
@@ -762,8 +810,8 @@ send_ack:
 				 * we loop to catch the new file (or NULL pointer)
 				 */
 				if (file->f_mode & FMODE_PATH) {
-					file = NULL;
 					CAM_ERR(CAM_RPMSG, "INCORRECT FMODE", file->f_mode);
+					file = NULL;
 					rcu_read_unlock();
 					cmd_msg.cmd_msg_type = CAM_DSP2CPU_REGISTER_BUFFER;
 					cmd_msg.ret_val = -EINVAL;
@@ -833,6 +881,9 @@ send_ack:
 			rc = rpmsg_send(rpdev->ept, &cmd_msg, sizeof(cmd_msg));
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
+			break;
+		case CAM_CPU2DSP_NOTIFY_ERROR:
+			complete(&jpeg_private.error_data.complete);
 			break;
 		default:
 			CAM_ERR(CAM_MEM, "Invalid command %d", rsp->type);
@@ -1116,6 +1167,7 @@ static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 			"Workqueue allocation failed");
 
 	cam_rpmsg_set_recv_cb(CAM_RPMSG_HANDLE_JPEG, cam_rpmsg_jpeg_cb);
+	init_completion(&jpeg_private.error_data.complete);
 	mutex_init(&jpeg_private.jpeg_mutex);
 
 	CAM_DBG(CAM_RPMSG, "rpmsg probe success for jpeg");
@@ -1139,12 +1191,24 @@ static void cam_rpmsg_slave_remove(struct rpmsg_device *rpdev)
 static void cam_rpmsg_jpeg_remove(struct rpmsg_device *rpdev)
 {
 	struct cam_rpmsg_instance_data *idata = dev_get_drvdata(&rpdev->dev);
+	struct cam_rpmsg_jpeg_payload *payload = 0;
 	unsigned long flag;
 
 	CAM_INFO(CAM_RPMSG, "jpeg rpmsg remove");
 
+	payload = kzalloc(sizeof(struct cam_rpmsg_jpeg_payload),
+		GFP_KERNEL);
+	if (!payload) {
+		CAM_ERR(CAM_MEM, "failed to allocate mem for payload");
+		return;
+	}
+	payload->rpdev = idata->rpdev;
+	payload->rsp   = NULL;
+
+	cam_rpmsg_handle_jpeg_poweroff(payload);
 	spin_lock_irqsave(&idata->sp_lock, flag);
 	idata->rpdev = NULL;
+	complete(&jpeg_private.error_data.complete);
 	spin_unlock_irqrestore(&idata->sp_lock, flag);
 }
 

@@ -194,9 +194,9 @@ static int cam_cpas_util_vote_bus_client_bw(
 		min_camnoc_ib_bw = (uint64_t)cam_min_camnoc_ib_bw * 1000000L;
 
 	CAM_DBG(CAM_CPAS,
-		"Bus_client: %s, cam_min_camnoc_ib_bw = %d, min_camnoc_ib_bw=%llu",
-		bus_client->common_data.name, cam_min_camnoc_ib_bw,
-		min_camnoc_ib_bw);
+		"Bus_client: %s, is_virt_port: %d cam_min_camnoc_ib_bw = %d, min_camnoc_ib_bw=%llu",
+		bus_client->common_data.name, bus_client->common_data.is_virt_port,
+		cam_min_camnoc_ib_bw, min_camnoc_ib_bw);
 
 	mutex_lock(&bus_client->lock);
 	if (camnoc_bw) {
@@ -378,6 +378,9 @@ static int cam_cpas_util_vote_default_ahb_axi(struct cam_hw_info *cpas_hw,
 	}
 
 	for (i = 0; i < cpas_core->num_axi_ports; i++) {
+		if (cpas_core->axi_port[i].bus_client.common_data.is_virt_port)
+			continue;
+
 		rc = cam_cpas_util_vote_bus_client_bw(
 			&cpas_core->axi_port[i].bus_client,
 			ab_bw, ib_bw, false, &applied_ab_bw, &applied_ib_bw);
@@ -950,27 +953,52 @@ static int cam_cpas_update_axi_vote_bw(
 	bool   *mnoc_axi_port_updated,
 	bool   *camnoc_axi_port_updated)
 {
+	int i, axi_port_idx = -1;
 	struct cam_cpas *cpas_core = (struct cam_cpas *) cpas_hw->core_info;
 	struct cam_cpas_private_soc *soc_private =
 		(struct cam_cpas_private_soc *) cpas_hw->soc_info.soc_private;
 
-	if (cpas_tree_node->axi_port_idx >= CAM_CPAS_MAX_AXI_PORTS) {
-		CAM_ERR(CAM_CPAS, "Invalid axi_port_idx: %d",
-			cpas_tree_node->axi_port_idx);
-		return -EINVAL;
-	}
+	/* Below code is executed to fill BW votes for MMNOC AXI port and DDR RT port
+	 * based on if DDR RT BW voting is enabled and DDR RT AXI port defined.
+	 */
+	for (i = 0; i < CAM_CPAS_MAX_VIRT_PORTS; i++) {
+		if ((i > CAM_CPAS_PORT_AXI_PORT) && !soc_private->rt_bw_voting_needed)
+			continue;
 
-	cpas_core->axi_port[cpas_tree_node->axi_port_idx].ab_bw =
-		cpas_tree_node->mnoc_ab_bw;
-	cpas_core->axi_port[cpas_tree_node->axi_port_idx].ib_bw =
-		cpas_tree_node->mnoc_ib_bw;
-	mnoc_axi_port_updated[cpas_tree_node->axi_port_idx] = true;
+		axi_port_idx = cpas_tree_node->axi_port_idx_arr[i];
+		if (axi_port_idx < 0)
+			continue;
+
+		if (axi_port_idx >= CAM_CPAS_MAX_AXI_PORTS) {
+			CAM_ERR(CAM_CPAS, "Invalid axi_port_idx: %d drv_idx: %d", axi_port_idx, i);
+			return -EINVAL;
+		}
+
+		cpas_core->axi_port[axi_port_idx].ab_bw =
+			cpas_tree_node->mnoc_ab_bw;
+		cpas_core->axi_port[axi_port_idx].ib_bw =
+			cpas_tree_node->mnoc_ib_bw;
+
+		/* For MMNOC AXI port, use ib value same as ab if RB BW voting is enabled */
+		if (soc_private->rt_bw_voting_needed)
+			cpas_core->axi_port[axi_port_idx].ib_bw =
+				cpas_tree_node->mnoc_ab_bw;
+
+		/* For DDR RT AXI port, always send ab value only */
+		if (i > CAM_CPAS_PORT_AXI_PORT) {
+			cpas_core->axi_port[axi_port_idx].ab_bw =
+				cpas_tree_node->mnoc_ib_bw;
+			cpas_core->axi_port[axi_port_idx].ib_bw = 0;
+		}
+
+		mnoc_axi_port_updated[axi_port_idx] = true;
+	}
 
 	if (soc_private->control_camnoc_axi_clk)
 		return 0;
 
-	cpas_core->camnoc_axi_port[cpas_tree_node->axi_port_idx].camnoc_bw =
-		cpas_tree_node->camnoc_bw;
+	cpas_core->camnoc_axi_port[cpas_tree_node->axi_port_idx_arr[CAM_CPAS_PORT_AXI_PORT]]
+		.camnoc_bw = cpas_tree_node->camnoc_bw;
 	camnoc_axi_port_updated[cpas_tree_node->camnoc_axi_port_idx] = true;
 	return 0;
 }
@@ -1076,6 +1104,9 @@ static int cam_cpas_util_apply_client_axi_vote(
 		 * not called from hw_update_axi_vote
 		 */
 		for (i = 0; i < cpas_core->num_axi_ports; i++) {
+			if (cpas_core->axi_port[i].bus_client.common_data.is_virt_port)
+				continue;
+
 			if (axi_vote->axi_path[0].mnoc_ab_bw) {
 				/* start case */
 				cpas_core->axi_port[i].additional_bw +=
@@ -1181,14 +1212,6 @@ static int cam_cpas_util_apply_client_axi_vote(
 			}
 
 			if (!par_tree_node->parent_node) {
-				if ((par_tree_node->axi_port_idx < 0) ||
-					(par_tree_node->axi_port_idx >=
-					CAM_CPAS_MAX_AXI_PORTS)) {
-					CAM_ERR(CAM_CPAS,
-					"AXI port index invalid");
-					rc = -EINVAL;
-					goto unlock_tree;
-				}
 				rc = cam_cpas_update_axi_vote_bw(cpas_hw,
 					par_tree_node,
 					mnoc_axi_port_updated,
@@ -1261,7 +1284,8 @@ vote_start_clients:
 			mnoc_ab_bw = mnoc_axi_port->ab_bw;
 		else if (mnoc_axi_port->additional_bw)
 			mnoc_ab_bw = mnoc_axi_port->additional_bw;
-		else if (cpas_core->streamon_clients)
+		else if (cpas_core->streamon_clients &&
+				!mnoc_axi_port->bus_client.common_data.is_virt_port)
 			mnoc_ab_bw = CAM_CPAS_DEFAULT_AXI_BW;
 		else
 			mnoc_ab_bw = 0;
@@ -1317,8 +1341,9 @@ static int cam_cpas_util_apply_default_axi_vote(
 
 	mutex_lock(&cpas_core->tree_lock);
 	for (i = 0; i < cpas_core->num_axi_ports; i++) {
-		if (!cpas_core->axi_port[i].ab_bw ||
-			!cpas_core->axi_port[i].ib_bw)
+		if ((!cpas_core->axi_port[i].bus_client.common_data.is_virt_port) &&
+			(!cpas_core->axi_port[i].ab_bw ||
+			!cpas_core->axi_port[i].ib_bw))
 			axi_port = &cpas_core->axi_port[i];
 		else
 			continue;
@@ -2167,6 +2192,7 @@ static int cam_cpas_hw_get_hw_info(void *hw_priv,
 	CAM_INFO(CAM_CPAS, "fuse info->num_fuses %d",
 		hw_caps->fuse_info.num_fuses);
 
+	hw_caps->rt_bw_voting_needed = soc_private->rt_bw_voting_needed;
 	return 0;
 }
 
@@ -2269,7 +2295,8 @@ static int cam_cpas_log_vote(struct cam_hw_info *cpas_hw)
 		CAM_INFO(CAM_CPAS,
 			"[%s] Cell[%d] level[%d] PortIdx[%d][%d] camnoc_bw[%d %d %lld %lld] mnoc_bw[%lld %lld]",
 			curr_node->node_name, curr_node->cell_idx,
-			curr_node->level_idx, curr_node->axi_port_idx,
+			curr_node->level_idx,
+			curr_node->axi_port_idx_arr[CAM_CPAS_PORT_AXI_PORT],
 			curr_node->camnoc_axi_port_idx,
 			curr_node->camnoc_max_needed,
 			curr_node->bus_width_factor,

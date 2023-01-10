@@ -90,6 +90,10 @@ struct sensor_intf_params {
  * @sensor_name: Sensor name
  * @is_aon_user: To determine whether sensor is AON user or not
  * @hw_no_ops: To determine whether HW operations need to be disabled
+ * @sof_notify_handler: handler for sof notification
+ * @en_perframe_reg_dump: enable perframe register dump flag
+ * @last_applied_req: last applied request to detech skip in apply
+ * @root_dentry: root directory entry
  */
 struct cam_sensor_ctrl_t {
 	char                           device_name[
@@ -122,11 +126,15 @@ struct cam_sensor_ctrl_t {
 	bool                           is_aon_user;
 	bool                           hw_no_io_ops;
 	bool                           hw_no_ops;
-
+	bool                           hw_no_probe_pw_ops;
 	/* register this handler to handle sof notify */
 	int   (*sof_notify_handler)(
 			struct cam_sensor_ctrl_t *s_ctrl,
 			struct cam_req_mgr_no_crm_trigger_notify *notify);
+	bool                           en_perframe_reg_dump;
+	uint64_t                       last_applied_req;
+
+	struct dentry                  *root_dentry;
 };
 
 /**

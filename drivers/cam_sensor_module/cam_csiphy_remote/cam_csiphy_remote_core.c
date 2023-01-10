@@ -1175,6 +1175,12 @@ free_payload:
 			offset);
 	}
 		break;
+	case CAM_FLUSH_REQ: {
+		CAM_DBG(CAM_CSIPHY_REMOTE,
+				"Invalid flush request. Nothing to flush for remote CSIPHY: %d",
+				soc_info->index);
+	}
+		break;
 	default:
 		CAM_ERR(CAM_CSIPHY_REMOTE, "Invalid Opcode: %d", cmd->op_code);
 		rc = -EINVAL;

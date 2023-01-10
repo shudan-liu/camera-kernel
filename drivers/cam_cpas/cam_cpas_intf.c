@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -244,7 +245,8 @@ int cam_cpas_get_hw_info(uint32_t *camera_family,
 	struct cam_hw_version *camera_version,
 	struct cam_hw_version *cpas_version,
 	uint32_t *cam_caps,
-	struct cam_cpas_fuse_info *cam_fuse_info)
+	struct cam_cpas_fuse_info *cam_fuse_info,
+	uint32_t *rt_bw_voting_needed)
 {
 	if (!CAM_CPAS_INTF_INITIALIZED()) {
 		CAM_ERR(CAM_CPAS, "cpas intf not initialized");
@@ -263,6 +265,8 @@ int cam_cpas_get_hw_info(uint32_t *camera_family,
 	*cam_caps       = g_cpas_intf->hw_caps.camera_capability;
 	if (cam_fuse_info)
 		*cam_fuse_info  = g_cpas_intf->hw_caps.fuse_info;
+	if (rt_bw_voting_needed)
+		*rt_bw_voting_needed = g_cpas_intf->hw_caps.rt_bw_voting_needed;
 
 	CAM_DBG(CAM_CPAS, "Family %d, version %d.%d cam_caps %d",
 		*camera_family, camera_version->major,
@@ -713,7 +717,7 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 
 		rc = cam_cpas_get_hw_info(&query.camera_family,
 			&query.camera_version, &query.cpas_version,
-			&query.reserved, NULL);
+			&query.reserved, NULL, NULL);
 		if (rc)
 			break;
 
@@ -738,7 +742,33 @@ int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 		rc = cam_cpas_get_hw_info(&query.camera_family,
 			&query.camera_version, &query.cpas_version,
 			&query.reserved,
-			&query.fuse_info);
+			&query.fuse_info, NULL);
+		if (rc)
+			break;
+
+		rc = copy_to_user(u64_to_user_ptr(cmd->handle), &query,
+			sizeof(query));
+		if (rc)
+			CAM_ERR(CAM_CPAS, "Failed in copy to user, rc=%d", rc);
+
+		break;
+	}
+	case CAM_QUERY_CAP_V3: {
+		struct cam_cpas_query_cap_v3 query;
+
+		rc = copy_from_user(&query, u64_to_user_ptr(cmd->handle),
+			sizeof(query));
+		if (rc) {
+			CAM_ERR(CAM_CPAS, "Failed in copy from user, rc=%d",
+				rc);
+			break;
+		}
+
+		rc = cam_cpas_get_hw_info(&query.camera_family,
+			&query.camera_version, &query.cpas_version,
+			&query.reserved,
+			&query.fuse_info,
+			&query.rt_bw_voting_needed);
 		if (rc)
 			break;
 

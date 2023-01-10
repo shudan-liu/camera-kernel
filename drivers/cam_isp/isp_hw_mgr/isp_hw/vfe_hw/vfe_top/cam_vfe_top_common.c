@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_vfe_top_common.h"
@@ -597,9 +598,11 @@ int cam_vfe_top_apply_clk_bw_update(struct cam_vfe_top_priv_common *top_common,
 		goto end;
 	}
 
+	mutex_lock(&top_common->lock);
 	if (clk_bw_args->skip_clk_data_rst) {
 		top_common->skip_data_rst_on_stop = true;
 		CAM_DBG(CAM_ISP, "VFE:%u requested to avoid clk data rst", hw_intf->hw_idx);
+		mutex_unlock(&top_common->lock);
 		return 0;
 	}
 
@@ -709,6 +712,7 @@ int cam_vfe_top_apply_clk_bw_update(struct cam_vfe_top_priv_common *top_common,
 	}
 
 end:
+	mutex_unlock(&top_common->lock);
 	top_common->clk_state = CAM_CLK_BW_STATE_INIT;
 	top_common->bw_state = CAM_CLK_BW_STATE_INIT;
 	return rc;
@@ -719,6 +723,7 @@ int cam_vfe_top_apply_clock_start_stop(struct cam_vfe_top_priv_common *top_commo
 	int rc = 0;
 	uint64_t final_clk_rate = 0;
 
+	mutex_lock(&top_common->lock);
 	rc = cam_vfe_top_calc_hw_clk_rate(top_common, true, &final_clk_rate, 0);
 	if (rc) {
 		CAM_ERR(CAM_ISP,
@@ -739,6 +744,7 @@ int cam_vfe_top_apply_clock_start_stop(struct cam_vfe_top_priv_common *top_commo
 	}
 
 end:
+	mutex_unlock(&top_common->lock);
 	top_common->clk_state = CAM_CLK_BW_STATE_INIT;
 	top_common->skip_data_rst_on_stop = false;
 	return rc;
@@ -750,6 +756,7 @@ int cam_vfe_top_apply_bw_start_stop(struct cam_vfe_top_priv_common *top_common)
 	uint64_t total_bw_new_vote = 0;
 	struct cam_axi_vote *to_be_applied_axi_vote = NULL;
 
+	mutex_lock(&top_common->lock);
 	rc = cam_vfe_top_calc_axi_bw_vote(top_common, true, &to_be_applied_axi_vote,
 		&total_bw_new_vote, 0);
 	if (rc) {
@@ -771,6 +778,7 @@ int cam_vfe_top_apply_bw_start_stop(struct cam_vfe_top_priv_common *top_common)
 	}
 
 end:
+	mutex_unlock(&top_common->lock);
 	top_common->bw_state = CAM_CLK_BW_STATE_INIT;
 	return rc;
 }

@@ -102,4 +102,7 @@
 #define CCI_MASTER_1         1
 #define CCI_MASTER_MAX       2
 
+/* Port index for BW voting */
+#define CAM_CPAS_PORT_AXI_PORT    0
+#define CAM_CPAS_PORT_VIRT_PORT   1
 #endif
