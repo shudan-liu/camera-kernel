@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SOC_UTIL_H_
@@ -520,6 +520,20 @@ int cam_soc_util_clk_enable(struct cam_hw_soc_info *soc_info,
 	unsigned long *applied_clock_rate);
 
 /**
+ * cam_soc_util_clk_enable_v2()
+ *
+ * @brief:              Enable clock specified in params
+ *
+ * @clk:                Clock that needs to be turned ON
+ * @clk_name:           Clocks name associated with clk
+ * @clk_rate:           Clocks rate associated with clk
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_clk_enable_v2(struct clk *clk, const char *clk_name,
+	int32_t clk_rate);
+
+/**
  * cam_soc_util_set_clk_rate_level()
  *
  * @brief:              Apply clock rates for the requested level.
@@ -549,6 +563,19 @@ int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
  */
 int cam_soc_util_clk_disable(struct cam_hw_soc_info *soc_info,
 	bool optional_clk, int32_t clk_idx);
+
+/**
+ * cam_soc_util_clk_disable_v2()
+ *
+ * @brief:              Disable clock specified in params
+ *
+ * @clk:                Clock that needs to be turned OFF
+ * @clk_name:           Clocks name associated with clk
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_clk_disable_v2(struct clk *clk, const char *clk_name);
+
 
 /**
  * cam_soc_util_irq_enable()

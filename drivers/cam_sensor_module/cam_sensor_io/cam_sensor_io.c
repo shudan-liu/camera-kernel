@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sensor_io.h"
@@ -89,6 +90,23 @@ int32_t camera_io_dev_read(struct camera_io_master *io_master_info,
 	}
 	return 0;
 }
+
+int32_t camera_io_dev_read_burst(struct camera_io_master *io_master_info,
+	uint32_t addr, uint32_t *data,
+	enum camera_sensor_i2c_type addr_type,
+	enum camera_sensor_i2c_type data_type, uint32_t count)
+{
+	if (io_master_info->master_type == CCI_MASTER) {
+		return cam_camera_cci_i2c_read_burst(io_master_info->cci_client,
+					addr, data, addr_type, data_type, count);
+	} else {
+		CAM_ERR(CAM_SENSOR, "Invalid Comm. Master:%d",
+					io_master_info->master_type);
+		return -EINVAL;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(camera_io_dev_read_burst);
 
 int32_t camera_io_dev_read_seq(struct camera_io_master *io_master_info,
 	uint32_t addr, uint8_t *data,

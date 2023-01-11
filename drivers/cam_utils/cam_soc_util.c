@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -1207,6 +1207,95 @@ error:
 
 	return rc;
 }
+
+/**
+ * cam_soc_util_set_clk_rate_v2()
+ *
+ * @brief:          Sets the given rate for the clk requested for
+ *
+ * @clk:            Clock structure information for which rate is to be set
+ * @clk_name:       Name of the clock for which rate is being set
+ * @clk_rate        Clock rate to be set
+ *
+ * @return:         Success or failure
+ */
+static int cam_soc_util_set_clk_rate_v2(struct clk *clk, const char *clk_name,
+	int64_t clk_rate)
+{
+	int rc = 0;
+	long clk_rate_round;
+
+	if (!clk || !clk_name)
+		return -EINVAL;
+
+	CAM_DBG(CAM_UTIL, "set %s, rate %lld", clk_name, clk_rate);
+	if (clk_rate > 0) {
+		clk_rate_round = clk_round_rate(clk, clk_rate);
+		CAM_DBG(CAM_UTIL, "new_rate %ld", clk_rate_round);
+		if (clk_rate_round < 0) {
+			CAM_ERR(CAM_UTIL, "round failed for clock %s rc = %ld",
+				clk_name, clk_rate_round);
+			return clk_rate_round;
+		}
+		rc = clk_set_rate(clk, clk_rate_round);
+		if (rc) {
+			CAM_ERR(CAM_UTIL, "set_rate failed on %s", clk_name);
+			return rc;
+		}
+	} else if (clk_rate == INIT_RATE) {
+		clk_rate_round = clk_get_rate(clk);
+		CAM_DBG(CAM_UTIL, "init new_rate %ld", clk_rate_round);
+		if (clk_rate_round == 0) {
+			clk_rate_round = clk_round_rate(clk, 0);
+			if (clk_rate_round <= 0) {
+				CAM_ERR(CAM_UTIL, "round rate failed on %s",
+					clk_name);
+				return clk_rate_round;
+			}
+		}
+		rc = clk_set_rate(clk, clk_rate_round);
+		if (rc) {
+			CAM_ERR(CAM_UTIL, "set_rate failed on %s", clk_name);
+			return rc;
+		}
+	}
+
+	return rc;
+}
+
+int cam_soc_util_clk_enable_v2(struct clk *clk, const char *clk_name,
+	int32_t clk_rate)
+{
+	int rc = 0;
+
+	if (!clk || !clk_name)
+		return -EINVAL;
+
+	rc = cam_soc_util_set_clk_rate_v2(clk, clk_name, clk_rate);
+	if (rc)
+		return rc;
+
+	rc = clk_prepare_enable(clk);
+	if (rc) {
+		CAM_ERR(CAM_UTIL, "enable failed for %s: rc(%d)", clk_name, rc);
+		return rc;
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(cam_soc_util_clk_enable_v2);
+
+int cam_soc_util_clk_disable_v2(struct clk *clk, const char *clk_name)
+{
+	if (!clk || !clk_name)
+		return -EINVAL;
+
+	CAM_DBG(CAM_UTIL, "disable %s", clk_name);
+	clk_disable_unprepare(clk);
+
+	return 0;
+}
+EXPORT_SYMBOL(cam_soc_util_clk_disable_v2);
 
 int cam_soc_util_clk_enable(struct cam_hw_soc_info *soc_info,
 	bool optional_clk, int32_t clk_idx, int32_t apply_level,

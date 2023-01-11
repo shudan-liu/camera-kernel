@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_DEV_H_
@@ -61,6 +61,14 @@ struct sensor_intf_params {
 	struct cam_req_mgr_kmd_ops ops;
 	struct cam_req_mgr_crm_cb *crm_cb;
 	uint32_t enable_crm;
+};
+
+struct cam_sensor_intr_t {
+	struct cam_sensor_ctrl_t *sctrl;
+	struct gpio gpio_array[1];
+	int gpio_idx;
+	int work_inited;
+	struct work_struct irq_work;
 };
 
 /**
@@ -127,6 +135,7 @@ struct cam_sensor_ctrl_t {
 	bool                           hw_no_io_ops;
 	bool                           hw_no_ops;
 	bool                           hw_no_probe_pw_ops;
+	struct cam_sensor_intr_t s_intr[AIS_MAX_INTR_GPIO];
 	/* register this handler to handle sof notify */
 	int   (*sof_notify_handler)(
 			struct cam_sensor_ctrl_t *s_ctrl,
