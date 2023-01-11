@@ -51,8 +51,6 @@ static void cam_cci_flush_queue(struct cci_device *cci_dev,
 		&cci_dev->soc_info;
 	void __iomem *base = soc_info->reg_map[0].mem_base;
 
-	reinit_completion(&cci_dev->cci_master_info[master].reset_complete);
-
 	cam_io_w_mb(1 << master, base + CCI_HALT_REQ_ADDR);
 	rc = wait_for_completion_timeout(
 		&cci_dev->cci_master_info[master].reset_complete, CCI_TIMEOUT);
@@ -314,7 +312,6 @@ static int32_t cam_cci_wait_report_cmd(struct cci_device *cci_dev,
 		&cci_dev->cci_master_info[master].lock_q[queue], flags);
 	atomic_set(&cci_dev->cci_master_info[master].q_free[queue], 1);
 	atomic_set(&cci_dev->cci_master_info[master].done_pending[queue], 1);
-	reinit_completion(&cci_dev->cci_master_info[master].report_q[queue]);
 	spin_unlock_irqrestore(
 		&cci_dev->cci_master_info[master].lock_q[queue], flags);
 	cam_io_w_mb(reg_val, base +
@@ -1911,7 +1908,6 @@ static int32_t cam_cci_read_bytes(struct v4l2_subdev *sd,
 	 * THRESHOLD irq's, we reinit the threshold wait before
 	 * we load the burst read cmd.
 	 */
-	reinit_completion(&cci_dev->cci_master_info[master].rd_done);
 	reinit_completion(&cci_dev->cci_master_info[master].th_complete);
 	reinit_completion(&cci_dev->cci_master_info[master].reset_complete);
 
