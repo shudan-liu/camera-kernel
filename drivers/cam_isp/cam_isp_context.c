@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -52,6 +52,8 @@ static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd);
 
 static void *__cam_isp_return_no_crm_state_machine(void);
+
+static void *__cam_isp_return_crm_state_machine(void);
 
 static const char *__cam_isp_evt_val_to_type(
 	uint32_t evt_id)
@@ -7136,7 +7138,11 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 	if (ctx_isp->independent_crm_en) {
 		ctx_isp->base->state_machine =
 			(struct cam_ctx_ops *)__cam_isp_return_no_crm_state_machine();
-		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigned for no crm");
+		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigned for no crm ctx %d",
+			ctx->ctx_id);
+	} else {
+		ctx_isp->base->state_machine =
+			(struct cam_ctx_ops *) __cam_isp_return_crm_state_machine();
 	}
 
 	/* Query the packet acq_type */
@@ -8414,6 +8420,11 @@ static struct cam_ctx_ops
 		.recovery_ops = cam_isp_context_hw_recovery,
 	},
 };
+
+static void *__cam_isp_return_crm_state_machine(void)
+{
+	return &cam_isp_ctx_top_state_machine;
+}
 
 static int cam_isp_context_hw_recovery(void *priv, void *data)
 {
