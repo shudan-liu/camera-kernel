@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -570,9 +570,9 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 			CAM_DBG(CAM_ISP, "Skip sensor notification as no open request");
 			ctx_isp->sensor_pd_handled = false;
 		}
-		kfree(sof_notify);
 	}
 
+	kfree(sof_notify);
 	CAM_DBG(CAM_ISP, "no_crm exit from trigger_util");
 
 	return rc;
