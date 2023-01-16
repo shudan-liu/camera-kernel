@@ -1911,16 +1911,23 @@ free_gpio_intr_deinit_config:
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-
-		rc = cam_sensor_power_up(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR,
-				"Sensor Power up failed for %s sensor_id:0x%x, slave_addr:0x%x",
+		if (!(s_ctrl->hw_no_power_seq_ops)){
+			rc = cam_sensor_power_up(s_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"Sensor Power up failed for %s sensor_id:0x%x, slave_addr:0x%x",
+					s_ctrl->sensor_name,
+					s_ctrl->sensordata->slave_info.sensor_id,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr
+					);
+				goto release_mutex;
+			}
+		}
+		else{
+			CAM_DBG(CAM_SENSOR, "%s-slot[%d] probe with hw_no_power_seq_ops[%d]",
 				s_ctrl->sensor_name,
-				s_ctrl->sensordata->slave_info.sensor_id,
-				s_ctrl->sensordata->slave_info.sensor_slave_addr
-				);
-			goto release_mutex;
+				s_ctrl->soc_info.index,
+				s_ctrl->hw_no_power_seq_ops);
 		}
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
@@ -1952,17 +1959,24 @@ free_gpio_intr_deinit_config:
 			goto release_mutex;
 		}
 
-		rc = cam_sensor_power_down(s_ctrl);
-		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR,
-				"Sensor Power Down failed for %s sensor_id: 0x%x, slave_addr:0x%x",
-				s_ctrl->sensor_name,
-				s_ctrl->sensordata->slave_info.sensor_id,
-				s_ctrl->sensordata->slave_info.sensor_slave_addr
-				);
-			goto release_mutex;
+		if (!(s_ctrl->hw_no_power_seq_ops)){
+			rc = cam_sensor_power_down(s_ctrl);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"Sensor Power Down failed for %s sensor_id: 0x%x, slave_addr:0x%x",
+					s_ctrl->sensor_name,
+					s_ctrl->sensordata->slave_info.sensor_id,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr
+					);
+				goto release_mutex;
+			}
 		}
-
+		else{
+			CAM_DBG(CAM_SENSOR, "%s-slot[%d] probe with hw_no_power_seq_ops[%d]",
+				s_ctrl->sensor_name,
+				s_ctrl->soc_info.index,
+				s_ctrl->hw_no_power_seq_ops);
+		}
 		cam_sensor_release_per_frame_resource(s_ctrl);
 		cam_sensor_release_stream_rsc(s_ctrl);
 		if (s_ctrl->bridge_intf.device_hdl == -1) {
