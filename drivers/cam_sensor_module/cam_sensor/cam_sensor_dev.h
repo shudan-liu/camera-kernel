@@ -98,6 +98,8 @@ struct cam_sensor_intr_t {
  * @sensor_name: Sensor name
  * @is_aon_user: To determine whether sensor is AON user or not
  * @hw_no_ops: To determine whether HW operations need to be disabled
+ * @hw_no_power_seq_ops: To determine whether power up/down
+ * is allowed or not by camx
  * @sof_notify_handler: handler for sof notification
  * @en_perframe_reg_dump: enable perframe register dump flag
  * @last_applied_req: last applied request to detech skip in apply
@@ -134,6 +136,7 @@ struct cam_sensor_ctrl_t {
 	bool                           is_aon_user;
 	bool                           hw_no_io_ops;
 	bool                           hw_no_ops;
+	bool                           hw_no_power_seq_ops; /* By default it is true */
 	bool                           hw_no_probe_pw_ops;
 	struct cam_sensor_intr_t s_intr[AIS_MAX_INTR_GPIO];
 	/* register this handler to handle sof notify */
