@@ -2048,15 +2048,17 @@ free_gpio_intr_deinit_config:
 			goto release_mutex;
 		}
 
-		if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
-			(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
-			rc = cam_sensor_apply_settings(s_ctrl, 0,
-				CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-					"cannot apply streamon settings for %s",
-					s_ctrl->sensor_name);
-				goto release_mutex;
+		if (!(s_ctrl->hw_no_stream_onoff_ops)){
+			if (s_ctrl->i2c_data.streamon_settings.is_settings_valid &&
+				(s_ctrl->i2c_data.streamon_settings.request_id == 0)) {
+				rc = cam_sensor_apply_settings(s_ctrl, 0,
+					CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON);
+				if (rc < 0) {
+					CAM_ERR(CAM_SENSOR,
+						"cannot apply streamon settings for %s",
+						s_ctrl->sensor_name);
+					goto release_mutex;
+				}
 			}
 		}
 		s_ctrl->sensor_state = CAM_SENSOR_START;
@@ -2095,14 +2097,16 @@ free_gpio_intr_deinit_config:
 			goto release_mutex;
 		}
 
-		if (s_ctrl->i2c_data.streamoff_settings.is_settings_valid &&
-			(s_ctrl->i2c_data.streamoff_settings.request_id == 0)) {
-			rc = cam_sensor_apply_settings(s_ctrl, 0,
-				CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-				"cannot apply streamoff settings for %s",
-				s_ctrl->sensor_name);
+		if (!(s_ctrl->hw_no_stream_onoff_ops)){
+			if (s_ctrl->i2c_data.streamoff_settings.is_settings_valid &&
+				(s_ctrl->i2c_data.streamoff_settings.request_id == 0)) {
+				rc = cam_sensor_apply_settings(s_ctrl, 0,
+					CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF);
+				if (rc < 0) {
+					CAM_ERR(CAM_SENSOR,
+					"cannot apply streamoff settings for %s",
+					s_ctrl->sensor_name);
+				}
 			}
 		}
 
@@ -2589,21 +2593,24 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 
 	if (req_id == 0) {
 		switch (opcode) {
-		case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON: {
-			i2c_set = &s_ctrl->i2c_data.streamon_settings;
-			break;
-		}
-		case CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG: {
-			i2c_set = &s_ctrl->i2c_data.init_settings;
-			break;
-		}
-		case CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG: {
-			i2c_set = &s_ctrl->i2c_data.config_settings;
-			break;
-		}
-		case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF: {
-			i2c_set = &s_ctrl->i2c_data.streamoff_settings;
-			break;
+		if (!(s_ctrl->hw_no_stream_onoff_ops)){
+
+			case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMON: {
+				i2c_set = &s_ctrl->i2c_data.streamon_settings;
+				break;
+			}
+			case CAM_SENSOR_PACKET_OPCODE_SENSOR_INITIAL_CONFIG: {
+				i2c_set = &s_ctrl->i2c_data.init_settings;
+				break;
+			}
+			case CAM_SENSOR_PACKET_OPCODE_SENSOR_CONFIG: {
+				i2c_set = &s_ctrl->i2c_data.config_settings;
+				break;
+			}
+			case CAM_SENSOR_PACKET_OPCODE_SENSOR_STREAMOFF: {
+				i2c_set = &s_ctrl->i2c_data.streamoff_settings;
+				break;
+			}
 		}
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_UPDATE:
 		case CAM_SENSOR_PACKET_OPCODE_SENSOR_FRAME_SKIP_UPDATE:
