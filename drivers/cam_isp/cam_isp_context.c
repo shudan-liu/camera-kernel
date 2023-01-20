@@ -533,7 +533,7 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 	struct cam_isp_context                      *ctx_isp = NULL;
 	struct cam_context                              *ctx = NULL;
 	struct cam_req_mgr_no_crm_trigger_notify *sof_notify = NULL;
-	int                                               rc = 0, req_id = 0;
+	int                                               rc = 0, req_id = 0, open_cnt = 0;
 
 	if (!priv) {
 		CAM_ERR(CAM_CRM, "input args NULL %pK", priv);
@@ -550,19 +550,26 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 	rc = __cam_isp_ctx_no_crm_apply(ctx_isp, true, &req_id);
 	mutex_unlock(&ctx_isp->no_crm_mutex);
 
-	if (sof_notify && !rc && (ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
+	if (sof_notify && !rc && req_id &&
+		(ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE)) {
 		sof_notify->request_id = req_id;
-		CAM_DBG(CAM_ISP,
-			"Notify sensor %s on frame: %llu ctx: %u link: 0x%x is_sensorlite:%d",
-			__cam_isp_ctx_crm_trigger_point_to_string(CAM_TRIGGER_POINT_SOF),
-			ctx_isp->frame_id, ctx->ctx_id,
-			ctx->link_hdl, ctx_isp->is_sensorlite);
-		if (ctx_isp->is_sensorlite)
-			cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
-				CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
-		else
-			cam_subdev_notify_message(CAM_SENSOR_DEVICE_TYPE,
-				CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
+		open_cnt = cam_req_mgr_link_dec_open_cnt(ctx_isp->base->link_hdl);
+		if (open_cnt || ctx_isp->sensor_pd == 1) {
+			CAM_DBG(CAM_ISP,
+				"Notify sensor %s frame: %llu ctx: %u link: 0x%x is_sensorlite:%d req %d",
+				__cam_isp_ctx_crm_trigger_point_to_string(CAM_TRIGGER_POINT_SOF),
+				ctx_isp->frame_id, ctx->ctx_id,
+				ctx->link_hdl, ctx_isp->is_sensorlite, sof_notify->request_id);
+			if (ctx_isp->is_sensorlite)
+				cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
+					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
+			else
+				cam_subdev_notify_message(CAM_SENSOR_DEVICE_TYPE,
+					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
+		} else {
+			CAM_DBG(CAM_ISP, "Skip sensor notification as no open request");
+			ctx_isp->sensor_pd_handled = false;
+		}
 		kfree(sof_notify);
 	}
 
@@ -624,6 +631,8 @@ static int __cam_isp_ctx_notify_trigger_util(
 		if ((ctx_isp->sensor_pd > 1) &&
 			(ctx_isp->stream_type == CAM_REQ_MGR_LINK_STREAMING_TYPE) &&
 			!ctx_isp->sensor_pd_handled) {
+			sof_notify.request_id = ctx_isp->last_applied_req_id > ctx->last_flush_req ?
+				ctx_isp->last_applied_req_id : ctx->last_flush_req;
 			/* Do not apply ife request just notify sensor to apply request */
 			if (ctx_isp->is_sensorlite)
 				cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
@@ -4900,6 +4909,8 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		CAM_INFO(CAM_ISP, "Last request id to flush is %lld, ctx_id:%d",
 			flush_req->req_id, ctx->ctx_id);
 		ctx->last_flush_req = flush_req->req_id;
+		if (ctx_isp->independent_crm_en)
+			cam_req_mgr_link_reset_open_cnt(ctx_isp->base->link_hdl);
 
 		__cam_isp_ctx_trigger_reg_dump(CAM_HW_MGR_CMD_REG_DUMP_ON_FLUSH, ctx);
 
@@ -5866,8 +5877,10 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL && ctx_isp->workq)
 		cam_req_mgr_workq_flush(ctx_isp->workq);
 
-	if (ctx_isp->independent_crm_en)
+	if (ctx_isp->independent_crm_en) {
 		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
+		ctx_isp->sensor_pd_handled = false;
+	}
 	return rc;
 }
 
