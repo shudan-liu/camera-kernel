@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_H_
@@ -272,7 +272,7 @@ struct cam_isp_resource_node {
 		uint32_t cmd_type, void *cmd_args, uint32_t arg_size);
 	CAM_IRQ_HANDLER_TOP_HALF       top_half_handler;
 	CAM_IRQ_HANDLER_BOTTOM_HALF    bottom_half_handler;
-	uint8_t                        res_name[CAM_ISP_RES_NAME_LEN];
+	char                           res_name[CAM_ISP_RES_NAME_LEN];
 	bool                           is_per_port_start;
 	bool                           is_per_port_acquire;
 };

@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_MGR_INTF_H_
@@ -406,7 +406,7 @@ enum cam_isp_ctx_type {
  * @ctx_type:              RDI_ONLY, PIX and RDI, or FS2
  * @packet_op_code:        Packet opcode
  * @last_cdm_done:         Last cdm done request
- * @sof_ts:                SOF timestamps (current, boot and previous)
+ * @sof_ts:                SOF timestamps (res_id, current, boot and previous)
  * @hw_ctx_cnt:            count of active ife ctxs
  * @stream_grp_cfg_index:  index of sensor group stream configuration
  * @acquire_type:          indicates whether it is  virtual/hybrid/real acquire
@@ -423,6 +423,7 @@ struct cam_isp_hw_cmd_args {
 		uint32_t                      packet_op_code;
 		uint64_t                      last_cdm_done;
 		struct {
+			uint32_t                      res_id;
 			uint64_t                      curr;
 			uint64_t                      prev;
 			uint64_t                      boot;

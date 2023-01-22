@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_REQ_MGR_INTERFACE_H
@@ -247,11 +247,14 @@ struct cam_req_mgr_trigger_notify {
  * @link_hdl : link identifier
  * @frame_id : frame id for internal tracking
  * @request_id : Request id applied by isp
+ * @sof_irq_ts : CSID SOF timestamp in IRQ
  */
 struct cam_req_mgr_no_crm_trigger_notify {
-	int32_t  link_hdl;
-	int64_t  frame_id;
+	int32_t link_hdl;
+	int32_t res_id;
+	int64_t frame_id;
 	int64_t request_id;
+	uint64_t sof_irq_ts;
 };
 
 /**
