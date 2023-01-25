@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -103,6 +103,10 @@ enum cam_vfe_bus_ver3_vfe_out_type {
 	CAM_VFE_BUS_VER3_VFE_OUT_STATS_LITE_BHIST,
 	CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW1,
 	CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW2,
+	CAM_VFE_BUS_VER3_VFE_OUT_RDI4,
+	CAM_VFE_BUS_VER3_VFE_OUT_RDI5,
+	CAM_VFE_BUS_VER3_VFE_OUT_AIOUT1,
+	CAM_VFE_BUS_VER3_VFE_OUT_AIOUT2,
 	CAM_VFE_BUS_VER3_VFE_OUT_MAX,
 };
 
