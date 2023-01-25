@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -3450,6 +3450,11 @@ static int cam_vfe_bus_ver3_update_wm(void *priv, void *cmd_args,
 		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
 			wm_data->hw_regs->image_cfg_0, val);
 		CAM_DBG(CAM_ISP, "WM:%d image height and width 0x%X",
+			wm_data->index, reg_val_pair[j-1]);
+
+		CAM_VFE_ADD_REG_VAL_PAIR(reg_val_pair, j,
+			wm_data->hw_regs->packer_cfg, wm_data->pack_fmt);
+		CAM_DBG(CAM_ISP, "WM:%d pack_fmt 0x%X",
 			wm_data->index, reg_val_pair[j-1]);
 
 		/* For initial configuration program all bus registers */
