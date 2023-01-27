@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -906,7 +906,8 @@ static int cam_sensor_lite_cmd_buf_parse(
 			== CAM_SENSOR_LITE_PACKET_OPCODE_UPDATE) ||
 		(packet->header.op_code & 0xFF)
 			== CAM_SENSOR_LITE_PACKET_OPCODE_NOP) &&
-		(packet->header.request_id >= 1)) {
+		(packet->header.request_id >= 1) &&
+		(sensor_lite_dev->start_cmd->start_stop_settings_size)) {
 		req = sensor_lite_create_request_object(
 				sensor_lite_dev,
 				packet->header.request_id,
