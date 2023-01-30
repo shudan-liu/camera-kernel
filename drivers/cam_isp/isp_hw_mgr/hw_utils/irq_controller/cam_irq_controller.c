@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -756,6 +756,11 @@ static void __cam_irq_controller_th_processing(
 		if (evt_handler->bottom_half_handler) {
 			bh_cmd = irq_bh_api->get_bh_payload_func(
 				evt_handler->bottom_half);
+			if (PTR_ERR(bh_cmd) == -EIO) {
+				CAM_DBG(CAM_IRQ_CTRL, "skip bottom half, errno %d",
+						PTR_ERR(bh_cmd));
+				continue;
+			}
 			if (!bh_cmd) {
 				CAM_ERR_RATE_LIMIT(CAM_ISP,
 					"No payload, IRQ handling frozen for %s",

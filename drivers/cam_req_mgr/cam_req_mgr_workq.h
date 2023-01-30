@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_REQ_MGR_WORKQ_H_
@@ -74,9 +74,10 @@ struct crm_workq_task {
  * @job         : workqueue internal job struct
  * @lock_bh     : lock for task structs
  * @in_irq      : set true if workque can be used in irq context
+ * @is_paused   : flag to indicate if workq is paused or not
+ * @workq_scheduled_ts: enqueue time of workq
  * @flush       : used to track if flush has been called on workqueue
  * @work_q_name : name of the workq
- * @workq_scheduled_ts: enqueue time of workq
  * task -
  * @lock        : Current task's lock handle
  * @pending_cnt : # of tasks left in queue
@@ -92,6 +93,7 @@ struct cam_req_mgr_core_workq {
 	struct workqueue_struct   *job;
 	spinlock_t                 lock_bh;
 	uint32_t                   in_irq;
+	bool                       is_paused;
 	ktime_t                    workq_scheduled_ts;
 	atomic_t                   flush;
 	char                       workq_name[128];
@@ -184,6 +186,18 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
  * @workq: pointer to worker data struct
  */
 void cam_req_mgr_workq_flush(struct cam_req_mgr_core_workq *workq);
+
+/**
+ * cam_req_mgr_workq_pause()
+ * @workq: pointer to worker data struct
+ */
+void cam_req_mgr_workq_pause(struct cam_req_mgr_core_workq *workq);
+
+/**
+ * cam_req_mgr_workq_resume()
+ * @workq: pointer to worker data struct
+ */
+void cam_req_mgr_workq_resume(struct cam_req_mgr_core_workq *workq);
 
 extern struct cam_irq_bh_api workq_bh_api;
 

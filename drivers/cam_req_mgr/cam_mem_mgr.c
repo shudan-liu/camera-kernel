@@ -1365,7 +1365,7 @@ static int cam_mem_mgr_cleanup_table(void)
 				"Buffer inactive at idx=%d, continuing", i);
 			continue;
 		} else {
-			CAM_DBG(CAM_MEM,
+			CAM_WARN(CAM_MEM,
 			"Active buffer at idx=%d, possible leak needs unmapping",
 			i);
 			cam_mem_mgr_unmap_active_buf(i);
