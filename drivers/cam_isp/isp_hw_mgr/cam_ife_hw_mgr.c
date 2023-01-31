@@ -10543,8 +10543,9 @@ start_only:
 
 notify_slave:
 	/* Start IFE root node: do nothing */
-	if (ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
-		ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+	if ((ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
+		ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) &&
+		!start_isp->start_only) {
 		if (ctx->is_slave_down)
 			CAM_WARN(CAM_ISP, "Slave is Not Up, fail to send start");
 		else
