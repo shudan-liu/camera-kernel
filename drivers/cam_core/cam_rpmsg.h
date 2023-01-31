@@ -344,6 +344,10 @@ struct cam_jpeg_dsp2cpu_cmd_msg {
     uint32_t data[JPEG_DSP2CPU_RESERVED];
 };
 
+union error_data {
+	uint32_t far;
+};
+
 /** struct cam_jpeg_dsp_error_info - CPU to DSP error info
  *
  * @core_id    : Jpeg core on which error is seen
@@ -351,9 +355,9 @@ struct cam_jpeg_dsp2cpu_cmd_msg {
  * @far        : Page fault address, valid only in case of pf
  */
 struct cam_jpeg_dsp_error_info {
-	uint32_t core_id;
-	uint32_t error_type;
-	uint32_t far;
+	uint32_t   core_id;
+	uint32_t   error_type;
+	union error_data data;
 };
 
 /** struct cam_jpegd_cmd_msg - CPU to DSP command structure
@@ -448,11 +452,13 @@ struct cam_rpmsg_jpeg_pvt {
  * @status_change_notify : notification chain
  */
 struct cam_rpmsg_instance_data {
-	spinlock_t sp_lock;
-	cam_rpmsg_recv_cb recv_cb;
+	spinlock_t           sp_lock;
+	struct mutex         rpmsg_mutex;
+	cam_rpmsg_recv_cb    recv_cb;
 	void *pvt;
 	struct rpmsg_device *rpdev;
 	struct blocking_notifier_head status_change_notify;
+	bool state;
 };
 
 /* struct cam_rpmsg_isp_acq_payload
@@ -715,6 +721,6 @@ void cam_rpmsg_exit(void);
  *
  * @return zero on success, or ERR_PTR() on error.
  */
-int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far);
+int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, void *data);
 
 #endif /* __CAM_RPMSG_H__ */
