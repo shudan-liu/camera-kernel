@@ -572,9 +572,9 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 			CAM_DBG(CAM_ISP, "Skip sensor notification as no open request");
 			ctx_isp->sensor_pd_handled = false;
 		}
-		kfree(sof_notify);
 	}
 
+	kfree(sof_notify);
 	CAM_DBG(CAM_ISP, "no_crm exit from trigger_util");
 
 	return rc;
