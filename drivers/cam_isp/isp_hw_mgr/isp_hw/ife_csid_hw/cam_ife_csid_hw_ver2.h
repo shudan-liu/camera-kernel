@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_HW_VER2_H_
@@ -567,6 +567,7 @@ struct cam_ife_csid_token_info {
  * @discard_frame_per_path:   Count of paths dropping initial frames
  * @init_global_reset_cnt:    Count of global reset called during init
  * @rup_aup_mask:             rup aup mask enabled for particular HW
+ * @per_port_group_index:     Group index if per port is enabled
  *
  */
 struct cam_ife_csid_ver2_hw {
@@ -609,6 +610,7 @@ struct cam_ife_csid_ver2_hw {
 	atomic_t                               discard_frame_per_path;
 	atomic_t                               init_global_reset_cnt;
 	uint32_t                               rup_aup_mask;
+	int                                    per_port_group_index;
 };
 
 /*
