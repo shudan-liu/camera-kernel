@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CDM_CORE_COMMON_H_
@@ -13,6 +14,7 @@
 #define CAM_CDM120_VERSION 0x10020000
 #define CAM_CDM200_VERSION 0x20000000
 #define CAM_CDM210_VERSION 0x20010000
+#define CAM_CDM211_VERSION 0x20010001
 
 #define CAM_CDM_AHB_BURST_LEN_1  (BIT(1) - 1)
 #define CAM_CDM_AHB_BURST_LEN_4  (BIT(2) - 1)

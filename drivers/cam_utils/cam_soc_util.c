@@ -585,6 +585,8 @@ static const char *cam_soc_util_get_string_from_level(
 		return "NOML1[6]";
 	case CAM_TURBO_VOTE:
 		return "TURBO[7]";
+	case CAM_TURBOL1_VOTE:
+		return "TURBOL1[8]";
 	default:
 		return "";
 	}
@@ -760,6 +762,8 @@ int cam_soc_util_get_level_from_string(const char *string,
 		*level = CAM_NOMINALL1_VOTE;
 	} else if (!strcmp(string, "turbo")) {
 		*level = CAM_TURBO_VOTE;
+	} else if (!strcmp(string, "turbo_l1")) {
+		*level = CAM_TURBOL1_VOTE;
 	} else {
 		CAM_ERR(CAM_UTIL, "Invalid string %s", string);
 		return -EINVAL;
