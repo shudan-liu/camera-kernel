@@ -344,9 +344,9 @@ struct cam_jpeg_dsp2cpu_cmd_msg {
     uint32_t data[JPEG_DSP2CPU_RESERVED];
 };
 
-typedef union error_data {
+union error_data {
 	uint32_t far;
-} error_data;
+};
 
 /** struct cam_jpeg_dsp_error_info - CPU to DSP error info
  *
@@ -357,7 +357,7 @@ typedef union error_data {
 struct cam_jpeg_dsp_error_info {
 	uint32_t   core_id;
 	uint32_t   error_type;
-	error_data data;
+	union error_data data;
 };
 
 /** struct cam_jpegd_cmd_msg - CPU to DSP command structure

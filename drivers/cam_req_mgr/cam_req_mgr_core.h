@@ -674,4 +674,18 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control);
  * @dump_req: Dump request
  */
 int cam_req_mgr_dump_request(struct cam_dump_req_cmd *dump_req);
+
+/**
+ * cam_req_mgr_link_dec_open_cnt()
+ * @brief:   Decrease open cnt by 1
+ * @link_hdl: handle of link
+ */
+int cam_req_mgr_link_dec_open_cnt(int32_t link_hdl);
+
+/**
+ * cam_req_mgr_link_reset_open_cnt()
+ * @brief:   Set open cnt to 0
+ * @link_hdl: handle of link
+ */
+void cam_req_mgr_link_reset_open_cnt(int32_t link_hdl);
 #endif

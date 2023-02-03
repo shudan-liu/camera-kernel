@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -5038,10 +5038,13 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 	can_use_lite = cam_ife_mgr_check_can_use_lite(
 			csid_acquire, ife_ctx);
 
-	if (in_port->per_port_en && (index != CAM_IFE_STREAM_GRP_INDEX_NONE))
+	if (in_port->per_port_en && (index != CAM_IFE_STREAM_GRP_INDEX_NONE)) {
 		csid_res_list_head = &g_ife_sns_grp_cfg.grp_cfg[index].res_ife_csid_list;
-	else
+		csid_acquire->per_port_grp_index = index;
+	} else {
 		csid_res_list_head = &ife_ctx->res_list_ife_csid;
+		csid_acquire->per_port_grp_index = -1;
+	}
 
 	if (ife_hw_mgr->csid_camif_irq_support && ife_ctx->ctx_type != CAM_IFE_CTX_TYPE_SFE)
 		csid_acquire->handle_camif_irq = true;

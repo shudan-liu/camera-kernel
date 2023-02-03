@@ -5035,6 +5035,31 @@ end:
 	return rc;
 }
 
+int cam_req_mgr_link_dec_open_cnt(int32_t link_hdl)
+{
+	struct cam_req_mgr_core_link  *link = (struct cam_req_mgr_core_link *)
+				cam_get_device_priv(link_hdl);
+	if (link == NULL)
+		return -EINVAL;
+	mutex_lock(&link->req.lock);
+	if (link->open_req_cnt > 0)
+		link->open_req_cnt--;
+	mutex_unlock(&link->req.lock);
+	return link->open_req_cnt;
+
+}
+
+void cam_req_mgr_link_reset_open_cnt(int32_t link_hdl)
+{
+	struct cam_req_mgr_core_link  *link = (struct cam_req_mgr_core_link *)
+				cam_get_device_priv(link_hdl);
+	if (link == NULL)
+		return;
+	mutex_lock(&link->req.lock);
+	link->open_req_cnt = 0;
+	mutex_unlock(&link->req.lock);
+}
+
 int cam_req_mgr_dump_request(struct cam_dump_req_cmd *dump_req)
 {
 	int                                  rc = 0;

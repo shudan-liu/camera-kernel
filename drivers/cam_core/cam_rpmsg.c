@@ -212,7 +212,7 @@ static int cam_jpeg_rpmsg_send(void *data)
 	struct cam_jpeg_cmd_msg *cmd_msg = data;
 	struct cam_rpmsg_instance_data *idata;
 
-	if(!cmd_msg) {
+	if (!cmd_msg) {
 		CAM_ERR(CAM_RPMSG, "data is null");
 		return -EINVAL;
 	}
@@ -263,7 +263,7 @@ int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, void *data)
 			mutex_unlock(&jpeg_private.jpeg_mutex);
 			return 0;
 		}
- 		reinit_completion(&jpeg_private.error_data.complete);
+		reinit_completion(&jpeg_private.error_data.complete);
 	}
 	mutex_unlock(&jpeg_private.jpeg_mutex);
 
