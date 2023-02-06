@@ -1079,6 +1079,11 @@ static inline bool cam_ife_hw_mgr_is_tunnel_supported_port(uint32_t res_id)
 	case CAM_ISP_IFE_OUT_RES_RDI_1:
 	case CAM_ISP_IFE_OUT_RES_RDI_2:
 	case CAM_ISP_IFE_OUT_RES_RDI_3:
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW:
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1:
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2:
+	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BG:
+	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
 		is_tunn_supported = true;
 		break;
 	default:
