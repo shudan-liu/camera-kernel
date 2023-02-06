@@ -10580,7 +10580,7 @@ notify_slave:
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Start failed ctx id:%d, rc = %d",
 				ctx->ctx_index, rc);
-			return rc;
+			goto err;
 		}
 	}
 	CAM_DBG(CAM_ISP, "Start success for ctx id:%d", ctx->ctx_index);
