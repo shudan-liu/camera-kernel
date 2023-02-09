@@ -6404,7 +6404,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		CAM_ERR(CAM_ISP, "acq type: %d, is_slave_down: %d", ctx_isp->acquire_type,
 			is_slave_down);
 		if (ctx_isp->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID &&
-			!is_slave_down) {
+			!is_slave_down && ctx->state != CAM_CTX_FLUSHED) {
 			shndl = cam_rpmsg_get_handle("helios");
 			CAM_RPMSG_SLAVE_SET_PAYLOAD_TYPE(
 					&pld->phdr,
