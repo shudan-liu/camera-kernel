@@ -1261,7 +1261,7 @@ static void cam_hw_cdm_work(struct work_struct *work)
 		if (list_empty(&core->bl_fifo[fifo_idx]
 				.bl_request_list)) {
 			spin_unlock_irqrestore(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
-			CAM_INFO(CAM_CDM,
+			CAM_DBG(CAM_CDM,
 				"Fifo list empty, idx %d tag %d arb %d",
 				fifo_idx, payload->irq_data,
 				core->arbitration);
@@ -1512,7 +1512,7 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 
 				spin_lock_irqsave(&cdm_core->bl_fifo[i].fifo_hw_lock, flag);
 				if (list_empty(&cdm_core->bl_fifo[i].bl_request_list)) {
-					CAM_INFO(CAM_CDM, "Fifo list empty, idx %d tag %d arb %d",
+					CAM_DBG(CAM_CDM, "Fifo list empty, idx %d tag %d arb %d",
 						i, irq_data, cdm_core->arbitration);
 					spin_unlock_irqrestore(&cdm_core->bl_fifo[i].fifo_hw_lock,
 						flag);
