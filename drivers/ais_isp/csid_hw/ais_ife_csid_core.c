@@ -1576,6 +1576,32 @@ static int ais_ife_csid_get_total_pkts(
 	return 0;
 }
 
+static int ais_ife_csid_print_overflow_info(
+	struct ais_ife_csid_hw *csid_hw, void *cmd_args)
+{
+	int rc = 0;
+	uint32_t byteCntr[2] = {};
+	int *path;
+	int id;
+	const struct ais_ife_csid_reg_offset   *csid_reg;
+	struct cam_hw_soc_info                 *soc_info;
+
+	csid_reg = csid_hw->csid_info->csid_reg;
+	soc_info = &csid_hw->hw_info->soc_info;
+
+	path = (int *)cmd_args;
+	id = *path;
+	byteCntr[0] = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_byte_cntr_ping_addr);
+	byteCntr[1] = cam_io_r_mb(soc_info->reg_map[0].mem_base +
+		csid_reg->rdi_reg[id]->csid_rdi_byte_cntr_pong_addr);
+
+	CAM_ERR(CAM_ISP, "CSID:%d RDI:%d byteCntr[2] %u %u",
+		csid_hw->hw_intf->hw_idx, id, byteCntr[0], byteCntr[1]);
+
+	return rc;
+}
+
 static int ais_ife_csid_process_cmd(void *hw_priv,
 	uint32_t cmd_type, void *cmd_args, uint32_t arg_size)
 {
@@ -1609,6 +1635,9 @@ static int ais_ife_csid_process_cmd(void *hw_priv,
 		break;
 	case AIS_IFE_CSID_CMD_DIAG_INFO:
 		rc = ais_ife_csid_get_total_pkts(csid_hw, cmd_args);
+		break;
+	case AIS_IFE_CSID_CMD_OVERFLOW_INFO:
+		rc = ais_ife_csid_print_overflow_info(csid_hw, cmd_args);
 		break;
 	default:
 		CAM_ERR(CAM_ISP, "CSID:%d unsupported cmd:%d",
