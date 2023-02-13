@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -245,6 +245,49 @@ static int cam_jpeg_rpmsg_send(void *data)
 	return ret;
 }
 
+static int cam_rpmsg_handle_jpeg_poweroff(struct cam_rpmsg_jpeg_payload *payload)
+{
+	struct cam_jpeg_cmd_msg cmd_msg = {0};
+	struct cam_jpeg_dsp2cpu_cmd_msg *rsp = NULL;
+
+	int rc;
+
+	if (payload)
+		rsp = payload->rsp;
+
+	mutex_lock(&jpeg_private.jpeg_mutex);
+	if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF)  {
+		mutex_unlock(&jpeg_private.jpeg_mutex);
+		if (!rsp)
+			return 0;
+		CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
+		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+		rc = cam_jpeg_rpmsg_send(&cmd_msg);
+		return rc;
+	}
+
+	rc = cam_mem_mgr_release_nsp_buf();
+	if (rc)
+		CAM_ERR(CAM_RPMSG, "failed to release nsp buf, rc=%d", rc);
+
+	if (jpeg_private.pid != -1) {
+		CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", jpeg_private.pid);
+		rc = cam_fastrpc_driver_unregister(jpeg_private.pid);
+		jpeg_private.pid = -1;
+	}
+	cam_jpeg_mgr_nsp_release_hw();
+
+	jpeg_private.dmabuf_f_op = NULL;
+	jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
+	mutex_unlock(&jpeg_private.jpeg_mutex);
+	if (rsp) {
+		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
+		rc = cam_jpeg_rpmsg_send(&cmd_msg);
+	}
+
+	return rc;
+}
+
 int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, void *data)
 {
 	int ret = 0;
@@ -280,6 +323,7 @@ int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, void *data)
 			goto err;
 		}
 		CAM_DBG(CAM_RPMSG, "received ACK");
+		cam_rpmsg_handle_jpeg_poweroff(NULL);
 	}
 
 err:
@@ -624,51 +668,6 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	return ret;
 }
 
-static int cam_rpmsg_handle_jpeg_poweroff(struct cam_rpmsg_jpeg_payload *payload)
-{
-	struct cam_jpeg_cmd_msg cmd_msg = {0};
-	struct cam_jpeg_dsp2cpu_cmd_msg *rsp;
-	struct rpmsg_device *rpdev;
-	unsigned int handle;
-
-	int rc;
-
-	rsp = payload->rsp;
-	rpdev = payload->rpdev;
-	handle = cam_rpmsg_get_handle_from_dev(rpdev);
-
-	mutex_lock(&jpeg_private.jpeg_mutex);
-	if (jpeg_private.status == CAM_JPEG_DSP_POWEROFF)  {
-		mutex_unlock(&jpeg_private.jpeg_mutex);
-		if (!rsp)
-			return 0;
-		CAM_INFO(CAM_RPMSG, "JPEG DSP already powered off");
-		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
-		rc = cam_jpeg_rpmsg_send(&cmd_msg);
-		return rc;
-	}
-
-	rc = cam_mem_mgr_release_nsp_buf();
-	if (rc)
-		CAM_ERR(CAM_RPMSG, "failed to release nsp buf, rc=%d", rc);
-
-	if (rsp) {
-		CAM_INFO(CAM_RPMSG, "JPEG DSP fastrpc unregister %x", rsp->pid);
-		rc = cam_fastrpc_driver_unregister(rsp->pid);
-	}
-	cam_jpeg_mgr_nsp_release_hw();
-
-	jpeg_private.dmabuf_f_op = NULL;
-	jpeg_private.status = CAM_JPEG_DSP_POWEROFF;
-	mutex_unlock(&jpeg_private.jpeg_mutex);
-	if (rsp) {
-		cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWEROFF;
-		rc = cam_jpeg_rpmsg_send(&cmd_msg);
-	}
-
-	return rc;
-}
-
 static void handle_jpeg_cb(struct work_struct *work) {
 	struct cam_rpmsg_jpeg_payload *payload;
 	struct cam_jpeg_cmd_msg   cmd_msg = {0};
@@ -718,7 +717,7 @@ static void handle_jpeg_cb(struct work_struct *work) {
 				mutex_unlock(&jpeg_private.jpeg_mutex);
 				goto ack;
 			}
-
+			jpeg_private.pid = rsp->pid;
 			cmd_msg.cmd_msg_type = CAM_DSP2CPU_POWERON;
 			pid_s = find_get_pid(rsp->pid);
 			if (pid_s == NULL) {
@@ -1190,6 +1189,7 @@ static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 	cam_rpmsg_set_recv_cb(CAM_RPMSG_HANDLE_JPEG, cam_rpmsg_jpeg_cb);
 	init_completion(&jpeg_private.error_data.complete);
 	mutex_init(&jpeg_private.jpeg_mutex);
+	jpeg_private.pid = -1;
 
 	CAM_DBG(CAM_RPMSG, "rpmsg probe success for jpeg");
 
