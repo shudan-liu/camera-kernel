@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
@@ -283,7 +283,7 @@ end:
 #if KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE
 int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr)
 {
-	struct dma_buf_map mapping;
+	struct dma_buf_map mapping = {0};
 	int error_code = dma_buf_vmap(dmabuf, &mapping);
 
 	if (error_code)
