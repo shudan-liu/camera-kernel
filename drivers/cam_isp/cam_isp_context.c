@@ -4406,6 +4406,14 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		mutex_lock(&ctx_isp->isp_mutex);
 		ctx_isp->substate_activated = next_state;
 		ctx_isp->last_applied_req_id = apply->request_id;
+		if (req_isp->cdm_reset_before_apply &&
+			req_isp->num_deferred_acks &&
+			ctx_isp->rdi_only_context) {
+			req_isp->num_deferred_acks = 0;
+			CAM_WARN(CAM_ISP,
+				"ctx %d req %llu CDM callback not happen but received buf done",
+				ctx->ctx_id, req->request_id);
+		}
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->wait_req_list);
 		ctx_isp->waitlist_req_cnt++;
@@ -4426,10 +4434,22 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		list_del_init(&req->list);
 		list_add(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		mutex_unlock(&ctx_isp->isp_mutex);
 		CAM_DBG(CAM_REQ,
 			"move request %lld to active list(cnt = %d), ctx %u",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+		if (ctx_isp->rdi_only_context &&
+			(req_isp->num_deferred_acks == req_isp->num_fence_map_out)) {
+			CAM_WARN(CAM_ISP,
+				"ctx %d req %llu before CDM callback happen received buf done %d",
+				ctx->ctx_id, req->request_id, req_isp->num_deferred_acks);
+			__cam_isp_handle_deferred_buf_done(ctx_isp, req,
+				true,
+				CAM_SYNC_STATE_SIGNALED_ERROR,
+				CAM_SYNC_ISP_EVENT_BUBBLE);
+			__cam_isp_ctx_handle_buf_done_for_req_list(
+				ctx_isp, req);
+		}
+		mutex_unlock(&ctx_isp->isp_mutex);
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"ctx_id:%d ,Can not apply (req %lld) the configuration, rc %d",
@@ -5783,7 +5803,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_reg_upd_in_sof,
 			NULL,
 			NULL,
-			NULL,
+			__cam_isp_ctx_buf_done_in_sof,
 		},
 	},
 	/* APPLIED */
