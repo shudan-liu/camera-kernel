@@ -5159,6 +5159,9 @@ static int __cam_isp_ctx_preprocess_sof(
 			req = list_first_entry(&ctx->wait_req_list,
 				struct cam_ctx_request, list);
 			req_isp = (struct cam_isp_ctx_req *)req->req_priv;
+			CAM_DBG(CAM_ISP, "ctx: %d req: %llu sof_cnt: %d fence_out: %d",
+				ctx->ctx_id, req->request_id,
+				req_isp->sof_cnt, req_isp->num_fence_map_out);
 			if (req_isp->num_fence_map_out > CAM_ISP_FIRST_OUT_PORT_EVENT)
 				req_isp->sof_cnt =
 					(req_isp->sof_cnt + 1) % req_isp->num_fence_map_out;
@@ -5179,17 +5182,25 @@ static int __cam_isp_ctx_preprocess_sof(
 		req = list_first_entry(&ctx->active_req_list,
 			struct cam_ctx_request, list);
 		req_isp = (struct cam_isp_ctx_req *)req->req_priv;
+		CAM_DBG(CAM_ISP, "ctx: %d req: %llu sof_cnt: %d fence_out: %d",
+			ctx->ctx_id, req->request_id,
+			req_isp->sof_cnt, req_isp->num_fence_map_out);
 		if (req_isp->sof_cnt == req_isp->num_fence_map_out) {
-			next_req = list_last_entry(&ctx->active_req_list,
-				struct cam_ctx_request, list);
-			if (next_req == NULL)
-				return 0;
-			next_req_isp = (struct cam_isp_ctx_req *)next_req->req_priv;
-			if (next_req_isp->num_fence_map_out > CAM_ISP_FIRST_OUT_PORT_EVENT)
-				next_req_isp->sof_cnt =	(next_req_isp->sof_cnt + 1)
-					% next_req_isp->num_fence_map_out;
+			if (ctx_isp->active_req_cnt > 1) {
+				next_req = list_last_entry(&ctx->active_req_list,
+					struct cam_ctx_request, list);
+				next_req_isp = (struct cam_isp_ctx_req *)next_req->req_priv;
+				CAM_DBG(CAM_ISP, "ctx: %d req: %llu sof_cnt: %d fence_out: %d",
+					ctx->ctx_id, next_req->request_id,
+					next_req_isp->sof_cnt, next_req_isp->num_fence_map_out);
+				if (next_req_isp->num_fence_map_out > CAM_ISP_FIRST_OUT_PORT_EVENT)
+					next_req_isp->sof_cnt =	(next_req_isp->sof_cnt + 1)
+						% next_req_isp->num_fence_map_out;
+				else
+					next_req_isp->sof_cnt = next_req_isp->sof_cnt + 1;
+			}
 			else
-				next_req_isp->sof_cnt = next_req_isp->sof_cnt + 1;
+				return 0;
 		} else {
 			if (req_isp->num_fence_map_out > CAM_ISP_FIRST_OUT_PORT_EVENT)
 				req_isp->sof_cnt =
