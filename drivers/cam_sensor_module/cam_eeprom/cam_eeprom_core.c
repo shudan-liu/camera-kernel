@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1280,6 +1280,13 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 			goto error;
 		}
 
+		rc = cam_eeprom_power_up(e_ctrl,
+			&soc_private->power_info);
+		if (rc) {
+			CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
+			goto memdata_free;
+		}
+
 		if (e_ctrl->eeprom_device_type == MSM_CAMERA_SPI_DEVICE) {
 			rc = cam_eeprom_match_id(e_ctrl);
 			if (rc) {
@@ -1287,13 +1294,6 @@ static int32_t cam_eeprom_pkt_parse(struct cam_eeprom_ctrl_t *e_ctrl, void *arg)
 					"eeprom not matching %d", rc);
 				goto memdata_free;
 			}
-		}
-
-		rc = cam_eeprom_power_up(e_ctrl,
-			&soc_private->power_info);
-		if (rc) {
-			CAM_ERR(CAM_EEPROM, "failed rc %d", rc);
-			goto memdata_free;
 		}
 
 		e_ctrl->cam_eeprom_state = CAM_EEPROM_CONFIG;
