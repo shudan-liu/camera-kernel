@@ -179,6 +179,7 @@ struct cam_isp_ctx_irq_ops {
  * @hw_update_data:            HW update data for this request
  * @reapply_type:              Determines type of settings to be re-applied
  * @event_timestamp:           Timestamp for different stage of request
+ * @req_port_mask:             Bit is set if port is requested in request
  * @cdm_reset_before_apply:    For bubble re-apply when buf done not coming set
  *                             to True
  * @sof_cnt                    Indicates sof event received for this request
@@ -202,6 +203,7 @@ struct cam_isp_ctx_req {
 	enum cam_hw_config_reapply_type       reapply_type;
 	ktime_t                               event_timestamp
 		[CAM_ISP_CTX_EVENT_MAX];
+	uint64_t                              req_port_mask;
 	bool                                  bubble_detected;
 	bool                                  cdm_reset_before_apply;
 	uint32_t                              sof_cnt;

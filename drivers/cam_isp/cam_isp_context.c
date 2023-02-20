@@ -6400,6 +6400,24 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.num_in_map_entries = 0;
 	memset(&req_isp->hw_update_data, 0, sizeof(req_isp->hw_update_data));
 
+	/* update port mask and path irq mask for current req id */
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_UPDATE_PATH_IRQ_MASK;
+	isp_hw_cmd_args.cmd_data = &cfg;
+	isp_hw_cmd_args.u.path_irq_mask = 0;
+	hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "ctx:%d Updating port mask for req:%d failed",
+			ctx->ctx_id, packet->header.request_id);
+		goto free_req;
+	}
+
+	req_isp->req_port_mask = isp_hw_cmd_args.u.path_irq_mask;
+	cfg.req_stream_mask = req_isp->req_port_mask;
+
 	rc = ctx->hw_mgr_intf->hw_prepare_update(
 		ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc != 0) {
@@ -6429,9 +6447,10 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	}
 
 	CAM_DBG(CAM_ISP,
-		"packet req-id:%lld, opcode:%d, num_entry:%d, num_fence_out: %d, num_fence_in: %d",
-		packet->header.request_id, req_isp->hw_update_data.packet_opcode_type,
-		req_isp->num_cfg, req_isp->num_fence_map_out, req_isp->num_fence_map_in);
+		"ctx:%d packet req-id:%lld, opcode:%d, num_entry:%d, num_fence_out: %d, num_fence_in: %d, req_port_mask 0x%x",
+		ctx->ctx_id, packet->header.request_id, req_isp->hw_update_data.packet_opcode_type,
+		req_isp->num_cfg, req_isp->num_fence_map_out, req_isp->num_fence_map_in,
+		req_isp->req_port_mask);
 
 	req->request_id = packet->header.request_id;
 	req->status = 1;
