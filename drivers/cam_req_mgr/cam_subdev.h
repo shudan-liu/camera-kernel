@@ -141,4 +141,12 @@ bool  cam_req_mgr_is_open(void);
  */
 bool cam_req_mgr_is_shutdown(void);
 
+/**
+ * cam_dev_mgr_create_subdev_nodes()
+ *
+ * @brief:    Creates subdev nodes for all camera drivers registered to v4l2 device.
+ *            It is called from cam_v4l_nodes driver in driver probing.
+ */
+int cam_dev_mgr_create_subdev_nodes(void);
+
 #endif /* _CAM_SUBDEV_H_ */
