@@ -35,4 +35,15 @@ int cam_hdmi_bdg_get_src_resolution(bool *signal_stable,
 
 uint32_t cam_hdmi_bdg_get_fw_version(void);
 
+/**
+ * @brief : API to register HMDI dev to platform framework.
+ * @return struct platform_device pointer on on success, or ERR_PTR() on error.
+ */
+int hdmi_bdg_irq_handler_init(void);
+
+/**
+ * @brief : API to remove HMDI dev from platform framework.
+ */
+void hdmi_bdg_irq_handler_exit(void);
+
 #endif /* _CAMHDMIBDGCORE_H_ */

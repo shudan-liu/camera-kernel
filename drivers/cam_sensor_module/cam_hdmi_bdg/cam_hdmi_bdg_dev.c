@@ -262,16 +262,15 @@ static struct platform_driver hdmi_bdg_irq_handler_drv = {
 	},
 };
 
-static int hdmi_bdg_irq_handler_init(void)
+int hdmi_bdg_irq_handler_init(void)
 {
 	return platform_driver_register(&hdmi_bdg_irq_handler_drv);
 }
 
-static void hdmi_bdg_irq_handler_exit(void)
+void hdmi_bdg_irq_handler_exit(void)
 {
 	platform_driver_unregister(&hdmi_bdg_irq_handler_drv);
 }
 
+MODULE_DESCRIPTION("HDMI driver");
 MODULE_LICENSE("GPL v2");
-module_init(hdmi_bdg_irq_handler_init);
-module_exit(hdmi_bdg_irq_handler_exit);
