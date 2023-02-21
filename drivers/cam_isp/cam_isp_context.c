@@ -2035,7 +2035,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 			 * platform doesn't have last consumed address.
 			 */
 			CAM_DBG(CAM_ISP,
-				"BUF_DONE for res %s not found in Req %lld ",
+				"BUF_DONE for res %s not found in Req %lld",
 				__cam_isp_resource_handle_id_to_type(
 				ctx_isp->isp_device_type, done->resource_handle[i]),
 				req->request_id);
@@ -2331,8 +2331,10 @@ static int __cam_isp_ctx_handle_buf_done_verify_addr(
 {
 	int rc = 0;
 	bool irq_delay_detected = false;
+	bool bh_delay_detected = false;
 	struct cam_ctx_request *req;
 	struct cam_ctx_request *next_req = NULL;
+	struct cam_ctx_request *wait_req = NULL;
 	struct cam_context *ctx = ctx_isp->base;
 	bool  req_in_pending_wait_list = false;
 
@@ -2425,6 +2427,15 @@ static int __cam_isp_ctx_handle_buf_done_verify_addr(
 				req->request_id);
 	}
 
+	if (!list_empty(&ctx->wait_req_list)) {
+		wait_req = list_first_entry(&ctx->wait_req_list, struct cam_ctx_request, list);
+		__cam_isp_ctx_buf_done_match_req(wait_req, done, &bh_delay_detected);
+
+	}
+	CAM_DBG(CAM_ISP, "req_id %lld active_cnt %d wait_cnt %d irq_delay %d bh_delay %d",
+			req->request_id, ctx_isp->active_req_cnt, ctx_isp->waitlist_req_cnt,
+			irq_delay_detected, bh_delay_detected);
+
 	/*
 	 * If irq delay isn't detected, then we need to verify
 	 * the consumed address for current req, otherwise, we
@@ -2432,7 +2443,7 @@ static int __cam_isp_ctx_handle_buf_done_verify_addr(
 	 */
 	rc = __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 		ctx_isp, req, done, bubble_state,
-		!irq_delay_detected, false);
+		!(irq_delay_detected || bh_delay_detected), false);
 
 	/*
 	 * Verify the consumed address for next req all the time,
@@ -5600,14 +5611,12 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_state(
 static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	struct cam_isp_context *ctx_isp, void *evt_data)
 {
-	struct cam_ctx_request  *req = NULL;
-	struct cam_ctx_request  *req_temp = NULL;
-	struct cam_context      *ctx = ctx_isp->base;
-	struct cam_isp_ctx_req  *req_isp;
-	uint64_t  request_id  = 0;
-	bool      skip_apply = false;
-	bool      skip_state_change = false;
-
+	struct cam_ctx_request                  *req = NULL;
+	struct cam_ctx_request                  *req_temp = NULL;
+	struct cam_context                      *ctx = ctx_isp->base;
+	struct cam_isp_ctx_req                  *req_isp;
+	bool                                     skip_apply = false;
+	bool                                     skip_state_change = false;
 
 	if (ctx_isp->independent_crm_en && ctx_isp->rdi_only_context &&
 		ctx_isp->stream_type == CAM_REQ_MGR_LINK_TRIGGER_TYPE) {
@@ -5693,9 +5702,6 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 	list_del_init(&req->list);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
-	request_id =
-		(req_isp->hw_update_data.packet_opcode_type ==
-		CAM_ISP_PACKET_INIT_DEV) ? 0 : req->request_id;
 
 	if (req_isp->num_fence_map_out != 0) {
 		list_add_tail(&req->list, &ctx->active_req_list);
@@ -5706,7 +5712,6 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 			"move request %lld to active list(cnt = %d) ctx:%d",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
 		/* if packet has buffers, set correct request id */
-		request_id = req->request_id;
 	} else {
 		/* no io config, so the request is completed. */
 		list_add_tail(&req->list, &ctx->free_req_list);
