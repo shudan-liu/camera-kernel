@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CONTEXT_H_
@@ -88,6 +88,13 @@ struct cam_ctx_request {
 };
 
 /**
+ * struct cam_context_dump_header - Get workq tasks from subdev
+ */
+struct cam_get_async_tasks_cmd {
+	struct cam_req_mgr_core_workq *workq;
+};
+
+/**
  * struct cam_ctx_ioctl_ops - Function table for handling IOCTL calls
  *
  * @acquire_dev:           Function pointer for acquire device
@@ -118,6 +125,8 @@ struct cam_ctx_ioctl_ops {
 	int (*release_hw)(struct cam_context *ctx, void *args);
 	int (*dump_dev)(struct cam_context *ctx,
 			struct cam_dump_req_cmd *cmd);
+	int (*get_async_task)(struct cam_context *ctx,
+			struct cam_get_async_tasks_cmd *cmd);
 };
 
 /**

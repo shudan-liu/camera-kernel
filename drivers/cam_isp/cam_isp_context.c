@@ -647,6 +647,11 @@ static int __cam_isp_ctx_notify_trigger_util(
 		}
 
 		task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+		if (PTR_ERR(task) == -EIO) {
+			CAM_DBG(CAM_CRM, "workq %s paused, skip enqueue apply",
+					ctx_isp->hw_mgr_workq->workq_name);
+			return -EBUSY;
+		}
 		if (!task) {
 			CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task");
 			return -EBUSY;
@@ -920,6 +925,11 @@ static void cam_isp_ctx_sof_independent_timer_cb(struct timer_list *timer_data)
 
 	task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
 
+	if (PTR_ERR(task) == -EIO) {
+		CAM_DBG(CAM_ISP, "workq %s paused, skip timer enqueue",
+				ctx_isp->hw_mgr_workq->workq_name);
+		return;
+	}
 	if (!task) {
 		CAM_ERR(CAM_ISP, "No task for worker");
 		return;
@@ -6028,6 +6038,29 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	return rc;
 }
 
+static int __cam_isp_ctx_get_async_task(struct cam_context *ctx,
+	struct cam_get_async_tasks_cmd *cmd)
+{
+	struct cam_isp_context *ctx_isp =
+		(struct cam_isp_context *) ctx->ctx_priv;
+
+	cmd->workq = ctx_isp->hw_mgr_workq;
+
+	return 0;
+}
+
+static int __cam_isp_ctx_get_async_task_in_acquired(struct cam_context *ctx,
+	struct cam_get_async_tasks_cmd *cmd)
+{
+	return __cam_isp_ctx_get_async_task(ctx, cmd);
+}
+
+static int __cam_isp_ctx_get_async_task_in_ready(struct cam_context *ctx,
+	struct cam_get_async_tasks_cmd *cmd)
+{
+	return __cam_isp_ctx_get_async_task(ctx, cmd);
+}
+
 /* top level state machine */
 static int __cam_isp_ctx_release_dev_in_top_state(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
@@ -6292,6 +6325,9 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		goto free_req;
 	}
 
+	if (packet_opcode == CAM_ISP_PACKET_INIT_DEV)
+		cam_req_mgr_workq_resume(ctx_isp->hw_mgr_workq);
+
 	cfg.packet = packet;
 	cfg.remain_len = remain_len;
 	cfg.ctxt_to_hw_map = ctx_isp->hw_ctx;
@@ -6518,6 +6554,12 @@ done:
 		if (ctx->state == CAM_CTX_ACTIVATED && ctx_isp->rdi_only_context) {
 			CAM_DBG(CAM_ISP, "independent CRM apply from config_dev");
 			task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+			if (PTR_ERR(task) == -EIO) {
+				CAM_DBG(CAM_CRM, "workq %s is paused, skip apply",
+						ctx_isp->hw_mgr_workq->workq_name);
+				rc = -EBUSY;
+				goto end;
+			}
 			if (!task) {
 				CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task");
 				return -EBUSY;
@@ -6532,6 +6574,7 @@ done:
 		}
 	}
 
+end:
 	return rc;
 
 put_ref:
@@ -7422,6 +7465,7 @@ static inline void __cam_isp_context_reset_ctx_params(
 	ctx_isp->recovery_req_id = 0;
 	ctx_isp->aeb_error_cnt = 0;
 }
+
 static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd)
 {
@@ -8368,6 +8412,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_isp_ctx_config_dev_in_acquired,
 			.flush_dev = __cam_isp_ctx_flush_dev_in_top_state,
 			.release_hw = __cam_isp_ctx_release_hw_in_top_state,
+			.get_async_task = __cam_isp_ctx_get_async_task_in_acquired,
 		},
 		.crm_ops = {
 			.link = __cam_isp_ctx_link_in_acquired,
@@ -8388,6 +8433,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_isp_ctx_config_dev_in_top_state,
 			.flush_dev = __cam_isp_ctx_flush_dev_in_top_state,
 			.release_hw = __cam_isp_ctx_release_hw_in_top_state,
+			.get_async_task = __cam_isp_ctx_get_async_task_in_ready,
 		},
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_ready,
@@ -8405,6 +8451,7 @@ static struct cam_ctx_ops
 			.release_dev = __cam_isp_ctx_release_dev_in_activated,
 			.config_dev = __cam_isp_ctx_config_dev_in_flushed,
 			.release_hw = __cam_isp_ctx_release_hw_in_activated,
+			.get_async_task = __cam_isp_ctx_get_async_task_in_acquired,
 		},
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_ready,
@@ -8423,6 +8470,7 @@ static struct cam_ctx_ops
 			.config_dev = __cam_isp_ctx_config_dev_in_top_state,
 			.flush_dev = __cam_isp_ctx_flush_dev_in_top_state,
 			.release_hw = __cam_isp_ctx_release_hw_in_activated,
+			.get_async_task = __cam_isp_ctx_get_async_task_in_acquired,
 		},
 		.crm_ops = {
 			.unlink = __cam_isp_ctx_unlink_in_activated,

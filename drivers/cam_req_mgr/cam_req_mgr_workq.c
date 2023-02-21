@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_req_mgr_workq.h"
@@ -38,6 +38,11 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
 		return NULL;
 
 	WORKQ_ACQUIRE_LOCK(workq, flags);
+	if (workq->is_paused) {
+		task = ERR_PTR(-EIO);
+		goto end;
+	}
+
 	if (list_empty(&workq->task.empty_head))
 		goto end;
 
@@ -51,7 +56,25 @@ struct crm_workq_task *cam_req_mgr_workq_get_task(
 end:
 	WORKQ_RELEASE_LOCK(workq, flags);
 
+	CAM_DBG(CAM_CRM, "get_task workq %s free_cnt %d pause %d",
+			workq->workq_name, atomic_read(&workq->task.free_cnt),
+			workq->is_paused);
+
 	return task;
+}
+
+static void cam_req_mgr_workq_put_task_unlocked(struct crm_workq_task *task)
+{
+	struct cam_req_mgr_core_workq *workq =
+		(struct cam_req_mgr_core_workq *)task->parent;
+
+	task->cancel = 0;
+	task->process_cb = NULL;
+	task->priv = NULL;
+
+	list_add_tail(&task->entry,
+		&workq->task.empty_head);
+	atomic_add(1, &workq->task.free_cnt);
 }
 
 static void cam_req_mgr_workq_put_task(struct crm_workq_task *task)
@@ -60,14 +83,12 @@ static void cam_req_mgr_workq_put_task(struct crm_workq_task *task)
 		(struct cam_req_mgr_core_workq *)task->parent;
 	unsigned long flags = 0;
 
-	list_del_init(&task->entry);
-	task->cancel = 0;
-	task->process_cb = NULL;
-	task->priv = NULL;
 	WORKQ_ACQUIRE_LOCK(workq, flags);
-	list_add_tail(&task->entry,
-		&workq->task.empty_head);
-	atomic_add(1, &workq->task.free_cnt);
+	if (workq->is_paused)
+		goto end;
+	cam_req_mgr_workq_put_task_unlocked(task);
+
+end:
 	WORKQ_RELEASE_LOCK(workq, flags);
 }
 
@@ -93,16 +114,43 @@ void cam_req_mgr_workq_flush(struct cam_req_mgr_core_workq *workq)
 	for (i = CRM_TASK_PRIORITY_0; i < CRM_TASK_PRIORITY_MAX; i++)
 		INIT_LIST_HEAD(&workq->task.process_head[i]);
 	INIT_LIST_HEAD(&workq->task.empty_head);
-	WORKQ_RELEASE_LOCK(workq, flags);
 
 	for (i = 0; i < workq->task.num_task; i++) {
 		task = &workq->task.pool[i];
 		task->parent = (void *)workq;
 		/* Put all tasks in free pool */
 		INIT_LIST_HEAD(&task->entry);
-		cam_req_mgr_workq_put_task(task);
+		cam_req_mgr_workq_put_task_unlocked(task);
 	}
+	WORKQ_RELEASE_LOCK(workq, flags);
 	atomic_set(&workq->flush, 0);
+}
+
+/**
+ * cam_req_mgr_workq_pause() - pause workq execution, After calling this function
+ * get_task and put_task will fail with EIO, workq flush and resume is expected to
+ * called after this in sequence.
+ */
+void cam_req_mgr_workq_pause(struct cam_req_mgr_core_workq *workq)
+{
+	unsigned long flags = 0;
+
+	WORKQ_ACQUIRE_LOCK(workq, flags);
+	workq->is_paused = true;
+	WORKQ_RELEASE_LOCK(workq, flags);
+	CAM_DBG(CAM_CRM, "pause workq %s, free_cnt %d",
+			workq->workq_name, atomic_read(&workq->task.free_cnt));
+}
+
+void cam_req_mgr_workq_resume(struct cam_req_mgr_core_workq *workq)
+{
+	unsigned long flags = 0;
+
+	WORKQ_ACQUIRE_LOCK(workq, flags);
+	workq->is_paused = false;
+	WORKQ_RELEASE_LOCK(workq, flags);
+	CAM_DBG(CAM_CRM, "resume workq %s, free_cnt %d",
+			workq->workq_name, atomic_read(&workq->task.free_cnt));
 }
 
 /**
@@ -111,12 +159,10 @@ void cam_req_mgr_workq_flush(struct cam_req_mgr_core_workq *workq)
  */
 static int cam_req_mgr_process_task(struct crm_workq_task *task)
 {
-	struct cam_req_mgr_core_workq *workq = NULL;
 
 	if (!task)
 		return -EINVAL;
 
-	workq = (struct cam_req_mgr_core_workq *)task->parent;
 	if (task->process_cb)
 		task->process_cb(task->priv, task->payload);
 	else
@@ -200,7 +246,7 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
 		? prio : CRM_TASK_PRIORITY_0;
 
 	WORKQ_ACQUIRE_LOCK(workq, flags);
-	if (!workq->job) {
+	if (!workq->job || workq->is_paused) {
 		rc = -EINVAL;
 		WORKQ_RELEASE_LOCK(workq, flags);
 		goto abort;
@@ -269,6 +315,7 @@ int cam_req_mgr_workq_create(char *name, int32_t num_tasks,
 			INIT_LIST_HEAD(&crm_workq->task.process_head[i]);
 		INIT_LIST_HEAD(&crm_workq->task.empty_head);
 		atomic_set(&crm_workq->flush, 0);
+		crm_workq->is_paused = false;
 		crm_workq->in_irq = in_irq;
 		crm_workq->task.num_task = num_tasks;
 		crm_workq->task.pool = kcalloc(crm_workq->task.num_task,
