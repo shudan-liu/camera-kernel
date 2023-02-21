@@ -3831,6 +3831,12 @@ static int cam_req_mgr_cb_notify_trigger(
 	spin_unlock_bh(&link->link_state_spin_lock);
 
 	task = cam_req_mgr_workq_get_task(workq);
+	if (PTR_ERR(task) == -EIO) {
+		CAM_DBG(CAM_CRM, "workq %s is paused, skip notify trigger",
+				workq->workq_name);
+		rc = -EBUSY;
+		goto end;
+	}
 	if (!task) {
 		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task frame %lld",
 			trigger_data->frame_id);
