@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sensor_lite_pkt_utils.h"
@@ -502,7 +502,10 @@ int __dump_setting_stream_cmd(void *base,
 			p_streamCmd->channel_id,
 			p_streamCmd->tracker_id,
 			p_streamCmd->sensor_id);
-
+		SENSOR_LITE_INFO(
+			"sof_to_apply_min_time: 0x%llx, eof_to_trigger_min_time: 0x%llx",
+			p_streamCmd->sof_to_apply_min_time,
+			p_streamCmd->eof_to_trigger_min_time);
 		SENSOR_LITE_INFO(
 			"numcmd_groups: %d, settings_groupoffset: 0x%x, reserved: 0x%x, is_pkt_active: %d",
 			p_streamCmd->numcmd_groups,
