@@ -1685,7 +1685,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			CAM_ERR(CAM_SENSOR, "Failed in Updating the i2c Info");
 			goto free_probe_cmd;
 		}
-
+#if 0
 		rc = ais_sensor_update_power_settings(probe_cmd,
 			&s_ctrl->sensordata->power_info);
 		if (rc < 0) {
@@ -1718,7 +1718,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			kfree(probe_cmd);
 			goto free_power_settings;
 		}
-
+#endif
 		CAM_WARN(CAM_SENSOR,
 			"Probe Success,slot:%d,slave_addr:0x%x",
 			s_ctrl->soc_info.index,
@@ -1858,7 +1858,8 @@ free_gpio_intr_deinit_config:
 		struct cam_create_dev_hdl bridge_params;
 
 		if ((s_ctrl->is_probe_succeed == 0) ||
-			(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
+			((s_ctrl->sensor_state != CAM_SENSOR_INIT) &&
+			(s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE))) {
 			CAM_WARN(CAM_SENSOR,
 				"Not in right state to aquire %s state: %d",
 				s_ctrl->sensor_name, s_ctrl->sensor_state);
@@ -1911,6 +1912,7 @@ free_gpio_intr_deinit_config:
 			rc = -EFAULT;
 			goto release_mutex;
 		}
+		#if 0
 		if (!(s_ctrl->hw_no_power_seq_ops)){
 			rc = cam_sensor_power_up(s_ctrl);
 			if (rc < 0) {
@@ -1929,6 +1931,7 @@ free_gpio_intr_deinit_config:
 				s_ctrl->soc_info.index,
 				s_ctrl->hw_no_power_seq_ops);
 		}
+		#endif
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 		s_ctrl->last_flush_req = 0;
