@@ -934,7 +934,7 @@ static int cam_sync_open(struct file *filep)
 
 	/* return if already initialized before */
 	if (sync_dev->open_cnt > 1) {
-		CAM_WARN(CAM_SYNC, "Already opened", rc);
+		CAM_WARN(CAM_SYNC, "Already opened rc:%d", rc);
 		goto end;
 	}
 
