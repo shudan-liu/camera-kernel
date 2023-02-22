@@ -169,7 +169,7 @@ struct cam_hw_soc_info {
 	uint32_t                        index;
 	const char                     *dev_name;
 	const char                     *irq_name;
-	struct resource                *irq_line;
+	uint32_t                        irq_line;
 	void                           *irq_data;
 
 	uint32_t                        num_mem_block;
