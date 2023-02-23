@@ -2411,6 +2411,7 @@ static int cam_ife_mgr_process_base_info(
 
 static int cam_convert_hw_idx_to_ife_hw_num(int hw_idx)
 {
+#ifndef ENABLE_ONLY_IFELITE
 	if (hw_idx < g_num_ife) {
 		switch (hw_idx) {
 		case 0: return CAM_ISP_IFE0_HW;
@@ -2435,6 +2436,10 @@ static int cam_convert_hw_idx_to_ife_hw_num(int hw_idx)
 		CAM_ERR(CAM_ISP, "hw idx %d out-of-bounds", hw_idx);
 	}
 	return 0;
+#else
+    /* Hardcoding to IFELITE4 as IFE full is not enabled currently so above logic is failing */
+    return CAM_ISP_IFE4_LITE_HW;
+#endif
 }
 
 static int cam_ife_hw_mgr_update_vfe_res_data(
