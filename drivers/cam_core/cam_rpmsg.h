@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __CAM_RPMSG_H__
@@ -441,6 +441,7 @@ struct cam_rpmsg_jpeg_pvt {
 	const struct file_operations      *dmabuf_f_op;
 	struct cam_rpmsg_jpeg_error_data   error_data;
 	struct mutex                       jpeg_mutex;
+	int32_t                            pid;
 };
 
 /** struct cam_rpmsg_instance_data - rpmsg per channel data
