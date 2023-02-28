@@ -13,7 +13,7 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 #include "cam_hdmi_bdg_core.h"
-
+#include "cam_res_mgr_api.h"
 #include <soc/qcom/boot_stats.h>
 
 
@@ -845,12 +845,16 @@ int cam_sensor_match_id(struct cam_sensor_ctrl_t *s_ctrl)
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	void *arg)
 {
-	int rc = 0, pkt_opcode = 0;
+	int rc = 0, pkt_opcode = 0, gpio_offset = 0, idx = 0;
 	struct cam_control *cmd = (struct cam_control *)arg;
 	struct cam_camera_slave_info *slave_info =
 		&(s_ctrl->sensordata->slave_info);
 	struct cam_sensor_power_ctrl_t *power_info =
 		&s_ctrl->sensordata->power_info;
+	struct msm_camera_gpio_num_info *gpio_num_info =
+		s_ctrl->sensordata->power_info.gpio_num_info;
+	struct cam_sensor_power_setting *power_setting =
+		s_ctrl->sensordata->power_info.power_setting;
 	if (!s_ctrl || !arg) {
 		CAM_ERR(CAM_SENSOR, "s_ctrl is NULL");
 		return -EINVAL;
@@ -1120,6 +1124,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 	case CAM_START_DEV: {
 		struct cam_req_mgr_timer_notify timer;
+
 		if ((s_ctrl->sensor_state == CAM_SENSOR_INIT) ||
 			(s_ctrl->sensor_state == CAM_SENSOR_START)) {
 			rc = -EINVAL;
@@ -1178,6 +1183,40 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
 				"cannot apply streamoff settings");
+			}
+			// Toggling sensor reset GPIO here if sensor is in bad state
+			CAM_DBG(CAM_SENSOR, "UMD_recoveryFlag: %d", cmd->reserved);
+			if (cmd->reserved == IS_ERROR_CODE_RECOVERY_FROM_UMD &&
+				gpio_num_info) {
+				// Toggle RESET GPIO with PowerDown sequence
+				for (idx = 0;
+				idx < power_info->power_down_setting_size; idx++) {
+					power_setting = &power_info->power_down_setting[idx];
+					if (!power_setting) {
+						CAM_ERR(CAM_SENSOR,
+							"Invalid power down settings for index %d", idx);
+						return -EINVAL;
+					}
+					gpio_offset = power_setting->seq_type;
+					cam_sensor_toggle_reset_gpio(power_setting,
+						gpio_num_info, gpio_offset, idx);
+				}
+				// 10 msec explicit delay is given b/w PowerDown and PowerUp
+				usleep_range(EXPLICIT_DELAY_BW_POWER_CYCLE * 1000,
+						(EXPLICIT_DELAY_BW_POWER_CYCLE * 1000) + 1000);
+
+				// Toggle RESET GPIO with PowerUp sequence
+				for (idx = 0; idx < power_info->power_setting_size; idx++) {
+					power_setting = &power_info->power_setting[idx];
+					if (!power_setting) {
+						CAM_ERR(CAM_SENSOR,
+							"Invalid power Up Settings for index %d", idx);
+						return -EINVAL;
+					}
+					gpio_offset = power_setting->seq_type;
+					cam_sensor_toggle_reset_gpio(power_setting,
+						gpio_num_info, gpio_offset, idx);
+				}
 			}
 		}
 
@@ -1300,6 +1339,33 @@ free_power_settings:
 	cam_sensor_free_power_reg_rsc(s_ctrl);
 	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
 	return rc;
+}
+
+void cam_sensor_toggle_reset_gpio(
+	struct cam_sensor_power_setting *power_setting,
+	struct msm_camera_gpio_num_info *gpio_num_info,
+	int gpio_offset,
+	int idx)
+{
+	if (power_setting->seq_type == SENSOR_RESET &&
+		gpio_num_info->valid[gpio_offset] == 1) {
+		CAM_DBG(CAM_SENSOR, "RESET gpio_num: %d",
+			gpio_num_info->gpio_num[gpio_offset]);
+		cam_res_mgr_gpio_set_value(
+			gpio_num_info->gpio_num[gpio_offset],
+				(int)power_setting->config_val);
+		if (power_setting->delay > 20) {
+			msleep(power_setting->delay);
+		} else if (power_setting->delay) {
+			usleep_range(power_setting->delay * 1000,
+				(power_setting->delay * 1000) + 1000);
+		}
+	}
+	CAM_DBG(CAM_SENSOR,
+		"Index: %d Seq: %d ConfigValue: %d Delay: %d",
+		idx, power_setting->seq_type,
+		(int)power_setting->config_val,
+		power_setting->delay);
 }
 
 int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info)

@@ -1,12 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2018,2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_CORE_H_
 #define _CAM_SENSOR_CORE_H_
 
 #include "cam_sensor_dev.h"
+#define EXPLICIT_DELAY_BW_POWER_CYCLE  10
+#define IS_ERROR_CODE_RECOVERY_FROM_UMD  1
 
 /**
  * @s_ctrl: Sensor ctrl structure
@@ -82,6 +85,18 @@ int cam_sensor_establish_link(struct cam_req_mgr_core_dev_link_setup *link);
  * This API handles the camera control argument reached to sensor
  */
 int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl, void *arg);
+
+/**
+ * @power_setting: Sensor power settings
+ * @gpio_num_info: gpio num info
+ * @gpio_offset:   gpio offset
+ * @idx:           Power Setting Index
+ *
+ * This API handles the camera sensor RESET toggle when required
+ */
+void cam_sensor_toggle_reset_gpio(struct cam_sensor_power_setting
+	*power_setting, struct msm_camera_gpio_num_info *gpio_num_info,
+		int gpio_offset, int idx);
 
 /**
  * @s_ctrl: Sensor ctrl structure
