@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_DEV_H_
@@ -63,6 +63,14 @@ struct sensor_intf_params {
 	uint32_t enable_crm;
 };
 
+struct cam_sensor_intr_t {
+	struct cam_sensor_ctrl_t *sctrl;
+	struct gpio gpio_array[1];
+	int gpio_idx;
+	int work_inited;
+	struct work_struct irq_work;
+};
+
 /**
  * struct cam_sensor_ctrl_t: Camera control structure
  * @device_name: Sensor device name
@@ -90,6 +98,10 @@ struct sensor_intf_params {
  * @sensor_name: Sensor name
  * @is_aon_user: To determine whether sensor is AON user or not
  * @hw_no_ops: To determine whether HW operations need to be disabled
+ * @hw_no_power_seq_ops: To determine whether power up/down
+ * is allowed or not by camx
+ * @hw_no_stream_onoff_ops: To determine whether stream on/off
+ * is allowed or not by camx
  * @sof_notify_handler: handler for sof notification
  * @en_perframe_reg_dump: enable perframe register dump flag
  * @last_applied_req: last applied request to detech skip in apply
@@ -126,7 +138,10 @@ struct cam_sensor_ctrl_t {
 	bool                           is_aon_user;
 	bool                           hw_no_io_ops;
 	bool                           hw_no_ops;
+	bool                           hw_no_power_seq_ops; /* By default it is true */
 	bool                           hw_no_probe_pw_ops;
+	bool                           hw_no_stream_onoff_ops; /* By default it is true */
+	struct cam_sensor_intr_t s_intr[AIS_MAX_INTR_GPIO];
 	/* register this handler to handle sof notify */
 	int   (*sof_notify_handler)(
 			struct cam_sensor_ctrl_t *s_ctrl,

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sensor_dev.h"
@@ -260,6 +260,8 @@ static int cam_sensor_i2c_component_bind(struct device *dev,
 	s_ctrl->last_applied_req = 0;
 	s_ctrl->hw_no_io_ops = false;
 	s_ctrl->hw_no_probe_pw_ops = false;
+	s_ctrl->hw_no_power_seq_ops = true;
+	s_ctrl->hw_no_stream_onoff_ops = true;
 
 	rc = cam_sensor_parse_dt(s_ctrl);
 	if (rc < 0) {

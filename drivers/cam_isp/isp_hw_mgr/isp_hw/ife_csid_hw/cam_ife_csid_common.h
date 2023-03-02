@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_COMMON_H_
@@ -13,6 +13,7 @@
 
 #define CAM_IFE_CSID_VER_1_0  0x100
 #define CAM_IFE_CSID_VER_2_0  0x200
+#define CAM_IFE_CSID_VER_3_0  0x300
 #define CAM_IFE_CSID_MAX_ERR_COUNT  100
 
 #define CAM_IFE_CSID_HW_CAP_IPP                           0x1
@@ -176,6 +177,18 @@ struct cam_ife_csid_csi2_rx_reg_info {
 	uint32_t irq_mask_addr;
 	uint32_t irq_clear_addr;
 	uint32_t irq_set_addr;
+    uint32_t unbounded_frame_irq_status_addr;
+	uint32_t unbounded_frame_irq_mask_addr;
+	uint32_t unbounded_frame_irq_clear_addr;
+	uint32_t unbounded_frame_irq_set_addr;
+    uint32_t multi_mapped_irq_status_addr;
+	uint32_t multi_mapped_irq_mask_addr;
+	uint32_t multi_mapped_irq_clear_addr;
+	uint32_t multi_mapped_irq_set_addr;
+    uint32_t stream_underflow_irq_status_addr;
+	uint32_t stream_underflow_irq_mask_addr;
+	uint32_t stream_underflow_irq_clear_addr;
+	uint32_t stream_underflow_irq_set_addr;
 	uint32_t cfg0_addr;
 	uint32_t cfg1_addr;
 	uint32_t capture_ctrl_addr;

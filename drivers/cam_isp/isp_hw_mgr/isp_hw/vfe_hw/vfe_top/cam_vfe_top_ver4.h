@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_VFE_TOP_VER4_H_
@@ -12,6 +12,7 @@
 #include "cam_vfe_top.h"
 
 #define CAM_VFE_RDI_VER2_MAX                           4
+#define CAM_VFE_RDI_VER3_MAX                           6
 #define CAM_VFE_CAMIF_LITE_EVT_MAX                     256
 #define CAM_VFE_TOP_DBG_REG_MAX                        17
 
@@ -185,7 +186,7 @@ struct cam_vfe_top_ver4_hw_info {
 	struct cam_vfe_top_ver4_reg_offset_common  *common_reg;
 	struct cam_vfe_ver4_path_hw_info            vfe_full_hw_info;
 	struct cam_vfe_ver4_path_hw_info            pdlib_hw_info;
-	struct cam_vfe_ver4_path_hw_info           *rdi_hw_info[CAM_VFE_RDI_VER2_MAX];
+	struct cam_vfe_ver4_path_hw_info           *rdi_hw_info[CAM_VFE_RDI_VER3_MAX];
 	struct cam_vfe_ver4_path_reg_data          *reg_data;
 	struct cam_vfe_top_ver4_wr_client_desc     *wr_client_desc;
 	struct cam_vfe_top_ver4_module_desc        *ipp_module_desc;

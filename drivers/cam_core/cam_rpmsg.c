@@ -767,7 +767,7 @@ send_ack:
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_END_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
 			CAM_DBG(CAM_RPMSG, "closing dmabuf fd %d", cmd_msg.buf_info.fd);
-			__close_fd(current->files, cmd_msg.buf_info.fd);
+			close_fd(cmd_msg.buf_info.fd);
 			break;
 		case CAM_DSP2CPU_REGISTER_BUFFER:
 			map_cmd.flags = CAM_MEM_FLAG_NSP_ACCESS | CAM_MEM_FLAG_HW_READ_WRITE;
@@ -854,7 +854,7 @@ send_ack:
 				cmd_msg.buf_info.fd, cmd_msg.buf_info.iova, cmd_msg.buf_info.size,
 				cmd_msg.buf_info.ipa_addr, cmd_msg.buf_info.buf_handle);
 			CAM_DBG(CAM_RPMSG, "closing dmabuf fd %d", map_cmd.fd);
-			__close_fd(current->files, map_cmd.fd);
+			close_fd(map_cmd.fd);
 			registerEnd:
 			trace_cam_rpmsg(dev_name, CAM_RPMSG_TRACE_BEGIN_TX, sizeof(cmd_msg),
 				__dsp_cmd_to_string(cmd_msg.cmd_msg_type));
@@ -1301,4 +1301,5 @@ void cam_rpmsg_exit(void)
 }
 
 MODULE_DESCRIPTION("CAM Remote processor messaging driver");
+MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);
 MODULE_LICENSE("GPL v2");
