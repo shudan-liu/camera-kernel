@@ -3080,15 +3080,15 @@ static int cam_ife_csid_ver3_init_config_rdi_path(
 	cfg1 |= (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].plain_fmt <<
 			path_reg->plain_fmt_shift_val);
 
-	if (!cmn_reg->timestamp_enabled_in_cfg1)
+	if (cmn_reg->timestamp_enabled_in_cfg1)
 		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
 			(cmn_reg->timestamp_strobe_val <<
 				cmn_reg->timestamp_stb_sel_shift_val);
 
 	if (cmn_reg->byte_cntr_en)
 		cfg1 |= (1 << path_reg->debug_byte_cntr_rst_shift_val);
-	/* We use line smoothting only on RDI_0 in all usecases */
 
+	/* We use line smoothting only on RDI_0 in all usecases */
 	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
 
 	/* set frame drop pattern to 0 and period to 1 */
@@ -3246,7 +3246,7 @@ static int cam_ife_csid_ver3_init_config_pxl_path(
 		path_cfg->crop_enable)
 		cfg1 |= (1 << path_reg->early_eof_en_shift_val);
 
-	if (!cmn_reg->timestamp_enabled_in_cfg1)
+	if (cmn_reg->timestamp_enabled_in_cfg1)
 		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
 			(cmn_reg->timestamp_strobe_val <<
 				cmn_reg->timestamp_stb_sel_shift_val);
@@ -3691,7 +3691,7 @@ static int cam_ife_csid_ver3_enable_path(
 	val |= cam_io_r_mb(mem_base + ctrl_addr);
 	cam_io_w_mb(val, mem_base + ctrl_addr);
 
-	CAM_DBG(CAM_ISP, "CSID[%u] start cmd programmed for res: %s",
+	CAM_INFO(CAM_ISP, "CSID[%u] start cmd programmed for res: %s",
 		csid_hw->hw_intf->hw_idx, res->res_name);
 end:
 	/* Change state even if we don't configure start cmd */
@@ -3763,7 +3763,7 @@ static int cam_ife_csid_ver3_program_ppp_path(
 
 	cam_io_w_mb(val, mem_base + path_reg->ctrl_addr);
 
-	CAM_DBG(CAM_ISP, "CSID:%d Pix res: %d ctrl val: 0x%x",
+	CAM_INFO(CAM_ISP, "CSID:%d Pix res: %d ctrl val: 0x%x",
 		csid_hw->hw_intf->hw_idx, res->res_id, val);
 
 	if (path_cfg->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
