@@ -395,7 +395,8 @@ static struct cam_ife_csid_ver3_common_reg_info
     .global_reset                                 = 1,
     .rup_supported                                = 1,
     .only_master_rup                              = 1,
-    .timestamp_enabled_in_cfg0                    = true,
+    .timestamp_enabled_in_cfg1                    = false,
+    .byte_cntr_en                                 = true,
     .camif_irq_support                            = true,
 
     .format_measure_height_mask_val               = 0xFFFF,

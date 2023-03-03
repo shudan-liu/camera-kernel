@@ -1287,6 +1287,7 @@ static int cam_sensor_process_write_array_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	struct ais_sensor_i2c_wr_payload *wr_array;
 	struct cam_sensor_i2c_slave_info slave_info;
 
+#ifndef HNDL_CAMX_SNSR_SYNC
 	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
 		CAM_WARN(CAM_SENSOR,
 			"%d Not in right state to aquire %d",
@@ -1295,7 +1296,7 @@ static int cam_sensor_process_write_array_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		rc = -EINVAL;
 		return rc;
 	}
-
+#endif
 	rc = copy_from_user(&i2c_write,
 			(void __user *) cmd->handle, sizeof(i2c_write));
 	if (rc < 0) {
@@ -1912,7 +1913,7 @@ free_gpio_intr_deinit_config:
 			rc = -EFAULT;
 			goto release_mutex;
 		}
-		#if 0
+#ifndef HNDL_CAMX_SNSR_SYNC
 		if (!(s_ctrl->hw_no_power_seq_ops)){
 			rc = cam_sensor_power_up(s_ctrl);
 			if (rc < 0) {
@@ -1931,8 +1932,7 @@ free_gpio_intr_deinit_config:
 				s_ctrl->soc_info.index,
 				s_ctrl->hw_no_power_seq_ops);
 		}
-		#endif
-
+#endif
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 		s_ctrl->last_flush_req = 0;
 		CAM_INFO(CAM_SENSOR,
@@ -2199,6 +2199,7 @@ free_gpio_intr_deinit_config:
 			s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
 		}
 
+#ifndef HNDL_CAMX_SNSR_SYNC
 		if (s_ctrl->i2c_data.read_settings.is_settings_valid) {
 			if (!s_ctrl->hw_no_ops)
 				rc = cam_sensor_i2c_read_data(
@@ -2219,6 +2220,7 @@ free_gpio_intr_deinit_config:
 				goto release_mutex;
 			}
 		}
+#endif
 	}
 		break;
 	default:
@@ -2593,6 +2595,10 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl,
 	uint64_t top = 0, del_req_id = 0;
 	struct i2c_settings_array *i2c_set = NULL;
 	struct i2c_settings_list *i2c_list;
+
+	/* HNDL_CAMX_SNSR_SYNC TODO: FIX camx and qcx synchronization issue.
+	* Commeting it out will return sucess for per frame setting request from camx.*/
+	if(1) return 0;
 
 	if (req_id == 0) {
 		switch (opcode) {

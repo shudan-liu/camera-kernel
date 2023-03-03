@@ -31,7 +31,7 @@ ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 # stack frame size error limit is 2048 by default, increasing it to 4096
-ccflags-y += ${ccflags-m} -Wframe-larger-than=4096 -DENABLE_ONLY_IFELITE=1
+ccflags-y += ${ccflags-m} -Wframe-larger-than=4096 -DENABLE_ONLY_IFELITE=1 -DHNDL_CAMX_SNSR_SYNC=1
 
 camera-y := \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
