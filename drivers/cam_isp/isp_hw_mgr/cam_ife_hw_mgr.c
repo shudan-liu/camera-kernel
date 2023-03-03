@@ -82,7 +82,7 @@ static int cam_ife_hw_mgr_event_handler(
 static int cam_ife_mgr_prog_default_settings(
 	bool need_rup_aup, struct cam_ife_hw_mgr_ctx *ctx);
 
-static int cam_ife_mgr_cmd_get_sof_timestamp(struct cam_ife_hw_mgr_ctx *ife_ctx,
+static int cam_ife_mgr_cmd_get_sof_timestamp(struct cam_ife_hw_mgr_ctx *ife_ctx, uint32_t res_id,
 	uint64_t *time_stamp, uint64_t *boot_time_stamp, uint64_t *prev_time_stamp);
 
 static int cam_ife_mgr_update_irq_mask_affected_ctx_stream_grp(
@@ -1079,6 +1079,11 @@ static inline bool cam_ife_hw_mgr_is_tunnel_supported_port(uint32_t res_id)
 	case CAM_ISP_IFE_OUT_RES_RDI_1:
 	case CAM_ISP_IFE_OUT_RES_RDI_2:
 	case CAM_ISP_IFE_OUT_RES_RDI_3:
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW:
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1:
+	case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2:
+	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BG:
+	case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
 		is_tunn_supported = true;
 		break;
 	default:
@@ -1858,11 +1863,12 @@ static void cam_ife_hw_mgr_print_acquire_info(
 	CAM_CONVERT_TIMESTAMP_FORMAT(hw_mgr_ctx->ts, hrs, min, sec, ms);
 
 	CAM_INFO(CAM_ISP,
-		"%llu:%llu:%llu.%llu Acquired %s with [%u pix] [%u pd] [%u rdi] ports for ctx:%u per_port_enabled :%d",
+		"%llu:%llu:%llu.%llu Acquired %s with [%u pix] [%u pd] [%u rdi] ports for ctx:%u per_port_enabled :%d sensor:%d",
 		hrs, min, sec, ms,
 		log_info,
 		num_pix_port, num_pd_port, num_rdi_port,
-		hw_mgr_ctx->ctx_index, hw_mgr_ctx->flags.per_port_en);
+		hw_mgr_ctx->ctx_index, hw_mgr_ctx->flags.per_port_en,
+		hw_mgr_ctx->sensor_id);
 
 	return;
 
@@ -2642,8 +2648,12 @@ static int cam_ife_hw_mgr_link_csid_pxl_resources(
 	csid_acquire.workq = ife_ctx->common.workq_info;
 	csid_acquire.cb_priv = ife_ctx;
 	csid_acquire.cdm_ops = ife_ctx->cdm_ops;
+	csid_acquire.vc = hw_mgr_res->vc;
+	csid_acquire.dt = hw_mgr_res->dt;
+	csid_acquire.decode_fmt = hw_mgr_res->decode_fmt;
 
-	rc = cam_ife_hw_mgr_update_csid_res_data(ife_ctx, hw_mgr_res, &csid_acquire);
+	rc = cam_ife_hw_mgr_update_csid_res_data(ife_ctx, hw_mgr_res,
+		&csid_acquire);
 	if (rc)
 		goto end;
 
@@ -2731,6 +2741,9 @@ static int cam_ife_hw_mgr_link_csid_rdi_resources(
 		rdi_csid_acquire.cb_priv = ife_ctx;
 		rdi_csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 		rdi_csid_acquire.per_port_acquire = false;
+		rdi_csid_acquire.vc = hw_mgr_res->vc;
+		rdi_csid_acquire.dt = hw_mgr_res->dt;
+		rdi_csid_acquire.decode_fmt = hw_mgr_res->decode_fmt;
 
 		/*
 		 * Enable RDI pixel drop by default. CSID will enable only for
@@ -5176,6 +5189,8 @@ static int cam_ife_hw_mgr_update_vc_dt_pxl_path(
 					grp_cfg->stream_cfg[stream_index].pxl_vc;
 				isp_res->dt =
 					grp_cfg->stream_cfg[stream_index].pxl_dt;
+				isp_res->decode_fmt =
+					grp_cfg->stream_cfg[stream_index].decode_format;
 				grp_cfg->stream_cfg[stream_index].pxl_vc_dt_updated =
 					true;
 				*found = true;
@@ -5189,6 +5204,8 @@ static int cam_ife_hw_mgr_update_vc_dt_pxl_path(
 					grp_cfg->stream_cfg[stream_index].lcr_vc;
 				isp_res->dt =
 					grp_cfg->stream_cfg[stream_index].lcr_dt;
+				isp_res->decode_fmt =
+					grp_cfg->stream_cfg[stream_index].decode_format;
 				grp_cfg->stream_cfg[stream_index].lcr_vc_dt_updated =
 					true;
 				*found = true;
@@ -5205,6 +5222,8 @@ static int cam_ife_hw_mgr_update_vc_dt_pxl_path(
 					grp_cfg->stream_cfg[stream_index].ppp_vc;
 				isp_res->dt =
 					grp_cfg->stream_cfg[stream_index].ppp_dt;
+				isp_res->decode_fmt =
+					grp_cfg->stream_cfg[stream_index].decode_format;
 				grp_cfg->stream_cfg[stream_index].ppp_vc_dt_updated =
 					true;
 				*found = true;
@@ -5242,6 +5261,7 @@ static int cam_ife_hw_mgr_update_vc_dt_stream_grp(
 					j++) {
 					isp_res->vc = grp_cfg->stream_cfg[i].rdi_vc[j];
 					isp_res->dt = grp_cfg->stream_cfg[i].rdi_dt[j];
+					isp_res->decode_fmt = grp_cfg->stream_cfg[i].decode_format;
 					grp_cfg->stream_cfg[i].rdi_vc_dt_updated++;
 					found = true;
 					break;
@@ -5363,6 +5383,11 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_pxl(
 		csid_acquire.crop_enable = crop_enable;
 		csid_acquire.drop_enable = false;
 		csid_acquire.per_port_acquire = per_port_acquire;
+		if (per_port_acquire) {
+			csid_acquire.vc = csid_res->vc;
+			csid_acquire.dt = csid_res->dt;
+			csid_acquire.decode_fmt = csid_res->decode_fmt;
+		}
 
 		if (csid_res->is_dual_isp)
 			csid_acquire.sync_mode = i == CAM_ISP_HW_SPLIT_LEFT ?
@@ -5571,6 +5596,11 @@ static int cam_ife_hw_mgr_acquire_res_ife_csid_rdi(
 		csid_acquire.cdm_ops = ife_ctx->cdm_ops;
 		csid_acquire.metadata_en = ife_ctx->flags.slave_metadata_en;
 		csid_acquire.per_port_acquire = per_port_acquire;
+		if (per_port_acquire) {
+			csid_acquire.vc = csid_res->vc;
+			csid_acquire.dt = csid_res->dt;
+			csid_acquire.decode_fmt = csid_res->decode_fmt;
+		}
 		if (ife_ctx->ctx_type == CAM_IFE_CTX_TYPE_SFE)
 			csid_acquire.sfe_en = true;
 
@@ -9429,7 +9459,6 @@ static int cam_ife_hw_mgr_res_stream_on_off_grp_cfg(
 				mutex_unlock(&grp_cfg->lock);
 				goto err;
 			}
-
 			grp_cfg->stream_cfg[j].is_streamon =
 				true;
 			grp_cfg->stream_on_cnt++;
@@ -10546,8 +10575,9 @@ start_only:
 
 notify_slave:
 	/* Start IFE root node: do nothing */
-	if (ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
-		ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) {
+	if ((ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_VIRTUAL ||
+		ctx->acquire_type == CAM_ISP_ACQUIRE_TYPE_HYBRID) &&
+		!start_isp->start_only) {
 		if (ctx->is_slave_down)
 			CAM_WARN(CAM_ISP, "Slave is Not Up, fail to send start");
 		else
@@ -10556,7 +10586,7 @@ notify_slave:
 		if (rc) {
 			CAM_ERR(CAM_ISP, "Start failed ctx id:%d, rc = %d",
 				ctx->ctx_index, rc);
-			return rc;
+			goto err;
 		}
 	}
 	CAM_DBG(CAM_ISP, "Start success for ctx id:%d", ctx->ctx_index);
@@ -15745,6 +15775,7 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			break;
 		case CAM_ISP_HW_MGR_GET_SOF_TS:
 			rc = cam_ife_mgr_cmd_get_sof_timestamp(ctx,
+				isp_hw_cmd_args->u.sof_ts.res_id,
 				&isp_hw_cmd_args->u.sof_ts.curr,
 				&isp_hw_cmd_args->u.sof_ts.boot,
 				&isp_hw_cmd_args->u.sof_ts.prev);
@@ -16003,6 +16034,7 @@ static inline void cam_ife_hw_mgr_get_offline_sof_timestamp(
 
 static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_ife_hw_mgr_ctx            *ife_ctx,
+	uint32_t                              res_id,
 	uint64_t                             *time_stamp,
 	uint64_t                             *boot_time_stamp,
 	uint64_t                             *prev_time_stamp)
@@ -16011,54 +16043,72 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 	uint32_t                              i;
 	struct cam_isp_hw_mgr_res            *hw_mgr_res;
 	struct cam_hw_intf                   *hw_intf;
-	struct cam_csid_get_time_stamp_args   csid_get_time;
+	struct cam_csid_get_time_stamp_args   csid_get_time = {0};
+	struct cam_isp_resource_node         *node_res;
 
-	hw_mgr_res = list_first_entry(&ife_ctx->res_list_ife_csid,
-		struct cam_isp_hw_mgr_res, list);
+	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
+		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+			if (!hw_mgr_res->hw_res[i])
+				continue;
 
-	for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
-		if (!hw_mgr_res->hw_res[i])
-			continue;
+			node_res = hw_mgr_res->hw_res[i];
+			if (res_id != CAM_IFE_PIX_PATH_RES_MAX && node_res->res_id != res_id)
+				continue;
 
-		/*
-		 * Get the SOF time stamp from left resource only.
-		 * Left resource is master for dual vfe case and
-		 * Rdi only context case left resource only hold
-		 * the RDI resource
-		 */
-
-		hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
-		if (hw_intf->hw_ops.process_cmd) {
 			/*
-			 * Single VFE case, Get the time stamp from
-			 * available one csid hw in the context
-			 * Dual VFE case, get the time stamp from
-			 * master(left) would be sufficient
+			 * Get the SOF time stamp from left resource only.
+			 * Left resource is master for dual vfe case and
+			 * Rdi only context case left resource only hold
+			 * the RDI resource
 			 */
 
-			csid_get_time.node_res =
-				hw_mgr_res->hw_res[i];
-			csid_get_time.get_prev_timestamp = (prev_time_stamp != NULL);
-			rc = hw_intf->hw_ops.process_cmd(
-				hw_intf->hw_priv,
-				CAM_IFE_CSID_CMD_GET_TIME_STAMP,
-				&csid_get_time,
-				sizeof(
-				struct cam_csid_get_time_stamp_args));
-			if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
-				*time_stamp =
-					csid_get_time.time_stamp_val;
-				*boot_time_stamp =
-					csid_get_time.boot_timestamp;
-				if (prev_time_stamp)
-					*prev_time_stamp =
-						csid_get_time.prev_time_stamp_val;
+			hw_intf = hw_mgr_res->hw_res[i]->hw_intf;
+			if (hw_intf->hw_ops.process_cmd) {
+				/*
+				 * Single VFE case, Get the time stamp from
+				 * available one csid hw in the context
+				 * Dual VFE case, get the time stamp from
+				 * master(left) would be sufficient
+				 */
+
+				csid_get_time.node_res =
+					hw_mgr_res->hw_res[i];
+				csid_get_time.time_stamp_val = *time_stamp;
+				csid_get_time.get_prev_timestamp = (prev_time_stamp != NULL);
+				rc = hw_intf->hw_ops.process_cmd(
+					hw_intf->hw_priv,
+					CAM_IFE_CSID_CMD_GET_TIME_STAMP,
+					&csid_get_time,
+					sizeof(
+					struct cam_csid_get_time_stamp_args));
+				if (!rc && (i == CAM_ISP_HW_SPLIT_LEFT)) {
+					*time_stamp =
+						csid_get_time.time_stamp_val;
+					*boot_time_stamp =
+						csid_get_time.boot_timestamp;
+					if (prev_time_stamp)
+						*prev_time_stamp =
+							csid_get_time.prev_time_stamp_val;
+				}
+				goto exit;
 			}
 		}
 	}
 
-	if (rc)
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "Getting sof time stamp failed");
+exit:
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Getting sof time stamp failed for res_id %d", res_id);
+		list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
+			for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+				if (!hw_mgr_res->hw_res[i])
+					continue;
+
+				node_res = hw_mgr_res->hw_res[i];
+				CAM_INFO(CAM_ISP, "acquired res %s %d, requested %d",
+						node_res->res_name, node_res->res_id, res_id);
+			}
+		}
+	}
 
 	return rc;
 }
@@ -16484,10 +16534,13 @@ static int cam_ife_hw_mgr_handle_csid_rup(
 	struct cam_isp_hw_event_info     *event_info)
 {
 	cam_hw_event_cb_func                     ife_hwr_irq_rup_cb;
-	struct cam_isp_hw_reg_update_event_data  rup_event_data;
+	struct cam_isp_hw_reg_update_event_data  rup_event_data = {0};
 
 	ife_hwr_irq_rup_cb = ife_hw_mgr_ctx->common.event_cb;
 	rup_event_data.res_id = event_info->res_id;
+
+	if (event_info->event_data)
+		rup_event_data.timestamp = *(uint64_t *)event_info->event_data;
 
 	switch (event_info->res_id) {
 	case CAM_IFE_PIX_PATH_RES_IPP:
@@ -16580,6 +16633,8 @@ static int cam_ife_hw_mgr_handle_csid_camif_sof(
 	case CAM_IFE_PIX_PATH_RES_PPP:
 		if (atomic_read(&ctx->overflow_pending))
 			break;
+		if (event_info->event_data)
+			sof_done_event_data.timestamp = *(uint64_t *)event_info->event_data;
 		if (ctx->ctx_config &
 			CAM_IFE_CTX_CFG_FRAME_HEADER_TS) {
 			sof_done_event_data.timestamp = 0x0;
@@ -16592,12 +16647,13 @@ static int cam_ife_hw_mgr_handle_csid_camif_sof(
 		} else {
 			if (ctx->flags.is_offline)
 				cam_ife_hw_mgr_get_offline_sof_timestamp(
-				&sof_done_event_data.timestamp,
-				&sof_done_event_data.boot_time);
+					&sof_done_event_data.timestamp,
+					&sof_done_event_data.boot_time);
 			else
 				cam_ife_mgr_cmd_get_sof_timestamp(
-				ctx, &sof_done_event_data.timestamp,
-				&sof_done_event_data.boot_time, NULL);
+					ctx, CAM_IFE_PIX_PATH_RES_MAX,
+					&sof_done_event_data.timestamp,
+					&sof_done_event_data.boot_time, NULL);
 		}
 
 		ife_hw_irq_sof_cb(ctx->common.cb_priv,
@@ -17025,6 +17081,7 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 			else
 				cam_ife_mgr_cmd_get_sof_timestamp(
 				ife_hw_mgr_ctx,
+				CAM_IFE_PIX_PATH_RES_MAX,
 				&sof_done_event_data.timestamp,
 				&sof_done_event_data.boot_time, NULL);
 		}
@@ -17044,8 +17101,9 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 		if (!ife_hw_mgr_ctx->flags.is_rdi_only_context)
 			break;
 		cam_ife_mgr_cmd_get_sof_timestamp(ife_hw_mgr_ctx,
-			&sof_done_event_data.timestamp,
-			&sof_done_event_data.boot_time, NULL);
+				CAM_IFE_PIX_PATH_RES_MAX,
+				&sof_done_event_data.timestamp,
+				&sof_done_event_data.boot_time, NULL);
 		if (atomic_read(&ife_hw_mgr_ctx->overflow_pending))
 			break;
 		ife_hw_irq_sof_cb(ife_hw_mgr_ctx->common.cb_priv,

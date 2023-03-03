@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -413,6 +413,49 @@ int cam_context_handle_acquire_hw(struct cam_context *ctx,
 	return rc;
 }
 
+static inline int cam_context_get_async_tasks(struct cam_context *ctx,
+		struct cam_get_async_tasks_cmd *cmd)
+{
+	int rc = 0;
+
+	mutex_lock(&ctx->ctx_mutex);
+	if (ctx->state_machine[ctx->state].ioctl_ops.get_async_task) {
+		rc = ctx->state_machine[ctx->state].ioctl_ops.get_async_task(
+			ctx, cmd);
+	}
+	mutex_unlock(&ctx->ctx_mutex);
+
+	return rc;
+}
+
+static inline int cam_context_pause_flush_async_task(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_get_async_tasks_cmd async_cmd;
+
+	rc = cam_context_get_async_tasks(ctx, &async_cmd);
+
+	if (async_cmd.workq) {
+		cam_req_mgr_workq_pause(async_cmd.workq);
+		cam_req_mgr_workq_flush(async_cmd.workq);
+	}
+
+	return rc;
+}
+
+static inline int cam_context_resume_async_task(struct cam_context *ctx)
+{
+	int rc = 0;
+	struct cam_get_async_tasks_cmd async_cmd;
+
+	rc = cam_context_get_async_tasks(ctx, &async_cmd);
+
+	if (async_cmd.workq)
+		cam_req_mgr_workq_resume(async_cmd.workq);
+
+	return rc;
+}
+
 int cam_context_handle_release_dev(struct cam_context *ctx,
 	struct cam_release_dev_cmd *cmd)
 {
@@ -427,6 +470,8 @@ int cam_context_handle_release_dev(struct cam_context *ctx,
 		CAM_ERR(CAM_CORE, "Invalid release device command payload");
 		return -EINVAL;
 	}
+
+	cam_context_pause_flush_async_task(ctx);
 
 	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state_machine[ctx->state].ioctl_ops.release_dev) {
@@ -486,6 +531,8 @@ int cam_context_handle_flush_dev(struct cam_context *ctx,
 		return -EINVAL;
 	}
 
+	cam_context_pause_flush_async_task(ctx);
+
 	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state_machine[ctx->state].ioctl_ops.flush_dev) {
 		rc = ctx->state_machine[ctx->state].ioctl_ops.flush_dev(
@@ -543,6 +590,8 @@ int cam_context_handle_start_dev(struct cam_context *ctx,
 		return -EINVAL;
 	}
 
+	cam_context_resume_async_task(ctx);
+
 	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state_machine[ctx->state].ioctl_ops.start_dev)
 		rc = ctx->state_machine[ctx->state].ioctl_ops.start_dev(
@@ -571,6 +620,8 @@ int cam_context_handle_stop_dev(struct cam_context *ctx,
 		CAM_ERR(CAM_CORE, "Invalid stop device command payload");
 		return -EINVAL;
 	}
+
+	cam_context_pause_flush_async_task(ctx);
 
 	mutex_lock(&ctx->ctx_mutex);
 	if (ctx->state_machine[ctx->state].ioctl_ops.stop_dev)

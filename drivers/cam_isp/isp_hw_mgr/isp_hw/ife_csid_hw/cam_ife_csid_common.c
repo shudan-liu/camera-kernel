@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -68,8 +68,23 @@ static int cam_ife_csid_get_cid(struct cam_ife_csid_cid_data *cid_data,
 {
 	uint32_t  i;
 
-	if (cid_data->cid_cnt == 0) {
+	/*currently only signal vc/dt is supported with per-port en */
+	if (reserve->in_port->per_port_en && reserve->per_port_acquire) {
+		if (cid_data->cid_cnt == 0) {
+			cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].vc = reserve->vc;
+			cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].dt = reserve->dt;
+			cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].valid = true;
+			cid_data->num_vc_dt = 1;
+			return 0;
+		}
+		if ((cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].vc == reserve->vc) &&
+			(cid_data->vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].dt == reserve->dt)) {
+			return 0;
+		}
+		return -EINVAL;
+	}
 
+	if (cid_data->cid_cnt == 0) {
 		for (i = 0; i < reserve->in_port->num_valid_vc_dt; i++) {
 			cid_data->vc_dt[i].vc = reserve->in_port->vc[i];
 			cid_data->vc_dt[i].dt = reserve->in_port->dt[i];
@@ -530,6 +545,14 @@ int cam_ife_csid_cid_reserve(struct cam_ife_csid_cid_data *cid_data,
 
 	cid_data[i].cid_cnt++;
 	*cid_value = i;
+
+	for (j = 0; j < cid_data->num_vc_dt; j++) {
+		CAM_DBG(CAM_ISP,
+			"CSID[%d] cid_value:%d cid_cnt:%d num_vc_dt:%d vc:%d dt:%d per_port_acquire:%d",
+			hw_idx, *cid_value, cid_data[i].cid_cnt, cid_data->num_vc_dt,
+			cid_data->vc_dt[j].vc, cid_data->vc_dt[j].dt,
+			reserve->per_port_acquire);
+	}
 
 	return 0;
 }

@@ -75,6 +75,7 @@ struct cam_isp_hw_mgr {
  * @num_children:        number of the child resource node.
  * @vc:                  input virtual channel number
  * @dt:                  input data type number
+ * @decode_fmt:          decode format
  * @use_wm_pack:         Flag to indicate if WM is to be used for packing
  * @linked:              Indicates if this hw res to linked to any ife context
  *
@@ -89,6 +90,7 @@ struct cam_isp_hw_mgr_res {
 	uint32_t                         num_children;
 	uint32_t                         vc;
 	uint32_t                         dt;
+	uint32_t                         decode_fmt;
 	bool                             use_wm_pack;
 	bool                             linked;
 };

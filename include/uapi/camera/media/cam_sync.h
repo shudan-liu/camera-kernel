@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, 2020 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_SYNC_H__
@@ -79,6 +79,7 @@
 #define CAM_SYNC_ISP_EVENT_CSID_OUTPUT_FIFO_OVERFLOW (CAM_SYNC_ISP_EVENT_START + 9)
 #define CAM_SYNC_ISP_EVENT_CSID_RX_ERROR             (CAM_SYNC_ISP_EVENT_START + 10)
 #define CAM_SYNC_ISP_EVENT_CSID_SENSOR_SWITCH_ERROR  (CAM_SYNC_ISP_EVENT_START + 11)
+#define CAM_SYNC_ISP_EVENT_APPLY_DELAY               (CAM_SYNC_ISP_EVENT_START + 12)
 #define CAM_SYNC_ISP_EVENT_END                       (CAM_SYNC_ISP_EVENT_START + 50)
 
 /* ICP Sync event reason types */

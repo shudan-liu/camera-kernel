@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_COMMON_H_
@@ -101,6 +101,8 @@ enum cam_ife_csid_irq_reg {
 	CAM_IFE_CSID_IRQ_REG_UDI_0,
 	CAM_IFE_CSID_IRQ_REG_UDI_1,
 	CAM_IFE_CSID_IRQ_REG_UDI_2,
+	CAM_IFE_CSID_IRQ_REG_TIMESTAMP_0,
+	CAM_IFE_CSID_IRQ_REG_TIMESTAMP_1,
 	CAM_IFE_CSID_IRQ_REG_MAX,
 };
 

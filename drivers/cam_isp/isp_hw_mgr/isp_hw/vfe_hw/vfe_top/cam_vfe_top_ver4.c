@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -1287,9 +1287,10 @@ static enum cam_vfe_top_ver4_fsm_state cam_vfe_top_ver4_fsm_next_state(
 	struct cam_isp_resource_node *res,
 	enum cam_vfe_top_ver4_fsm_state state)
 {
+	struct cam_vfe_mux_ver4_data *mux_data = res->res_priv;
 	switch (state) {
 	case VFE_TOP_VER4_FSM_SOF:
-		return (res->rdi_only_ctx) ? VFE_TOP_VER4_FSM_EOF : VFE_TOP_VER4_FSM_EPOCH;
+		return (mux_data->is_lite) ? VFE_TOP_VER4_FSM_EOF : VFE_TOP_VER4_FSM_EPOCH;
 	case VFE_TOP_VER4_FSM_EPOCH:
 		return VFE_TOP_VER4_FSM_EOF;
 	case VFE_TOP_VER4_FSM_EOF:

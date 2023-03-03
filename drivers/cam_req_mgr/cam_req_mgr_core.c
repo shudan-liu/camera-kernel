@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -3831,6 +3831,12 @@ static int cam_req_mgr_cb_notify_trigger(
 	spin_unlock_bh(&link->link_state_spin_lock);
 
 	task = cam_req_mgr_workq_get_task(workq);
+	if (PTR_ERR(task) == -EIO) {
+		CAM_DBG(CAM_CRM, "workq %s is paused, skip notify trigger",
+				workq->workq_name);
+		rc = -EBUSY;
+		goto end;
+	}
 	if (!task) {
 		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task frame %lld",
 			trigger_data->frame_id);
@@ -5058,6 +5064,27 @@ void cam_req_mgr_link_reset_open_cnt(int32_t link_hdl)
 	mutex_lock(&link->req.lock);
 	link->open_req_cnt = 0;
 	mutex_unlock(&link->req.lock);
+}
+
+int32_t cam_req_mgr_link_get_additional_timeout(int32_t link_hdl)
+{
+	struct cam_req_mgr_req_queue        *in_q = NULL;
+	struct cam_req_mgr_core_link        *link = NULL;
+	int32_t                              additional_timeout = 0;
+
+	link = (struct cam_req_mgr_core_link *)
+				cam_get_device_priv(link_hdl);
+	if (link == NULL) {
+		CAM_WARN(CAM_CRM, "Unable to get link from link hdl");
+		return 0;
+	}
+	mutex_lock(&link->req.lock);
+	in_q = link->req.in_q;
+	in_q->slot[in_q->rd_idx].status = CRM_SLOT_STATUS_REQ_APPLIED;
+	additional_timeout = in_q->slot[in_q->rd_idx].additional_timeout;
+	__cam_req_mgr_inc_idx(&in_q->rd_idx, 1, in_q->num_slots);
+	mutex_unlock(&link->req.lock);
+	return additional_timeout;
 }
 
 int cam_req_mgr_dump_request(struct cam_dump_req_cmd *dump_req)
