@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_cci_dev.h"
@@ -426,7 +427,7 @@ static int cam_cci_create_debugfs_entry(struct cci_device *cci_dev)
 	}
 
 	snprintf(client_name, sizeof(client_name), "en_dump_cci%d", cci_dev->soc_info.index);
-	dbgfileptr = debugfs_create_file("client_name", 0644,
+	dbgfileptr = debugfs_create_file(client_name, 0644,
 		debugfs_root, cci_dev, &cam_cci_debug);
 	if (IS_ERR(dbgfileptr)) {
 		if (PTR_ERR(dbgfileptr) == -ENODEV)
@@ -477,7 +478,8 @@ static int cam_cci_component_bind(struct device *dev,
 		sizeof(new_cci_dev->device_name));
 	new_cci_dev->v4l2_dev_str.name =
 		new_cci_dev->device_name;
-	new_cci_dev->v4l2_dev_str.sd_flags = V4L2_SUBDEV_FL_HAS_EVENTS;
+	new_cci_dev->v4l2_dev_str.sd_flags =
+		(V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS);
 	new_cci_dev->v4l2_dev_str.ent_function =
 		CAM_CCI_DEVICE_TYPE;
 	new_cci_dev->v4l2_dev_str.token =
