@@ -4,7 +4,7 @@
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#incluLde "tpg_hw_v_1_4.h"
+#include "tpg_hw_v_1_4.h"
 
 enum tpg_hw_v_1_4_encode_fomat_t {
 	RAW_8_BIT = 1,
