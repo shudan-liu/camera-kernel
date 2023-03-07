@@ -432,7 +432,8 @@ struct cam_ife_csid_ver3_common_reg_info {
     uint32_t global_reset;
     uint32_t rup_supported;
     uint32_t only_master_rup;
-    bool     timestamp_enabled_in_cfg0;
+    bool     timestamp_enabled_in_cfg1;
+    bool     byte_cntr_en;
     bool     camif_irq_support;
 
     /* Masks */
