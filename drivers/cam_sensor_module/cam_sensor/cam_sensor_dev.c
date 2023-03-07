@@ -1,9 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/version.h>
 #include "cam_sensor_dev.h"
 #include "cam_req_mgr_dev.h"
 #include "cam_sensor_soc.h"
@@ -288,12 +291,19 @@ static int cam_sensor_i2c_driver_probe(struct i2c_client *client,
 	return rc;
 }
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5,19,0))
+static void cam_sensor_i2c_driver_remove(struct i2c_client *client)
+{
+	component_del(&client->dev, &cam_sensor_i2c_component_ops);
+}
+#else
 static int cam_sensor_i2c_driver_remove(struct i2c_client *client)
 {
 	component_del(&client->dev, &cam_sensor_i2c_component_ops);
 
 	return 0;
 }
+#endif
 static const struct of_device_id cam_sensor_driver_dt_match[] = {
 	{.compatible = "qcom,cam-sensor"},
 	{}
