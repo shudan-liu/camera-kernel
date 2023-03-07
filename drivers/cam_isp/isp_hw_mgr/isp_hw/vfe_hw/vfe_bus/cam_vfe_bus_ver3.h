@@ -296,6 +296,7 @@ struct cam_vfe_bus_ver3_vfe_out_hw_info {
  * @supported_irq:            Mask to indicate the IRQ supported
  * @comp_cfg_needed:          Composite group config is needed for hw
  * @pack_align_shift:         Shift value for alignment of packer format
+ * @frame_header_en_shift:    Shift value for frame header enable bit in config register
  * @max_bw_counter_limit:     Max BW counter limit
  * @no_tunnelingId_shift:     Mask shift for no tunneling ID irq
  * @tunneling_overflow_shift: Mask shift for tunneling overflow irq
@@ -322,6 +323,7 @@ struct cam_vfe_bus_ver3_hw_info {
 	uint32_t supported_irq;
 	bool comp_cfg_needed;
 	uint32_t pack_align_shift;
+	uint32_t frame_header_en_shift;
 	uint32_t max_bw_counter_limit;
 	uint32_t no_tunnelingId_shift;
 	uint32_t tunneling_overflow_shift;
@@ -452,6 +454,7 @@ struct cam_vfe_bus_ver3_common_data {
 	bool                                        disable_ubwc_comp;
 	bool                                        init_irq_subscribed;
 	bool                                        disable_mmu_prefetch;
+	bool                                        enable_frame_header;
 	bool                                        support_tunneling;
 	cam_hw_mgr_event_cb_func                    event_cb;
 	int                                         rup_irq_handle[
@@ -461,6 +464,8 @@ struct cam_vfe_bus_ver3_common_data {
 	uint32_t                                    no_tunnelingId_shift;
 	uint32_t                                    tunneling_overflow_shift;
 	uint32_t                                    out_fifo_depth;
+	uint32_t                                    frame_header_en_shift;
+
 };
 
 int cam_vfe_populate_out(

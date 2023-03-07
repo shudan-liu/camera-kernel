@@ -571,6 +571,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 	.max_out_res = CAM_ISP_IFE_OUT_RES_BASE + 33,
 	.support_tunneling = false,
 	.fifo_depth = 2,
+	.frame_header_en_shift = 2,
 };
 
 static struct cam_vfe_irq_hw_info vfe69x_irq_hw_info = {
