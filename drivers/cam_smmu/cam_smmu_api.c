@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -2100,7 +2101,6 @@ int cam_smmu_release_buf_region(enum cam_smmu_region_id region,
 	dma_buf_unmap_attachment(buf_info->attach,
 		buf_info->table, DMA_BIDIRECTIONAL);
 	dma_buf_detach(buf_info->buf, buf_info->attach);
-	dma_buf_put(buf_info->buf);
 	*is_buf_allocated = false;
 	mutex_unlock(&cb_info->lock);
 
