@@ -476,7 +476,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 			.num_wm        = 1,
 			.mid[0]        = 16,
-			.line_based    = 1,
+			.line_based    = 0,
 			.wm_idx        = {
 				0,
 			},
@@ -491,7 +491,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_1,
 			.num_wm        = 1,
 			.mid[0]        = 17,
-			.line_based    = 1,
+			.line_based    = 0,
 			.wm_idx        = {
 				1,
 			},
@@ -506,7 +506,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_2,
 			.num_wm        = 1,
 			.mid[0]        = 18,
-			.line_based    = 1,
+			.line_based    = 0,
 			.wm_idx        = {
 				2,
 			},
@@ -521,7 +521,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_3,
 			.num_wm        = 1,
 			.mid[0]        = 19,
-			.line_based    = 1,
+			.line_based    = 0,
 			.wm_idx        = {
 				3,
 			},
@@ -536,7 +536,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_4,
 			.num_wm        = 1,
 			.mid[0]        = 20,
-			.line_based    = 1,
+			.line_based    = 0,
 			.wm_idx        = {
 				4,
 			},
@@ -551,7 +551,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe690x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_5,
 			.num_wm        = 1,
 			.mid[0]        = 21,
-			.line_based    = 1,
+			.line_based    = 0,
 			.wm_idx        = {
 				5,
 			},

@@ -113,6 +113,7 @@ int cam_ife_csid_is_pix_res_format_supported(
 	case CAM_FORMAT_DPCM_12_10_12:
 	case CAM_FORMAT_YUV422:
 	case CAM_FORMAT_YUV422_10:
+	case CAM_FORMAT_PLAIN16_16:
 		rc = 0;
 		break;
 	default:
@@ -222,6 +223,15 @@ static int cam_ife_csid_validate_rdi_format(uint32_t in_format,
 			break;
 		}
 		break;
+	case CAM_FORMAT_PLAIN16_16:
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_16:
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
+		break;
 	default:
 		rc = -EINVAL;
 		break;
@@ -276,6 +286,7 @@ int cam_ife_csid_get_format_rdi(
 		path_format->bits_per_pxl = 14;
 		break;
 	case CAM_FORMAT_MIPI_RAW_16:
+	case CAM_FORMAT_PLAIN16_16:
 		path_format->decode_fmt = 0x5;
 		path_format->bits_per_pxl = 16;
 		break;
