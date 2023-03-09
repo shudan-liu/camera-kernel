@@ -378,7 +378,7 @@ static struct cam_ife_csid_ver3_common_reg_info
     .frame_id_dec_supported                       = 0,
     .measure_en_hbi_vbi_cnt_mask                  = 0xc,
     .measure_pixel_line_en_mask                   = 0x3,
-    .drop_supported                               = 1,
+    .drop_supported                               = 0,
     .ipp_irq_mask_all                             = 0x7FFFFFFF,
     .rdi_irq_mask_all                             = 0x7FFFFFFF,
     .rst_loc_path_only_val                        = 0x0,
