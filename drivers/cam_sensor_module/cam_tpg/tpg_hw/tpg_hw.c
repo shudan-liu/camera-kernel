@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "tpg_hw.h"
@@ -360,6 +361,7 @@ int tpg_hw_dump_status(struct tpg_hw *hw)
 		return -EINVAL;
 	switch (hw->hw_info->version) {
 	case TPG_HW_VERSION_1_3:
+	case TPG_HW_VERSION_1_4:
 		if (hw->hw_info->ops->dump_status)
 			hw->hw_info->ops->dump_status(hw, NULL);
 	default:
@@ -384,6 +386,7 @@ int tpg_hw_start(struct tpg_hw *hw)
 		break;
 	case TPG_HW_VERSION_1_2:
 	case TPG_HW_VERSION_1_3:
+	case TPG_HW_VERSION_1_4:
 		if (hw->hw_info->ops->start)
 			hw->hw_info->ops->start(hw, NULL);
 		tpg_hw_start_default_new(hw);
@@ -411,6 +414,7 @@ int tpg_hw_stop(struct tpg_hw *hw)
 	case TPG_HW_VERSION_1_1:
 	case TPG_HW_VERSION_1_2:
 	case TPG_HW_VERSION_1_3:
+	case TPG_HW_VERSION_1_4:
 		if (hw->hw_info->ops->stop)
 			rc = hw->hw_info->ops->stop(hw, NULL);
 		rc = tpg_hw_soc_disable(hw);
@@ -440,6 +444,7 @@ int tpg_hw_acquire(struct tpg_hw *hw,
 	case TPG_HW_VERSION_1_1:
 	case TPG_HW_VERSION_1_2:
 	case TPG_HW_VERSION_1_3:
+	case TPG_HW_VERSION_1_4:
 		// Start Cpas and enable required clocks
 		break;
 	default:
@@ -464,6 +469,7 @@ int tpg_hw_release(struct tpg_hw *hw)
 	case TPG_HW_VERSION_1_1:
 	case TPG_HW_VERSION_1_2:
 	case TPG_HW_VERSION_1_3:
+	case TPG_HW_VERSION_1_4:
 		break;
 	default:
 		CAM_ERR(CAM_TPG, "TPG[%d] Unsupported HW Version",
@@ -522,6 +528,7 @@ static int tpg_hw_configure_init_settings(
 	case TPG_HW_VERSION_1_1:
 	case TPG_HW_VERSION_1_2:
 	case TPG_HW_VERSION_1_3:
+	case TPG_HW_VERSION_1_4:
 		if (!hw->soc_info)
 			rc = -EINVAL;
 		else {

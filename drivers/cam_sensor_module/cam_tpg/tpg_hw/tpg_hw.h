@@ -2,6 +2,7 @@
 
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __TPG_HW_H__
@@ -16,6 +17,7 @@
 #define TPG_HW_VERSION_1_1 0x10000001
 #define TPG_HW_VERSION_1_2 0x10000002
 #define TPG_HW_VERSION_1_3 0x10000003
+#define TPG_HW_VERSION_1_4 0x10000004
 
 
 struct tpg_hw;

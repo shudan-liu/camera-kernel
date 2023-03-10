@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 
@@ -37,6 +37,82 @@ static const char drv_name[] = "vfe_bus";
 
 #define CAM_VFE_RDI_BUS_DEFAULT_WIDTH               0xFFFF
 #define CAM_VFE_RDI_BUS_DEFAULT_STRIDE              0xFFFF
+
+/* Uncomment to enable hardware register dump */
+#if 0
+#define CSID_LOG_BUFFER_SIZE_IN_BYTES      250
+#define ONE_LOG_LINE_MAX_SIZE                20
+
+static int cam_ife_vfe_io_dump(void __iomem *base_addr, uint16_t num_regs, int csiphy_idx, int wm_index)
+{
+	char                                    *buffer;
+	uint8_t                                  buffer_offset = 0;
+	uint8_t                                  rem_buffer_size = CSID_LOG_BUFFER_SIZE_IN_BYTES;
+	uint16_t                                 i;
+	uint32_t                                 reg_offset;
+
+	if (!base_addr || !num_regs) {
+		CAM_ERR(CAM_ISP, "Invalid params. base_addr: 0x%p num_regs: %u",
+			base_addr, num_regs);
+		return -EINVAL;
+	}
+
+	buffer = kzalloc(CSID_LOG_BUFFER_SIZE_IN_BYTES, GFP_KERNEL);
+	if (!buffer) {
+		CAM_ERR(CAM_ISP, "Could not allocate the memory for buffer");
+		return -ENOMEM;
+	}
+
+	CAM_INFO(CAM_ISP, "Base: 0x%pK num_regs: %u", base_addr, num_regs);
+	CAM_INFO(CAM_ISP, "VFE%d res:%d Dump", csiphy_idx, wm_index);
+	for (i = 0; i < num_regs; i++) {
+		reg_offset = i << 2;
+		buffer_offset += scnprintf(buffer + buffer_offset, rem_buffer_size, "0x%x=0x%x\n",
+			reg_offset, cam_io_r_mb(base_addr + reg_offset));
+
+		rem_buffer_size = CSID_LOG_BUFFER_SIZE_IN_BYTES - buffer_offset;
+
+		if (rem_buffer_size <= ONE_LOG_LINE_MAX_SIZE) {
+			buffer[buffer_offset - 1] = '\0';
+			pr_info("%s\n", buffer);
+			buffer_offset = 0;
+			rem_buffer_size = CSID_LOG_BUFFER_SIZE_IN_BYTES;
+		}
+	}
+
+	if (buffer_offset) {
+		buffer[buffer_offset - 1] = '\0';
+		pr_info("%s\n", buffer);
+	}
+
+	kfree(buffer);
+
+	return 0;
+}
+
+int32_t cam_ife_vfe_reg_dump(struct cam_hw_soc_info *soc_info)
+{
+	int32_t rc = 0;
+	resource_size_t size = 0;
+	void __iomem *addr = NULL;
+
+	if (!soc_info) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_ISP, "invalid input %d", rc);
+		return rc;
+	}
+	addr = soc_info->reg_map[0].mem_base;
+	CAM_ERR(CAM_ISP, "Dumping VFE%d registers from address 0x%x", soc_info->index, addr);
+	size = resource_size(soc_info->mem_block[0]);
+	rc = cam_ife_vfe_io_dump(addr, (size >> 2), soc_info->index);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "generating dump failed %d", rc);
+		return rc;
+	}
+
+	return rc;
+}
+#endif
 
 struct cam_vfe_bus_ver3_comp_grp_acquire_args {
 	enum cam_vfe_bus_ver3_comp_grp_type  comp_grp_id;
@@ -1412,6 +1488,9 @@ static int cam_vfe_bus_ver3_start_wm(struct cam_isp_resource_node *wm_res)
 			rsrc_data->common_data->core_index,
 			rsrc_data->index);
 	}
+
+	if (common_data->enable_frame_header)
+		rsrc_data->en_cfg |= 1 << common_data->frame_header_en_shift;
 
 	/* Enable WM */
 	cam_io_w_mb(rsrc_data->en_cfg, common_data->mem_base +
@@ -4816,6 +4895,8 @@ int cam_vfe_bus_ver3_init(
 		ver3_hw_info->support_consumed_addr;
 	bus_priv->common_data.out_fifo_depth =
 		ver3_hw_info->fifo_depth;
+	bus_priv->common_data.frame_header_en_shift =
+		ver3_hw_info->frame_header_en_shift;
 	bus_priv->common_data.support_tunneling =
 		ver3_hw_info->support_tunneling;
 	bus_priv->common_data.no_tunnelingId_shift =
@@ -4827,7 +4908,8 @@ int cam_vfe_bus_ver3_init(
 	bus_priv->common_data.comp_config_needed =
 		ver3_hw_info->comp_cfg_needed;
 	bus_priv->common_data.init_irq_subscribed = false;
-	bus_priv->common_data.disable_mmu_prefetch = false;
+	bus_priv->common_data.disable_mmu_prefetch = true;
+	bus_priv->common_data.enable_frame_header = true;
 	bus_priv->common_data.pack_align_shift =
 		ver3_hw_info->pack_align_shift;
 	bus_priv->common_data.max_bw_counter_limit =

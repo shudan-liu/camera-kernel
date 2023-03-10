@@ -78,6 +78,83 @@ static bool cam_ife_csid_ver3_disable_sof_retime(
 	return false;
 }
 */
+
+/* Uncomment to dump csid hardware register */
+#if 0
+#define CSID_LOG_BUFFER_SIZE_IN_BYTES      250
+#define ONE_LOG_LINE_MAX_SIZE                20
+
+static int cam_ife_csid_io_dump(void __iomem *base_addr, uint16_t num_regs, int csiphy_idx)
+{
+	char                                    *buffer;
+	uint8_t                                  buffer_offset = 0;
+	uint8_t                                  rem_buffer_size = CSID_LOG_BUFFER_SIZE_IN_BYTES;
+	uint16_t                                 i;
+	uint32_t                                 reg_offset;
+
+	if (!base_addr || !num_regs) {
+		CAM_ERR(CAM_ISP, "Invalid params. base_addr: 0x%p num_regs: %u",
+			base_addr, num_regs);
+		return -EINVAL;
+	}
+
+	buffer = kzalloc(CSID_LOG_BUFFER_SIZE_IN_BYTES, GFP_KERNEL);
+	if (!buffer) {
+		CAM_ERR(CAM_ISP, "Could not allocate the memory for buffer");
+		return -ENOMEM;
+	}
+
+	CAM_INFO(CAM_ISP, "Base: 0x%pK num_regs: %u", base_addr, num_regs);
+	CAM_INFO(CAM_ISP, "IFELITE:%d Dump", csiphy_idx);
+	for (i = 0; i < num_regs; i++) {
+		reg_offset = i << 2;
+		buffer_offset += scnprintf(buffer + buffer_offset, rem_buffer_size, "0x%x=0x%x\n",
+			reg_offset, cam_io_r_mb(base_addr + reg_offset));
+
+		rem_buffer_size = CSID_LOG_BUFFER_SIZE_IN_BYTES - buffer_offset;
+
+		if (rem_buffer_size <= ONE_LOG_LINE_MAX_SIZE) {
+			buffer[buffer_offset - 1] = '\0';
+			pr_info("%s\n", buffer);
+			buffer_offset = 0;
+			rem_buffer_size = CSID_LOG_BUFFER_SIZE_IN_BYTES;
+		}
+	}
+
+	if (buffer_offset) {
+		buffer[buffer_offset - 1] = '\0';
+		pr_info("%s\n", buffer);
+	}
+
+	kfree(buffer);
+
+	return 0;
+}
+
+int32_t cam_ife_csid_reg_dump(struct cam_hw_soc_info *soc_info)
+{
+	int32_t rc = 0;
+	resource_size_t size = 0;
+	void __iomem *addr = NULL;
+
+	if (!soc_info) {
+		rc = -EINVAL;
+		CAM_ERR(CAM_ISP, "invalid input %d", rc);
+		return rc;
+	}
+	CAM_ERR(CAM_ISP, "Dumping CSID registers");
+	addr = soc_info->reg_map[0].mem_base;
+	size = resource_size(soc_info->mem_block[0]);
+	rc = cam_ife_csid_io_dump(addr, (size >> 2), soc_info->index);
+	if (rc < 0) {
+		CAM_ERR(CAM_ISP, "generating dump failed %d", rc);
+		return rc;
+	}
+
+	return rc;
+}
+#endif
+
 static int cam_ife_csid_ver3_set_debug(
 	struct cam_ife_csid_ver3_hw *csid_hw,
 	uint32_t debug_val)
@@ -2949,11 +3026,6 @@ static int cam_ife_csid_ver3_init_config_rdi_path(
 		cfg0 |= path_cfg->frame_id_dec_en <<
 			cmn_reg->frame_id_decode_en_shift_val;
 
-	if (cmn_reg->timestamp_enabled_in_cfg0)
-		cfg0 |= (1 << path_reg->timestamp_en_shift_val) |
-			(cmn_reg->timestamp_strobe_val <<
-				cmn_reg->timestamp_stb_sel_shift_val);
-
 	cam_io_w_mb(cfg0, mem_base + path_reg->cfg0_addr);
 
 	CAM_DBG(CAM_ISP, "CSID[%d] %s cfg0_addr 0x%x metadata %d",
@@ -3008,13 +3080,15 @@ static int cam_ife_csid_ver3_init_config_rdi_path(
 	cfg1 |= (path_cfg->path_format[CAM_IFE_CSID_MULTI_VC_DT_GRP_0].plain_fmt <<
 			path_reg->plain_fmt_shift_val);
 
-	if (!cmn_reg->timestamp_enabled_in_cfg0)
+	if (cmn_reg->timestamp_enabled_in_cfg1)
 		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
 			(cmn_reg->timestamp_strobe_val <<
 				cmn_reg->timestamp_stb_sel_shift_val);
 
-	/* We use line smoothting only on RDI_0 in all usecases */
+	if (cmn_reg->byte_cntr_en)
+		cfg1 |= (1 << path_reg->debug_byte_cntr_rst_shift_val);
 
+	/* We use line smoothting only on RDI_0 in all usecases */
 	cam_io_w_mb(cfg1, mem_base + path_reg->cfg1_addr);
 
 	/* set frame drop pattern to 0 and period to 1 */
@@ -3121,7 +3195,7 @@ static int cam_ife_csid_ver3_init_config_pxl_path(
 		cfg0 |= path_cfg->frame_id_dec_en <<
 			cmn_reg->frame_id_decode_en_shift_val;
 
-	if (cmn_reg->timestamp_enabled_in_cfg0)
+	if (cmn_reg->timestamp_enabled_in_cfg1)
 		cfg0 |= (1 << path_reg->timestamp_en_shift_val) |
 			(cmn_reg->timestamp_strobe_val <<
 				cmn_reg->timestamp_stb_sel_shift_val);
@@ -3172,7 +3246,7 @@ static int cam_ife_csid_ver3_init_config_pxl_path(
 		path_cfg->crop_enable)
 		cfg1 |= (1 << path_reg->early_eof_en_shift_val);
 
-	if (!cmn_reg->timestamp_enabled_in_cfg0)
+	if (cmn_reg->timestamp_enabled_in_cfg1)
 		cfg1 |= (1 << path_reg->timestamp_en_shift_val) |
 			(cmn_reg->timestamp_strobe_val <<
 				cmn_reg->timestamp_stb_sel_shift_val);
@@ -3617,7 +3691,7 @@ static int cam_ife_csid_ver3_enable_path(
 	val |= cam_io_r_mb(mem_base + ctrl_addr);
 	cam_io_w_mb(val, mem_base + ctrl_addr);
 
-	CAM_DBG(CAM_ISP, "CSID[%u] start cmd programmed for res: %s",
+	CAM_INFO(CAM_ISP, "CSID[%u] start cmd programmed for res: %s",
 		csid_hw->hw_intf->hw_idx, res->res_name);
 end:
 	/* Change state even if we don't configure start cmd */
@@ -3689,7 +3763,7 @@ static int cam_ife_csid_ver3_program_ppp_path(
 
 	cam_io_w_mb(val, mem_base + path_reg->ctrl_addr);
 
-	CAM_DBG(CAM_ISP, "CSID:%d Pix res: %d ctrl val: 0x%x",
+	CAM_INFO(CAM_ISP, "CSID:%d Pix res: %d ctrl val: 0x%x",
 		csid_hw->hw_intf->hw_idx, res->res_id, val);
 
 	if (path_cfg->sync_mode == CAM_ISP_HW_SYNC_MASTER ||
