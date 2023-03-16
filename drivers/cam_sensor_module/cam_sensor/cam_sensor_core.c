@@ -1963,6 +1963,7 @@ free_gpio_intr_deinit_config:
 		}
 
 		if (!(s_ctrl->hw_no_power_seq_ops)){
+#ifdef CAMX_POWERSENSOR
 			rc = cam_sensor_power_down(s_ctrl);
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR,
@@ -1973,6 +1974,7 @@ free_gpio_intr_deinit_config:
 					);
 				goto release_mutex;
 			}
+#endif
 		}
 		else{
 			CAM_DBG(CAM_SENSOR, "%s-slot[%d] probe with hw_no_power_seq_ops[%d]",
