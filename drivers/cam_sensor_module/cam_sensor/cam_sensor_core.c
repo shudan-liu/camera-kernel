@@ -929,7 +929,6 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		}
 
 		/* Match sensor ID */
-		s_ctrl->is_always_on = 0;
 		rc = cam_sensor_match_id(s_ctrl);
 		if (rc < 0) {
 			if (slave_info->sensor_hot_plug_type != 1) {
@@ -949,28 +948,23 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			&& !rc) {
 			rc = cam_sensor_apply_settings(s_ctrl, 0,
 				CAM_SENSOR_PACKET_OPCODE_SENSOR_POWEROFF_REG);
-			s_ctrl->is_always_on = 1;
 			if (rc < 0) {
 				CAM_ERR(CAM_SENSOR, "PowerOff REG_WR failed");
 				goto free_power_settings;
 			}
 		}
 
-		if (s_ctrl->is_always_on == 0) {
-			rc = cam_sensor_power_down(s_ctrl);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR,
-						"fail in Sensor Power Down");
-				goto free_power_settings;
-			}
+		rc = cam_sensor_power_down(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "fail in Sensor Power Down");
+			goto free_power_settings;
 		}
 
 		CAM_INFO(CAM_SENSOR,
-			"Probe success,slot:%d,slave_addr:0x%x,sensor_id:0x%x, is always on: %d",
+			"Probe success,slot:%d,slave_addr:0x%x,sensor_id:0x%x",
 			s_ctrl->soc_info.index,
 			s_ctrl->sensordata->slave_info.sensor_slave_addr,
-			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->is_always_on);
+			s_ctrl->sensordata->slave_info.sensor_id);
 
 		cam_sensor_free_power_reg_rsc(s_ctrl);
 		/*
@@ -1034,21 +1028,19 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
-		if (!s_ctrl->is_always_on) {
-			rc = cam_sensor_power_up(s_ctrl);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
-				goto release_mutex;
-			}
+		rc = cam_sensor_power_up(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Sensor Power up failed");
+			goto release_mutex;
 		}
 
 		s_ctrl->sensor_state = CAM_SENSOR_ACQUIRE;
 		s_ctrl->last_flush_req = 0;
 		CAM_INFO(CAM_SENSOR,
-			"CAM_ACQUIRE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x, is always on: %d",
+			"CAM_ACQUIRE_DEV Success, sensor_id:0x%x,sensor_slave_addr:0x%x",
 			s_ctrl->sensordata->slave_info.sensor_id,
-			s_ctrl->sensordata->slave_info.sensor_slave_addr,
-			s_ctrl->is_always_on);
+			s_ctrl->sensordata->slave_info.sensor_slave_addr);
+
 		place_marker("M - Hibernation: CAM_ACQUIRE_DEV Success");
 	}
 		break;
@@ -1071,12 +1063,10 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 			goto release_mutex;
 		}
 
-		if (!s_ctrl->is_always_on) {
-			rc = cam_sensor_power_down(s_ctrl);
-			if (rc < 0) {
-				CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
-				goto release_mutex;
-			}
+		rc = cam_sensor_power_down(s_ctrl);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "Sensor Power Down failed");
+			goto release_mutex;
 		}
 
 		cam_sensor_release_per_frame_resource(s_ctrl);
