@@ -323,10 +323,7 @@ static int32_t cam_sensor_i2c_pkt_parse(struct cam_sensor_ctrl_t *s_ctrl,
 		i2c_reg_settings->request_id = csl_packet->header.request_id;
 		i2c_reg_settings->is_settings_valid = 1;
 
-		rc = cam_sensor_update_req_mgr(s_ctrl, csl_packet);
-		if (rc)
-			CAM_ERR(CAM_SENSOR,
-				"Failed in adding request to req_mgr");
+		cam_sensor_update_req_mgr(s_ctrl, csl_packet);
 		goto end;
 	}
 	default:
