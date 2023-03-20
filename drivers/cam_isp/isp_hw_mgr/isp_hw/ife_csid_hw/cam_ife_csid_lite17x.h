@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_IFE_CSID_LITE17X_H_
@@ -225,7 +226,7 @@ static const struct cam_ife_csid_csi2_rx_reg_offset
 	.csi2_capture_short_pkt_vc_shift              = 15,
 	.csi2_capture_cphy_pkt_dt_shift               = 20,
 	.csi2_capture_cphy_pkt_vc_shift               = 26,
-	.csi2_rx_phy_num_mask                         = 0x3,
+	.csi2_rx_phy_num_mask                         = 0x7,
 };
 
 
