@@ -8092,8 +8092,8 @@ static int32_t __cam_isp_ctx_independent_sof_timer(void *priv, void *data)
 	struct cam_context              *ctx     = NULL;
 	int rc = 0;
 
-	if (!data || !priv) {
-		CAM_ERR(CAM_CRM, "input args NULL %pK %pK", data, priv);
+	if (!priv) {
+		CAM_ERR(CAM_CRM, "input args NULL %pK", priv);
 		return -EINVAL;
 	}
 
