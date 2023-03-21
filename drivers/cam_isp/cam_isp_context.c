@@ -1014,7 +1014,7 @@ static int __cam_isp_ctx_notify_sof_in_activated_state(
 
 	if ((req_isp) && (req_isp->num_acked == req_isp->num_fence_map_out)) {
 		CAM_INFO_RATE_LIMIT(CAM_REQ,
-			"Move active req %lld to free [all fences done] ctx %u",
+			"Move active req %lld active_req_cnt:%u to free [all fences done] ctx %u",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->free_req_list);
@@ -1635,7 +1635,7 @@ end:
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_HW_ERROR;
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"Can not notify ERRROR to CRM for ctx %u",
+			"Can not notify ERROR to CRM for ctx %u",
 			ctx->ctx_id);
 		rc = -EFAULT;
 	}
@@ -3343,7 +3343,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 			ctx_isp->init_received = true;
 		} else {
 			rc = -EINVAL;
-			CAM_ERR(CAM_ISP, "Recevied INIT pkt in wrong state");
+			CAM_ERR(CAM_ISP, "Received INIT pkt in wrong state");
 		}
 	} else {
 		if (ctx->state >= CAM_CTX_READY && ctx->ctx_crm_intf->add_req) {
@@ -3361,7 +3361,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 			}
 		} else {
 			rc = -EINVAL;
-			CAM_ERR(CAM_ISP, "Recevied Update in wrong state");
+			CAM_ERR(CAM_ISP, "Received Update in wrong state");
 		}
 	}
 

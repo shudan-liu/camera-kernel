@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2018, 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -605,7 +605,7 @@ static int ais_ife_dev_component_bind(struct device *dev,
 		return rc;
 	}
 
-	/* Initialze the v4l2 subdevice and register with cam_node */
+	/* Initialize the v4l2 subdevice and register with cam_node */
 	rc = ais_ife_init_subdev_params(p_ife_dev);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "IFE%d init subdev failed!",
@@ -659,14 +659,14 @@ static int ais_ife_dev_component_bind(struct device *dev,
 
 	rc = ais_ife_csid_hw_init(&p_ife_dev->p_csid_drv, &hw_init);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "IFE%d no CSID dev", p_ife_dev->hw_idx, rc);
+		CAM_ERR(CAM_ISP, "IFE%d no CSID dev rc:%d", p_ife_dev->hw_idx, rc);
 		goto secure_fail;
 	}
 
 	rc = ais_vfe_hw_init(&p_ife_dev->p_vfe_drv, &hw_init,
 			p_ife_dev->p_csid_drv);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "IFE%d no VFE dev", p_ife_dev->hw_idx, rc);
+		CAM_ERR(CAM_ISP, "IFE%d no VFE dev rc:%d", p_ife_dev->hw_idx, rc);
 		goto secure_fail;
 	}
 
