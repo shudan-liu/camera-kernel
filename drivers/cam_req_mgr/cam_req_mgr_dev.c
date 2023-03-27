@@ -808,7 +808,7 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 
 #ifdef __AGL__
 	/* create device when bind all done for ais_server.service*/
-	g_mgr_dev.v4l2_dev = kzalloc(sizeof(g_mgr_dev.v4l2_dev),
+	g_mgr_dev.v4l2_dev = kzalloc(sizeof(*g_mgr_dev.v4l2_dev),
 		GFP_KERNEL);
 	if (!g_mgr_dev.v4l2_dev)
 		return -ENOMEM;
