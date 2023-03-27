@@ -46,6 +46,10 @@
 #define CAM_ISP_GENERIC_BLOB_TYPE_MAX               \
 	(CAM_ISP_GENERIC_BLOB_TYPE_CSID_QCFA_CONFIG + 1)
 
+#define CAM_IFE_SECURE_PORT_IDX                    0
+#define CAM_IFE_NON_SECURE_PORT_IDX                1
+#define CAM_VFE_SECURE_NON_SECURE_PORT_MAX_IDX     2
+
 static uint32_t blob_type_hw_cmd_map[CAM_ISP_GENERIC_BLOB_TYPE_MAX] = {
 	CAM_ISP_HW_CMD_GET_HFR_UPDATE,
 	CAM_ISP_HW_CMD_CLOCK_UPDATE,
@@ -80,6 +84,10 @@ static int cam_ife_hw_mgr_event_handler(
 	uint32_t                             evt_id,
 	void                                *evt_info);
 
+static int cam_ife_hw_mgr_set_secure_port_info(
+	struct cam_ife_hw_mgr_ctx           *ife_ctx,
+	bool                                is_release);
+
 static int cam_ife_mgr_prog_default_settings(
 	bool need_rup_aup, struct cam_ife_hw_mgr_ctx *ctx);
 
@@ -98,6 +106,40 @@ static int cam_ife_hw_mgr_ife_src_start_hw_stream_grp(int grp_cfg_index);
 static int cam_ife_mgr_csid_start_hw_stream_grp(int grp_cfg_index, bool is_internal_start);
 
 static int cam_ife_mgr_enable_irq(struct cam_ife_hw_mgr_ctx *ctx, bool is_internal_start);
+
+static int cam_ife_mgr_get_phy_id(uint32_t res_id)
+{
+	int phy_id = -1;
+
+	switch (res_id) {
+	case CAM_ISP_IFE_IN_RES_PHY_0:
+		phy_id = 0;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_1:
+		phy_id = 1;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_2:
+		phy_id = 2;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_3:
+		phy_id = 3;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_4:
+		phy_id = 4;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_5:
+		phy_id = 5;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_6:
+		phy_id = 6;
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Invalid res id 0x%x", res_id);
+		break;
+	}
+	CAM_DBG(CAM_ISP, "res id %d, phy_id %d", res_id, phy_id);
+	return phy_id;
+}
 
 static int cam_ife_mgr_finish_clk_bw_update(
 	struct cam_ife_hw_mgr_ctx *ctx,
@@ -3135,7 +3177,9 @@ static int cam_ife_hw_mgr_link_res_ife_out_rdi(
 	ife_out_res_tmp->res_type = CAM_ISP_RESOURCE_VFE_OUT;
 	ife_out_res_tmp->linked = true;
 
-
+	if (out_port->secure_mode)
+		ife_out_res->is_secure = true;
+	ife_out_res->secure_mask = ife_out_res_tmp->secure_mask;
 	ife_out_res->hw_res[0] = ife_out_res_tmp->hw_res[0];
 	ife_out_res->is_dual_isp = 0;
 	ife_out_res->use_wm_pack = ife_src_res->use_wm_pack;
@@ -3221,6 +3265,8 @@ static int cam_ife_hw_mgr_link_res_ife_out_pixel(
 		ife_out_res_tmp->res_id = out_port->res_type;
 		ife_out_res_tmp->linked = true;
 
+
+		ife_out_res->secure_mask = ife_out_res_tmp->secure_mask;
 		ife_out_res->hw_res[0] = ife_out_res_tmp->hw_res[0];
 		ife_out_res->is_dual_isp = 0;
 		ife_out_res->use_wm_pack = ife_src_res->use_wm_pack;
@@ -3231,9 +3277,10 @@ static int cam_ife_hw_mgr_link_res_ife_out_pixel(
 
 		ife_src_res->num_children++;
 		ife_ctx->num_acq_vfe_out++;
-		if (out_port->secure_mode)
+		if (out_port->secure_mode) {
 			ife_ctx->flags.secure_mode = true;
-
+			ife_out_res->is_secure = true;
+		}
 	}
 
 	return 0;
@@ -3383,6 +3430,11 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 		CAM_DBG(CAM_ISP, "i = %d, vfe_out_res_id = %d num_out_res %d",
 			i, vfe_out_res_id, num_out_res);
 
+		if (!out_port) {
+			CAM_ERR(CAM_ISP, "out port data is NULL");
+			rc = -EINVAL;
+			goto err;
+		}
 		if (!per_port_acquire) {
 			if (vfe_out_res_id != out_port->res_type) {
 				CAM_DBG(CAM_ISP, "i = %d, vfe_out_res_id = %d, out_port: %d",
@@ -3428,11 +3480,14 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 		goto err;
 	}
 
+	ife_out_res->secure_mask = vfe_acquire.vfe_out.secure_mask;
 	ife_out_res->hw_res[0] = vfe_acquire.vfe_out.rsrc_node;
 	ife_out_res->is_dual_isp = 0;
 	ife_out_res->use_wm_pack = ife_src_res->use_wm_pack;
 	ife_out_res->res_id = vfe_out_res_id;
 	ife_out_res->res_type = CAM_ISP_RESOURCE_VFE_OUT;
+	if (out_port->secure_mode)
+		ife_out_res->is_secure = true;
 	if (per_port_acquire) {
 		ife_out_res->linked = false;
 	} else {
@@ -3548,6 +3603,8 @@ static int cam_ife_hw_mgr_acquire_res_vife_out_pixel(
 		ife_ctx->num_acq_vfe_out++;
 		if (out_port->secure_mode)
 			ife_ctx->flags.secure_mode = true;
+		if (out_port->secure_mode)
+			ife_out_res->is_secure = true;
 	}
 
 	return 0;
@@ -3672,9 +3729,10 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 
 			ife_out_res->hw_res[j] =
 				vfe_acquire.vfe_out.rsrc_node;
-			CAM_DBG(CAM_ISP, "resource type :0x%x res id:0x%x",
+			ife_out_res->secure_mask = vfe_acquire.vfe_out.secure_mask;
+			CAM_DBG(CAM_ISP, "resource type :0x%x res id:0x%x secure mask %x",
 				ife_out_res->hw_res[j]->res_type,
-				ife_out_res->hw_res[j]->res_id);
+				ife_out_res->hw_res[j]->res_id, ife_out_res->secure_mask);
 
 		}
 		ife_out_res->res_type = CAM_ISP_RESOURCE_VFE_OUT;
@@ -3686,6 +3744,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_pixel(
 			if (out_port->secure_mode)
 				ife_ctx->flags.secure_mode = true;
 		}
+		if (out_port->secure_mode)
+			ife_out_res->is_secure = true;
 	}
 
 	return 0;
@@ -6961,6 +7021,141 @@ err:
 	return rc;
 }
 
+#ifdef CONFIG_SECURE_CAMERA_V3
+static bool cam_ife_hw_mgr_is_secure_context(
+	struct cam_ife_hw_mgr_ctx           *ife_ctx)
+{
+	bool is_secure = FALSE;
+	int i;
+	for (i = 0; i < max_ife_out_res; i++) {
+		if (ife_ctx->res_list_ife_out[i].res_id && ife_ctx->res_list_ife_out[i].is_secure) {
+			is_secure = TRUE;
+			break;
+		}
+	}
+	return is_secure;
+}
+
+static int cam_ife_hw_mgr_secure_phy_contexts(
+	struct cam_ife_hw_mgr_ctx           *ife_ctx)
+{
+	int phy_id = cam_ife_mgr_get_phy_id(ife_ctx->res_list_ife_in.res_id);
+	struct cam_ife_hw_mgr       *ife_hwr_mgr = &g_ife_hw_mgr;
+	struct cam_ife_hw_mgr_ctx   *ife_hwr_mgr_ctx = NULL;
+	int rc = 0;
+
+	list_for_each_entry(ife_hwr_mgr_ctx,
+		&ife_hwr_mgr->used_ctx_list, list) {
+		if (ife_hwr_mgr_ctx->ctx_index == ife_ctx->ctx_index)
+			continue;
+		if (cam_ife_mgr_get_phy_id(ife_hwr_mgr_ctx->res_list_ife_in.res_id) !=
+			phy_id)
+			continue;
+		rc = cam_ife_hw_mgr_set_secure_port_info(ife_hwr_mgr_ctx, FALSE);
+		if (rc)
+			break;
+	}
+	return rc;
+}
+
+static int cam_ife_hw_mgr_set_secure_port_info(
+	struct cam_ife_hw_mgr_ctx           *ife_ctx,
+	bool                                is_release)
+{
+	int i, hw_id, hw_type, phy_id;
+	struct port_info sec_unsec_port_info[CAM_VFE_SECURE_NON_SECURE_PORT_MAX_IDX];
+	int rc = 0;
+
+	phy_id = cam_ife_mgr_get_phy_id(ife_ctx->res_list_ife_in.res_id);
+	hw_id = cam_convert_hw_idx_to_ife_hw_num(ife_ctx->left_hw_idx);
+	hw_type = cam_convert_hw_id_to_secure_hw_type(hw_id);
+
+	if (hw_type < 0 || phy_id < 0) {
+		CAM_ERR(CAM_ISP, "Invalid hw type %d or phy_id %d", hw_type, phy_id);
+		return -EINVAL;
+	}
+	if (ife_ctx->hw_mgr->phy_ref_cnt[phy_id] && !ife_ctx->hw_mgr->is_phy_secure[phy_id]) {
+		if (cam_ife_hw_mgr_is_secure_context(ife_ctx) && !is_release) {
+			ife_ctx->hw_mgr->is_phy_secure[phy_id] = true;
+			rc = cam_ife_hw_mgr_secure_phy_contexts(ife_ctx);
+			if (rc)
+				goto end;
+		} else {
+			goto end;
+		}
+	}
+	if (!ife_ctx->hw_mgr->phy_ref_cnt[phy_id] && !cam_ife_hw_mgr_is_secure_context(ife_ctx))
+		goto end;
+
+	ife_ctx->hw_mgr->is_phy_secure[phy_id] = TRUE;
+
+	for (i = 0; i < CAM_VFE_SECURE_NON_SECURE_PORT_MAX_IDX; i++)
+		memset(&sec_unsec_port_info[i], 0, sizeof(sec_unsec_port_info[i]));
+
+	sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].hw_type = hw_type;
+	sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].phy_id  = phy_id;
+	sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].hw_type = hw_type;
+	sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].phy_id  = phy_id;
+	if (is_release) {
+		sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].protect = CAM_SECURE_MODE_NON_SECURE;
+		sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].protect = CAM_SECURE_MODE_SECURE;
+	} else {
+		sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].protect = CAM_SECURE_MODE_SECURE;
+		sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].protect = CAM_SECURE_MODE_NON_SECURE;
+	}
+
+
+	for (i = 0; i < max_ife_out_res; i++) {
+		if (ife_ctx->res_list_ife_out[i].res_id) {
+			if (ife_ctx->res_list_ife_out[i].is_secure)
+				sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].mask |= ife_ctx->res_list_ife_out[i].secure_mask;
+			else
+				sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].mask |= ife_ctx->res_list_ife_out[i].secure_mask;
+
+		CAM_DBG(CAM_ISP,
+			"%d: res_id 0x%x hw_type 0x%x protect %d phy_id %d mask 0x%x release %d",
+			i, ife_ctx->res_list_ife_out[i].res_id, sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].hw_type,
+			sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].protect,
+			sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].phy_id,
+			sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].mask, is_release);
+		CAM_DBG(CAM_ISP,
+			"%d: res_id 0x%x hw_type 0x%x protect %d phy_id %d mask 0x%x release %d",
+			i, ife_ctx->res_list_ife_out[i].res_id, sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].hw_type,
+			sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].protect, sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].phy_id,
+			sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].mask, is_release);
+		}
+	}
+	/* During release no need to mark any port as non-secure */
+	if (is_release)
+		sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].mask = 0;
+
+	CAM_INFO(CAM_ISP,
+		"hw_type 0x%x phy_id %d prot %d mask 0x%x prot %d mask 0x%x release %d ctx %d",
+		sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].hw_type, sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].phy_id,
+		sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].protect, sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].mask,
+		sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].protect, sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].mask,
+		is_release, ife_ctx->ctx_index);
+	rc = cam_isp_notify_secure_unsecure_port(sec_unsec_port_info);
+end:
+	if (!is_release)
+		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]++;
+	else {
+		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]--;
+		if (!ife_ctx->hw_mgr->phy_ref_cnt[phy_id])
+			ife_ctx->hw_mgr->is_phy_secure[phy_id] = FALSE;
+	}
+
+	return rc;
+}
+#else
+static int cam_ife_hw_mgr_set_secure_port_info(
+	struct cam_ife_hw_mgr_ctx           *ife_ctx,
+	bool                                is_release)
+{
+	return 0;
+}
+#endif
+
 static int cam_ife_hw_mgr_acquire_res_stream_grp(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
 	struct cam_isp_in_port_generic_info *in_port,
@@ -9672,6 +9867,8 @@ reset_scratch_buffers:
 	if (stop_isp->stop_only)
 		goto end;
 
+	cam_ife_hw_mgr_set_secure_port_info(ctx, TRUE);
+
 	if (cam_cdm_stream_off(ctx->cdm_handle))
 		CAM_ERR(CAM_ISP, "CDM stream off failed %d", ctx->cdm_handle);
 
@@ -10431,6 +10628,13 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		goto safe_disable;
 	}
 
+	rc = cam_ife_hw_mgr_set_secure_port_info(ctx, FALSE);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Setting secure non secure port failed ctx %d",
+			ctx->ctx_index);
+		goto cdm_streamoff;
+	}
+
 start_only:
 
 	atomic_set(&ctx->overflow_pending, 0);
@@ -10442,7 +10646,7 @@ start_only:
 		CAM_ERR(CAM_ISP,
 			"Config HW failed, start_only=%d, rc=%d",
 			start_isp->start_only, rc);
-		goto cdm_streamoff;
+		goto revert_secure_port;
 	}
 
 	if (ctx->flags.per_port_en && !ctx->flags.is_dual) {
@@ -10596,6 +10800,8 @@ stop_workq:
 	/* Flush workq */
 	workq_info = (struct cam_req_mgr_core_workq *)ctx->common.workq_info;
 	cam_req_mgr_workq_flush(workq_info);
+revert_secure_port:
+	cam_ife_hw_mgr_set_secure_port_info(ctx, TRUE);
 cdm_streamoff:
 	cam_cdm_stream_off(ctx->cdm_handle);
 safe_disable:
@@ -18287,6 +18493,11 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 			i, g_ife_hw_mgr.sys_cache_info[i].scid);
 		if (g_ife_hw_mgr.sys_cache_info[i].scid > 0)
 			g_ife_hw_mgr.num_caches_found++;
+	}
+
+	for (i = 0; i < CAM_IFE_MAX_PHY_ID; i++) {
+		g_ife_hw_mgr.phy_ref_cnt[i] = 0;
+		g_ife_hw_mgr.is_phy_secure[i] = FALSE;
 	}
 
 	/* fill return structure */
