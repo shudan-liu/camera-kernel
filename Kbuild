@@ -6,56 +6,12 @@ $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
 endif
 
 # Include Architecture configurations
-ifeq ($(CONFIG_ARCH_NEO), y)
-include $(CAMERA_KERNEL_ROOT)/config/neo.mk
-endif
-
-ifeq ($(CONFIG_ARCH_ANORAK), y)
-include $(CAMERA_KERNEL_ROOT)/config/anorak.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KALAMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kalama.mk
-endif
-
 ifeq ($(CONFIG_ARCH_WAIPIO), y)
 include $(CAMERA_KERNEL_ROOT)/config/waipio.mk
 endif
 
-ifeq ($(CONFIG_ARCH_LAHAINA), y)
-include $(CAMERA_KERNEL_ROOT)/config/lahaina.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KONA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kona.mk
-endif
-
-ifeq ($(CONFIG_ARCH_BENGAL), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_HOLI), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_LITO), y)
-include $(CAMERA_KERNEL_ROOT)/config/lito.mk
-endif
-
-ifeq ($(CONFIG_ARCH_SHIMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/shima.mk
-endif
-
-ifeq ($(CONFIG_ARCH_DIWALI), y)
-include $(CAMERA_KERNEL_ROOT)/config/diwali.mk
-endif
-
-ifeq ($(CONFIG_ARCH_CAPE), y)
-include $(CAMERA_KERNEL_ROOT)/config/cape.mk
-endif
-
-ifeq ($(CONFIG_ARCH_PARROT), y)
-include $(CAMERA_KERNEL_ROOT)/config/parrot.mk
+ifeq ($(CONFIG_ARCH_LEMANS), y)
+include $(CAMERA_KERNEL_ROOT)/config/lemans.mk
 endif
 
 # List of all camera-kernel headers
@@ -74,7 +30,8 @@ LINUXINCLUDE +=                                 \
 ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm/synx
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
-ccflags-y += ${ccflags-m}
+# stack frame size error limit is 2048 by default, increasing it to 4096
+ccflags-y += ${ccflags-m} -Wframe-larger-than=4096 -DENABLE_ONLY_IFELITE=1 -DHNDL_CAMX_SNSR_SYNC=1
 
 camera-y := \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
@@ -135,6 +92,7 @@ camera-$(CONFIG_SPECTRA_ISP) += \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_common.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver1.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver2.o \
+	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_hw_ver3.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_virt_csid_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_mod.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/ife_csid_hw/cam_ife_csid_lite_mod.o \
@@ -233,6 +191,7 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_tpg/tpg_hw/tpg_hw_v_1_0/tpg_hw_v_1_0.o \
 	drivers/cam_sensor_module/cam_tpg/tpg_hw/tpg_hw_v_1_2/tpg_hw_v_1_2.o \
 	drivers/cam_sensor_module/cam_tpg/tpg_hw/tpg_hw_v_1_3/tpg_hw_v_1_3.o \
+	drivers/cam_sensor_module/cam_tpg/tpg_hw/tpg_hw_v_1_4/tpg_hw_v_1_4.o \
 	drivers/cam_sensor_module/cam_csiphy/cam_csiphy_soc.o \
 	drivers/cam_sensor_module/cam_csiphy/cam_csiphy_dev.o \
 	drivers/cam_sensor_module/cam_csiphy/cam_csiphy_core.o \

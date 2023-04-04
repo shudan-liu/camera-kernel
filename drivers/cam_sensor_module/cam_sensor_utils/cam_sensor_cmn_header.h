@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_CMN_HEADER_
@@ -16,6 +16,7 @@
 #include <linux/list.h>
 
 #include <dt-bindings/msm-camera.h>
+#include <media/ais_sensor.h>
 #include <media/cam_sensor.h>
 #include <media/cam_req_mgr.h>
 
@@ -222,9 +223,15 @@ struct cam_sensor_i2c_seq_reg {
 	enum camera_sensor_i2c_type addr_type;
 };
 
+struct cam_sensor_i2c_slave_info {
+	uint16_t slave_addr;
+	uint8_t i2c_freq_mode;
+};
+
 struct i2c_settings_list {
 	struct cam_sensor_i2c_reg_setting i2c_settings;
 	struct cam_sensor_i2c_seq_reg seq_settings;
+	struct cam_sensor_i2c_slave_info slave_info;
 	enum cam_sensor_i2c_cmd_type op_code;
 	struct list_head list;
 };
@@ -261,6 +268,7 @@ struct cam_camera_slave_info {
 	uint16_t sensor_id_reg_addr;
 	uint16_t sensor_id;
 	uint16_t sensor_id_mask;
+	uint8_t  i2c_freq_mode;
 };
 
 struct msm_sensor_init_params {
@@ -357,5 +365,11 @@ struct msm_camera_gpio_conf {
 	uint8_t camera_on_table_size;
 	struct msm_camera_gpio_num_info *gpio_num_info;
 };
+
+struct cam_sensor_power_seq_array {
+	struct cam_sensor_power_setting *power_seq;
+	uint16_t power_seq_size;
+};
+
 
 #endif /* _CAM_SENSOR_CMN_HEADER_ */

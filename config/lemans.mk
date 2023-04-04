@@ -1,4 +1,4 @@
-# Settings for compiling lahaina camera architecture
+# Settings for compiling Lemans camera architecture
 
 # Localized KCONFIG settings
 CONFIG_SPECTRA_ISP := y
@@ -13,3 +13,9 @@ ccflags-y += -DCONFIG_SPECTRA_ICP=1
 ccflags-y += -DCONFIG_SPECTRA_JPEG=1
 ccflags-y += -DCONFIG_SPECTRA_CUSTOM=1
 ccflags-y += -DCONFIG_SPECTRA_SENSOR=1
+
+# External Dependencies
+#KBUILD_CPPFLAGS += -DCONFIG_MSM_MMRM=1
+ifeq ($(CONFIG_QCOM_VA_MINIDUMP), y)
+KBUILD_CPPFLAGS += -DCONFIG_QCOM_VA_MINIDUMP=1
+endif

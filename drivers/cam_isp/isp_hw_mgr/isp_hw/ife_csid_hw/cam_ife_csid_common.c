@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -23,6 +23,7 @@
 #include "cam_ife_csid_common.h"
 #include "cam_ife_csid_hw_ver1.h"
 #include "cam_ife_csid_hw_ver2.h"
+#include "cam_ife_csid_hw_ver3.h"
 #include "cam_cdm_intf_api.h"
 
 const uint8_t *cam_ife_csid_irq_reg_tag[CAM_IFE_CSID_IRQ_REG_MAX] = {
@@ -112,6 +113,7 @@ int cam_ife_csid_is_pix_res_format_supported(
 	case CAM_FORMAT_DPCM_12_10_12:
 	case CAM_FORMAT_YUV422:
 	case CAM_FORMAT_YUV422_10:
+	case CAM_FORMAT_PLAIN16_16:
 		rc = 0;
 		break;
 	default:
@@ -221,6 +223,15 @@ static int cam_ife_csid_validate_rdi_format(uint32_t in_format,
 			break;
 		}
 		break;
+	case CAM_FORMAT_PLAIN16_16:
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_16:
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
+		break;
 	default:
 		rc = -EINVAL;
 		break;
@@ -275,6 +286,7 @@ int cam_ife_csid_get_format_rdi(
 		path_format->bits_per_pxl = 14;
 		break;
 	case CAM_FORMAT_MIPI_RAW_16:
+	case CAM_FORMAT_PLAIN16_16:
 		path_format->decode_fmt = 0x5;
 		path_format->bits_per_pxl = 16;
 		break;
@@ -455,6 +467,10 @@ int cam_ife_csid_hw_probe_init(struct cam_hw_intf *hw_intf,
 		rc = cam_ife_csid_hw_ver2_init(hw_intf,
 			core_info, is_custom);
 	}
+	else if (core_info->sw_version == CAM_IFE_CSID_VER_3_0) {
+		rc = cam_ife_csid_hw_ver3_init(hw_intf,
+			core_info, is_custom);
+	}
 
 	return rc;
 }
@@ -468,6 +484,9 @@ int cam_ife_csid_hw_deinit(struct cam_hw_intf *hw_intf,
 		rc = cam_ife_csid_hw_ver1_deinit(hw_intf->hw_priv);
 	else if (core_info->sw_version == CAM_IFE_CSID_VER_2_0)
 		rc = cam_ife_csid_hw_ver2_deinit(
+			hw_intf->hw_priv);
+	else if (core_info->sw_version == CAM_IFE_CSID_VER_3_0)
+		rc = cam_ife_csid_hw_ver3_deinit(
 			hw_intf->hw_priv);
 
 	return rc;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1938,6 +1939,7 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 		rc = cam_cci_release(sd, master);
 		mutex_unlock(&cci_dev->init_mutex);
 		break;
+	case MSM_CCI_I2C_READ_BURST:
 	case MSM_CCI_I2C_READ:
 		/*
 		 * CCI version 1.2 does not support burst read

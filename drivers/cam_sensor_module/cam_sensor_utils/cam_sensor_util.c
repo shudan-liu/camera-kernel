@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -802,6 +803,91 @@ end:
 	return rc;
 }
 
+int32_t ais_sensor_update_power_settings(
+	struct ais_sensor_probe_cmd *probe_cmd,
+	struct cam_sensor_power_ctrl_t *pwr_info)
+{
+	int32_t rc = 0, i = 0;
+	struct ais_sensor_power_config *pwr_cfg;
+
+	if (!probe_cmd) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args: probe_cmd %pK",
+			probe_cmd);
+		return -EINVAL;
+	}
+
+	pwr_cfg = &probe_cmd->power_config;
+	if (pwr_cfg->size_up > MAX_POWER_CONFIG ||
+		pwr_cfg->size_down > MAX_POWER_CONFIG) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args: size_up %d size_down %d",
+			pwr_cfg->size_up, pwr_cfg->size_down);
+		return -EINVAL;
+	}
+
+	pwr_info->power_setting_size = pwr_cfg->size_up;
+	if (pwr_info->power_setting_size == 0) {
+		CAM_WARN(CAM_SENSOR, "Power up sequence empty");
+	} else {
+		pwr_info->power_setting =
+			kcalloc(pwr_info->power_setting_size,
+				sizeof(struct cam_sensor_power_setting),
+				GFP_KERNEL);
+		if (!pwr_info->power_setting)
+			return -ENOMEM;
+	}
+
+	pwr_info->power_down_setting_size = pwr_cfg->size_down;
+	if (pwr_info->power_down_setting_size == 0) {
+		CAM_WARN(CAM_SENSOR, "Power down sequence empty");
+	} else {
+		pwr_info->power_down_setting =
+			kcalloc(pwr_info->power_down_setting_size,
+				sizeof(struct cam_sensor_power_setting),
+				GFP_KERNEL);
+		if (!pwr_info->power_down_setting) {
+			kfree(pwr_info->power_setting);
+			pwr_info->power_setting = NULL;
+			pwr_info->power_setting_size = 0;
+			return -ENOMEM;
+		}
+	}
+
+	CAM_DBG(CAM_SENSOR, "power up/down sizes %d/%d",
+			pwr_info->power_setting_size,
+			pwr_info->power_down_setting_size);
+
+	for (i = 0; i < pwr_info->power_setting_size; i++) {
+		pwr_info->power_setting[i].seq_type =
+			pwr_cfg->power_up_setting[i].power_seq_type;
+		pwr_info->power_setting[i].config_val =
+			pwr_cfg->power_up_setting[i].config_val_low;
+		pwr_info->power_setting[i].delay =
+			pwr_cfg->power_up_setting[i].delay;
+		CAM_DBG(CAM_SENSOR, "power up[%d] %d,%d,%d",
+				i,
+				pwr_info->power_setting[i].seq_type,
+				pwr_info->power_setting[i].config_val,
+				pwr_info->power_setting[i].delay);
+	}
+
+	for (i = 0; i < pwr_info->power_down_setting_size; i++) {
+		pwr_info->power_down_setting[i].seq_type =
+			pwr_cfg->power_down_setting[i].power_seq_type;
+		pwr_info->power_down_setting[i].config_val =
+			pwr_cfg->power_down_setting[i].config_val_low;
+		pwr_info->power_down_setting[i].delay =
+			pwr_cfg->power_down_setting[i].delay;
+		CAM_DBG(CAM_SENSOR, "power down[%d] %d,%d,%d",
+				i,
+				pwr_info->power_down_setting[i].seq_type,
+				pwr_info->power_down_setting[i].config_val,
+				pwr_info->power_down_setting[i].delay);
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(ais_sensor_update_power_settings);
+
 int cam_sensor_util_i2c_apply_setting(
 	struct camera_io_master *io_master_info,
 	struct i2c_settings_list *i2c_list)
@@ -1283,6 +1369,49 @@ static int32_t cam_sensor_validate(void *ptr, size_t remain_buf)
 	return 0;
 }
 
+int32_t ais_sensor_update_power_sequence(
+	struct ais_sensor_power_settings_seq *pwr_cfg,
+	struct cam_sensor_power_seq_array *pwr_info)
+{
+	int32_t rc = 0, i = 0;
+
+	if (pwr_cfg->power_seq_size > MAX_POWER_CONFIG) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args: size_down %d",
+			pwr_cfg->power_seq_size);
+		return -EINVAL;
+	}
+
+	pwr_info->power_seq_size = pwr_cfg->power_seq_size;
+	if (pwr_info->power_seq_size == 0) {
+		CAM_WARN(CAM_SENSOR, "Power sequence empty");
+	} else {
+		pwr_info->power_seq =
+			kcalloc(pwr_info->power_seq_size,
+			sizeof(struct cam_sensor_power_setting),
+			GFP_KERNEL);
+		if (!pwr_info->power_seq)
+			return -ENOMEM;
+	}
+
+	for (i = 0; i < pwr_info->power_seq_size; i++) {
+		pwr_info->power_seq[i].seq_type =
+			pwr_cfg->power_seq_settings[i].power_seq_type;
+		pwr_info->power_seq[i].config_val =
+			pwr_cfg->power_seq_settings[i].config_val_low;
+		pwr_info->power_seq[i].delay =
+			pwr_cfg->power_seq_settings[i].delay;
+
+		CAM_DBG(CAM_SENSOR, "power up/down[%d] %d,%d,%d",
+				i,
+				pwr_info->power_seq[i].seq_type,
+				pwr_info->power_seq[i].config_val,
+				pwr_info->power_seq[i].delay);
+	}
+
+	return rc;
+}
+EXPORT_SYMBOL(ais_sensor_update_power_sequence);
+
 int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	uint32_t cmd_length, struct cam_sensor_power_ctrl_t *power_info,
 	size_t cmd_buf_len)
@@ -1617,6 +1746,46 @@ ERROR2:
 	kfree(array);
 ERROR1:
 	kfree(ps);
+	return rc;
+}
+
+int cam_sensor_enable_regulator(struct cam_hw_soc_info *soc_info,
+		struct cam_sensor_power_setting *power_setting)
+{
+	int rc = 0, vreg_idx = -1;
+
+	vreg_idx = power_setting->seq_val;
+
+	soc_info->rgltr[vreg_idx] =
+		regulator_get(soc_info->dev,
+			soc_info->rgltr_name[vreg_idx]);
+	if (IS_ERR_OR_NULL(
+		soc_info->rgltr[vreg_idx])) {
+		rc = PTR_ERR(soc_info->rgltr[vreg_idx]);
+		rc = rc ? rc : -EINVAL;
+
+		CAM_ERR(CAM_SENSOR, "%s get failed %d",
+			soc_info->rgltr_name[vreg_idx],
+			rc);
+
+		soc_info->rgltr[vreg_idx] = NULL;
+		return -EINVAL;
+	}
+
+	rc =  cam_soc_util_regulator_enable(
+		soc_info->rgltr[vreg_idx],
+		soc_info->rgltr_name[vreg_idx],
+		soc_info->rgltr_min_volt[vreg_idx],
+		soc_info->rgltr_max_volt[vreg_idx],
+		soc_info->rgltr_op_mode[vreg_idx],
+		soc_info->rgltr_delay[vreg_idx]);
+	if (rc) {
+		CAM_ERR(CAM_SENSOR,
+			"Reg Enable failed for %s",
+			soc_info->rgltr_name[vreg_idx]);
+		rc = -EINVAL;
+	}
+
 	return rc;
 }
 
@@ -2467,3 +2636,390 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 
 	return 0;
 }
+
+int cam_sensor_disable_regulator(struct cam_sensor_power_ctrl_t *ctrl,
+		struct cam_hw_soc_info *soc_info, struct cam_sensor_power_setting *power_setting)
+{
+	int ret = 0;
+	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+
+	gpio_num_info = ctrl->gpio_num_info;
+
+	ret =  cam_soc_util_regulator_disable(
+	soc_info->rgltr[power_setting->seq_val],
+	soc_info->rgltr_name[power_setting->seq_val],
+	soc_info->rgltr_min_volt[power_setting->seq_val],
+	soc_info->rgltr_max_volt[power_setting->seq_val],
+	soc_info->rgltr_op_mode[power_setting->seq_val],
+	soc_info->rgltr_delay[power_setting->seq_val]);
+	if (ret) {
+		CAM_ERR(CAM_SENSOR,
+		"Reg: %s disable failed",
+		soc_info->rgltr_name[
+			power_setting->seq_val]);
+		soc_info->rgltr[power_setting->seq_val] =
+			NULL;
+		msm_cam_sensor_handle_reg_gpio(
+			power_setting->seq_type,
+			gpio_num_info,
+			GPIOF_OUT_INIT_LOW);
+		return -EINVAL;
+	}
+
+	regulator_put(
+		soc_info->rgltr[power_setting->seq_val]);
+	soc_info->rgltr[power_setting->seq_val] = NULL;
+
+	return ret;
+}
+
+static int cam_config_mclk_reg_disable(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info, struct cam_sensor_power_setting *power_setting)
+{
+	int32_t num_vreg = 0, j = 0, rc = 0;
+	struct cam_sensor_power_setting *ps = NULL;
+
+	num_vreg = soc_info->num_rgltr;
+
+	ps = power_setting;
+
+	for (j = 0; j < num_vreg; j++) {
+		if (!strcmp(soc_info->rgltr_name[j], "cam_clk")) {
+
+			if (ps != NULL) {
+				CAM_DBG(CAM_SENSOR, "Disable MCLK Regulator");
+				rc = cam_soc_util_regulator_disable(
+					soc_info->rgltr[j],
+					soc_info->rgltr_name[j],
+					soc_info->rgltr_min_volt[j],
+					soc_info->rgltr_max_volt[j],
+					soc_info->rgltr_op_mode[j],
+					soc_info->rgltr_delay[j]);
+
+				if (rc) {
+					CAM_ERR(CAM_SENSOR,
+						"MCLK REG DISALBE FAILED: %d",
+						rc);
+					return rc;
+				}
+
+
+				regulator_put(
+					soc_info->rgltr[j]);
+				soc_info->rgltr[j] = NULL;
+			}
+		}
+	}
+
+	return rc;
+}
+
+static int cam_config_mclk_reg_enable(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info, struct cam_sensor_power_setting *power_setting)
+{
+	int j = 0, num_vreg = 0, rc = 0;
+
+	num_vreg = soc_info->num_rgltr;
+
+	for (j = 0; j < num_vreg; j++) {
+		if (!strcmp(soc_info->rgltr_name[j],
+			"cam_clk")) {
+			CAM_DBG(CAM_SENSOR,
+				"Enable cam_clk: %d", j);
+
+			soc_info->rgltr[j] =
+			regulator_get(
+				soc_info->dev,
+				soc_info->rgltr_name[j]);
+
+			if (IS_ERR_OR_NULL(
+				soc_info->rgltr[j])) {
+				rc = PTR_ERR(
+					soc_info->rgltr[j]);
+				rc = rc ? rc : -EINVAL;
+				CAM_ERR(CAM_SENSOR,
+					"vreg %s %d",
+					soc_info->rgltr_name[j],
+					rc);
+				soc_info->rgltr[j] = NULL;
+				return -EINVAL;
+			}
+
+			rc =  cam_soc_util_regulator_enable(
+			soc_info->rgltr[j],
+			soc_info->rgltr_name[j],
+			soc_info->rgltr_min_volt[j],
+			soc_info->rgltr_max_volt[j],
+			soc_info->rgltr_op_mode[j],
+			soc_info->rgltr_delay[j]);
+			if (rc) {
+				CAM_ERR(CAM_SENSOR,
+					"Reg enable failed");
+				return -EINVAL;
+			}
+		}
+	}
+	return rc;
+}
+
+int cam_sensor_util_power_apply(struct cam_sensor_power_ctrl_t *ctrl,
+		struct cam_hw_soc_info *soc_info,
+		struct cam_sensor_power_setting *power_setting)
+{
+	int rc = 0, ret = 0, num_vreg, j = 0, i = 0, size = 0, no_gpio = 0;
+	//struct cam_sensor_power_setting *power_setting = NULL;
+	struct msm_camera_gpio_num_info *gpio_num_info = NULL;
+	struct cam_soc_gpio_data *gpio_conf = soc_info->gpio_data;
+	struct gpio *gpio_tbl = NULL;
+
+	if (!ctrl) {
+		CAM_ERR(CAM_SENSOR, "Invalid ctrl handle");
+		return -EINVAL;
+	}
+
+	gpio_num_info = ctrl->gpio_num_info;
+	num_vreg = soc_info->num_rgltr;
+
+	if ((num_vreg <= 0) || (num_vreg > CAM_SOC_MAX_REGULATOR)) {
+		CAM_ERR(CAM_SENSOR, "failed: num_vreg %d", num_vreg);
+		return -EINVAL;
+	}
+
+	if (!gpio_conf) {
+		CAM_INFO(CAM_SENSOR, "No GPIO data");
+	} else {
+
+		gpio_tbl = gpio_conf->cam_gpio_req_tbl;
+		size = gpio_conf->cam_gpio_req_tbl_size;
+
+		if (gpio_conf->cam_gpio_common_tbl_size <= 0) {
+			CAM_INFO(CAM_SENSOR, "No GPIO entry");
+			no_gpio = -EINVAL;
+		}
+
+		if (no_gpio == 0) {
+			if (!gpio_tbl || !size) {
+				CAM_ERR(CAM_SENSOR, "invalid gpio_tbl %pK / size %d",
+					gpio_tbl, size);
+				no_gpio = -EINVAL;
+			}
+		}
+	}
+
+	if (!power_setting) {
+		CAM_ERR(CAM_SENSOR, "Invalid power up settings");
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_SENSOR, "seq_type %d", power_setting->seq_type);
+
+	switch (power_setting->seq_type) {
+	case SENSOR_MCLK:
+		if (power_setting->seq_val >= soc_info->num_clk) {
+			CAM_ERR(CAM_SENSOR, "clk index %d >= max %u",
+				power_setting->seq_val,
+				soc_info->num_clk);
+			goto power_up_failed;
+		}
+
+		if (power_setting->config_val == 1) {
+			rc = cam_config_mclk_reg_enable(ctrl, soc_info, power_setting);
+
+			if (rc == -EINVAL)
+				goto power_up_failed;
+
+			if (power_setting->config_val)
+				soc_info->clk_rate[0][power_setting->seq_val] =
+					power_setting->config_val;
+
+			for (j = 0; j < soc_info->num_clk; j++) {
+				rc = cam_soc_util_clk_enable_v2(soc_info->clk[j],
+					soc_info->clk_name[j],
+					soc_info->clk_rate[0][j]);
+				if (rc)
+					break;
+			}
+
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR, "clk enable failed");
+				goto power_up_failed;
+			}
+		} else if (power_setting->config_val == 0) {
+			for (i = soc_info->num_clk - 1; i >= 0; i--) {
+				cam_soc_util_clk_disable_v2(soc_info->clk[i],
+					soc_info->clk_name[i]);
+			}
+
+			ret = cam_config_mclk_reg_disable(ctrl, soc_info, power_setting);
+			if (ret < 0) {
+				CAM_ERR(CAM_SENSOR,
+					"config clk reg failed rc: %d", ret);
+				break;
+			}
+		} else
+			CAM_ERR(CAM_SENSOR, "Invalid config value for mclk");
+		break;
+	case SENSOR_RESET:
+	case SENSOR_STANDBY:
+	case SENSOR_CUSTOM_GPIO1:
+	case SENSOR_CUSTOM_GPIO2:
+
+		if (no_gpio) {
+			CAM_ERR(CAM_SENSOR, "request gpio failed");
+			return no_gpio;
+		}
+		if (!gpio_num_info) {
+			CAM_ERR(CAM_SENSOR, "Invalid gpio_num_info");
+			goto power_up_failed;
+		}
+
+		CAM_DBG(CAM_SENSOR, "gpio %d set val %d",
+				power_setting->seq_type,
+				gpio_num_info->gpio_num[power_setting->seq_type]);
+
+		if (!gpio_num_info->valid[power_setting->seq_type]) {
+			CAM_INFO(CAM_SENSOR, "continuing without reset");
+			break;
+		}
+
+		rc = msm_cam_sensor_handle_reg_gpio(
+			power_setting->seq_type,
+			gpio_num_info,
+			(int) power_setting->config_val);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"Error in handling GPIO");
+			goto power_up_failed;
+		}
+
+		break;
+	case SENSOR_VANA:
+	case SENSOR_VDIG:
+	case SENSOR_VIO:
+	case SENSOR_VAF:
+	case SENSOR_VAF_PWDM:
+	case SENSOR_CUSTOM_REG1:
+	case SENSOR_CUSTOM_REG2:
+		if (power_setting->seq_val == INVALID_VREG)
+			break;
+
+		if (power_setting->seq_val >= CAM_VREG_MAX) {
+			CAM_ERR(CAM_SENSOR, "vreg index %d >= max %d",
+				power_setting->seq_val,
+				CAM_VREG_MAX);
+			goto power_up_failed;
+		}
+		if (power_setting->seq_val < num_vreg) {
+			if (power_setting->config_val == 1) {
+				CAM_DBG(CAM_SENSOR, "Enable Regulator");
+				rc = cam_sensor_enable_regulator(soc_info, power_setting);
+
+				if (rc == -EINVAL)
+					goto power_up_failed;
+
+				if (msm_cam_sensor_handle_reg_gpio(power_setting->seq_type,
+					gpio_num_info, 1) < 0) {
+					CAM_ERR(CAM_SENSOR, "Error in handling VREG GPIO");
+					goto power_up_failed;
+				}
+
+			} else if (power_setting->config_val == 0) {
+				CAM_DBG(CAM_SENSOR, "Disable Regulator");
+				rc = cam_sensor_disable_regulator(ctrl, soc_info, power_setting);
+
+				if (rc == -EINVAL)
+					break;
+
+				if (msm_cam_sensor_handle_reg_gpio(power_setting->seq_type,
+					gpio_num_info, GPIOF_OUT_INIT_LOW) < 0)
+					CAM_ERR(CAM_SENSOR, "Error disabling VREG GPIO");
+			} else
+				CAM_ERR(CAM_SENSOR, "Invalid config val");
+		} else {
+			CAM_ERR(CAM_SENSOR, "usr_idx:%d dts_idx:%d",
+				power_setting->seq_val, num_vreg);
+		}
+
+		break;
+	default:
+		CAM_ERR(CAM_SENSOR, "error power seq type %d",
+			power_setting->seq_type);
+		break;
+	}
+
+	if (power_setting->delay > 20)
+		msleep(power_setting->delay);
+	else if (power_setting->delay)
+		usleep_range(power_setting->delay * 1000,
+			(power_setting->delay * 1000) + 1000);
+
+	return 0;
+
+power_up_failed:
+
+	CAM_ERR(CAM_SENSOR, "failed");
+
+	CAM_DBG(CAM_SENSOR, "type %d",
+		power_setting->seq_type);
+	switch (power_setting->seq_type) {
+	case SENSOR_MCLK:
+		for (i = soc_info->num_clk - 1; i >= 0; i--) {
+			cam_soc_util_clk_disable_v2(soc_info->clk[i],
+				soc_info->clk_name[i]);
+		}
+		ret = cam_config_mclk_reg_disable(ctrl, soc_info, power_setting);
+		if (ret < 0) {
+			CAM_ERR(CAM_SENSOR,
+				"config clk reg failed rc: %d", ret);
+			break;
+		}
+		break;
+	case SENSOR_RESET:
+	case SENSOR_STANDBY:
+	case SENSOR_CUSTOM_GPIO1:
+	case SENSOR_CUSTOM_GPIO2:
+		if (!gpio_num_info)
+			break;
+		if (!gpio_num_info->valid
+			[power_setting->seq_type])
+			break;
+		cam_res_mgr_gpio_set_value(
+			gpio_num_info->gpio_num
+			[power_setting->seq_type], GPIOF_OUT_INIT_LOW);
+		break;
+	case SENSOR_VANA:
+	case SENSOR_VDIG:
+	case SENSOR_VIO:
+	case SENSOR_VAF:
+	case SENSOR_VAF_PWDM:
+	case SENSOR_CUSTOM_REG1:
+	case SENSOR_CUSTOM_REG2:
+		if (power_setting->seq_val < num_vreg) {
+			CAM_DBG(CAM_SENSOR, "Disable Regulator");
+			cam_sensor_disable_regulator(ctrl, soc_info, power_setting);
+		} else {
+			CAM_ERR(CAM_SENSOR, "seq_val:%d > num_vreg: %d",
+				power_setting->seq_val, num_vreg);
+		}
+
+		msm_cam_sensor_handle_reg_gpio(power_setting->seq_type,
+			gpio_num_info, GPIOF_OUT_INIT_LOW);
+
+		break;
+	default:
+		CAM_ERR(CAM_SENSOR, "error power seq type %d",
+			power_setting->seq_type);
+		break;
+	}
+
+	if (power_setting->delay > 20) {
+		msleep(power_setting->delay);
+	} else if (power_setting->delay) {
+		usleep_range(power_setting->delay * 1000,
+			(power_setting->delay * 1000) + 1000);
+	}
+
+	return rc;
+}
+
+

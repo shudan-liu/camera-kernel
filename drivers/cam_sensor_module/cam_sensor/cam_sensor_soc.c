@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, 2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -269,11 +269,25 @@ static int32_t cam_sensor_driver_get_dt_data(struct cam_sensor_ctrl_t *s_ctrl)
 		s_ctrl->hw_no_ops = true;
 	}
 
+	if (of_property_read_bool(of_node, "hw_no_power_seq_ops")) {
+	CAM_DBG(CAM_SENSOR,
+		"SENSOR cell_idx: %d hw_no_power_seq_ops is enabled",
+		s_ctrl->soc_info.index);
+	s_ctrl->hw_no_power_seq_ops = false;
+	}
+
 	if (of_property_read_bool(of_node, "hw_no_probe_pw_ops")) {
 		CAM_DBG(CAM_SENSOR,
 			"SENSOR cell_idx: %d hw_no_probe_pw_ops is enabled",
 			s_ctrl->soc_info.index);
 		s_ctrl->hw_no_probe_pw_ops = true;
+	}
+
+	if (of_property_read_bool(of_node, "hw_no_stream_onoff_ops")) {
+	CAM_DBG(CAM_SENSOR,
+		"SENSOR cell_idx: %d hw_no_stream_onoff_ops is enabled",
+		s_ctrl->soc_info.index);
+	s_ctrl->hw_no_stream_onoff_ops = false;
 	}
 
 	rc = cam_sensor_util_aon_registration(

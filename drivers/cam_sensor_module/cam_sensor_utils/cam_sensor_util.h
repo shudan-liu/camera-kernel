@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_UTIL_H_
@@ -78,10 +79,23 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	uint32_t cmd_length, struct cam_sensor_power_ctrl_t *power_info,
 	size_t cmd_buf_len);
 
+int32_t ais_sensor_update_power_sequence(
+	struct ais_sensor_power_settings_seq *pwr_cfg,
+	struct cam_sensor_power_seq_array *pwr_info);
+
 int cam_sensor_bob_pwm_mode_switch(struct cam_hw_soc_info *soc_info,
 	int bob_reg_idx, bool flag);
 
 bool cam_sensor_util_check_gpio_is_shared(struct cam_hw_soc_info *soc_info);
+
+int32_t ais_sensor_update_power_settings(
+	struct ais_sensor_probe_cmd *probe_cmd,
+	struct cam_sensor_power_ctrl_t *pwr_info);
+
+int cam_sensor_util_power_apply(struct cam_sensor_power_ctrl_t *ctrl,
+	struct cam_hw_soc_info *soc_info,
+	struct cam_sensor_power_setting *power_setting);
+
 
 static inline int cam_sensor_util_aon_ops(bool get_access, uint32_t phy_idx)
 {
