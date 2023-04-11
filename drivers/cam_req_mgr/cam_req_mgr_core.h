@@ -324,21 +324,23 @@ struct cam_req_mgr_req_data {
 /**
  * struct cam_req_mgr_connected_device
  * - Device Properties
- * @dev_hdl  : device handle
- * @dev_bit  : unique bit assigned to device in link
+ * @dev_hdl    : device handle
+ * @dev_bit    : unique bit assigned to device in link
  * - Device characteristics
- * @pd_tbl   : tracks latest available req id at this device
- * @dev_info : holds dev characteristics such as pipeline delay, dev name
- * @ops      : holds func pointer to call methods on this device
- * @parent   : pvt data - like link which this dev hdl belongs to
+ * @pd_tbl     : tracks latest available req id at this device
+ * @dev_info   : holds dev characteristics such as pipeline delay, dev name
+ * @ops        : holds func pointer to call crm methods on this device
+ * @no_crm_ops : holds func pointer to call no-crm methods on this device
+ * @parent     : pvt data - like link which this dev hdl belongs to
  */
 struct cam_req_mgr_connected_device {
-	int32_t                         dev_hdl;
-	int64_t                         dev_bit;
-	struct cam_req_mgr_req_tbl     *pd_tbl;
-	struct cam_req_mgr_device_info  dev_info;
-	struct cam_req_mgr_kmd_ops     *ops;
-	void                           *parent;
+	int32_t                            dev_hdl;
+	int64_t                            dev_bit;
+	struct cam_req_mgr_req_tbl        *pd_tbl;
+	struct cam_req_mgr_device_info     dev_info;
+	struct cam_req_mgr_kmd_ops        *ops;
+	struct cam_req_mgr_no_crm_kmd_ops *no_crm_ops;
+	void                              *parent;
 };
 
 /**

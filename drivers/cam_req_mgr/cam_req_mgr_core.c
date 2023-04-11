@@ -3738,7 +3738,58 @@ end:
 	return rc;
 }
 
+/**
+ * cam_req_mgr_no_crm_trigger_cb()
+ *
+ * @brief        : SOF received from device, sends trigger through workqueue
+ * @trigger_point: apply trigger point SOF or EOF
+ * @apply_info   : contains information about frame_id, link etc.
+ *
+ * @return  : 0 on success
+ *
+ */
+static int cam_req_mgr_no_crm_trigger_cb(int trigger_point,
+	struct cam_req_mgr_no_crm_apply_request *apply_info)
+{
+	int rc = -EINVAL, i;
+	struct cam_req_mgr_core_link *link;
+	struct cam_req_mgr_connected_device *dev;
 
+	link = cam_get_device_priv(apply_info->link_hdl);
+	if (!link) {
+		CAM_ERR(CAM_CRM, "Failed to get link priv from %08x", apply_info->link_hdl);
+		goto end;
+	}
+
+	for (i = 0; i < link->num_devs; i++) {
+		dev = &link->l_dev[i];
+		if (dev->dev_info.trigger != trigger_point) {
+			CAM_DBG(CAM_CRM, "Skip apply for \"%s\" for trigger %d",
+					dev->dev_info.name, trigger_point);
+			continue;
+		}
+
+		if (!dev->no_crm_ops || !dev->no_crm_ops->apply_req) {
+			CAM_DBG(CAM_CRM, "No apply_req cb for %s", dev->dev_info.name);
+			continue;
+		}
+
+		CAM_DBG(CAM_CRM, "%d apply \"%s\" for req %lld", i, dev->dev_info.name,
+				apply_info->anchor_req_id);
+		apply_info->dev_hdl = dev->dev_hdl;
+		rc = dev->no_crm_ops->apply_req(apply_info);
+		if (rc) {
+			CAM_ERR(CAM_CRM,
+				"Failed no-crm apply for \"%s\" link_hdl %x dev_hdl %x req %llx",
+				dev->dev_info.name, apply_info->link_hdl, dev->dev_hdl,
+				apply_info->anchor_req_id);
+			rc = 0;
+		}
+	}
+
+end:
+	return rc;
+}
 
 /**
  * cam_req_mgr_cb_notify_trigger()
@@ -3876,11 +3927,12 @@ end:
 }
 
 static struct cam_req_mgr_crm_cb cam_req_mgr_ops = {
-	.notify_trigger = cam_req_mgr_cb_notify_trigger,
-	.notify_err     = cam_req_mgr_cb_notify_err,
-	.add_req        = cam_req_mgr_cb_add_req,
-	.notify_timer   = cam_req_mgr_cb_notify_timer,
-	.notify_stop    = cam_req_mgr_cb_notify_stop,
+	.notify_trigger  = cam_req_mgr_cb_notify_trigger,
+	.notify_err      = cam_req_mgr_cb_notify_err,
+	.add_req         = cam_req_mgr_cb_add_req,
+	.notify_timer    = cam_req_mgr_cb_notify_timer,
+	.notify_stop     = cam_req_mgr_cb_notify_stop,
+	.no_crm_trigger  = cam_req_mgr_no_crm_trigger_cb,
 };
 
 /**
@@ -3897,11 +3949,13 @@ static struct cam_req_mgr_crm_cb cam_req_mgr_ops = {
 static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 	struct cam_req_mgr_ver_info *link_info)
 {
-	int                                     rc = 0, i = 0, num_devices = 0;
-	struct cam_req_mgr_core_dev_link_setup  link_data;
-	struct cam_req_mgr_connected_device    *dev;
-	struct cam_req_mgr_req_tbl             *pd_tbl;
-	enum cam_pipeline_delay                 max_delay;
+	int                                      rc = 0, i = 0, num_devices = 0;
+	struct cam_req_mgr_core_dev_link_setup   link_data;
+	struct cam_req_mgr_connected_device     *dev;
+	struct cam_req_mgr_req_tbl              *pd_tbl;
+	enum cam_pipeline_delay                  max_delay;
+	int                                     *dev_hdls, session_hdl;
+	struct cam_req_mgr_no_crm_handshake_data handshake;
 	uint32_t num_trigger_devices = 0;
 	if (link_info->version == VERSION_1) {
 		if (link_info->u.link_info_v1.num_devices >
@@ -3926,27 +3980,23 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 		return rc;
 
 	max_delay = CAM_PIPELINE_DELAY_0;
-	if (link_info->version == VERSION_1)
+	if (link_info->version == VERSION_1) {
 		num_devices = link_info->u.link_info_v1.num_devices;
-	else if (link_info->version == VERSION_2)
+		dev_hdls = link_info->u.link_info_v1.dev_hdls;
+		session_hdl = link_info->u.link_info_v1.session_hdl;
+	} else if (link_info->version == VERSION_2) {
 		num_devices = link_info->u.link_info_v2.num_devices;
-	else if (link_info->version == VERSION_3)
+		dev_hdls = link_info->u.link_info_v2.dev_hdls;
+		session_hdl = link_info->u.link_info_v2.session_hdl;
+	} else if (link_info->version == VERSION_3) {
 		num_devices = link_info->u.link_info_v3.num_devices;
+		dev_hdls = link_info->u.link_info_v3.dev_hdls;
+		session_hdl = link_info->u.link_info_v3.session_hdl;
+	}
 	for (i = 0; i < num_devices; i++) {
 		dev = &link->l_dev[i];
 		/* Using dev hdl, get ops ptr to communicate with device */
-		if (link_info->version == VERSION_1)
-			dev->ops = (struct cam_req_mgr_kmd_ops *)
-					cam_get_device_ops(
-					link_info->u.link_info_v1.dev_hdls[i]);
-		else if (link_info->version == VERSION_2)
-			dev->ops = (struct cam_req_mgr_kmd_ops *)
-					cam_get_device_ops(
-					link_info->u.link_info_v2.dev_hdls[i]);
-		else if (link_info->version == VERSION_3)
-			dev->ops = (struct cam_req_mgr_kmd_ops *)
-					cam_get_device_ops(
-					link_info->u.link_info_v3.dev_hdls[i]);
+		dev->ops = cam_get_device_ops(dev_hdls[i]);
 		if (!dev->ops ||
 			!dev->ops->get_dev_info ||
 			!dev->ops->link_setup) {
@@ -3954,64 +4004,22 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 			rc = -ENXIO;
 			goto error;
 		}
-		if (link_info->version == VERSION_1)
-			dev->dev_hdl = link_info->u.link_info_v1.dev_hdls[i];
-		else if (link_info->version == VERSION_2)
-			dev->dev_hdl = link_info->u.link_info_v2.dev_hdls[i];
-		else if (link_info->version == VERSION_3)
-			dev->dev_hdl = link_info->u.link_info_v3.dev_hdls[i];
+		dev->dev_hdl = dev_hdls[i];
 		dev->parent = (void *)link;
 		dev->dev_info.dev_hdl = dev->dev_hdl;
 		rc = dev->ops->get_dev_info(&dev->dev_info);
 
 		trace_cam_req_mgr_connect_device(link, &dev->dev_info);
-		if (link_info->version == VERSION_1)
-			CAM_DBG(CAM_CRM,
-				"%x: connected: %s, id %d, delay %d, trigger %x",
-				link_info->u.link_info_v1.session_hdl,
-				dev->dev_info.name,
-				dev->dev_info.dev_id, dev->dev_info.p_delay,
-				dev->dev_info.trigger);
-		else if (link_info->version == VERSION_2)
-			CAM_DBG(CAM_CRM,
-				"%x: connected: %s, id %d, delay %d, trigger %x",
-				link_info->u.link_info_v2.session_hdl,
-				dev->dev_info.name,
-				dev->dev_info.dev_id, dev->dev_info.p_delay,
-				dev->dev_info.trigger);
-		else if (link_info->version == VERSION_3)
-			CAM_DBG(CAM_CRM,
-				"%x: connected: %s, id %d, delay %d, trigger %x",
-				link_info->u.link_info_v3.session_hdl,
-				dev->dev_info.name,
-				dev->dev_info.dev_id, dev->dev_info.p_delay,
-				dev->dev_info.trigger);
-		if (rc < 0 ||
-			dev->dev_info.p_delay >=
-			CAM_PIPELINE_DELAY_MAX ||
-			dev->dev_info.p_delay <
-			CAM_PIPELINE_DELAY_0) {
+		CAM_DBG(CAM_CRM, "%x: connected: %s, id %d, delay %d, trigger %x",
+			session_hdl, dev->dev_info.name, dev->dev_info.dev_id,
+			dev->dev_info.p_delay, dev->dev_info.trigger);
+		if (rc < 0 || dev->dev_info.p_delay >= CAM_PIPELINE_DELAY_MAX ||
+			dev->dev_info.p_delay < CAM_PIPELINE_DELAY_0) {
 			CAM_ERR(CAM_CRM, "get device info failed");
 			goto error;
 		} else {
-			if (link_info->version == VERSION_1) {
-				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
-					link_info->u.link_info_v1.session_hdl,
-					dev->dev_info.name,
-					dev->dev_info.p_delay);
-				}
-			else if (link_info->version == VERSION_2) {
-				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
-					link_info->u.link_info_v2.session_hdl,
-					dev->dev_info.name,
-					dev->dev_info.p_delay);
-				}
-			else if (link_info->version == VERSION_3) {
-				CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d",
-					link_info->u.link_info_v3.session_hdl,
-					dev->dev_info.name,
-					dev->dev_info.p_delay);
-				}
+			CAM_DBG(CAM_CRM, "%x: connected: %s, delay %d", session_hdl,
+				dev->dev_info.name, dev->dev_info.p_delay);
 			if (dev->dev_info.p_delay > max_delay)
 				max_delay = dev->dev_info.p_delay;
 			if (dev->dev_info.dev_id == CAM_REQ_MGR_DEVICE_SENSOR_LITE) {
@@ -4108,6 +4116,40 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 
 	/* At start, expect max pd devices, all are in skip state */
 	__cam_req_mgr_tbl_set_all_skip_cnt(&link->req.l_tbl);
+
+	/* no_crm setup */
+	CAM_DBG(CAM_CRM, "link_hdl %08x, num_devices %d", link->link_hdl, num_devices);
+	for (i = 0; i < num_devices; i++) {
+		dev = &link->l_dev[i];
+		dev->no_crm_ops = cam_get_device_no_crm_ops(dev->dev_hdl);
+	}
+
+	/* First handshake with ISP, as it's anchor device */
+	for (i = 0; i < num_devices; i++) {
+		dev = &link->l_dev[i];
+		if (dev->dev_info.dev_id == CAM_REQ_MGR_DEVICE_IFE)
+			break;
+	}
+
+	/* Get anchor pipeline delay and frame_skip callback */
+	handshake.link_hdl = link->link_hdl;
+	handshake.dev_hdl = dev->dev_hdl;
+	if (i != num_devices && dev->no_crm_ops && dev->no_crm_ops->handshake)
+		dev->no_crm_ops->handshake(&handshake);
+	handshake.anchor_pd = handshake.pipeline_delay;
+
+	for (i = 0; i < num_devices; i++) {
+		dev = &link->l_dev[i];
+		if (!dev->no_crm_ops || !dev->no_crm_ops->handshake)
+			continue;
+
+		CAM_DBG(CAM_CRM, "[%02d] handshake for %s", i, dev->dev_info.name);
+		handshake.dev_hdl = dev->dev_hdl;
+		dev->no_crm_ops->handshake(&handshake);
+		dev->dev_info.p_delay = handshake.pipeline_delay;
+		dev->dev_info.trigger = handshake.trigger;
+	}
+
 
 	return 0;
 

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_REQ_MGR_UTIL_API_H_
@@ -38,6 +39,8 @@ enum hdl_type {
  * @dev_id: device id for handle
  * @ops: ops structure
  * @priv: private data of a handle
+ * @no_crm_ops: no_crm ops structure
+ * @no_crm_priv: no_crm private data of a handle
  */
 struct handle {
 	int32_t session_hdl;
@@ -47,6 +50,8 @@ struct handle {
 	uint64_t dev_id;
 	void *ops;
 	void *priv;
+	void *no_crm_ops;
+	void *no_crm_priv;
 };
 
 /**
@@ -70,6 +75,8 @@ struct cam_req_mgr_util_hdl_tbl {
  * @dev_id: device id for handle
  * @ops: ops pointer for a device handle
  * @priv: private data for a device handle
+ * @no_crm_ops: ops pointer for a device handle
+ * @no_crm_priv: private data for a device handle
  */
 struct cam_create_dev_hdl {
 	int32_t session_hdl;
@@ -79,6 +86,8 @@ struct cam_create_dev_hdl {
 	uint64_t dev_id;
 	void *ops;
 	void *priv;
+	void *no_crm_ops;
+	void *no_crm_priv;
 };
 
 /**
@@ -120,6 +129,25 @@ void *cam_get_device_priv(int32_t dev_hdl);
  * get ops of a handle. Returns a pointer to ops.
  */
 void *cam_get_device_ops(int32_t dev_hdl);
+
+/**
+ * cam_get_device_no_crm_priv() - get no_crm private data of a handle
+ * @dev_hdl: handle for a session/link/device
+ *
+ * cam_req_mgr_core and KMD drivers use this function to
+ * get no_crm private data of a handle. Returns a no_crm private data
+ * structure pointer.
+ */
+void *cam_get_device_no_crm_priv(int32_t dev_hdl);
+
+/**
+ * cam_get_device_no_crm_ops() - get no_crm_ops of a handle
+ * @dev_hdl: handle for a session/link/device
+ *
+ * cam_req_mgr_core and KMD drivers use this function to
+ * get no_crm_ops of a handle. Returns a pointer to no_crm_ops.
+ */
+void *cam_get_device_no_crm_ops(int32_t dev_hdl);
 
 /**
  * cam_destroy_device_hdl() - destroy device handle

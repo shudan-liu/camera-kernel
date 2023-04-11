@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #define pr_fmt(fmt) "CAM-REQ-MGR_UTIL %s:%d " fmt, __func__, __LINE__
@@ -195,6 +196,8 @@ int32_t cam_create_device_hdl(struct cam_create_dev_hdl *hdl_data)
 	hdl_tbl->hdl[idx].state = HDL_ACTIVE;
 	hdl_tbl->hdl[idx].priv = hdl_data->priv;
 	hdl_tbl->hdl[idx].ops = hdl_data->ops;
+	hdl_tbl->hdl[idx].no_crm_ops = hdl_data->no_crm_ops;
+	hdl_tbl->hdl[idx].no_crm_priv = hdl_data->no_crm_priv;
 	hdl_tbl->hdl[idx].dev_id = hdl_data->dev_id;
 	spin_unlock_bh(&hdl_tbl_lock);
 
@@ -248,6 +251,52 @@ device_priv_fail:
 	return NULL;
 }
 
+void *cam_get_device_no_crm_priv(int32_t dev_hdl)
+{
+	int idx;
+	int type;
+	void *no_crm_priv;
+
+	spin_lock_bh(&hdl_tbl_lock);
+	if (!hdl_tbl) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Hdl tbl is NULL");
+		goto device_priv_fail;
+	}
+
+	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid idx:%d", idx);
+		goto device_priv_fail;
+	}
+
+	if (hdl_tbl->hdl[idx].hdl_value != dev_hdl) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid hdl [%d] [%d]",
+			dev_hdl, hdl_tbl->hdl[idx].hdl_value);
+		goto device_priv_fail;
+	}
+
+	if (hdl_tbl->hdl[idx].state != HDL_ACTIVE) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid state:%d",
+			hdl_tbl->hdl[idx].state);
+		goto device_priv_fail;
+	}
+
+	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
+	if (HDL_TYPE_DEV != type && HDL_TYPE_SESSION != type) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "Invalid type:%d", type);
+		goto device_priv_fail;
+	}
+
+	no_crm_priv = hdl_tbl->hdl[idx].no_crm_priv;
+	spin_unlock_bh(&hdl_tbl_lock);
+
+	return no_crm_priv;
+
+device_priv_fail:
+	spin_unlock_bh(&hdl_tbl_lock);
+	return NULL;
+}
+
 void *cam_get_device_ops(int32_t dev_hdl)
 {
 	int idx;
@@ -286,6 +335,49 @@ void *cam_get_device_ops(int32_t dev_hdl)
 	spin_unlock_bh(&hdl_tbl_lock);
 
 	return ops;
+
+device_ops_fail:
+	spin_unlock_bh(&hdl_tbl_lock);
+	return NULL;
+}
+void *cam_get_device_no_crm_ops(int32_t dev_hdl)
+{
+	int idx;
+	int type;
+	void *no_crm_ops;
+
+	spin_lock_bh(&hdl_tbl_lock);
+	if (!hdl_tbl) {
+		CAM_ERR(CAM_CRM, "Hdl tbl is NULL");
+		goto device_ops_fail;
+	}
+
+	idx = CAM_REQ_MGR_GET_HDL_IDX(dev_hdl);
+	if (idx >= CAM_REQ_MGR_MAX_HANDLES_V2) {
+		CAM_ERR(CAM_CRM, "Invalid idx");
+		goto device_ops_fail;
+	}
+
+	if (hdl_tbl->hdl[idx].state != HDL_ACTIVE) {
+		CAM_ERR(CAM_CRM, "Invalid state");
+		goto device_ops_fail;
+	}
+
+	type = CAM_REQ_MGR_GET_HDL_TYPE(dev_hdl);
+	if (HDL_TYPE_DEV != type && HDL_TYPE_SESSION != type) {
+		CAM_ERR(CAM_CRM, "Invalid type");
+		goto device_ops_fail;
+	}
+
+	if (hdl_tbl->hdl[idx].hdl_value != dev_hdl) {
+		CAM_ERR(CAM_CRM, "Invalid hdl");
+		goto device_ops_fail;
+	}
+
+	no_crm_ops = hdl_tbl->hdl[idx].no_crm_ops;
+	spin_unlock_bh(&hdl_tbl_lock);
+
+	return no_crm_ops;
 
 device_ops_fail:
 	spin_unlock_bh(&hdl_tbl_lock);

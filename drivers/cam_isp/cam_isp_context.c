@@ -51,7 +51,7 @@ static int cam_isp_context_hw_recovery(void *priv, void *data);
 static int __cam_isp_ctx_start_dev_in_ready(struct cam_context *ctx,
 	struct cam_start_stop_dev_cmd *cmd);
 
-static void *__cam_isp_return_no_crm_state_machine(void);
+static struct cam_ctx_ops *__cam_isp_return_no_crm_state_machine(void);
 
 static void *__cam_isp_return_crm_state_machine(void);
 
@@ -530,6 +530,25 @@ static const char *__cam_isp_ctx_crm_trigger_point_to_string(
 	}
 }
 
+static int cam_isp_no_crm_apply_req_notify(struct cam_isp_context *ctx_isp, uint64_t  request_id,
+		int trigger_point, uint32_t res_id, uint64_t sof_irq_ts)
+{
+	int rc = -EINVAL;
+	struct cam_context *ctx = ctx_isp->base;
+	struct cam_req_mgr_no_crm_apply_request apply_info;
+
+	apply_info.link_hdl = ctx->link_hdl;
+	apply_info.frame_id = ctx_isp->frame_id;
+	apply_info.anchor_req_id = ctx_isp->last_applied_req_id > ctx->last_flush_req ?
+		ctx_isp->last_applied_req_id : ctx->last_flush_req;
+	apply_info.res_id = res_id;
+	apply_info.sof_irq_ts = sof_irq_ts;
+
+	rc = ctx->ctx_crm_intf->no_crm_trigger(trigger_point, &apply_info);
+
+	return rc;
+}
+
 static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 {
 	struct cam_isp_context                      *ctx_isp = NULL;
@@ -568,12 +587,9 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 				__cam_isp_ctx_crm_trigger_point_to_string(CAM_TRIGGER_POINT_SOF),
 				ctx_isp->frame_id, ctx->ctx_id,
 				ctx->link_hdl, ctx_isp->is_sensorlite, sof_notify->request_id);
-			if (ctx_isp->is_sensorlite)
-				cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
-					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
-			else
-				cam_subdev_notify_message(CAM_SENSOR_DEVICE_TYPE,
-					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)sof_notify);
+
+			cam_isp_no_crm_apply_req_notify(ctx_isp, req_id, CAM_TRIGGER_POINT_SOF,
+					res_id, sof_ts);
 		} else {
 			CAM_DBG(CAM_ISP, "Skip sensor notification as no open request");
 			ctx_isp->sensor_pd_handled = false;
@@ -585,7 +601,6 @@ static int __cam_isp_ctx_no_crm_apply_trigger_util(void *priv, void *data)
 
 	return rc;
 }
-
 
 static int __cam_isp_ctx_notify_trigger_util(
 	int trigger_type, struct cam_isp_context *ctx_isp, uint64_t  request_id, uint32_t res_id,
@@ -648,12 +663,9 @@ static int __cam_isp_ctx_notify_trigger_util(
 			sof_notify.request_id = ctx_isp->last_applied_req_id > ctx->last_flush_req ?
 				ctx_isp->last_applied_req_id : ctx->last_flush_req;
 			/* Do not apply ife request just notify sensor to apply request */
-			if (ctx_isp->is_sensorlite)
-				cam_subdev_notify_message(CAM_SENSORLITE_DEVICE_TYPE,
-					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)&sof_notify);
-			else
-				cam_subdev_notify_message(CAM_SENSOR_DEVICE_TYPE,
-					CAM_SUBDEV_MESSAGE_SENSOR_SOF_NOTIFY, (void *)&sof_notify);
+			cam_isp_no_crm_apply_req_notify(ctx_isp, request_id, trigger_type, res_id,
+				sof_irq_ts);
+
 			ctx_isp->sensor_pd_handled = true;
 			return -EINVAL;
 		}
@@ -6943,6 +6955,8 @@ get_dev_handle:
 	req_hdl_param.media_entity_flag = 0;
 	req_hdl_param.ops = ctx->crm_ctx_intf;
 	req_hdl_param.priv = ctx;
+	req_hdl_param.no_crm_ops = ctx->no_crm_intf;
+	req_hdl_param.no_crm_priv = ctx;
 	req_hdl_param.dev_id = CAM_ISP;
 	CAM_DBG(CAM_ISP, "get device handle form bridge");
 	ctx->dev_hdl = cam_create_device_hdl(&req_hdl_param);
@@ -7318,8 +7332,7 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 
 	ctx_isp->hw_mgr_workq = (struct cam_req_mgr_core_workq *)isp_hw_cmd_args.cmd_data;
 	if (ctx_isp->independent_crm_en) {
-		ctx_isp->base->state_machine =
-			(struct cam_ctx_ops *)__cam_isp_return_no_crm_state_machine();
+		ctx_isp->base->state_machine = __cam_isp_return_no_crm_state_machine();
 		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigned for no crm ctx %d",
 			ctx->ctx_id);
 	} else {
@@ -8519,9 +8532,9 @@ struct cam_ctx_ops cam_isp_ctx_top_state_machine_no_crm[CAM_CTX_STATE_MAX] = {
 };
 
 
-static void *__cam_isp_return_no_crm_state_machine(void)
+static struct cam_ctx_ops *__cam_isp_return_no_crm_state_machine(void)
 {
-	return &cam_isp_ctx_top_state_machine_no_crm;
+	return &cam_isp_ctx_top_state_machine_no_crm[0];
 }
 /* top state machine */
 static struct cam_ctx_ops
@@ -8813,6 +8826,28 @@ int cam_isp_context_set_slave_status(struct cam_context *ctx, bool status)
 	return rc;
 }
 
+int cam_isp_no_crm_frame_skip_notify(struct cam_req_mgr_no_crm_frame_skip_evt_data *skip_evt)
+{
+	CAM_ERR(CAM_ISP, "Unimplemented");
+
+	return -EINVAL;
+}
+
+int cam_isp_no_crm_handshake_device(struct cam_req_mgr_no_crm_handshake_data *handshake_data)
+{
+	handshake_data->pipeline_delay = CAM_PIPELINE_DELAY_1;
+	handshake_data->trigger = CAM_TRIGGER_POINT_SOF;
+	handshake_data->frame_skip_cb = cam_isp_no_crm_frame_skip_notify;
+
+	return 0;
+}
+
+/* No other driver except ISP needs this, so define it in ISP itself. */
+struct cam_req_mgr_no_crm_kmd_ops no_crm_isp_intf = {
+	.handshake = cam_isp_no_crm_handshake_device,
+	.apply_req = NULL,
+};
+
 int cam_isp_context_init(struct cam_isp_context *ctx,
 	struct cam_context *ctx_base,
 	struct cam_req_mgr_kmd_ops *crm_node_intf,
@@ -8858,7 +8893,8 @@ int cam_isp_context_init(struct cam_isp_context *ctx,
 
 	/* camera context setup */
 	rc = cam_context_init(ctx_base, isp_dev_name, CAM_ISP, ctx_id,
-		crm_node_intf, hw_intf, ctx->req_base, CAM_ISP_CTX_REQ_MAX, img_iommu_hdl);
+		crm_node_intf, &no_crm_isp_intf, hw_intf, ctx->req_base, CAM_ISP_CTX_REQ_MAX,
+		img_iommu_hdl);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Camera Context Base init failed");
 		goto err;

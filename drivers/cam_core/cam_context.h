@@ -206,6 +206,7 @@ struct cam_ctx_ops {
  * @hw_mgr_intf:           Context to HW interface
  * @ctx_crm_intf:          Context to CRM interface
  * @crm_ctx_intf:          CRM to context interface
+ * @no_crm_intf:           No CRM to context interface
  * @irq_cb_intf:           HW to context callback interface
  * @state:                 Current state for top level state machine
  * @state_machine:         Top level state machine
@@ -229,49 +230,50 @@ struct cam_ctx_ops {
  *
  */
 struct cam_context {
-	char                         dev_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
-	uint64_t                     dev_id;
-	uint32_t                     ctx_id;
-	struct list_head             list;
-	int32_t                      session_hdl;
-	int32_t                      dev_hdl;
-	int32_t                      link_hdl;
+	char                               dev_name[CAM_CTX_DEV_NAME_MAX_LENGTH];
+	uint64_t                           dev_id;
+	uint32_t                           ctx_id;
+	struct list_head                   list;
+	int32_t                            session_hdl;
+	int32_t                            dev_hdl;
+	int32_t                            link_hdl;
 
-	struct mutex                 ctx_mutex;
-	spinlock_t                   lock;
+	struct mutex                       ctx_mutex;
+	spinlock_t                         lock;
 
-	struct list_head               active_req_list;
-	struct list_head               pending_req_list;
-	struct list_head               wait_req_list;
-	struct list_head               free_req_list;
-	struct cam_ctx_request        *req_list;
-	uint32_t                       req_size;
+	struct list_head                   active_req_list;
+	struct list_head                   pending_req_list;
+	struct list_head                   wait_req_list;
+	struct list_head                   free_req_list;
+	struct cam_ctx_request            *req_list;
+	uint32_t                           req_size;
 
-	struct cam_hw_mgr_intf        *hw_mgr_intf;
-	struct cam_req_mgr_crm_cb     *ctx_crm_intf;
-	struct cam_req_mgr_kmd_ops    *crm_ctx_intf;
-	cam_hw_event_cb_func           irq_cb_intf;
+	struct cam_hw_mgr_intf            *hw_mgr_intf;
+	struct cam_req_mgr_crm_cb         *ctx_crm_intf;
+	struct cam_req_mgr_kmd_ops        *crm_ctx_intf;
+	struct cam_req_mgr_no_crm_kmd_ops *no_crm_intf;
+	cam_hw_event_cb_func               irq_cb_intf;
 
-	enum cam_context_state         state;
-	struct cam_ctx_ops            *state_machine;
+	enum cam_context_state             state;
+	struct cam_ctx_ops                *state_machine;
 
-	void                          *ctx_priv;
-	void                          *ctxt_to_hw_map;
-	uint32_t                       hw_mgr_ctx_id;
-	char                           ctx_id_string[128];
+	void                              *ctx_priv;
+	void                              *ctxt_to_hw_map;
+	uint32_t                           hw_mgr_ctx_id;
+	char                               ctx_id_string[128];
 
-	struct kref                    refcount;
-	void                          *node;
-	struct mutex                   sync_mutex;
-	uint32_t                       last_flush_req;
-	uint32_t                       max_hw_update_entries;
-	uint32_t                       max_in_map_entries;
-	uint32_t                       max_out_map_entries;
-	struct cam_hw_update_entry    **hw_update_entry;
-	struct cam_hw_fence_map_entry **in_map_entries;
-	struct cam_hw_fence_map_entry **out_map_entries;
-	cam_ctx_mini_dump_cb_func      mini_dump_cb;
-	int                            img_iommu_hdl;
+	struct kref                        refcount;
+	void                              *node;
+	struct mutex                       sync_mutex;
+	uint32_t                           last_flush_req;
+	uint32_t                           max_hw_update_entries;
+	uint32_t                           max_in_map_entries;
+	uint32_t                           max_out_map_entries;
+	struct cam_hw_update_entry       **hw_update_entry;
+	struct cam_hw_fence_map_entry    **in_map_entries;
+	struct cam_hw_fence_map_entry    **out_map_entries;
+	cam_ctx_mini_dump_cb_func          mini_dump_cb;
+	int                                img_iommu_hdl;
 };
 
 /**
@@ -570,6 +572,7 @@ int cam_context_deinit(struct cam_context *ctx);
  * @dev_id:                ID of the device associated
  * @ctx_id:                ID for this context
  * @crm_node_intf:         Function table for crm to context interface
+ * @no_crm_intf:           Function table for no-crm to context interface
  * @hw_mgr_intf:           Function table for context to hw interface
  * @req_list:              Requests storage
  * @req_size:              Size of the request storage
@@ -581,6 +584,7 @@ int cam_context_init(struct cam_context *ctx,
 		uint64_t dev_id,
 		uint32_t ctx_id,
 		struct cam_req_mgr_kmd_ops *crm_node_intf,
+		struct cam_req_mgr_no_crm_kmd_ops *no_crm_intf,
 		struct cam_hw_mgr_intf *hw_mgr_intf,
 		struct cam_ctx_request *req_list,
 		uint32_t req_size, int img_iommu_hdl);
