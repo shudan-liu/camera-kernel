@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -591,7 +591,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 
 	if (!try_heap && !heap) {
 		CAM_ERR(CAM_MEM,
-			"No heap available for allocation, cant allocate");
+			"No heap available for allocation, can't allocate");
 		return -EINVAL;
 	}
 
@@ -721,7 +721,7 @@ static int cam_mem_util_buffer_alloc(struct cam_mem_mgr_alloc_cmd *cmd,
 	temp_dmabuf = dma_buf_get(*fd);
 	if (IS_ERR_OR_NULL(temp_dmabuf)) {
 		rc = PTR_ERR(temp_dmabuf);
-		CAM_ERR(CAM_MEM, "dma_buf_get failed, *fd=%d, i_ino=%lu, rc=%d", *fd, rc);
+		CAM_ERR(CAM_MEM, "dma_buf_get failed, *fd=%d, rc=%d", *fd, rc);
 		goto put_buf;
 	}
 

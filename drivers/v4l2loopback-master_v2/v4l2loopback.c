@@ -8,7 +8,7 @@
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022,2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,6 +18,7 @@
  */
 
 #include <linux/version.h>
+#include <linux/module.h>
 #include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <linux/time64.h>
@@ -79,6 +80,11 @@ MODULE_LICENSE("GPL v2");
 /*
  * compatibility hacks
  */
+
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(5, 19, 0))
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
+
 
 #ifndef HAVE__V4L2_CTRLS
 struct v4l2_ctrl_handler {
@@ -1861,6 +1867,7 @@ static int vidioc_dqbuf(struct file *file,
 				return -EAGAIN;
 
 			wait_event_interruptible(data->read_event, can_read(data, opener));
+			return -EAGAIN;
 		}
 
 		return rc;

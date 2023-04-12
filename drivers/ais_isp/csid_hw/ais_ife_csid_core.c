@@ -1,5 +1,6 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -237,7 +238,7 @@ static int ais_ife_csid_path_reset(struct ais_ife_csid_hw *csid_hw,
 	if (rc) {
 		rc = 0;
 	} else {
-		CAM_ERR(CAM_ISP, "CSID:%d RDI%d reset fail",
+		CAM_ERR(CAM_ISP, "CSID:%d RDI%d reset fail rc:%d",
 			 csid_hw->hw_intf->hw_idx, reset_path, rc);
 		rc = -ETIMEDOUT;
 	}
