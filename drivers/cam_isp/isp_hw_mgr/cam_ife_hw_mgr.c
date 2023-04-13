@@ -4237,41 +4237,6 @@ err:
 	return rc;
 }
 
-static bool cam_ife_mgr_check_can_use_lite(
-	struct cam_csid_hw_reserve_resource_args  *csid_acquire,
-	struct cam_ife_hw_mgr_ctx                 *ife_ctx)
-{
-	bool can_use_lite = false;
-
-	if (ife_ctx->flags.is_rdi_only_context ||
-		csid_acquire->in_port->can_use_lite) {
-		can_use_lite = true;
-		goto end;
-	}
-
-	switch (csid_acquire->res_id) {
-
-	case CAM_IFE_PIX_PATH_RES_RDI_0:
-	case CAM_IFE_PIX_PATH_RES_RDI_1:
-	case CAM_IFE_PIX_PATH_RES_RDI_2:
-	case CAM_IFE_PIX_PATH_RES_RDI_3:
-		can_use_lite = true;
-		break;
-	default:
-		can_use_lite = false;
-		goto end;
-	}
-
-	CAM_DBG(CAM_ISP,
-		"in_port lite hint %d, rdi_only: %d can_use_lite: %d res_id: %u",
-		csid_acquire->in_port->can_use_lite,
-		ife_ctx->flags.is_rdi_only_context,
-		can_use_lite, csid_acquire->res_id);
-
-end:
-	return can_use_lite;
-}
-
 static int cam_ife_hw_mgr_acquire_res_ife_bus_rd(
 	struct cam_ife_hw_mgr_ctx                  *ife_ctx,
 	struct cam_isp_in_port_generic_info        *in_port)
@@ -5067,8 +5032,14 @@ static int cam_ife_hw_mgr_acquire_csid_hw(
 	if (in_port->num_out_res)
 		out_port = &(in_port->data[0]);
 	ife_ctx->flags.is_dual = (bool)in_port->usage_type;
-	can_use_lite = cam_ife_mgr_check_can_use_lite(
-			csid_acquire, ife_ctx);
+
+	can_use_lite = csid_acquire->in_port->can_use_lite;
+
+	CAM_DBG(CAM_ISP,
+		"in_port lite hint %d, rdi_only: %d can_use_lite: %d res_id: %u",
+		csid_acquire->in_port->can_use_lite,
+		ife_ctx->flags.is_rdi_only_context,
+		can_use_lite, csid_acquire->res_id);
 
 	if (in_port->per_port_en && (index != CAM_IFE_STREAM_GRP_INDEX_NONE)) {
 		csid_res_list_head = &g_ife_sns_grp_cfg.grp_cfg[index].res_ife_csid_list;
