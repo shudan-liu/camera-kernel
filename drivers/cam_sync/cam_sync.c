@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -604,6 +604,7 @@ static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 	int rc = 0;
 	struct cam_sync_signal sync_signal;
 	struct cam_sync_signal_param param;
+	uint32_t uid_validity;
 
 	if (k_ioctl->size != sizeof(struct cam_sync_signal))
 		return -EINVAL;
@@ -615,6 +616,15 @@ static int cam_sync_handle_signal(struct cam_private_ioctl_arg *k_ioctl)
 		u64_to_user_ptr(k_ioctl->ioctl_ptr),
 		k_ioctl->size))
 		return -EFAULT;
+
+	uid_validity = cam_sync_check_uid_valid(sync_signal.sync_obj);
+	if (uid_validity == SYNC_UID_NEW) {
+		rc = cam_sync_reinit_object(sync_dev->sync_table, sync_signal.sync_obj);
+	} else if (uid_validity == SYNC_UID_OLD) {
+		CAM_ERR(CAM_SYNC, "Signaling an old fence, sync : %d (0x%x)",
+			sync_signal.sync_obj, sync_signal.sync_obj);
+		return -EINVAL;
+	}
 
 	/* need to get ref for UMD signaled fences */
 	rc = cam_sync_get_obj_ref(sync_signal.sync_obj);
