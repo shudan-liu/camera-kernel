@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -10,7 +11,7 @@
 #include <media/cam_defs.h>
 
 #include <media/cam_req_mgr.h>
-#include <dt-bindings/msm/msm-camera.h>
+#include <dt-bindings/msm-camera.h>
 
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_ife_csid_core.h"
@@ -21,7 +22,6 @@
 #include "cam_cpas_api.h"
 #include "cam_subdev.h"
 #include "cam_tasklet_util.h"
-#include "dt-bindings/msm/msm-camera.h"
 
 /* Timeout value in msec */
 #define IFE_CSID_TIMEOUT                               1000
