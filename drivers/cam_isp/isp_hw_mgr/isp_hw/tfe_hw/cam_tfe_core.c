@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -48,11 +49,11 @@ struct cam_tfe_top_priv {
 		axi_vote_control[CAM_TFE_TOP_IN_PORT_MAX];
 	uint32_t                          irq_prepared_mask[3];
 	void                            *tasklet_info;
-	struct timeval                    sof_ts;
-	struct timeval                    epoch_ts;
-	struct timeval                    eof_ts;
-	struct timeval                    error_ts;
-	uint32_t                          top_debug;
+	struct timespec64                sof_ts;
+	struct timespec64                epoch_ts;
+	struct timespec64                eof_ts;
+	struct timespec64                error_ts;
+	uint32_t                         top_debug;
 };
 
 struct cam_tfe_camif_data {

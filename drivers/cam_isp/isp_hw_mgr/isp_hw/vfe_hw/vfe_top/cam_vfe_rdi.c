@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -35,9 +36,9 @@ struct cam_vfe_mux_rdi_data {
 	struct list_head                      free_payload_list;
 	spinlock_t                            spin_lock;
 
-	enum cam_isp_hw_sync_mode          sync_mode;
-	struct timeval                     sof_ts;
-	struct timeval                     error_ts;
+	enum cam_isp_hw_sync_mode             sync_mode;
+	struct timespec64                     sof_ts;
+	struct timespec64                     error_ts;
 };
 
 static int cam_vfe_rdi_get_evt_payload(

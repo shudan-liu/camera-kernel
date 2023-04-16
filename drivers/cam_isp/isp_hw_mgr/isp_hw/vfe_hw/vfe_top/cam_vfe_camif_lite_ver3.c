@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -40,10 +41,10 @@ struct cam_vfe_mux_camif_lite_data {
 	uint32_t                                     camif_debug;
 	struct cam_vfe_top_irq_evt_payload
 		evt_payload[CAM_VFE_CAMIF_LITE_EVT_MAX];
-	struct timeval                               sof_ts;
-	struct timeval                               epoch_ts;
-	struct timeval                               eof_ts;
-	struct timeval                               error_ts;
+	struct timespec64                            sof_ts;
+	struct timespec64                            epoch_ts;
+	struct timespec64                            eof_ts;
+	struct timespec64                            error_ts;
 };
 
 static int cam_vfe_camif_lite_get_evt_payload(
