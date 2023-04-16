@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_COMPAT_H_
@@ -12,6 +13,12 @@
 
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
+
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 10, 0)
+
+#define VFL_TYPE_VIDEO VFL_TYPE_GRABBER
+
+#endif
 
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 
