@@ -73,11 +73,9 @@ static int cam_mem_util_get_dma_dir(uint32_t flags)
 }
 
 static int cam_mem_util_map_cpu_va(struct dma_buf *dmabuf,
-	uintptr_t *vaddr,
-	size_t *len)
+	uintptr_t *vaddr, size_t *len)
 {
 	int rc = 0;
-	void *addr;
 
 	/*
 	 * dma_buf_begin_cpu_access() and dma_buf_end_cpu_access()
@@ -89,22 +87,17 @@ static int cam_mem_util_map_cpu_va(struct dma_buf *dmabuf,
 		return rc;
 	}
 
-	addr = dma_buf_vmap(dmabuf);
-	if (!addr) {
-		CAM_ERR(CAM_MEM, "kernel map fail");
-		*vaddr = 0;
+	rc = cam_compat_util_get_dmabuf_va(dmabuf, vaddr);
+	if (rc) {
+		CAM_ERR(CAM_MEM, "kernel vmap fail rc = %d", rc);
 		*len = 0;
-		rc = -ENOSPC;
-		goto fail;
+		dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
+	}
+	else {
+		*len = dmabuf->size;
+		CAM_DBG(CAM_MEM, "vaddr = %llu, len = %zu", *vaddr, *len);
 	}
 
-	*vaddr = (uint64_t)addr;
-	*len = dmabuf->size;
-
-	return 0;
-
-fail:
-	dma_buf_end_cpu_access(dmabuf, DMA_BIDIRECTIONAL);
 	return rc;
 }
 static int cam_mem_util_unmap_cpu_va(struct dma_buf *dmabuf,
