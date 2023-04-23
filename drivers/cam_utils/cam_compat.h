@@ -38,6 +38,10 @@
 
 #endif
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
+
 struct cam_fw_alloc_info {
 	struct device *fw_dev;
 	void          *fw_kva;
