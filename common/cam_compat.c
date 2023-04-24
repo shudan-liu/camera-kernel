@@ -352,3 +352,21 @@ static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 	return rc;
 }
 #endif
+
+#if KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE
+void cam_eeprom_spi_driver_remove(struct spi_device *sdev)
+{
+	cam_eeprom_spi_driver_remove_common(sdev);
+
+	return;
+}
+#else
+static int32_t cam_eeprom_spi_driver_remove(struct spi_device *sdev)
+{
+	int rc = 0;
+
+	rc = cam_eeprom_spi_driver_remove_common(sdev);
+
+	return rc;
+}
+#endif
