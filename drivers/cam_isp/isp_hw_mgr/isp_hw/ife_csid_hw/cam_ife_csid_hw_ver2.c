@@ -4925,9 +4925,11 @@ static int cam_ife_csid_ver2_reg_update(
 	struct cam_cdm_utils_ops                    *cdm_util_ops;
 	struct cam_ife_csid_ver2_reg_info           *csid_reg;
 	struct cam_hw_soc_info                      *soc_info;
-	uint32_t                                     size, i;
+	uint32_t                                     size;
 	uint32_t                                     reg_val_pair[2];
 	uint32_t                                     rup_aup_mask = 0;
+	long                                         req_port_mask;
+	uint32_t                                     bit;
 	int rc                                       = 0;
 
 	if (arg_size != sizeof(struct cam_isp_csid_reg_update_args)) {
@@ -4966,21 +4968,21 @@ static int cam_ife_csid_ver2_reg_update(
 	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
 			csid_hw->core_info->csid_reg;
 
-	rup_aup_mask = csid_hw->rup_aup_mask;
-	CAM_DBG(CAM_ISP, "csid_hw:%d rup_aup_mask 0x%x",
-		csid_hw->hw_intf->hw_idx, csid_hw->rup_aup_mask);
-
-	for (i = 0; i < rup_args->num_res; i++) {
-		path_reg = csid_reg->path_reg[rup_args->res[i]->res_id];
+	req_port_mask = rup_args->req_port_mask;
+	for_each_set_bit(bit, &req_port_mask, sizeof(req_port_mask) * 8) {
+		path_reg = csid_reg->path_reg[bit];
 		if (!path_reg) {
 			CAM_ERR(CAM_ISP, "Invalid Path Resource [id %d name %s]",
-				rup_args->res[i]->res_id,
-				rup_args->res[i]->res_name);
+				rup_args->res[bit]->res_id,
+				rup_args->res[bit]->res_name);
 			rc = -EINVAL;
 			goto err;
 		}
 		rup_aup_mask |= path_reg->rup_aup_mask;
 	}
+
+	CAM_DBG(CAM_ISP, "csid_hw:%d rup_aup_mask 0x%x req_port_mask 0x%x",
+		csid_hw->hw_intf->hw_idx, rup_aup_mask, rup_args->req_port_mask);
 
 	reg_val_pair[0] = csid_reg->cmn_reg->rup_aup_cmd_addr;
 	reg_val_pair[1] = rup_aup_mask;
@@ -5015,8 +5017,8 @@ static int cam_ife_csid_ver2_reg_update(
 err:
 	CAM_ERR(CAM_ISP, "CSID[%d] wrong Resource[id:%d name:%s]",
 		csid_hw->hw_intf->hw_idx,
-		rup_args->res[i]->res_id,
-		rup_args->res[i]->res_name);
+		rup_args->res[bit]->res_id,
+		rup_args->res[bit]->res_name);
 	return rc;
 }
 

@@ -4406,6 +4406,14 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		mutex_lock(&ctx_isp->isp_mutex);
 		ctx_isp->substate_activated = next_state;
 		ctx_isp->last_applied_req_id = apply->request_id;
+		if (req_isp->cdm_reset_before_apply &&
+			req_isp->num_deferred_acks &&
+			ctx_isp->rdi_only_context) {
+			req_isp->num_deferred_acks = 0;
+			CAM_WARN(CAM_ISP,
+				"ctx %d req %llu CDM callback not happen but received buf done",
+				ctx->ctx_id, req->request_id);
+		}
 		list_del_init(&req->list);
 		list_add_tail(&req->list, &ctx->wait_req_list);
 		ctx_isp->waitlist_req_cnt++;
@@ -4426,10 +4434,22 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		list_del_init(&req->list);
 		list_add(&req->list, &ctx->active_req_list);
 		ctx_isp->active_req_cnt++;
-		mutex_unlock(&ctx_isp->isp_mutex);
 		CAM_DBG(CAM_REQ,
 			"move request %lld to active list(cnt = %d), ctx %u",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
+		if (ctx_isp->rdi_only_context &&
+			(req_isp->num_deferred_acks == req_isp->num_fence_map_out)) {
+			CAM_WARN(CAM_ISP,
+				"ctx %d req %llu before CDM callback happen received buf done %d",
+				ctx->ctx_id, req->request_id, req_isp->num_deferred_acks);
+			__cam_isp_handle_deferred_buf_done(ctx_isp, req,
+				true,
+				CAM_SYNC_STATE_SIGNALED_ERROR,
+				CAM_SYNC_ISP_EVENT_BUBBLE);
+			__cam_isp_ctx_handle_buf_done_for_req_list(
+				ctx_isp, req);
+		}
+		mutex_unlock(&ctx_isp->isp_mutex);
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"ctx_id:%d ,Can not apply (req %lld) the configuration, rc %d",
@@ -5794,7 +5814,7 @@ static struct cam_isp_ctx_irq_ops
 			__cam_isp_ctx_reg_upd_in_sof,
 			NULL,
 			NULL,
-			NULL,
+			__cam_isp_ctx_buf_done_in_sof,
 		},
 	},
 	/* APPLIED */
@@ -6380,6 +6400,24 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	cfg.num_in_map_entries = 0;
 	memset(&req_isp->hw_update_data, 0, sizeof(req_isp->hw_update_data));
 
+	/* update port mask and path irq mask for current req id */
+	hw_cmd_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	hw_cmd_args.cmd_type = CAM_HW_MGR_CMD_INTERNAL;
+	isp_hw_cmd_args.cmd_type = CAM_ISP_HW_MGR_UPDATE_PATH_IRQ_MASK;
+	isp_hw_cmd_args.cmd_data = &cfg;
+	isp_hw_cmd_args.u.path_irq_mask = 0;
+	hw_cmd_args.u.internal_args = (void *)&isp_hw_cmd_args;
+	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
+		&hw_cmd_args);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "ctx:%d Updating port mask for req:%d failed",
+			ctx->ctx_id, packet->header.request_id);
+		goto free_req;
+	}
+
+	req_isp->req_port_mask = isp_hw_cmd_args.u.path_irq_mask;
+	cfg.req_stream_mask = req_isp->req_port_mask;
+
 	rc = ctx->hw_mgr_intf->hw_prepare_update(
 		ctx->hw_mgr_intf->hw_mgr_priv, &cfg);
 	if (rc != 0) {
@@ -6409,9 +6447,10 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	}
 
 	CAM_DBG(CAM_ISP,
-		"packet req-id:%lld, opcode:%d, num_entry:%d, num_fence_out: %d, num_fence_in: %d",
-		packet->header.request_id, req_isp->hw_update_data.packet_opcode_type,
-		req_isp->num_cfg, req_isp->num_fence_map_out, req_isp->num_fence_map_in);
+		"ctx:%d packet req-id:%lld, opcode:%d, num_entry:%d, num_fence_out: %d, num_fence_in: %d, req_port_mask 0x%x",
+		ctx->ctx_id, packet->header.request_id, req_isp->hw_update_data.packet_opcode_type,
+		req_isp->num_cfg, req_isp->num_fence_map_out, req_isp->num_fence_map_in,
+		req_isp->req_port_mask);
 
 	req->request_id = packet->header.request_id;
 	req->status = 1;

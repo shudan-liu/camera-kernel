@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_HW_MGR_INTF_H_
@@ -240,6 +240,7 @@ struct cam_hw_mgr_dump_pf_data {
  * @num_reg_dump_buf:      Count of descriptors in reg_dump_buf_desc
  * @priv:                  Private pointer of hw update
  * @pf_data:               Debug data for page fault
+ * @req_stream_mask:       Mask, bit is set is port is enabled in request
  *
  */
 struct cam_hw_prepare_update_args {
@@ -260,6 +261,7 @@ struct cam_hw_prepare_update_args {
 	uint32_t                        num_reg_dump_buf;
 	void                           *priv;
 	struct cam_hw_mgr_dump_pf_data *pf_data;
+	uint64_t                        req_stream_mask;
 };
 
 /**

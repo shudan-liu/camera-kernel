@@ -386,6 +386,7 @@ enum cam_isp_hw_mgr_command {
 	CAM_ISP_HW_MGR_GET_HW_CTX,
 	CAM_ISP_HW_MGR_CMD_GET_SLAVE_STATE,
 	CAM_ISP_HW_MGR_CMD_SET_SLAVE_STATE,
+	CAM_ISP_HW_MGR_UPDATE_PATH_IRQ_MASK,
 	CAM_ISP_HW_MGR_CMD_MAX,
 };
 
@@ -413,6 +414,7 @@ enum cam_isp_ctx_type {
  * @sensor_id:             unique sensor id
  * @out_port_id:           out resource id
  * @ptr:                   void pointer out param
+ * @path_irq_mask:         mask created from requested ports, out param
  */
 struct cam_isp_hw_cmd_args {
 	uint32_t                          cmd_type;
@@ -437,6 +439,7 @@ struct cam_isp_hw_cmd_args {
 		bool                          enable;
 		uint32_t                      out_port_id;
 		void                         *ptr;
+		uint64_t                      path_irq_mask;
 	} u;
 };
 

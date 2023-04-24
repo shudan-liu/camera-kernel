@@ -21,6 +21,7 @@
 #include "cam_sfe_hw_intf.h"
 #include "cam_isp_packet_parser.h"
 #include "cam_ife_hw_mgr.h"
+#include "cam_isp_ife.h"
 #include "cam_cdm_intf_api.h"
 #include "cam_packet_util.h"
 #include "cam_debug_util.h"
@@ -1025,6 +1026,24 @@ static int cam_ife_hw_mgr_is_rdi_res(uint32_t res_id)
 		rc = 1;
 		break;
 	default:
+		break;
+	}
+
+	return rc;
+}
+
+static bool cam_ife_hw_mgr_is_virtual_rdi_res(uint32_t res_id)
+{
+	bool rc = false;
+
+	switch (res_id) {
+	case CAM_ISP_IFE_OUT_RES_VIRTUAL_RDI0:
+	case CAM_ISP_IFE_OUT_RES_VIRTUAL_RDI1:
+	case CAM_ISP_IFE_OUT_RES_VIRTUAL_RDI2:
+	case CAM_ISP_IFE_OUT_RES_VIRTUAL_RDI3:
+	case CAM_ISP_IFE_OUT_RES_VIRTUAL_RDI4:
+	case CAM_ISP_IFE_OUT_RES_VIRTUAL_RDI5:
+		rc = true;
 		break;
 	}
 
@@ -14562,6 +14581,7 @@ static int cam_ife_mgr_csid_add_reg_update(struct cam_ife_hw_mgr_ctx *ctx,
 				csid_caps->only_master_rup)
 				continue;
 
+			rup_args[hw_idx].req_port_mask = prepare->req_stream_mask;
 			rup_args[hw_idx].res[rup_args[hw_idx].num_res] = res;
 			rup_args[hw_idx].num_res++;
 
@@ -15696,6 +15716,110 @@ static int cam_ife_mgr_get_active_hw_ctx(
 	return 0;
 }
 
+static int cam_ife_mgr_update_path_irq_mask(
+	struct cam_ife_hw_mgr_ctx *ctx,
+	struct cam_isp_hw_cmd_args *isp_hw_cmd_args)
+{
+	struct cam_hw_prepare_update_args     *prepare;
+	struct cam_isp_prepare_hw_update_data *prepare_hw_data;
+	struct cam_isp_hw_mgr_res            *hw_mgr_res;
+	struct cam_isp_resource_node         *res;
+	struct cam_buf_io_cfg                 *io_cfg = NULL;
+	uint32_t    out_port, i;
+
+	prepare = (struct cam_hw_prepare_update_args *)isp_hw_cmd_args->cmd_data;
+
+	io_cfg = (struct cam_buf_io_cfg *) ((uint8_t *)
+				&prepare->packet->payload +
+				prepare->packet->io_configs_offset);
+	prepare_hw_data = (struct cam_isp_prepare_hw_update_data  *)prepare->priv;
+
+	if (ctx->flags.is_trigger_type) {
+		for (i = 0; i < prepare->packet->num_io_configs; i++) {
+			out_port = io_cfg[i].resource_type;
+
+			if (cam_ife_hw_mgr_check_path_port_compat(
+				CAM_ISP_HW_VFE_IN_PDLIB,
+				out_port)) {
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_PPP;
+				continue;
+			}
+
+			if (cam_ife_hw_mgr_is_virtual_rdi_res(out_port) &&
+					prepare_hw_data->virtual_rdi_mapping_cb) {
+				out_port = prepare_hw_data->virtual_rdi_mapping_cb(
+					ctx, out_port, true);
+				if (out_port < 0) {
+					CAM_ERR(CAM_ISP,
+						"ctx_idx:%d Failed vrdi mapping out_res:%d req:%d",
+						ctx->ctx_index, io_cfg[i].resource_type,
+						prepare->packet->header.request_id);
+					return -EINVAL;
+				}
+			}
+
+			switch (out_port) {
+			case CAM_ISP_IFE_OUT_RES_RDI_0:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_RDI_0;
+				break;
+			case CAM_ISP_IFE_OUT_RES_RDI_1:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_RDI_1;
+				break;
+			case CAM_ISP_IFE_OUT_RES_RDI_2:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_RDI_2;
+				break;
+			case CAM_ISP_IFE_OUT_RES_RDI_3:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_RDI_3;
+				break;
+			case CAM_ISP_IFE_OUT_RES_RDI_4:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_RDI_4;
+				break;
+			case CAM_ISP_IFE_OUT_RES_RDI_5:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_RDI_5;
+				break;
+			case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW:
+			case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW1:
+			case CAM_ISP_IFE_LITE_OUT_RES_PREPROCESS_RAW2:
+			case CAM_ISP_IFE_LITE_OUT_RES_STATS_BG:
+			case CAM_ISP_IFE_LITE_OUT_RES_STATS_BHIST:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_IPP;
+				break;
+			default:
+				isp_hw_cmd_args->u.path_irq_mask |=
+					1 << CAM_IFE_PIX_PATH_RES_IPP;
+				break;
+			}
+		}
+	} else {
+		list_for_each_entry(hw_mgr_res, &ctx->res_list_ife_csid, list) {
+			if (hw_mgr_res->res_type == CAM_ISP_RESOURCE_UNINT)
+				continue;
+			for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
+				if (!hw_mgr_res->hw_res[i])
+					continue;
+				res = hw_mgr_res->hw_res[i];
+				isp_hw_cmd_args->u.path_irq_mask |= 1 << res->res_id;
+				break;
+			}
+		}
+	}
+
+	CAM_DBG(CAM_ISP, "ctx_idx:%d num_io_configs:%d path_irq_mask:0x%x req:%lld ctx:%d ",
+		ctx->ctx_index, prepare->packet->num_io_configs,
+		isp_hw_cmd_args->u.path_irq_mask,
+		prepare->packet->header.request_id, ctx->ctx_index);
+
+	return 0;
+}
+
 static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 {
 	int rc = 0;
@@ -15813,6 +15937,9 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			break;
 		case CAM_ISP_HW_MGR_CMD_SET_SLAVE_STATE:
 			ctx->is_slave_down = *(bool *)isp_hw_cmd_args->cmd_data;
+			break;
+		case CAM_ISP_HW_MGR_UPDATE_PATH_IRQ_MASK:
+			rc = cam_ife_mgr_update_path_irq_mask(ctx, isp_hw_cmd_args);
 			break;
 		default:
 			CAM_ERR(CAM_ISP, "Invalid HW mgr command:0x%x",
@@ -18157,7 +18284,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 
 		rc = cam_req_mgr_workq_create("cam_isp_worker", 256,
 			&g_ife_hw_mgr.workq_pool[i],
-			CRM_WORKQ_USAGE_IRQ, 0,
+			CRM_WORKQ_USAGE_IRQ, CAM_WORKQ_FLAG_HIGH_PRIORITY,
 			cam_req_mgr_process_workq_cam_isp_worker);
 		if (rc < 0) {
 			CAM_ERR(CAM_ISP, "Unable to create isp worker");
@@ -18172,8 +18299,8 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	}
 
 	/* Create Worker for ife_hw_mgr with 10 tasks */
-	rc = cam_req_mgr_workq_create("cam_ife_worker", 10,
-			&g_ife_hw_mgr.workq, CRM_WORKQ_USAGE_NON_IRQ, 0,
+	rc = cam_req_mgr_workq_create("cam_ife_worker", 10, &g_ife_hw_mgr.workq,
+			CRM_WORKQ_USAGE_NON_IRQ, CAM_WORKQ_FLAG_HIGH_PRIORITY,
 			cam_req_mgr_process_workq_cam_ife_worker);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP, "Unable to create worker");
