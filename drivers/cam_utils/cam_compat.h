@@ -11,8 +11,9 @@
 #include <linux/platform_device.h>
 #include <linux/component.h>
 #include <linux/list_sort.h>
+#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
 #include <linux/dma-iommu.h>
-
+#endif
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
 #include "cam_smmu_api.h"
