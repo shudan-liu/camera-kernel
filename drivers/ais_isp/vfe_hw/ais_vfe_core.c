@@ -957,11 +957,12 @@ static int ais_vfe_cmd_enq_buf(struct ais_vfe_hw_core_info *core_info,
 					enq_buf->buffer.idx);
 
 			list_add_tail(&vfe_buf[batch_id]->list, &rdi_path->buffer_q);
-			}
-			spin_unlock(&rdi_path->buffer_lock);
+		}
 
-			if (rdi_path->state < AIS_ISP_RESOURCE_STATE_STREAMING)
-				ais_vfe_q_bufs_to_hw(core_info, enq_buf->path);
+		if (rdi_path->state < AIS_ISP_RESOURCE_STATE_STREAMING)
+			ais_vfe_q_bufs_to_hw(core_info, enq_buf->path);
+		spin_unlock(&rdi_path->buffer_lock);
+
 	}
 
 EXIT:

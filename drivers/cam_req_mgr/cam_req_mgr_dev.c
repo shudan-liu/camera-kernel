@@ -848,7 +848,7 @@ static struct platform_driver cam_req_mgr_driver = {
 	},
 };
 
-static int cam_dev_mgr_create_subdev_nodes(void)
+int cam_dev_mgr_create_subdev_nodes(void)
 {
 	int rc;
 	struct v4l2_subdev *sd;
@@ -886,24 +886,33 @@ create_fail:
 	mutex_unlock(&g_dev.dev_lock);
 	return rc;
 }
+EXPORT_SYMBOL(cam_dev_mgr_create_subdev_nodes);
 
 static int __init cam_req_mgr_init(void)
 {
 	return platform_driver_register(&cam_req_mgr_driver);
 }
 
-static int __init cam_req_mgr_late_init(void)
+/* Moved the camera device nodes creation from late init to module init
+ * in cam-v4l-nodes driver. V4l subdev nodes will be registered by all camera
+ * drivers in module init then cam-v4l-nodes will create the node at last.
+ * The change is done to fix ais server not launching on boot issue as
+ * early_init is called before kernel late init. We are giving nodes permission
+ * in early init so if the nodes are not available, permission will not be set and
+ * server will not launch.
+ */
+/*static int __init cam_req_mgr_late_init(void)
 {
-	return cam_dev_mgr_create_subdev_nodes();
-}
+    return cam_dev_mgr_create_subdev_nodes();
+}*/
 
 static void __exit cam_req_mgr_exit(void)
 {
 	platform_driver_unregister(&cam_req_mgr_driver);
 }
 
-early_module_init(cam_req_mgr_init, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
-early_late_initcall(cam_req_mgr_late_init, EARLY_SUBSYS_3, EARLY_INIT_LEVEL4);
+module_init(cam_req_mgr_init);
+//late_initcall(cam_req_mgr_late_init);
 module_exit(cam_req_mgr_exit);
 MODULE_DESCRIPTION("Camera Request Manager");
 MODULE_LICENSE("GPL v2");
