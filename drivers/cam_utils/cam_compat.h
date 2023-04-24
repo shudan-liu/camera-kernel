@@ -72,4 +72,6 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 	struct list_head *head_1, struct list_head *head_2);
 #endif
 
+int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info);
+
 #endif /* _CAM_COMPAT_H_ */

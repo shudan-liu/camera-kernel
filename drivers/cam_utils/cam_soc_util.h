@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SOC_UTIL_H_
@@ -129,6 +130,7 @@ struct cam_soc_gpio_data {
  * @irq_name:               Name of the irq associated with the device
  * @label_name:             label name
  * @irq_line:               Irq resource
+ * @irq_num:                Irq number
  * @irq_data:               Private data that is passed when IRQ is requested
  * @compatible:             Compatible string associated with the device
  * @num_mem_block:          Number of entry in the "reg-names"
@@ -179,6 +181,7 @@ struct cam_hw_soc_info {
 	const char                     *irq_name;
 	const char                     *label_name;
 	struct resource                *irq_line;
+	int                             irq_num;
 	void                           *irq_data;
 	const char                     *compatible;
 
