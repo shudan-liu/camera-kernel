@@ -3465,7 +3465,8 @@ static int __cam_isp_ctx_handle_error(struct cam_isp_context *ctx_isp,
 	if (!ctx_isp->offline_context && !ctx_isp->independent_crm_en)
 		__cam_isp_ctx_pause_crm_timer(ctx);
 
-	if (ctx_isp->independent_crm_en) {
+	if ((ctx_isp->independent_crm_en) &&
+		(ctx_isp->independent_crm_sof_timer)) {
 		ctx_isp->independent_crm_sof_timer->pause_timer = true;
 		crm_timer_modify(ctx_isp->independent_crm_sof_timer,
 			CAM_REQ_MGR_WATCHDOG_TIMEOUT_MAX);
