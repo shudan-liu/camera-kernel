@@ -634,7 +634,12 @@ static int __cam_isp_ctx_notify_trigger_util(
 		sof_notify.frame_id = ctx_isp->frame_id;
 
 		if (list_empty(&ctx->pending_req_list)) {
-			CAM_INFO(CAM_ISP, "pending list empty, skipping");
+			if (!ctx_isp->frame_drop_cnt)
+				CAM_INFO(CAM_ISP,
+					"pending list empty, skipping ctx: %d last_applied_req %lld last_buf_done %lld",
+					ctx->ctx_id, ctx_isp->last_applied_req_id,
+					ctx_isp->req_info.last_bufdone_req_id);
+			ctx_isp->frame_drop_cnt++;
 			return -EINVAL;
 		}
 		if ((ctx_isp->sensor_pd > 1) &&
@@ -677,6 +682,13 @@ static int __cam_isp_ctx_notify_trigger_util(
 		task->process_cb = __cam_isp_ctx_no_crm_apply_trigger_util;
 		task->payload = sof_notify_payload;
 
+		if (ctx_isp->frame_drop_cnt) {
+			CAM_INFO(CAM_ISP,
+				"Applying request after %d frame drops on ctx: %d last_applied_req %lld last_buf_done %lld",
+				ctx_isp->frame_drop_cnt, ctx->ctx_id, ctx_isp->last_applied_req_id,
+					ctx_isp->req_info.last_bufdone_req_id);
+			ctx_isp->frame_drop_cnt = 0;
+		}
 		rc = cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
 		if (rc) {
 			CAM_ERR(CAM_REQ, "Pending request processing failed:%d", rc);
@@ -5985,6 +5997,7 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 	if (ctx_isp->independent_crm_en) {
 		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
 		ctx_isp->sensor_pd_handled = false;
+		ctx_isp->frame_drop_cnt = 0;
 	}
 	return rc;
 }
@@ -7481,6 +7494,7 @@ static int __cam_isp_ctx_link_in_acquired(struct cam_context *ctx,
 	ctx_isp->sensor_pd = link->sensor_pd;
 	ctx_isp->is_sensorlite = link->is_sensorlite;
 	ctx_isp->sensor_pd_handled = false;
+	ctx_isp->frame_drop_cnt = 0;
 	ctx_isp->additional_timeout = 0;
 
 	/* change state only if we had the init config */
