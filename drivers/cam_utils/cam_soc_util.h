@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SOC_UTIL_H_
@@ -19,7 +20,7 @@
 #include <linux/of_fdt.h>
 
 #include "cam_io_util.h"
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 
 #define NO_SET_RATE  -1
 #define INIT_RATE    -2

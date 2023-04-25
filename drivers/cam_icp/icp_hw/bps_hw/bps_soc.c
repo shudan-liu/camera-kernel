@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/io.h>
 #include <linux/of.h>
 #include <linux/platform_device.h>
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 #include <media/cam_icp.h>
 #include "bps_soc.h"
 #include "cam_soc_util.h"

@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only
  *
  * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CUSTOM_HW_MGR_H_
@@ -13,7 +14,7 @@
 #include "cam_isp_hw.h"
 #include "cam_custom_hw.h"
 
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 #include <media/cam_custom.h>
 
 enum cam_custom_hw_mgr_res_type {

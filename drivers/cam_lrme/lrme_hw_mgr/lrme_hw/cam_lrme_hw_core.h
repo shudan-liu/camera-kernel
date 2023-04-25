@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_LRME_HW_CORE_H_
@@ -9,7 +10,7 @@
 #include <linux/slab.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 #include <media/cam_lrme.h>
 
 #include "cam_common_util.h"

@@ -1,13 +1,14 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_OPE_H__
 #define __UAPI_OPE_H__
 
-#include <camera/media/cam_defs.h>
-#include <camera/media/cam_cpas.h>
+#include "cam_defs.h"
+#include "cam_cpas.h"
 
 #define OPE_DEV_NAME_SIZE                  128
 

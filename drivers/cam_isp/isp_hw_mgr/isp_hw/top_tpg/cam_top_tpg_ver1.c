@@ -1,12 +1,13 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
 #include <linux/slab.h>
 #include <media/cam_tfe.h>
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 
 #include "cam_top_tpg_core.h"
 #include "cam_soc_util.h"
