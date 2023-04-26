@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -40,10 +41,10 @@ struct cam_vfe_mux_camif_lite_data {
 	uint32_t                                     camif_debug;
 	struct cam_vfe_top_irq_evt_payload
 		evt_payload[CAM_VFE_CAMIF_LITE_EVT_MAX];
-	struct timeval                               sof_ts;
-	struct timeval                               epoch_ts;
-	struct timeval                               eof_ts;
-	struct timeval                               error_ts;
+	struct timespec64                               sof_ts;
+	struct timespec64                               epoch_ts;
+	struct timespec64                               eof_ts;
+	struct timespec64                               error_ts;
 };
 
 static int cam_vfe_camif_lite_get_evt_payload(
@@ -144,8 +145,8 @@ static int cam_vfe_camif_lite_err_irq_top_half(
 	if (error_flag) {
 		camif_lite_priv->error_ts.tv_sec =
 			evt_payload->ts.mono_time.tv_sec;
-		camif_lite_priv->error_ts.tv_usec =
-			evt_payload->ts.mono_time.tv_usec;
+		camif_lite_priv->error_ts.tv_nsec =
+			evt_payload->ts.mono_time.tv_nsec;
 	}
 
 	for (i = 0; i < th_payload->num_registers; i++)
@@ -304,13 +305,13 @@ static int cam_vfe_camif_lite_resource_start(
 		rsrc_data->camif_lite_reg->lite_epoch_irq);
 
 	rsrc_data->error_ts.tv_sec = 0;
-	rsrc_data->error_ts.tv_usec = 0;
+	rsrc_data->error_ts.tv_nsec = 0;
 	rsrc_data->sof_ts.tv_sec = 0;
-	rsrc_data->sof_ts.tv_usec = 0;
+	rsrc_data->sof_ts.tv_nsec = 0;
 	rsrc_data->epoch_ts.tv_sec = 0;
-	rsrc_data->epoch_ts.tv_usec = 0;
+	rsrc_data->epoch_ts.tv_nsec = 0;
 	rsrc_data->eof_ts.tv_sec = 0;
-	rsrc_data->eof_ts.tv_usec = 0;
+	rsrc_data->eof_ts.tv_nsec = 0;
 
 skip_core_cfg:
 
@@ -1146,8 +1147,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		camif_lite_priv->sof_ts.tv_sec =
 			payload->ts.mono_time.tv_sec;
-		camif_lite_priv->sof_ts.tv_usec =
-			payload->ts.mono_time.tv_usec;
+		camif_lite_priv->sof_ts.tv_nsec =
+			payload->ts.mono_time.tv_nsec;
 
 		if (camif_lite_priv->event_cb)
 			camif_lite_priv->event_cb(camif_lite_priv->priv,
@@ -1161,8 +1162,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		camif_lite_priv->epoch_ts.tv_sec =
 			payload->ts.mono_time.tv_sec;
-		camif_lite_priv->epoch_ts.tv_usec =
-			payload->ts.mono_time.tv_usec;
+		camif_lite_priv->epoch_ts.tv_nsec =
+			payload->ts.mono_time.tv_nsec;
 
 		if (camif_lite_priv->event_cb)
 			camif_lite_priv->event_cb(camif_lite_priv->priv,
@@ -1176,8 +1177,8 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 		ret = CAM_VFE_IRQ_STATUS_SUCCESS;
 		camif_lite_priv->eof_ts.tv_sec =
 			payload->ts.mono_time.tv_sec;
-		camif_lite_priv->eof_ts.tv_usec =
-			payload->ts.mono_time.tv_usec;
+		camif_lite_priv->eof_ts.tv_nsec =
+			payload->ts.mono_time.tv_nsec;
 
 		if (camif_lite_priv->event_cb)
 			camif_lite_priv->event_cb(camif_lite_priv->priv,
@@ -1194,21 +1195,21 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 		ktime_get_boottime_ts64(&ts);
 		CAM_INFO(CAM_ISP,
 			"current monotonic time stamp seconds %lld:%lld",
-			ts.tv_sec, ts.tv_nsec/1000);
+			ts.tv_sec, ts.tv_nsec/NSEC_PER_USEC);
 		CAM_INFO(CAM_ISP,
 			"ERROR time %lld:%lld",
 			camif_lite_priv->error_ts.tv_sec,
-			camif_lite_priv->error_ts.tv_usec);
+			camif_lite_priv->error_ts.tv_nsec/NSEC_PER_USEC);
 
 		if (camif_lite_node->rdi_only_ctx)
 			CAM_INFO(CAM_ISP,
 				"SOF %lld:%lld EPOCH %lld:%lld EOF %lld:%lld",
 				camif_lite_priv->sof_ts.tv_sec,
-				camif_lite_priv->sof_ts.tv_usec,
+				camif_lite_priv->sof_ts.tv_nsec/NSEC_PER_USEC,
 				camif_lite_priv->epoch_ts.tv_sec,
-				camif_lite_priv->epoch_ts.tv_usec,
+				camif_lite_priv->epoch_ts.tv_nsec/NSEC_PER_USEC,
 				camif_lite_priv->eof_ts.tv_sec,
-				camif_lite_priv->eof_ts.tv_usec);
+				camif_lite_priv->eof_ts.tv_nsec/NSEC_PER_USEC);
 
 		if (status_0 & 0x8000000)
 			evt_info.res_id = CAM_ISP_IFE_OUT_RES_RDI_2;
