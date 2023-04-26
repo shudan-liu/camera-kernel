@@ -11,7 +11,6 @@
 #include "cam_defs.h"
 
 #include <media/cam_req_mgr.h>
-#include <dt-bindings/msm/msm-camera.h>
 
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_ife_csid_core.h"
@@ -22,7 +21,7 @@
 #include "cam_cpas_api.h"
 #include "cam_subdev.h"
 #include "cam_tasklet_util.h"
-#include "dt-bindings/msm/msm-camera.h"
+#include "dt-bindings/msm-camera.h"
 
 /* Timeout value in msec */
 #define IFE_CSID_TIMEOUT                               1000

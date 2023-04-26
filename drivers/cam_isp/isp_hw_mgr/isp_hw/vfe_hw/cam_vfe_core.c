@@ -18,7 +18,7 @@
 #include "cam_ife_hw_mgr.h"
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
-#include <dt-bindings/msm/msm-camera.h>
+#include "dt-bindings/msm-camera.h"
 
 
 static const char drv_name[] = "vfe";
