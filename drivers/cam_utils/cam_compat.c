@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
 #include <linux/of_address.h>
+#include <linux/slab.h>
 
 #include "cam_compat.h"
 #include "cam_debug_util.h"
@@ -234,3 +236,15 @@ int camera_component_match_add_drivers(struct device *master_dev,
 end:
 	return rc;
 }
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
+void cam_free_clear(const void * ptr)
+{
+	kfree_sensitive(ptr);
+}
+#else
+void cam_free_clear(const void * ptr)
+{
+	kzfree(ptr);
+}
+#endif

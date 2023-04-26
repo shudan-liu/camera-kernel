@@ -1126,7 +1126,7 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 	cam_cpas_update_monitor_array(cpas_hw, "CPAS AXI post-update",
 		client_indx);
 unlock_client:
-	kzfree(axi_vote);
+	cam_free_clear((void *)axi_vote);
 	axi_vote = NULL;
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
 	mutex_unlock(&cpas_hw->hw_mutex);
