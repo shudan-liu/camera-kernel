@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_cci_dev.h"
@@ -252,14 +252,14 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 	if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_ERROR_BMSK) {
 		struct cam_cci_master_info *cci_master_info;
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
-		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_NACK_ERROR_BMSK)
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_NACK_ERROR_BMSK)
 			CAM_ERR(CAM_CCI, "Base:%pK, M1 NACK ERROR: 0x%x",
 				base, irq_status0);
-		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_ERROR_BMSK)
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_ERROR_BMSK)
 			CAM_ERR(CAM_CCI,
 			"Base:%pK, M1 QUEUE_OVER_UNDER_FLOW OR CMD ERROR:0x%x",
 				base, irq_status0);
-		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_RD_ERROR_BMSK)
+		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_RD_ERROR_BMSK)
 			CAM_ERR(CAM_CCI,
 				"Base:%pK, M1 RD_OVER/UNDER_FLOW ERROR: 0x%x",
 				base, irq_status0);
@@ -341,7 +341,7 @@ static int cam_cci_irq_routine(struct v4l2_subdev *sd, u32 status,
 	struct cam_hw_soc_info *soc_info =
 		&cci_dev->soc_info;
 
-	ret = cam_cci_irq(soc_info->irq_line->start, cci_dev);
+	ret = cam_cci_irq(soc_info->irq_line, cci_dev);
 	*handled = TRUE;
 	return 0;
 }

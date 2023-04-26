@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -144,7 +144,7 @@ static int cam_req_mgr_open(struct file *filep)
 
 	/* return if already initialized before */
 	if (g_dev.open_cnt > 1) {
-		CAM_WARN(CAM_CRM, "Already opened", rc);
+		CAM_WARN(CAM_CRM, "Already opened rc:%d", rc);
 		goto end;
 	}
 
@@ -585,7 +585,7 @@ static int cam_video_device_setup(void)
 	g_dev.video->device_caps = V4L2_CAP_VIDEO_CAPTURE;
 	rc = video_register_device(g_dev.video, VFL_TYPE_VIDEO, -1);
 	if (rc) {
-		CAM_ERR(CAM_CRM, "video_register_device failed rc=%d",rc);
+		CAM_ERR(CAM_CRM, "video_register_device failed rc=%d", rc);
 		goto v4l2_fail;
 	}
 
@@ -705,9 +705,8 @@ int cam_register_subdev(struct cam_subdev *csd)
 		CAM_ERR(CAM_CRM, "register subdev failed");
 		goto reg_fail;
 	}
-	else {
-		CAM_DBG(CAM_CRM, "register subdev %s type %d succeed", csd->name, csd->ent_function);
-	}
+
+	CAM_DBG(CAM_CRM, "register subdev %s type %d succeed", csd->name, csd->ent_function);
 
 	rc = v4l2_device_register_subdev_nodes(g_dev.v4l2_dev);
 	if (rc) {
@@ -817,7 +816,7 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 			"bind_done");
 
 	rc = v4l2_device_register(NULL, g_mgr_dev.v4l2_dev);
-	if (rc){
+	if (rc) {
 		CAM_ERR(CAM_CRM, "v4l2_device_register failed");
 		kfree(g_mgr_dev.v4l2_dev);
 		g_mgr_dev.v4l2_dev = NULL;
@@ -843,14 +842,13 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 
 	rc = video_register_device(g_mgr_dev.video, VFL_TYPE_VIDEO, 98);
 	if (rc) {
-		CAM_ERR(CAM_CRM, "video_register_device failed rc=%d",rc);
+		CAM_ERR(CAM_CRM, "video_register_device failed rc=%d", rc);
 		video_device_release(g_mgr_dev.video);
 		g_mgr_dev.video = NULL;
 		return rc;
-	} else {
-		g_mgr_dev.video->entity.name = video_device_node_name(g_mgr_dev.video);
-		CAM_INFO(CAM_CRM, "register video device name=%s", g_mgr_dev.video->entity.name);
 	}
+	g_mgr_dev.video->entity.name = video_device_node_name(g_mgr_dev.video);
+	CAM_INFO(CAM_CRM, "register video device name=%s", g_mgr_dev.video->entity.name);
 #endif
 
 	return rc;
