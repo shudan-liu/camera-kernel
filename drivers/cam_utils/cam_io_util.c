@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2011-2014, 2017-2018, 2020, The Linux Foundation.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * All rights reserved.
  */
 
@@ -16,7 +17,7 @@ int cam_io_w(uint32_t data, void __iomem *addr)
 		return -EINVAL;
 
 	CAM_DBG(CAM_IO_ACCESS, "0x%pK %08x", addr, data);
-	writel_relaxed_no_log(data, addr);
+	writel_relaxed(data, addr);
 
 	return 0;
 }
@@ -27,11 +28,7 @@ int cam_io_w_mb(uint32_t data, void __iomem *addr)
 		return -EINVAL;
 
 	CAM_DBG(CAM_IO_ACCESS, "0x%pK %08x", addr, data);
-	/* Ensure previous writes are done */
-	wmb();
-	writel_relaxed_no_log(data, addr);
-	/* Ensure previous writes are done */
-	wmb();
+	writel(data, addr);
 
 	return 0;
 }
@@ -60,12 +57,8 @@ uint32_t cam_io_r_mb(void __iomem *addr)
 		return 0;
 	}
 
-	/* Ensure previous read is done */
-	rmb();
-	data = readl_relaxed(addr);
+	data = readl(addr);
 	CAM_DBG(CAM_IO_ACCESS, "0x%pK %08x", addr, data);
-	/* Ensure previous read is done */
-	rmb();
 
 	return data;
 }
