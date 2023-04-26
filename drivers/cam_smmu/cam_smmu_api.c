@@ -480,7 +480,6 @@ static void cam_smmu_page_fault_work(struct work_struct *work)
 	int idx;
 	struct cam_smmu_work_payload *payload;
 	uint32_t buf_info;
-	struct iommu_fault_ids fault_ids = {0, 0, 0};
 	struct cam_smmu_pf_info  pf_info;
 
 	mutex_lock(&iommu_cb_set.payload_list_lock);
@@ -496,14 +495,6 @@ static void cam_smmu_page_fault_work(struct work_struct *work)
 	list_del(&payload->list);
 	mutex_unlock(&iommu_cb_set.payload_list_lock);
 
-
-	if ((iommu_get_fault_ids(payload->domain, &fault_ids)))
-		CAM_ERR(CAM_SMMU,
-			"Error: Can not get smmu fault ids");
-
-	CAM_ERR(CAM_SMMU, "smmu fault ids bid:%d pid:%d mid:%d",
-		fault_ids.bid, fault_ids.pid, fault_ids.mid);
-
 	/* Dereference the payload to call the handler */
 	idx = payload->idx;
 	buf_info = cam_smmu_find_closest_mapping(idx, (void *)payload->iova);
@@ -515,9 +506,6 @@ static void cam_smmu_page_fault_work(struct work_struct *work)
 	pf_info.iova  = payload->iova;
 	pf_info.flags = payload->flags;
 	pf_info.buf_info = buf_info;
-	pf_info.bid = fault_ids.bid;
-	pf_info.pid = fault_ids.pid;
-	pf_info.mid = fault_ids.mid;
 
 	for (j = 0; j < CAM_SMMU_CB_MAX; j++) {
 		if ((iommu_cb_set.cb_info[idx].handler[j])) {
@@ -3644,8 +3632,6 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 	struct device *dev)
 {
 	int rc = 0;
-	int32_t stall_disable = 1;
-	int32_t hupcf = 1;
 
 	if (!cb || !dev) {
 		CAM_ERR(CAM_SMMU, "Error: invalid input params");
@@ -3706,31 +3692,11 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 			goto end;
 		}
 
-		iommu_dma_enable_best_fit_algo(dev);
-
-		if (cb->discard_iova_start)
-			iommu_dma_reserve_iova(dev, cb->discard_iova_start,
-				cb->discard_iova_len);
+		/* Enable custom iommu features, if applicable */
+		cam_smmu_util_iommu_custom(dev, cb->discard_iova_start,
+			cb->discard_iova_len);
 
 		cb->state = CAM_SMMU_ATTACH;
-
-		if (cb->stall_disable) {
-			if (iommu_domain_set_attr(cb->domain,
-				DOMAIN_ATTR_FAULT_MODEL_NO_STALL,
-				&stall_disable) < 0) {
-				CAM_ERR(CAM_SMMU,
-					"Error: failed to set cb stall disable for node: %s",
-					cb->name[0]);
-			}
-
-			if (iommu_domain_set_attr(cb->domain,
-				DOMAIN_ATTR_FAULT_MODEL_HUPCF,
-				&hupcf) < 0) {
-				CAM_ERR(CAM_SMMU,
-					"Error: failed to set attribute HUPCF for node: %s",
-					cb->name[0]);
-			}
-		}
 	} else {
 		CAM_ERR(CAM_SMMU, "Context bank does not have IO region");
 		rc = -ENODEV;

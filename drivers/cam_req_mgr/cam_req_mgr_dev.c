@@ -658,9 +658,9 @@ static int cam_video_device_setup(void)
 	g_dev.video->fops = &g_cam_fops;
 	g_dev.video->ioctl_ops = &g_cam_ioctl_ops;
 	g_dev.video->minor = -1;
-	g_dev.video->vfl_type = VFL_TYPE_GRABBER;
+	g_dev.video->vfl_type = VFL_TYPE_VIDEO;
 	g_dev.video->device_caps |= V4L2_CAP_VIDEO_CAPTURE;
-	rc = video_register_device(g_dev.video, VFL_TYPE_GRABBER, -1);
+	rc = video_register_device(g_dev.video, VFL_TYPE_VIDEO, -1);
 	if (rc) {
 		CAM_ERR(CAM_CRM,
 			"video device registration failure rc = %d, name = %s, device_caps = %d",
@@ -734,7 +734,7 @@ EXPORT_SYMBOL(cam_subdev_notify_message);
 
 
 static int cam_req_mgr_ordered_list_cmp(void *priv,
-	struct list_head *head_1, struct list_head *head_2)
+	const struct list_head *head_1, const  struct list_head *head_2)
 {
 	struct cam_subdev *entry_1 =
 		list_entry(head_1, struct cam_subdev, list);

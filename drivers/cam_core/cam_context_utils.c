@@ -1030,9 +1030,6 @@ int32_t cam_context_dump_pf_info_to_hw(struct cam_context *ctx,
 		cmd_args.u.pf_args.mem_found = mem_found;
 		cmd_args.u.pf_args.ctx_found = ctx_found;
 		cmd_args.u.pf_args.resource_type = resource_type;
-		cmd_args.u.pf_args.bid = pf_info->bid;
-		cmd_args.u.pf_args.pid = pf_info->pid;
-		cmd_args.u.pf_args.mid = pf_info->mid;
 		ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
 			&cmd_args);
 	}
