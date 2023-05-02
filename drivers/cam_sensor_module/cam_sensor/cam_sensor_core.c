@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -20,6 +20,7 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 
+static bool ais_stack = TRUE;
 static int32_t cam_sensor_update_i2c_slave_info(
 	struct camera_io_master *io_master,
 	struct cam_sensor_i2c_slave_info *slave_info);
@@ -1750,6 +1751,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	switch (cmd->op_code) {
 	case CAM_SENSOR_PROBE_CMD: {
+		ais_stack = FALSE;
 		if (s_ctrl->is_probe_succeed == 1) {
 			CAM_ERR(CAM_SENSOR,
 				"Already Sensor Probed in the slot");
@@ -1831,7 +1833,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 
 	case AIS_SENSOR_PROBE_CMD: {
 		struct ais_sensor_probe_cmd *probe_cmd;
-
+		ais_stack = TRUE;
 		if (s_ctrl->is_probe_succeed == 1) {
 			CAM_ERR(CAM_SENSOR,
 				"Already Sensor Probed in slot %d",
@@ -2084,7 +2086,6 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 	struct cam_sensor_power_ctrl_t *power_info;
 	struct cam_camera_slave_info *slave_info;
 	struct cam_hw_soc_info *soc_info;
-
 	if (!s_ctrl) {
 		CAM_ERR(CAM_SENSOR, "failed: %pK", s_ctrl);
 		return -EINVAL;
@@ -2109,11 +2110,18 @@ int cam_sensor_power_up(struct cam_sensor_ctrl_t *s_ctrl)
 			rc = 0;
 		}
 	}
-
-	rc = cam_sensor_util_power_up_resources(power_info, soc_info);
-	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);
-		return rc;
+	if (ais_stack == TRUE) {
+		rc = ais_sensor_util_power_up_resources(power_info, soc_info);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);
+			return rc;
+		}
+	} else {
+		rc = cam_sensor_util_power_up(power_info, soc_info);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "power up the core is failed:%d", rc);
+			return rc;
+		}
 	}
 
 	rc = camera_io_init(&(s_ctrl->io_master_info));
@@ -2142,10 +2150,18 @@ int cam_sensor_power_down(struct cam_sensor_ctrl_t *s_ctrl)
 
 	soc_info = &s_ctrl->soc_info;
 
-	rc = cam_sensor_util_power_down_resources(power_info, soc_info);
-	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
-		return rc;
+	if (ais_stack == TRUE) {
+		rc = ais_sensor_util_power_down_resources(power_info, soc_info);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
+			return rc;
+		}
+	} else {
+		rc = cam_sensor_util_power_down(power_info, soc_info);
+		if (rc < 0) {
+			CAM_ERR(CAM_SENSOR, "power down the core is failed:%d", rc);
+			return rc;
+		}
 	}
 
 	if (s_ctrl->bob_pwm_switch) {
