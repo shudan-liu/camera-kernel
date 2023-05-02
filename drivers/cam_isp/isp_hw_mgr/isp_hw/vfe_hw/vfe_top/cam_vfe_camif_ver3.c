@@ -152,8 +152,8 @@ static int cam_vfe_camif_ver3_err_irq_top_half(
 	if (error_flag) {
 		camif_priv->error_ts.tv_sec =
 			evt_payload->ts.mono_time.tv_sec;
-		camif_priv->error_ts.tv_usec =
-			evt_payload->ts.mono_time.tv_usec;
+		camif_priv->error_ts.tv_nsec =
+			evt_payload->ts.mono_time.tv_nsec;
 	}
 
 	for (i = 0; i < th_payload->num_registers; i++)
@@ -328,13 +328,13 @@ static int cam_vfe_camif_ver3_resource_init(
 				"failed to enable dsp clk, rc = %d", rc);
 	}
 	camif_data->sof_ts.tv_sec = 0;
-	camif_data->sof_ts.tv_usec = 0;
+	camif_data->sof_ts.tv_nsec = 0;
 	camif_data->epoch_ts.tv_sec = 0;
-	camif_data->epoch_ts.tv_usec = 0;
+	camif_data->epoch_ts.tv_nsec = 0;
 	camif_data->eof_ts.tv_sec = 0;
-	camif_data->eof_ts.tv_usec = 0;
+	camif_data->eof_ts.tv_nsec = 0;
 	camif_data->error_ts.tv_sec = 0;
-	camif_data->error_ts.tv_usec = 0;
+	camif_data->error_ts.tv_nsec = 0;
 
 	return rc;
 }
@@ -821,13 +821,13 @@ int cam_vfe_camif_ver3_dump_timestamps(
 	CAM_INFO(CAM_ISP,
 		"CAMIF ERROR time %lld:%lld SOF %lld:%lld EPOCH %lld:%lld EOF %lld:%lld",
 		camif_priv->error_ts.tv_sec,
-		camif_priv->error_ts.tv_usec,
+		camif_priv->error_ts.tv_nsec,
 		camif_priv->sof_ts.tv_sec,
-		camif_priv->sof_ts.tv_usec,
+		camif_priv->sof_ts.tv_nsec,
 		camif_priv->epoch_ts.tv_sec,
-		camif_priv->epoch_ts.tv_usec,
+		camif_priv->epoch_ts.tv_nsec,
 		camif_priv->eof_ts.tv_sec,
-		camif_priv->eof_ts.tv_usec);
+		camif_priv->eof_ts.tv_nsec);
 
 	return 0;
 }
@@ -1468,8 +1468,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 				evt_info.hw_idx);
 			camif_priv->sof_ts.tv_sec =
 				payload->ts.mono_time.tv_sec;
-			camif_priv->sof_ts.tv_usec =
-				payload->ts.mono_time.tv_usec;
+			camif_priv->sof_ts.tv_nsec =
+				payload->ts.mono_time.tv_nsec;
 		}
 
 		cam_cpas_notify_event("IFE SOF", evt_info.hw_idx);
@@ -1487,8 +1487,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		evt_info.reg_val = payload->reg_val;
 		camif_priv->epoch_ts.tv_sec =
 			payload->ts.mono_time.tv_sec;
-		camif_priv->epoch_ts.tv_usec =
-			payload->ts.mono_time.tv_usec;
+		camif_priv->epoch_ts.tv_nsec =
+			payload->ts.mono_time.tv_nsec;
 
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
@@ -1502,8 +1502,8 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		CAM_DBG(CAM_ISP, "VFE:%d Received EOF", evt_info.hw_idx);
 		camif_priv->eof_ts.tv_sec =
 			payload->ts.mono_time.tv_sec;
-		camif_priv->eof_ts.tv_usec =
-			payload->ts.mono_time.tv_usec;
+		camif_priv->eof_ts.tv_nsec =
+			payload->ts.mono_time.tv_nsec;
 
 		cam_cpas_notify_event("IFE EOF", evt_info.hw_idx);
 
@@ -1521,11 +1521,11 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		CAM_INFO(CAM_ISP,
 			"SOF %lld:%lld EPOCH %lld:%lld EOF %lld:%lld",
 			camif_priv->sof_ts.tv_sec,
-			camif_priv->sof_ts.tv_usec,
+			camif_priv->sof_ts.tv_nsec,
 			camif_priv->epoch_ts.tv_sec,
-			camif_priv->epoch_ts.tv_usec,
+			camif_priv->epoch_ts.tv_nsec,
 			camif_priv->eof_ts.tv_sec,
-			camif_priv->eof_ts.tv_usec);
+			camif_priv->eof_ts.tv_nsec);
 		ktime_get_boottime_ts64(&ts);
 		CAM_INFO(CAM_ISP,
 			"current monotonic time stamp seconds %lld:%lld",
@@ -1562,11 +1562,11 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		CAM_INFO(CAM_ISP,
 			"SOF %lld:%lld EPOCH %lld:%lld EOF %lld:%lld",
 			camif_priv->sof_ts.tv_sec,
-			camif_priv->sof_ts.tv_usec,
+			camif_priv->sof_ts.tv_nsec,
 			camif_priv->epoch_ts.tv_sec,
-			camif_priv->epoch_ts.tv_usec,
+			camif_priv->epoch_ts.tv_nsec,
 			camif_priv->eof_ts.tv_sec,
-			camif_priv->eof_ts.tv_usec);
+			camif_priv->eof_ts.tv_nsec);
 		ktime_get_boottime_ts64(&ts);
 		CAM_INFO(CAM_ISP,
 			"current monotonic time stamp seconds %lld:%lld",

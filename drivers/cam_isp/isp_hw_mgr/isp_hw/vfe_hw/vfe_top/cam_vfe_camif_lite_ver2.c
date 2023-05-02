@@ -138,8 +138,8 @@ static int cam_vfe_camif_lite_err_irq_top_half(
 	if (error_flag) {
 		camif_lite_priv->error_ts.tv_sec =
 			evt_payload->ts.mono_time.tv_sec;
-		camif_lite_priv->error_ts.tv_usec =
-			evt_payload->ts.mono_time.tv_usec;
+		camif_lite_priv->error_ts.tv_nsec =
+			evt_payload->ts.mono_time.tv_nsec;
 	}
 
 	for (i = 0; i < th_payload->num_registers; i++)
@@ -310,7 +310,7 @@ static int cam_vfe_camif_lite_resource_start(
 	}
 
 	rsrc_data->error_ts.tv_sec = 0;
-	rsrc_data->error_ts.tv_usec = 0;
+	rsrc_data->error_ts.tv_nsec = 0;
 
 	CAM_DBG(CAM_ISP, "Start Camif Lite IFE %d Done",
 		camif_lite_res->hw_intf->hw_idx);
@@ -560,7 +560,7 @@ static int cam_vfe_camif_lite_handle_irq_bottom_half(
 		CAM_INFO(CAM_ISP,
 			"ERROR time %lld:%lld",
 			camif_lite_priv->error_ts.tv_sec,
-			camif_lite_priv->error_ts.tv_usec);
+			camif_lite_priv->error_ts.tv_nsec/NSEC_PER_USEC);
 		CAM_INFO(CAM_ISP, "ife_clk_src:%lld",
 			soc_private->ife_clk_src);
 
