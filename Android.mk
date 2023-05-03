@@ -1,3 +1,5 @@
+ifneq ($(TARGET_IS_HEADLESS),true)
+ifneq ($(TARGET_USES_QMAA_OVERRIDE_CAMERA),true)
 # Make target to specify building the camera.ko from within Android build system.
 LOCAL_PATH := $(call my-dir)
 # Path to DLKM make scripts
@@ -26,3 +28,6 @@ LOCAL_MODULE                := ais.ko
 LOCAL_MODULE_TAGS           := optional
 
 include $(DLKM_DIR)/Build_external_kernelmodule.mk
+
+endif #TARGET_USES_QMAA_OVERRIDE_CAMERA
+endif #TARGET_IS_HEADLESS

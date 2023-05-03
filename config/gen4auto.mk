@@ -1,0 +1,27 @@
+# Settings for compiling Gen3 (Hana, talos, poipu) camera architecture
+
+# Localized KCONFIG settings
+CONFIG_MSM_AIS := y
+CONFIG_MSM_AIS_UTIL := y
+CONFIG_MSM_AIS_UTIL_METAL := y
+CONFIG_MSM_AIS_UTIL_COMMON := y
+CONFIG_SPECTRA_CAMERA := y
+CONFIG_SPECTRA_ISP := y
+CONFIG_SPECTRA_SENSOR := y
+CONFIG_SPECTRA_ICP := y
+CONFIG_SPECTRA_JPEG := y
+CONFIG_SPECTRA_FD := y
+CONFIG_SPECTRA_LRME := y
+CONFIG_V4L2_LOOPBACK_V2 := y
+
+# Flags to pass into C preprocessor
+ccflags-y += -DCONFIG_MSM_AIS=1
+ccflags-y += -DCONFIG_SPECTRA_CAMERA=1
+ccflags-y += -DCONFIG_SPECTRA_ISP=1
+ccflags-y += -DCONFIG_SPECTRA_SENSOR=1
+ccflags-y += -DCONFIG_SPECTRA_ICP=1
+ccflags-y += -DCONFIG_SPECTRA_JPEG=1
+ccflags-y += -DCONFIG_SPECTRA_FD=1
+ccflags-y += -DCONFIG_SPECTRA_LRME=1
+ccflags-y += -DCONFIG_V4L2_LOOPBACK_V2=1
+#ccflags-y += -DCONFIG_INTERCONNECT_QCOM=1
