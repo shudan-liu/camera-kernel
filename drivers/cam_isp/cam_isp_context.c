@@ -4326,7 +4326,8 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_state(
 	req = list_first_entry(&ctx->active_req_list,
 		struct cam_ctx_request, list);
 
-	CAM_INFO(CAM_ISP, "Received RUP for Bubble Request", req->request_id);
+	CAM_INFO(CAM_ISP, "Received RUP for Bubble Request=%lld, ctx %u link: 0x%x",
+		req->request_id, ctx->ctx_id, ctx->link_hdl);
 
 	return 0;
 }

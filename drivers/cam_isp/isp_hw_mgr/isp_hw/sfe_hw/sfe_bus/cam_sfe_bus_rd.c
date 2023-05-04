@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/ratelimit.h>
@@ -1234,7 +1235,7 @@ int cam_sfe_bus_rd_init(
 
 	if (!soc_info || !hw_intf || !bus_hw_info) {
 		CAM_ERR(CAM_SFE,
-			"Invalid_params soc_info:%pK hw_intf:%pK hw_info:%pK data:%pK",
+			"Invalid_params soc_info:%pK hw_intf:%pK hw_info:%pK",
 			soc_info, hw_intf, bus_rd_hw_info);
 		rc = -EINVAL;
 		goto end;

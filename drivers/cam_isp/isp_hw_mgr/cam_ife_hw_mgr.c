@@ -2530,7 +2530,8 @@ static int cam_ife_hw_mgr_acquire_res_ife_bus_rd(
 	}
 
 	if (j == CAM_IFE_HW_NUM_MAX || !vfe_acquire.vfe_bus_rd.rsrc_node) {
-		CAM_ERR(CAM_ISP, "Failed to acquire BUS RD for LEFT", i);
+		CAM_ERR(CAM_ISP, "Failed to acquire VFE:%d BUS RD for LEFT, ctx_idx: %u",
+			j, ife_ctx->ctx_index);
 		goto put_res;
 	}
 
@@ -2707,7 +2708,9 @@ static int cam_ife_mgr_acquire_hw_for_offline_ctx(
 	if ((!in_port->ipp_count && !in_port->lcr_count) ||
 		!in_port->ife_rd_count) {
 		CAM_ERR(CAM_ISP,
-			"Invalid %d BUS RD %d PIX %d LCR ports for FE ctx");
+			"Invalid %d BUS RD %d PIX %d LCR ports for FE ctx: %u",
+			in_port->ife_rd_count, in_port->ipp_count, in_port->lcr_count,
+			ife_ctx->ctx_index);
 		return -EINVAL;
 	}
 
@@ -4324,7 +4327,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		msecs_to_jiffies(10));
 	if (rem_jiffies == 0)
 		CAM_WARN(CAM_ISP,
-			"config done completion timeout for last applied req_id=%llu ctx_index %",
+			"config done completion timeout for last applied req_id=%llu ctx_index %u",
 			ctx->applied_req_id, ctx->ctx_index);
 
 	if (stop_isp->stop_only)
@@ -6286,9 +6289,8 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		struct cam_isp_vfe_out_config *vfe_out_config;
 
 		if (blob_size < sizeof(struct cam_isp_vfe_out_config)) {
-			CAM_ERR(CAM_ISP, "Invalid blob size %u",
-				blob_size,
-				sizeof(struct cam_isp_vfe_out_config));
+			CAM_ERR(CAM_ISP, "Invalid blob size %u, ctx_idx: %u",
+				blob_size, ife_mgr_ctx->ctx_index);
 			return -EINVAL;
 		}
 
@@ -6297,9 +6299,8 @@ static int cam_isp_packet_generic_blob_handler(void *user_data,
 		if (vfe_out_config->num_ports > max_ife_out_res ||
 			vfe_out_config->num_ports == 0) {
 			CAM_ERR(CAM_ISP,
-				"Invalid num_ports:%u in vfe out config",
-				vfe_out_config->num_ports,
-				max_ife_out_res);
+				"Invalid num_ports:%u in vfe out config, ctx_idx: %u",
+				vfe_out_config->num_ports, ife_mgr_ctx->ctx_index);
 			return -EINVAL;
 		}
 
@@ -7718,7 +7719,7 @@ static int cam_ife_hw_mgr_handle_csid_event(
 		if (cam_ife_hw_mgr_dump_hw_src_clock(event_info->hw_idx,
 			CAM_ISP_HW_TYPE_VFE))
 			CAM_ERR_RATE_LIMIT(CAM_ISP,
-				"VFE%d src_clk_rate dump failed");
+				"VFE%d src_clk_rate dump failed", event_info->hw_idx);
 		break;
 	default:
 		break;
