@@ -74,4 +74,6 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 
 int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info);
 
+long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name);
+
 #endif /* _CAM_COMPAT_H_ */

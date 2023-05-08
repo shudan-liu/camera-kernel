@@ -5,6 +5,7 @@
  */
 
 #include <linux/dma-mapping.h>
+#include <linux/dma-buf.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
 
@@ -399,6 +400,23 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 {
 	return cam_subdev_list_cmp(list_entry(head_1, struct cam_subdev, list),
 		list_entry(head_2, struct cam_subdev, list));
+}
+#endif
+
+#if (KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE && \
+	KERNEL_VERSION(5, 18, 0) > LINUX_VERSION_CODE)
+long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name)
+{
+	long ret = 0;
+
+	ret = dma_buf_set_name(dmabuf, name);
+
+	return ret;
+}
+#else
+long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name)
+{
+	return 0;
 }
 #endif
 
