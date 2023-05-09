@@ -8480,7 +8480,6 @@ free_cdm_cmd:
 free_res:
 	cam_ife_hw_mgr_release_hw_for_ctx(ife_ctx,
 		CAM_IFE_STREAM_GRP_INDEX_NONE);
-	cam_cdm_release(ife_ctx->cdm_handle);
 	cam_ife_hw_mgr_put_ctx(&ife_hw_mgr->free_ctx_list, &ife_ctx);
 free_mem:
 	if (gen_port_info) {
