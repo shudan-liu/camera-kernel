@@ -595,6 +595,7 @@ static int cam_icp_remove_ctx_bw(struct cam_icp_hw_mgr *hw_mgr,
 			sizeof(struct cam_axi_per_path_bw_vote));
 		ctx_data->clk_info.curr_fc = 0;
 		ctx_data->clk_info.base_clk = 0;
+		ctx_data->clk_info.num_paths = 0;
 
 		clk_update.axi_vote.num_paths = clk_info->num_paths;
 		memcpy(&clk_update.axi_vote.axi_path[0],
