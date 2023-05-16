@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_COMPAT_H_
@@ -13,6 +14,11 @@
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(5, 7, 0)
+
+#define VFL_TYPE_VIDEO VFL_TYPE_GRABBER
+
+#endif
 #if KERNEL_VERSION(5, 4, 0) <= LINUX_VERSION_CODE
 
 #include <linux/msm_ion.h>
@@ -41,5 +47,10 @@ int camera_component_match_add_drivers(struct device *master_dev,
 	struct component_match **match_list);
 int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 	bool protect, int32_t offset);
+void cam_free_clear(const void *);
+int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr);
+void cam_compat_util_put_dmabuf_va(struct dma_buf *dmabuf, void *vaddr);
+void cam_smmu_util_iommu_custom(struct device *dev,
+	dma_addr_t discard_start, size_t discard_length);
 
 #endif /* _CAM_COMPAT_H_ */

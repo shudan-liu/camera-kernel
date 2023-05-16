@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2014-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SMMU_API_H_
@@ -63,9 +64,6 @@ struct cam_smmu_pf_info {
 	int                  flags;
 	void                *token;
 	uint32_t             buf_info;
-	uint32_t             bid;
-	uint32_t             pid;
-	uint32_t             mid;
 };
 
 /**

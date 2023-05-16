@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -8,7 +9,7 @@
 #include <linux/slab.h>
 #include <linux/uaccess.h>
 #include <media/cam_sync.h>
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 
 #include "cam_context.h"
 #include "cam_context_utils.h"
@@ -1029,9 +1030,6 @@ int32_t cam_context_dump_pf_info_to_hw(struct cam_context *ctx,
 		cmd_args.u.pf_args.mem_found = mem_found;
 		cmd_args.u.pf_args.ctx_found = ctx_found;
 		cmd_args.u.pf_args.resource_type = resource_type;
-		cmd_args.u.pf_args.bid = pf_info->bid;
-		cmd_args.u.pf_args.pid = pf_info->pid;
-		cmd_args.u.pf_args.mid = pf_info->mid;
 		ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
 			&cmd_args);
 	}

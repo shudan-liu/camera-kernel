@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -1382,22 +1383,6 @@ static void cam_hw_cdm_iommu_fault_handler(struct cam_smmu_pf_info *pf_info)
 		pid_mid_info = core->offsets->cmn_reg->cdm_pid_mid_info;
 		CAM_ERR_RATE_LIMIT(CAM_CDM, "Page fault iova addr %pK\n",
 			(void *)pf_info->iova);
-
-		if (pid_mid_info) {
-			/*
-			 * If its CDM or OPE CDM then only handle the pf for CDM
-			 * else return.
-			 */
-			if (((pf_info->pid == pid_mid_info->cdm_pid) &&
-				(pf_info->mid == pid_mid_info->cdm_mid)) ||
-				((pf_info->pid == pid_mid_info->ope_cdm_pid) &&
-				(pf_info->mid == pid_mid_info->ope_cdm_mid)))
-				goto handle_cdm_pf;
-			else
-				return;
-		}
-
-handle_cdm_pf:
 		set_bit(CAM_CDM_ERROR_HW_STATUS, &core->cdm_status);
 		mutex_lock(&cdm_hw->hw_mutex);
 		for (i = 0; i < core->offsets->reg_data->num_bl_fifo; i++)

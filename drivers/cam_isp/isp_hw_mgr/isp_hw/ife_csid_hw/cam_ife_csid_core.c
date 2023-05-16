@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
 #include <linux/slab.h>
 
 #include <media/cam_isp.h>
-#include <media/cam_defs.h>
+#include "cam_defs.h"
 
 #include <media/cam_req_mgr.h>
-#include <dt-bindings/msm/msm-camera.h>
 
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_ife_csid_core.h"
@@ -22,7 +21,7 @@
 #include "cam_cpas_api.h"
 #include "cam_subdev.h"
 #include "cam_tasklet_util.h"
-#include "dt-bindings/msm/msm-camera.h"
+#include "dt-bindings/msm-camera.h"
 
 /* Timeout value in msec */
 #define IFE_CSID_TIMEOUT                               1000
@@ -376,9 +375,7 @@ static int cam_ife_match_vc_dt_pair(int32_t *vc, uint32_t *dt,
 		return -EINVAL;
 	}
 
-	if ((camera_hw_version != CAM_CPAS_TITAN_480_V100) ||
-		(camera_hw_version != CAM_CPAS_TITAN_580_V100) ||
-		(camera_hw_version != CAM_CPAS_TITAN_570_V200))
+	if (camera_hw_version != CAM_CPAS_TITAN_480_V100)
 		num_valid_vc_dt = 1;
 
 	switch (num_valid_vc_dt) {

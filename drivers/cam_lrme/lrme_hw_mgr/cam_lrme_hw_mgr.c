@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1031,15 +1032,9 @@ static int cam_lrme_mgr_create_debugfs_entry(void)
 	/* Store parent inode for cleanup in caller */
 	g_lrme_hw_mgr.debugfs_entry.dentry = dbgfileptr;
 
-	dbgfileptr = debugfs_create_bool("dump_register", 0644,
+	debugfs_create_bool("dump_register", 0644,
 		g_lrme_hw_mgr.debugfs_entry.dentry,
 		&g_lrme_hw_mgr.debugfs_entry.dump_register);
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_LRME, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
 
 err:
 	return rc;

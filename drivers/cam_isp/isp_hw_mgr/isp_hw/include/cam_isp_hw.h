@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_HW_H_
@@ -27,8 +27,8 @@
  * @ticks:              Qtimer ticks
  */
 struct cam_isp_timestamp {
-	struct timeval          mono_time;
-	struct timeval          vt_time;
+	struct timespec64          mono_time;
+	struct timespec64          vt_time;
 	uint64_t                ticks;
 };
 

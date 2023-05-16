@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -15,6 +16,7 @@
 #include "cam_cpas_soc.h"
 #include "cam_req_mgr_dev.h"
 #include "cam_smmu_api.h"
+#include "cam_compat.h"
 
 static uint cam_min_camnoc_ib_bw;
 module_param(cam_min_camnoc_ib_bw, uint, 0644);
@@ -1124,7 +1126,7 @@ static int cam_cpas_hw_update_axi_vote(struct cam_hw_info *cpas_hw,
 	cam_cpas_update_monitor_array(cpas_hw, "CPAS AXI post-update",
 		client_indx);
 unlock_client:
-	kzfree(axi_vote);
+	cam_free_clear((void *)axi_vote);
 	axi_vote = NULL;
 	mutex_unlock(&cpas_core->client_mutex[client_indx]);
 	mutex_unlock(&cpas_hw->hw_mutex);
@@ -2402,18 +2404,12 @@ static int cam_cpas_util_create_debugfs(struct cam_cpas *cpas_core)
 	/* Store parent inode for cleanup in caller */
 	cpas_core->dentry = dbgfileptr;
 
-	dbgfileptr = debugfs_create_bool("ahb_bus_scaling_disable", 0644,
+	debugfs_create_bool("ahb_bus_scaling_disable", 0644,
 		cpas_core->dentry, &cpas_core->ahb_bus_scaling_disable);
 
-	dbgfileptr = debugfs_create_bool("full_state_dump", 0644,
+	debugfs_create_bool("full_state_dump", 0644,
 		cpas_core->dentry, &cpas_core->full_state_dump);
 
-	if (IS_ERR(dbgfileptr)) {
-		if (PTR_ERR(dbgfileptr) == -ENODEV)
-			CAM_WARN(CAM_CPAS, "DebugFS not enabled in kernel!");
-		else
-			rc = PTR_ERR(dbgfileptr);
-	}
 end:
 	return rc;
 }
