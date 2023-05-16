@@ -15,7 +15,7 @@
 
 #define CAM_CPAS_INFLIGHT_WORKS              5
 #define CAM_CPAS_MAX_CLIENTS                 40
-#define CAM_CPAS_MAX_AXI_PORTS               6
+#define CAM_CPAS_MAX_AXI_PORTS               41
 #define CAM_CPAS_MAX_TREE_LEVELS             4
 #define CAM_CPAS_MAX_GRAN_PATHS_PER_CLIENT   32
 #define CAM_CPAS_PATH_DATA_MAX               38
