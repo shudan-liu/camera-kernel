@@ -18,3 +18,5 @@ header-y += cam_isp.h
 header-y += cam_sync.h
 header-y += cam_custom.h
 header-y += cam_lrme.h
+header-y += cam_v4l2loopback.h
+header-y += cam_v4l2loopback_internal.h
