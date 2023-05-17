@@ -1,4 +1,5 @@
 /* Copyright (c) 2022, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,7 +53,7 @@ static void __exit cam_v4l_nodes_exit_module(void)
 	platform_driver_unregister(&cam_v4l_nodes_driver);
 }
 
-module_init(cam_v4l_nodes_init_module);
+early_module_init(cam_v4l_nodes_init_module, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 module_exit(cam_v4l_nodes_exit_module);
 MODULE_DESCRIPTION("CAMERA V4L Nodes driver");
 MODULE_LICENSE("GPL v2");

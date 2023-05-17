@@ -1,4 +1,5 @@
 /* Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -911,7 +912,7 @@ static void __exit cam_req_mgr_exit(void)
 	platform_driver_unregister(&cam_req_mgr_driver);
 }
 
-module_init(cam_req_mgr_init);
+early_module_init(cam_req_mgr_init, EARLY_SUBSYS_3, EARLY_INIT_LEVEL2);
 //late_initcall(cam_req_mgr_late_init);
 module_exit(cam_req_mgr_exit);
 MODULE_DESCRIPTION("Camera Request Manager");
