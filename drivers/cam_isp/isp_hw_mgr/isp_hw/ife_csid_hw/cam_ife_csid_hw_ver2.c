@@ -1546,6 +1546,7 @@ static int cam_ife_csid_ver2_ipp_bottom_half(
 	uint32_t                                      err_mask;
 	uint32_t                                      err_type = 0;
 	int                                           i, rc = 0;
+	uint64_t                                      timestamp;
 
 	if (!handler_priv || !evt_payload_priv) {
 		CAM_ERR(CAM_ISP, "Invalid params. evt_payload_priv: %s, handler_priv: %s",
@@ -1575,20 +1576,27 @@ static int cam_ife_csid_ver2_ipp_bottom_half(
 	}
 
 	irq_status_ipp = payload->irq_reg_val[path_cfg->irq_reg_idx];
+	timestamp = ((uint64_t)payload->irq_reg_val[CAM_IFE_CSID_IRQ_REG_TIMESTAMP_1] << 32) |
+		payload->irq_reg_val[CAM_IFE_CSID_IRQ_REG_TIMESTAMP_0];
+	timestamp = mul_u64_u32_div(timestamp,
+			CAM_IFE_CSID_QTIMER_MUL_FACTOR,
+			CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 
-	CAM_DBG(CAM_ISP, "CSID[%u] IPP status:0x%x", csid_hw->hw_intf->hw_idx,
-		irq_status_ipp);
+	CAM_DBG(CAM_ISP, "CSID[%u] IPP status:0x%x timestamp 0x%llx", csid_hw->hw_intf->hw_idx,
+		irq_status_ipp, timestamp);
 
 	if (!csid_hw->flags.device_enabled) {
 		CAM_DBG(CAM_ISP, "bottom-half after stop [0x%x]", irq_status_ipp);
 		goto end;
 	}
 
-	evt_info.hw_type  = CAM_ISP_HW_TYPE_CSID;
-	evt_info.hw_idx   = csid_hw->hw_intf->hw_idx;
-	evt_info.res_id   = CAM_IFE_PIX_PATH_RES_IPP;
-	evt_info.res_type = CAM_ISP_RESOURCE_PIX_PATH;
-	evt_info.reg_val  = irq_status_ipp;
+
+	evt_info.event_data = &timestamp;
+	evt_info.hw_type    = CAM_ISP_HW_TYPE_CSID;
+	evt_info.hw_idx     = csid_hw->hw_intf->hw_idx;
+	evt_info.res_id     = CAM_IFE_PIX_PATH_RES_IPP;
+	evt_info.res_type   = CAM_ISP_RESOURCE_PIX_PATH;
+	evt_info.reg_val    = irq_status_ipp;
 	for (i = 0; i < CAM_IFE_PIX_PATH_RES_MAX; i++) {
 		if (csid_hw->token_data[i].res_id == res->res_id) {
 			token = csid_hw->token_data[i].token;
@@ -1801,9 +1809,9 @@ static int cam_ife_csid_ver2_rdi_bottom_half(
 		goto end;
 	}
 
-	CAM_DBG(CAM_ISP, "CSID[%u] RDI:%d status:0x%x",
+	CAM_DBG(CAM_ISP, "CSID[%u] RDI:%d status:0x%x timestamp 0x%llx",
 			csid_hw->hw_intf->hw_idx,
-			res->res_id, irq_status_rdi);
+			res->res_id, irq_status_rdi, timestamp);
 	err_mask = rdi_reg->non_fatal_err_mask |
 		rdi_reg->fatal_err_mask;
 
