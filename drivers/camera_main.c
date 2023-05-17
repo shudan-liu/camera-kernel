@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/build_bug.h>
@@ -66,6 +66,10 @@
 
 #include "cam_generated_h"
 
+#ifdef CONFIG_V4L2_LOOPBACK
+#include "v4l2loopback.h"
+#endif
+
 const char camera_banner[] = "Camera-Banner: (" CAMERA_COMPILE_BY "@"
 	CAMERA_COMPILE_HOST ") (" CAMERA_COMPILE_TIME ")";
 
@@ -86,6 +90,7 @@ struct camera_submodule {
 };
 
 static const struct camera_submodule_component camera_base[] = {
+#ifdef CONFIG_MSM_QCX
 	{&cam_req_mgr_init, &cam_req_mgr_exit},
 	{&cam_rpmsg_init, &cam_rpmsg_exit},
 	{&cam_sync_init, &cam_sync_exit},
@@ -93,6 +98,7 @@ static const struct camera_submodule_component camera_base[] = {
 	{&cam_cpas_dev_init_module, &cam_cpas_dev_exit_module},
 	{&cam_cdm_intf_init_module, &cam_cdm_intf_exit_module},
 	{&cam_hw_cdm_init_module, &cam_hw_cdm_exit_module},
+#endif
 };
 
 static const struct camera_submodule_component camera_tfe[] = {
@@ -190,6 +196,12 @@ static const struct camera_submodule_component camera_presil[] = {
 #endif
 };
 
+static const struct camera_submodule_component camera_v4l2loopback[] = {
+#ifdef CONFIG_V4L2_LOOPBACK
+	{&v4l2loopback_init_module, &v4l2loopback_cleanup_module},
+#endif
+};
+
 static const struct camera_submodule submodule_table[] = {
 	{
 		.name = "Camera BASE",
@@ -250,6 +262,11 @@ static const struct camera_submodule submodule_table[] = {
 		.name = "Camera Presil",
 		.num_component = ARRAY_SIZE(camera_presil),
 		.component = camera_presil,
+	},
+	{
+		.name = "Camera V4L2loopback_v2",
+		.num_component = ARRAY_SIZE(camera_v4l2loopback),
+		.component = camera_v4l2loopback,
 	}
 };
 

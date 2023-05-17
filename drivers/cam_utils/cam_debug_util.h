@@ -56,6 +56,7 @@ enum cam_debug_module_id {
 	CAM_RPMSG,               /* bit 34 */
 	CAM_SENSOR_LITE,         /* bit 35 */
 	CAM_CSIPHY_REMOTE,       /* bit 36 */
+	CAM_V4L2,                /* bit 37 */
 	CAM_DBG_MOD_MAX
 };
 

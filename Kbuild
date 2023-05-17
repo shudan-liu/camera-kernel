@@ -14,6 +14,12 @@ ifeq ($(CONFIG_ARCH_LEMANS), y)
 include $(CAMERA_KERNEL_ROOT)/config/lemans.mk
 endif
 
+
+ifeq ($(CONFIG_QTI_QUIN_GVM), y)
+include $(CAMERA_KERNEL_ROOT)/config/gen4gvm.mk
+endif
+
+
 # List of all camera-kernel headers
 cam_include_dirs := $(shell dirname `find $(CAMERA_KERNEL_ROOT) -name '*.h'` | uniq)
 
@@ -33,7 +39,8 @@ ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm
 # stack frame size error limit is 2048 by default, increasing it to 4096
 ccflags-y += ${ccflags-m} -Wframe-larger-than=4096 -DENABLE_ONLY_IFELITE=1 -DHNDL_CAMX_SNSR_SYNC=1
 
-camera-y := \
+
+camera-$(CONFIG_SPECTRA_CORE) := \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
 	drivers/cam_req_mgr/cam_req_mgr_dev.o \
 	drivers/cam_req_mgr/cam_req_mgr_util.o \
@@ -44,9 +51,6 @@ camera-y := \
 	drivers/cam_req_mgr/cam_fastrpc.o \
 	drivers/cam_utils/cam_soc_util.o \
 	drivers/cam_utils/cam_packet_util.o \
-	drivers/cam_utils/cam_debug_util.o \
-	drivers/cam_utils/cam_trace.o \
-	drivers/cam_utils/cam_common_util.o \
 	drivers/cam_utils/cam_compat.o \
 	drivers/cam_core/cam_context.o \
 	drivers/cam_core/cam_context_utils.o \
@@ -262,6 +266,14 @@ camera-$(CONFIG_SPECTRA_TFE) += \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/tfe_csid_hw/cam_tfe_csid_core.o \
 	drivers/cam_isp/isp_hw_mgr/isp_hw/tfe_csid_hw/cam_tfe_csid.o \
 	drivers/cam_isp/isp_hw_mgr/cam_tfe_hw_mgr.o
+
+camera-$(CONFIG_CAM_UTIL_COMMON) += \
+	drivers/cam_utils/cam_common_util.o \
+	drivers/cam_utils/cam_trace.o \
+	drivers/cam_utils/cam_debug_util.o
+
+camera-$(CONFIG_V4L2_LOOPBACK) += \
+	drivers/v4l2loopback-master/v4l2loopback.o
 
 camera-y += drivers/camera_main.o
 

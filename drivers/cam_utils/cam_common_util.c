@@ -258,3 +258,16 @@ end:
 	return rc;
 }
 #endif
+
+void cam_common_util_get_curr_timestamp(struct timespec64 *time_stamp)
+{
+	ktime_t   cur_time;
+	struct timespec64 ts;
+
+	cur_time = ktime_get();
+
+	ts = ktime_to_timespec64(cur_time);
+
+	time_stamp->tv_sec    = ts.tv_sec;
+	time_stamp->tv_nsec   = ts.tv_nsec;
+}
