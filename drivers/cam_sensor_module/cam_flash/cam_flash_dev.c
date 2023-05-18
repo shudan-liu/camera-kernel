@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -9,6 +10,7 @@
 #include "cam_flash_core.h"
 #include "cam_common_util.h"
 #include "camera_main.h"
+#include "cam_compat.h"
 
 static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		void *arg, struct cam_flash_private_soc *soc_private)
@@ -358,22 +360,24 @@ static long cam_flash_subdev_do_ioctl(struct v4l2_subdev *sd,
 }
 #endif
 
-static int32_t cam_flash_i2c_driver_remove(struct i2c_client *client)
+int cam_flash_i2c_driver_remove_common(struct i2c_client *client)
 {
-	int32_t rc = 0;
+	int rc = 0;
 	struct cam_flash_ctrl *fctrl = i2c_get_clientdata(client);
 	/* Handle I2C Devices */
+
 	if (!fctrl) {
 		CAM_ERR(CAM_FLASH, "Flash device is NULL");
-		return -EINVAL;
+		rc = -EINVAL;
+		return rc;
 	}
-
 	CAM_INFO(CAM_FLASH, "i2c driver remove invoked");
 	/*Free Allocated Mem */
 	kfree(fctrl->i2c_data.per_frame);
 	fctrl->i2c_data.per_frame = NULL;
 	kfree(fctrl);
-	return rc;
+
+	return 0;
 }
 
 static struct v4l2_subdev_core_ops cam_flash_subdev_core_ops = {

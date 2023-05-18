@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_ois_dev.h"
@@ -9,6 +10,7 @@
 #include "cam_ois_core.h"
 #include "cam_debug_util.h"
 #include "camera_main.h"
+#include "cam_compat.h"
 
 static int cam_ois_subdev_close_internal(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
@@ -235,17 +237,19 @@ probe_failure:
 	return rc;
 }
 
-static int cam_ois_i2c_driver_remove(struct i2c_client *client)
+int cam_ois_i2c_driver_remove_common(struct i2c_client *client)
 {
-	int                             i;
-	struct cam_ois_ctrl_t          *o_ctrl = i2c_get_clientdata(client);
-	struct cam_hw_soc_info         *soc_info;
-	struct cam_ois_soc_private     *soc_private;
-	struct cam_sensor_power_ctrl_t *power_info;
+	int i = 0;
+	struct cam_hw_soc_info         *soc_info =    NULL;
+	struct cam_ois_soc_private     *soc_private = NULL;
+	struct cam_sensor_power_ctrl_t *power_info  = NULL;
+	int rc = 0;
+	struct cam_ois_ctrl_t  *o_ctrl = i2c_get_clientdata(client);
 
 	if (!o_ctrl) {
 		CAM_ERR(CAM_OIS, "ois device is NULL");
-		return -EINVAL;
+		rc = -EINVAL;
+		return rc;
 	}
 
 	CAM_INFO(CAM_OIS, "i2c driver remove invoked");
@@ -257,7 +261,9 @@ static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 	mutex_lock(&(o_ctrl->ois_mutex));
 	cam_ois_shutdown(o_ctrl);
 	mutex_unlock(&(o_ctrl->ois_mutex));
-	cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
+	rc = cam_unregister_subdev(&(o_ctrl->v4l2_dev_str));
+	if (rc)
+		CAM_ERR(CAM_OIS, "ois unregistering device is not sucessful");
 
 	soc_private =
 		(struct cam_ois_soc_private *)soc_info->soc_private;
@@ -267,7 +273,7 @@ static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 	v4l2_set_subdevdata(&o_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(o_ctrl);
 
-	return 0;
+	return rc;
 }
 
 static int cam_ois_component_bind(struct device *dev,

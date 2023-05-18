@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_actuator_dev.h"
@@ -9,6 +10,45 @@
 #include "cam_actuator_core.h"
 #include "cam_trace.h"
 #include "camera_main.h"
+#include "cam_compat.h"
+
+
+int cam_actuator_driver_i2c_remove_common(struct i2c_client *client)
+{
+	int rc = 0;
+	struct cam_actuator_ctrl_t      *a_ctrl =
+		i2c_get_clientdata(client);
+	struct cam_actuator_soc_private *soc_private;
+	struct cam_sensor_power_ctrl_t  *power_info;
+
+	if (!a_ctrl) {
+		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
+		rc = -EINVAL;
+		return rc;
+	}
+
+	CAM_INFO(CAM_ACTUATOR, "i2c remove invoked");
+	mutex_lock(&(a_ctrl->actuator_mutex));
+	cam_actuator_shutdown(a_ctrl);
+	mutex_unlock(&(a_ctrl->actuator_mutex));
+	rc = cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+
+	if (rc)
+		CAM_ERR(CAM_ACTUATOR, "unregistering actuator subdev is unsucessful");
+
+	soc_private =
+		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
+	power_info = &soc_private->power_info;
+
+	/*Free Allocated Mem */
+	kfree(a_ctrl->i2c_data.per_frame);
+	a_ctrl->i2c_data.per_frame = NULL;
+	a_ctrl->soc_info.soc_private = NULL;
+	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
+	kfree(a_ctrl);
+
+	return rc;
+}
 
 static int cam_actuator_subdev_close_internal(struct v4l2_subdev *sd,
 	struct v4l2_subdev_fh *fh)
@@ -388,38 +428,6 @@ static int32_t cam_actuator_platform_remove(
 	struct platform_device *pdev)
 {
 	component_del(&pdev->dev, &cam_actuator_component_ops);
-	return 0;
-}
-
-static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
-{
-	struct cam_actuator_ctrl_t      *a_ctrl =
-		i2c_get_clientdata(client);
-	struct cam_actuator_soc_private *soc_private;
-	struct cam_sensor_power_ctrl_t  *power_info;
-
-	/* Handle I2C Devices */
-	if (!a_ctrl) {
-		CAM_ERR(CAM_ACTUATOR, "Actuator device is NULL");
-		return -EINVAL;
-	}
-
-	CAM_INFO(CAM_ACTUATOR, "i2c remove invoked");
-	mutex_lock(&(a_ctrl->actuator_mutex));
-	cam_actuator_shutdown(a_ctrl);
-	mutex_unlock(&(a_ctrl->actuator_mutex));
-	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
-	soc_private =
-		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
-	power_info = &soc_private->power_info;
-
-	/*Free Allocated Mem */
-	kfree(a_ctrl->i2c_data.per_frame);
-	a_ctrl->i2c_data.per_frame = NULL;
-	a_ctrl->soc_info.soc_private = NULL;
-	v4l2_set_subdevdata(&a_ctrl->v4l2_dev_str.sd, NULL);
-	kfree(a_ctrl);
-
 	return 0;
 }
 
