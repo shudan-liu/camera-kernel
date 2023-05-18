@@ -370,7 +370,7 @@ int32_t cam_sensor_util_write_qtimer_to_io_buffer(
 
 		rc = cam_sensor_util_get_current_qtimer_ns(&qtime_ns);
 		if (rc < 0) {
-			CAM_ERR(CAM_SENSOR, "failed to get qtimer rc:%d");
+			CAM_ERR(CAM_SENSOR, "failed to get qtimer rc:%d", rc);
 			return rc;
 		}
 
