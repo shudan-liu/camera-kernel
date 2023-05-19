@@ -902,6 +902,7 @@ static int cam_isp_ctx_dump_req(
 				CAM_ERR(CAM_ISP,
 					"Invalid offset exp %u actual %u",
 					req_isp->cfg[i].offset, (uint32_t)len);
+				cam_mem_put_cpu_buf(req_isp->cfg[i].handle);
 				return -EINVAL;
 			}
 			remain_len = len - req_isp->cfg[i].offset;
@@ -912,6 +913,7 @@ static int cam_isp_ctx_dump_req(
 					"Invalid len exp %u remain_len %u",
 					req_isp->cfg[i].len,
 					(uint32_t)remain_len);
+				cam_mem_put_cpu_buf(req_isp->cfg[i].handle);
 				return -EINVAL;
 			}
 
@@ -937,6 +939,7 @@ static int cam_isp_ctx_dump_req(
 					return rc;
 			} else
 				cam_cdm_util_dump_cmd_buf(buf_start, buf_end);
+			cam_mem_put_cpu_buf(req_isp->cfg[i].handle);
 		}
 	}
 	return rc;
@@ -4696,6 +4699,7 @@ hw_dump:
 		mutex_unlock(&ctx_isp->isp_mutex);
 		CAM_WARN(CAM_ISP, "Dump buffer overshoot len %zu offset %zu",
 			buf_len, dump_info->offset);
+		cam_mem_put_cpu_buf(dump_info->buf_handle);
 		return -ENOSPC;
 	}
 
@@ -4704,9 +4708,10 @@ hw_dump:
 		(CAM_ISP_CTX_DUMP_NUM_WORDS * sizeof(uint64_t));
 
 	if (remain_len < min_len) {
-		mutex_unlock(&ctx_isp->isp_mutex);
 		CAM_WARN(CAM_ISP, "Dump buffer exhaust remain %zu min %u",
 			remain_len, min_len);
+		cam_mem_put_cpu_buf(dump_info->buf_handle);
+		mutex_unlock(&ctx_isp->isp_mutex);
 		return -ENOSPC;
 	}
 
@@ -4745,10 +4750,12 @@ hw_dump:
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Dump event fail %lld",
 			req->request_id);
+		cam_mem_put_cpu_buf(dump_info->buf_handle);
 		mutex_unlock(&ctx_isp->isp_mutex);
 		return rc;
 	}
 	if (dump_only_event_record) {
+		cam_mem_put_cpu_buf(dump_info->buf_handle);
 		mutex_unlock(&ctx_isp->isp_mutex);
 		return rc;
 	}
@@ -4757,6 +4764,7 @@ hw_dump:
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Dump Req info fail %lld",
 			req->request_id);
+		cam_mem_put_cpu_buf(dump_info->buf_handle);
 		mutex_unlock(&ctx_isp->isp_mutex);
 		return rc;
 	}
@@ -4772,6 +4780,7 @@ hw_dump:
 			&dump_args);
 		dump_info->offset = dump_args.offset;
 	}
+	cam_mem_put_cpu_buf(dump_info->buf_handle);
 	return rc;
 }
 

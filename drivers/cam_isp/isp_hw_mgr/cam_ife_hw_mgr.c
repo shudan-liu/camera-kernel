@@ -16249,7 +16249,7 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 	 */
 	if (ife_ctx->num_reg_dump_buf) {
 		cam_ife_mgr_user_dump_hw(ife_ctx, dump_args);
-		goto end;
+		return 0;
 	}
 
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
@@ -16263,6 +16263,14 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 
 	isp_hw_dump_args.offset = dump_args->offset;
 	isp_hw_dump_args.req_id = dump_args->request_id;
+
+	if (isp_hw_dump_args.buf_len <= isp_hw_dump_args.offset) {
+		CAM_ERR(CAM_ISP,
+			"Dump offset overshoot offset %zu buf_len %zu",
+			isp_hw_dump_args.offset, isp_hw_dump_args.buf_len);
+		cam_mem_put_cpu_buf(dump_args->buf_handle);
+		return -EINVAL;
+	}
 
 	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
@@ -16339,9 +16347,9 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 			}
 		}
 	}
+
 	dump_args->offset = isp_hw_dump_args.offset;
-end:
-	CAM_DBG(CAM_ISP, "offset %u", dump_args->offset);
+	cam_mem_put_cpu_buf(dump_args->buf_handle);
 	return rc;
 }
 
