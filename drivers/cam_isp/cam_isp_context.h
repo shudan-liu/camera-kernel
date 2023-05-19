@@ -327,6 +327,7 @@ struct cam_isp_context_event_record {
  * @rdi_stats_context:         Indicate whether context is for rdi and stats
  * @sensor_pd_handled:         Indicate if sensor pd is handled in independent crm case
  * @additional_timeout:        Additional timeout required for last applied request
+ * @frame_drop_cnt:            Count of continous frame drops
  */
 struct cam_isp_context {
 	struct cam_context              *base;
@@ -399,6 +400,7 @@ struct cam_isp_context {
 	bool                                   rdi_stats_context;
 	bool                                   sensor_pd_handled;
 	int32_t                                additional_timeout;
+	int32_t                                frame_drop_cnt;
 };
 
 /**
