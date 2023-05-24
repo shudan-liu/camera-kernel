@@ -12,6 +12,20 @@
 
 #define SENSOR_DEBUGFS_NAME_MAX_SIZE 10
 
+static int cam_sensor_subdev_subscribe_event(struct v4l2_subdev *sd,
+	struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return v4l2_event_subscribe(fh, sub, CAM_SUBDEVICE_EVENT_MAX, NULL);
+}
+
+static int cam_sensor_subdev_unsubscribe_event(struct v4l2_subdev *sd,
+	struct v4l2_fh *fh,
+	struct v4l2_event_subscription *sub)
+{
+	return v4l2_event_unsubscribe(fh, sub);
+}
+
 static int cam_sensor_debug_register(
 		struct cam_sensor_ctrl_t *s_ctrl)
 {
@@ -152,6 +166,8 @@ static struct v4l2_subdev_core_ops cam_sensor_subdev_core_ops = {
 	.compat_ioctl32 = cam_sensor_init_subdev_do_ioctl,
 #endif
 	.s_power = cam_sensor_power,
+	.subscribe_event = cam_sensor_subdev_subscribe_event,
+	.unsubscribe_event = cam_sensor_subdev_unsubscribe_event,
 };
 
 static struct v4l2_subdev_ops cam_sensor_subdev_ops = {

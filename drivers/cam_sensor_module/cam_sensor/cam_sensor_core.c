@@ -982,7 +982,9 @@ static int cam_sensor_process_read_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	struct ais_sensor_cmd_i2c_read i2c_read;
 	struct cam_sensor_i2c_slave_info slave_info;
 
-	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE) {
+	if (s_ctrl->sensor_state != CAM_SENSOR_ACQUIRE &&
+		(s_ctrl->sensor_state != CAM_SENSOR_CONFIG) &&
+		(s_ctrl->sensor_state != CAM_SENSOR_INIT)) {
 		CAM_WARN(CAM_SENSOR,
 			"%d Not in right state to aquire %d",
 			s_ctrl->soc_info.index,
@@ -2199,6 +2201,10 @@ free_gpio_intr_deinit_config:
 				goto release_mutex;
 			}
 			s_ctrl->sensor_state = CAM_SENSOR_CONFIG;
+			CAM_INFO(CAM_SENSOR,
+					"CAM_CONFIG_DEV done sensor_id:0x%x,sensor_slave_addr:0x%x",
+					s_ctrl->sensordata->slave_info.sensor_id,
+					s_ctrl->sensordata->slave_info.sensor_slave_addr);
 		}
 
 #ifndef HNDL_CAMX_SNSR_SYNC
