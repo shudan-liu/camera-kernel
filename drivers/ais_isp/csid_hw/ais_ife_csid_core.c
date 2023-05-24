@@ -1685,6 +1685,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 	evt_payload.msg.idx = csid_hw->hw_intf->hw_idx;
 	evt_payload.msg.boot_ts = work_data->timestamp;
 	evt_payload.msg.path = 0xF;
+	evt_payload.msg.reserved = sizeof(struct ais_ife_event_data);
 	evt_payload.u.err_msg.reserved =
 		work_data->irq_status[CSID_IRQ_STATUS_RX];
 
