@@ -1,5 +1,5 @@
 /* Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1661,6 +1661,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 	evt_payload.msg.idx = csid_hw->hw_intf->hw_idx;
 	evt_payload.msg.boot_ts = work_data->timestamp;
 	evt_payload.msg.path = 0xF;
+	evt_payload.msg.reserved = sizeof(struct ais_ife_event_data);
 	evt_payload.u.err_msg.reserved =
 		work_data->irq_status[CSID_IRQ_STATUS_RX];
 
