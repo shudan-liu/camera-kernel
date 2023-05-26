@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -631,9 +631,9 @@ static int cam_smmu_check_handle_unique(int hdl)
 {
 	int i;
 
-	if (hdl == HANDLE_INIT) {
+	if ((hdl == HANDLE_INIT)||(!hdl)) {
 		CAM_DBG(CAM_SMMU,
-			"iommu handle is init number. Need to try again");
+			"iommu handle : %d is not valid", hdl);
 		return 1;
 	}
 
