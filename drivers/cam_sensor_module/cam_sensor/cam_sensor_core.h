@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2018,2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_CORE_H_
@@ -48,6 +49,14 @@ int cam_sensor_apply_settings(struct cam_sensor_ctrl_t *s_ctrl, uint64_t req_id,
 int cam_sensor_apply_request(struct cam_req_mgr_apply_request *apply);
 
 /**
+ * @notify: anchor driver structure for applying request
+ *
+ * This API applies the request that is mentioned
+ */
+int cam_sensor_no_crm_apply_req(
+	struct cam_req_mgr_no_crm_apply_request *notify);
+
+/**
  * @apply: Req mgr structure for notifying frame skip
  *
  * This API notifies a frame is skipped
@@ -68,6 +77,13 @@ int cam_sensor_flush_request(struct cam_req_mgr_flush_request *flush);
  */
 int cam_sensor_publish_dev_info(struct cam_req_mgr_device_info *info);
 
+/**
+ * @info: Sub device handshake with anchor driver(isp)
+ *
+ * Publish the subdevice info
+ */
+int cam_sensor_no_crm_handshake(
+		struct cam_req_mgr_no_crm_handshake_data *info);
 /**
  * @link: Link setup info
  *
