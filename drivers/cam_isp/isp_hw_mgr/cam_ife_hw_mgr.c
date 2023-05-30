@@ -107,40 +107,6 @@ static int cam_ife_mgr_csid_start_hw_stream_grp(int grp_cfg_index, bool is_inter
 
 static int cam_ife_mgr_enable_irq(struct cam_ife_hw_mgr_ctx *ctx, bool is_internal_start);
 
-static int cam_ife_mgr_get_phy_id(uint32_t res_id)
-{
-	int phy_id = -1;
-
-	switch (res_id) {
-	case CAM_ISP_IFE_IN_RES_PHY_0:
-		phy_id = 0;
-		break;
-	case CAM_ISP_IFE_IN_RES_PHY_1:
-		phy_id = 1;
-		break;
-	case CAM_ISP_IFE_IN_RES_PHY_2:
-		phy_id = 2;
-		break;
-	case CAM_ISP_IFE_IN_RES_PHY_3:
-		phy_id = 3;
-		break;
-	case CAM_ISP_IFE_IN_RES_PHY_4:
-		phy_id = 4;
-		break;
-	case CAM_ISP_IFE_IN_RES_PHY_5:
-		phy_id = 5;
-		break;
-	case CAM_ISP_IFE_IN_RES_PHY_6:
-		phy_id = 6;
-		break;
-	default:
-		CAM_ERR(CAM_ISP, "Invalid res id 0x%x", res_id);
-		break;
-	}
-	CAM_DBG(CAM_ISP, "res id %d, phy_id %d", res_id, phy_id);
-	return phy_id;
-}
-
 static int cam_ife_mgr_finish_clk_bw_update(
 	struct cam_ife_hw_mgr_ctx *ctx,
 	uint64_t request_id, bool skip_clk_data_rst)
@@ -7022,6 +6988,40 @@ err:
 }
 
 #ifdef CONFIG_SECURE_CAMERA_V3
+static int cam_ife_mgr_get_phy_id(uint32_t res_id)
+{
+	int phy_id = -1;
+
+	switch (res_id) {
+	case CAM_ISP_IFE_IN_RES_PHY_0:
+		phy_id = 0;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_1:
+		phy_id = 1;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_2:
+		phy_id = 2;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_3:
+		phy_id = 3;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_4:
+		phy_id = 4;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_5:
+		phy_id = 5;
+		break;
+	case CAM_ISP_IFE_IN_RES_PHY_6:
+		phy_id = 6;
+		break;
+	default:
+		CAM_ERR(CAM_ISP, "Invalid res id 0x%x", res_id);
+		break;
+	}
+	CAM_DBG(CAM_ISP, "res id %d, phy_id %d", res_id, phy_id);
+	return phy_id;
+}
+
 static bool cam_ife_hw_mgr_is_secure_context(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx)
 {

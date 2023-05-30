@@ -80,7 +80,7 @@ int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 {
 	int rc = 0;
 
-#if CONFIG_SECURE_CAMERA_V3
+#ifdef CONFIG_SECURE_CAMERA_V3
 	struct smci_object client_env, sc_object;
 	struct tc_driver_sensor_info params = {0};
 
