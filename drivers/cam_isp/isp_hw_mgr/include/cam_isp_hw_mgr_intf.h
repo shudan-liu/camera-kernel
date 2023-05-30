@@ -24,6 +24,7 @@
 #define CAM_TFE_HW_NUM_MAX       3
 #define CAM_TFE_RDI_NUM_MAX      3
 #define CAM_IFE_SCRATCH_NUM_MAX  2
+#define CAM_IFE_MAX_PHY_ID       6
 
 
 /* maximum context numbers for TFE */
