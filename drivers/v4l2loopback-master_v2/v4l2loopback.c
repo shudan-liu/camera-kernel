@@ -1813,16 +1813,20 @@ static int vidioc_dqbuf(struct file *file,
 		return -EINVAL;
 	}
 
+	mutex_lock(&dev->dev_mutex);
+
 	opener = fh_to_opener(file->private_data);
-	if (!opener) {
+	if (!opener || !opener->connected_opener) {
 		CAM_ERR(CAM_V4L2, "opener is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	data = opener->data;
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	switch (buf->type) {
@@ -1867,10 +1871,10 @@ static int vidioc_dqbuf(struct file *file,
 				return -EAGAIN;
 
 			wait_event_interruptible(data->read_event, can_read(data, opener));
-			return -EAGAIN;
+			rc = -EAGAIN;
 		}
 
-		return rc;
+		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		mutex_lock(&data->outbufs_mutex);
 		if (!list_empty(&data->outbufs_list)) {
@@ -1895,14 +1899,18 @@ static int vidioc_dqbuf(struct file *file,
 			mutex_unlock(&data->outbufs_mutex);
 			CAM_WARN(CAM_V4L2, "[dev %s] output list is empty", dev->vdev->name);
 			// for proxy, must use NONBLOCK method
-			return -EAGAIN;
+			rc = -EAGAIN;
 		}
-		return rc;
+		break;
 	default:
 		CAM_ERR(CAM_V4L2, "[dev %s] unsupported buf type %d",
 			dev->vdev->name, buf->type);
-		return -EINVAL;
+		rc = -EINVAL;
+		break;
 	}
+end:
+	mutex_unlock(&dev->dev_mutex);
+	return rc;
 }
 
 /* ------------- STREAMING ------------------- */
@@ -2783,11 +2791,21 @@ static int v4l2_loopback_close(struct file *file)
 			CAM_WARN(CAM_V4L2, "invalid proxy close, state %d", dev->state);
 	} else if (is_writer) {
 		// todo: refine the close flow
+		mutex_lock(&dev->dev_mutex);
 		if (opener->connected_opener) {
 			CAM_WARN(CAM_V4L2, "proxy close");
 			opener->connected_opener->connected_opener = NULL;
 			opener->connected_opener = NULL;
 		}
+
+		v4l2_fh_del(file->private_data);
+		v4l2_fh_exit(file->private_data);
+		kfree(opener);
+		opener = NULL;
+
+		CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when proxy close",
+				dev->open_count.counter);
+		mutex_unlock(&dev->dev_mutex);
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
 		mutex_lock(&dev->dev_mutex);
@@ -2824,17 +2842,15 @@ static int v4l2_loopback_close(struct file *file)
 		} else {
 			CAM_WARN(CAM_V4L2, "invalid close state %d", dev->state);
 		}
+		v4l2_fh_del(file->private_data);
+		v4l2_fh_exit(file->private_data);
+		kfree(opener);
+		opener = NULL;
+
+		CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when app close",
+				dev->open_count.counter);
 		mutex_unlock(&dev->dev_mutex);
 	}
-
-	CAM_WARN(CAM_V4L2, "x v4l2 del v4l2 fh open_count is %d when close",
-		dev->open_count.counter);
-
-	v4l2_fh_del(file->private_data);
-	v4l2_fh_exit(file->private_data);
-
-	kfree(opener);
-	opener = NULL;
 
 	MARK();
 
