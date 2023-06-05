@@ -283,3 +283,30 @@ void cam_check_iommu_faults(struct iommu_domain *domain,
 	pf_info->mid = fault_ids.mid;
 }
 #endif
+
+static int inline cam_subdev_list_cmp(struct cam_subdev *entry_1, struct cam_subdev *entry_2)
+{
+	if (entry_1->close_seq_prior > entry_2->close_seq_prior)
+		return 1;
+	else if (entry_1->close_seq_prior < entry_2->close_seq_prior)
+		return -1;
+	else
+		return 0;
+}
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+int cam_req_mgr_ordered_list_cmp(void *priv,
+	const struct list_head *head_1, const struct list_head *head_2)
+{
+	return cam_subdev_list_cmp(list_entry(head_1, struct cam_subdev, list),
+		list_entry(head_2, struct cam_subdev, list));
+}
+
+#else
+int cam_req_mgr_ordered_list_cmp(void *priv,
+	struct list_head *head_1, struct list_head *head_2)
+{
+	return cam_subdev_list_cmp(list_entry(head_1, struct cam_subdev, list),
+		list_entry(head_2, struct cam_subdev, list));
+}
+#endif

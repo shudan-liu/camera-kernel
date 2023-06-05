@@ -10,6 +10,7 @@
 #include <linux/version.h>
 #include <linux/platform_device.h>
 #include <linux/component.h>
+#include <linux/list_sort.h>
 
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
@@ -53,5 +54,13 @@ int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 void cam_check_iommu_faults(struct iommu_domain *domain,
 	struct cam_smmu_pf_info *pf_info);
 void cam_free_clear(const void *);
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
+int cam_req_mgr_ordered_list_cmp(void *priv,
+	const struct list_head *head_1, const struct list_head *head_2);
+#else
+int cam_req_mgr_ordered_list_cmp(void *priv,
+	struct list_head *head_1, struct list_head *head_2);
+#endif
 
 #endif /* _CAM_COMPAT_H_ */
