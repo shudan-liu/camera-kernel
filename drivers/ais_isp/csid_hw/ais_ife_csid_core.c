@@ -1075,8 +1075,9 @@ static int ais_ife_csid_force_reset(void *hw_priv,
 	if (csid_hw_info->open_count) {
 		csid_hw_info->open_count = 1;
 
-		CAM_DBG(CAM_ISP, "Disabling CSID Hw");
+		CAM_DBG(CAM_ISP, "Disabling CSID Hw = %d", csid_hw->hw_intf->hw_idx);
 		rc = ais_ife_csid_disable_hw(csid_hw);
+		csid_hw->csi2_cfg_cnt = 0;
 	}
 
 	mutex_unlock(&csid_hw->hw_info->hw_mutex);
