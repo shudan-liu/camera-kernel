@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -311,7 +312,7 @@ int cam_icp_context_init(struct cam_icp_context *ctx,
 	}
 
 	rc = cam_context_init(ctx->base, icp_dev_name, CAM_ICP, ctx_id,
-		NULL, hw_intf, ctx->req_base, CAM_CTX_ICP_REQ_MAX, img_iommu_hdl);
+		NULL, NULL, hw_intf, ctx->req_base, CAM_CTX_ICP_REQ_MAX, img_iommu_hdl);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "Camera Context Base init failed");
 		goto err;

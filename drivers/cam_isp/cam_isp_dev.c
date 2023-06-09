@@ -278,9 +278,9 @@ static int cam_isp_dev_component_bind(struct device *dev,
 	return 0;
 
 kfree:
-	kfree(g_isp_dev.ctx);
+	vfree(g_isp_dev.ctx);
 	g_isp_dev.ctx = NULL;
-	kfree(g_isp_dev.ctx_isp);
+	vfree(g_isp_dev.ctx_isp);
 	g_isp_dev.ctx_isp = NULL;
 
 unregister:
@@ -309,9 +309,9 @@ static void cam_isp_dev_component_unbind(struct device *dev,
 				 i);
 	}
 
-	kfree(g_isp_dev.ctx);
+	vfree(g_isp_dev.ctx);
 	g_isp_dev.ctx = NULL;
-	kfree(g_isp_dev.ctx_isp);
+	vfree(g_isp_dev.ctx_isp);
 	g_isp_dev.ctx_isp = NULL;
 
 	rc = cam_subdev_remove(&g_isp_dev.sd);

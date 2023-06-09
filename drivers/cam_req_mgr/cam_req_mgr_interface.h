@@ -25,19 +25,24 @@ struct cam_req_mgr_flush_request;
 struct cam_req_mgr_link_evt_data;
 struct cam_req_mgr_dump_info;
 struct cam_req_mgr_no_crm_trigger_notify;
+struct cam_req_mgr_no_crm_frame_skip_evt_data;
+struct cam_req_mgr_no_crm_handshake_data;
+struct cam_req_mgr_no_crm_apply_request;
 
 /* Request Manager -- camera device driver interface */
 /**
  * @brief: camera kernel drivers to cam req mgr communication
  *
- * @cam_req_mgr_notify_trigger: for device which generates trigger to inform CRM
- * @cam_req_mgr_notify_err    : device use this to inform about different errors
- * @cam_req_mgr_add_req       : to info CRM about new rqeuest received from
- *                              userspace
- * @cam_req_mgr_notify_timer  : start the timer
+ * @cam_req_mgr_notify_trigger : for device which generates trigger to inform CRM
+ * @cam_req_mgr_no_crm_trigger : for device which generates trigger for no-crm
+ * @cam_req_mgr_notify_err     : device use this to inform about different errors
+ * @cam_req_mgr_add_req        : to info CRM about new rqeuest received from
+ *                               userspace
+ * @cam_req_mgr_notify_timer   : start the timer
  */
 typedef int (*cam_req_mgr_notify_trigger)(struct cam_req_mgr_trigger_notify *,
 	struct cam_req_mgr_core_workq *);
+typedef int (*cam_req_mgr_no_crm_trigger)(int, struct cam_req_mgr_no_crm_apply_request *);
 typedef int (*cam_req_mgr_notify_err)(struct cam_req_mgr_error_notify *);
 typedef int (*cam_req_mgr_add_req)(struct cam_req_mgr_add_request *);
 typedef int (*cam_req_mgr_notify_timer)(struct cam_req_mgr_timer_notify *);
@@ -54,6 +59,9 @@ typedef int (*cam_req_mgr_notify_stop)(struct cam_req_mgr_notify_stop *);
  * @cam_req_mgr_flush_req        : Flush or cancel request
  * cam_req_mgr_process_evt       : generic events
  * @cam_req_mgr_dump_req         : dump request
+ * @cam_req_mgr_no_crm_frame_skip_notify : frame skip notify cb from anchor driver
+ * @cam_req_mgr_no_crm_handshake_device  : no_crm handshake callback type
+ * @cam_req_mgr_no_crm_apply_req         : no_crm apply request callback type
  */
 typedef int (*cam_req_mgr_get_dev_info) (struct cam_req_mgr_device_info *);
 typedef int (*cam_req_mgr_link_setup)(struct cam_req_mgr_core_dev_link_setup *);
@@ -63,6 +71,10 @@ typedef int (*cam_req_mgr_notify_frame_skip)(
 typedef int (*cam_req_mgr_flush_req)(struct cam_req_mgr_flush_request *);
 typedef int (*cam_req_mgr_process_evt)(struct cam_req_mgr_link_evt_data *);
 typedef int (*cam_req_mgr_dump_req)(struct cam_req_mgr_dump_info *);
+typedef int (*cam_req_mgr_no_crm_frame_skip_notify)(
+	struct cam_req_mgr_no_crm_frame_skip_evt_data *);
+typedef int (*cam_req_mgr_no_crm_handshake_device)(struct cam_req_mgr_no_crm_handshake_data *);
+typedef int (*cam_req_mgr_no_crm_apply_req)(struct cam_req_mgr_no_crm_apply_request *);
 
 /**
  * @brief          : cam_req_mgr_crm_cb - func table
@@ -72,6 +84,7 @@ typedef int (*cam_req_mgr_dump_req)(struct cam_req_mgr_dump_info *);
  * @add_req        : payload to inform which device and what request is received
  * @notify_timer   : payload for timer start event
  * @notify_stop    : payload to inform stop event
+ * @no_crm_trigger : payload for trigger indication event in no-crm useacases
  */
 struct cam_req_mgr_crm_cb {
 	cam_req_mgr_notify_trigger  notify_trigger;
@@ -79,6 +92,7 @@ struct cam_req_mgr_crm_cb {
 	cam_req_mgr_add_req         add_req;
 	cam_req_mgr_notify_timer    notify_timer;
 	cam_req_mgr_notify_stop     notify_stop;
+	cam_req_mgr_no_crm_trigger  no_crm_trigger;
 };
 
 /**
@@ -100,6 +114,17 @@ struct cam_req_mgr_kmd_ops {
 	cam_req_mgr_flush_req         flush_req;
 	cam_req_mgr_process_evt       process_evt;
 	cam_req_mgr_dump_req          dump_req;
+};
+
+/**
+ * @brief        : cam_req_mgr_no_crm_kmd_ops - func table
+ *
+ * @handshake    : Handshake method, exchange data b/w drivers
+ * @apply_req    : apply request callback for drivers
+ */
+struct cam_req_mgr_no_crm_kmd_ops {
+	cam_req_mgr_no_crm_handshake_device handshake;
+	cam_req_mgr_no_crm_apply_req apply_req;
 };
 
 /**
@@ -386,6 +411,28 @@ struct cam_req_mgr_apply_request {
 };
 
 /**
+ * struct cam_req_mgr_apply_request
+ * @is_skip                 : flag to indicate frame skip requests
+ * @link_hdl                : link identifier
+ * @dev_hdl                 : device handle for cross check
+ * @res_id                  : resource id
+ * @frame_id                : Frame id of anchor driver
+ * @anchor_req_id           : request id settings to apply
+ * @sof_irq_ts              : csid sof timestamp
+ * @last_apply_req          : output param, driver return which request is applied
+ */
+struct cam_req_mgr_no_crm_apply_request {
+	bool is_skip;
+	int32_t link_hdl;
+	int32_t dev_hdl;
+	int32_t res_id;
+	int64_t frame_id;
+	uint64_t anchor_req_id;
+	uint64_t sof_irq_ts;
+	uint64_t last_apply_req;
+};
+
+/**
  * struct cam_req_mgr_flush_request
  * @link_hdl    : link identifier
  * @dev_hdl     : device handle for cross check
@@ -443,5 +490,33 @@ struct cam_req_mgr_dump_info {
 	uint32_t    buf_handle;
 	int32_t     link_hdl;
 	int32_t     dev_hdl;
+};
+
+/**
+ * struct cam_req_mgr_no_crm_handshake_data
+ * @link_hdl        : input, link handle
+ * @dev_hdl         : input, device handle
+ * @pipeline_delay  : Output, pipeline delay of module
+ * @trigger         : Output, CAM_TRIGGER_POINT_SOF or CAM_TRIGGER_POINT_EOF
+ * @anchor_pd       : Input, pipeline delay of isp driver
+ * @frame_skip_cb   : Input, callback to notify frame skip
+ */
+struct cam_req_mgr_no_crm_handshake_data {
+	int32_t link_hdl;
+	int32_t dev_hdl;
+	enum cam_pipeline_delay pipeline_delay;
+	int32_t trigger;
+	int32_t anchor_pd;
+	cam_req_mgr_no_crm_frame_skip_notify frame_skip_cb;
+};
+
+/**
+ * struct cam_req_mgr_no_crm_frame_skip_evt_data
+ * @trigger    : Which trigger point to skip
+ * @req_id     : req_id to skip apply
+ */
+struct cam_req_mgr_no_crm_frame_skip_evt_data {
+	int trigger;
+	uint64_t req_id;
 };
 #endif
