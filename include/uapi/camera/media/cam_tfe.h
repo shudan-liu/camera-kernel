@@ -1,14 +1,15 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_TFE_H__
 #define __UAPI_CAM_TFE_H__
 
-#include <camera/media/cam_defs.h>
-#include <camera/media/cam_isp_tfe.h>
-#include <camera/media/cam_cpas.h>
+#include <media/cam_defs.h>
+#include <media/cam_isp_tfe.h>
+#include <media/cam_cpas.h>
 
 
 /* ISP TFE driver name */

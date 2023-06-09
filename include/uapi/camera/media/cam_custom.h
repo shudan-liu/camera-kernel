@@ -1,12 +1,13 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_CUSTOM_H__
 #define __UAPI_CAM_CUSTOM_H__
 
-#include <camera/media/cam_defs.h>
+#include <media/cam_defs.h>
 
 /* Custom driver name */
 #define CAM_CUSTOM_DEV_NAME                    "cam-custom"

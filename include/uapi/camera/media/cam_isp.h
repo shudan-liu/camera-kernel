@@ -1,16 +1,17 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_CAM_ISP_H__
 #define __UAPI_CAM_ISP_H__
 
-#include <camera/media/cam_defs.h>
-#include <camera/media/cam_isp_vfe.h>
-#include <camera/media/cam_isp_ife.h>
-#include <camera/media/cam_isp_sfe.h>
-#include <camera/media/cam_cpas.h>
+#include <media/cam_defs.h>
+#include <media/cam_isp_vfe.h>
+#include <media/cam_isp_ife.h>
+#include <media/cam_isp_sfe.h>
+#include <media/cam_cpas.h>
 
 /* ISP driver name */
 #define CAM_ISP_DEV_NAME                        "cam-isp"
