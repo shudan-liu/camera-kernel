@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -29,6 +30,7 @@
 #include "cam_icp_hw_mgr_intf.h"
 #include "cam_cpas_api.h"
 #include "cam_debug_util.h"
+#include "cam_compat.h"
 
 #define PC_POLL_DELAY_US 100
 #define PC_POLL_TIMEOUT_US 10000
@@ -701,7 +703,7 @@ int cam_a5_process_cmd(void *device_priv, uint32_t cmd_type,
 
 		if (a5_soc->ubwc_config_ext) {
 			/* Invoke kernel API to determine DDR type */
-			ddr_type = of_fdt_get_ddrtype();
+			ddr_type = cam_get_ddr_type();
 			if ((ddr_type == DDR_TYPE_LPDDR5) ||
 				(ddr_type == DDR_TYPE_LPDDR5X))
 				index = 1;
