@@ -1,5 +1,5 @@
 ifneq ($(TARGET_IS_HEADLESS),true)
-ifneq ($(TARGET_USES_QMAA_OVERRIDE_CAMERA),true)
+ifneq ($(TARGET_USES_QMAA_OVERRIDE_CAMERA),false)
 # Make target to specify building the camera.ko from within Android build system.
 LOCAL_PATH := $(call my-dir)
 # Path to DLKM make scripts

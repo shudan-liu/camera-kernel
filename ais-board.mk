@@ -1,7 +1,7 @@
 ifneq ($(TARGET_DISABLE_AIS_DLKM),true)
 # Build camera kernel driver
 ifneq ($(TARGET_IS_HEADLESS),true)
-ifneq ($(TARGET_USES_QMAA_OVERRIDE_CAMERA),true)
+ifneq ($(TARGET_USES_QMAA_OVERRIDE_CAMERA),false)
 ifeq ($(TARGET_BOARD_AUTO),true)
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/ais.ko
 endif
