@@ -164,17 +164,17 @@ int cam_isp_notify_secure_unsecure_port(struct port_info *sec_unsec_port_info)
 	}
 
 release_sc_object:
-	rc = smci_object_release(sc_object);
-	if (rc) {
+	if (smci_object_release(sc_object)) {
+		if (!rc)
+			rc = -EINVAL;
 		CAM_ERR(CAM_ISP, "Failed releasing secure camera object, rc: %d", rc);
-		return rc;
 	}
 
 release_client:
-	rc = smci_object_release(client_env);
-	if (rc) {
+	if (smci_object_release(client_env)) {
+		if (!rc)
+			rc = -EINVAL;
 		CAM_ERR(CAM_ISP, "Failed releasing mink env object, rc: %d", rc);
-		return rc;
 	}
 
 	return rc;
