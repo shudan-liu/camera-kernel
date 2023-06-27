@@ -75,6 +75,9 @@
 #define PREAMBLE_PATTERN_BIST_DONE      BIT(0)
 #define PREAMBLE_MAX_ERR_COUNT_ALLOWED  2
 
+//CSIPHY Settle count for 1.5 Gbps/lane speed for cphy
+#define CPHY_1P5_GBPS_PER_LANE_SETTLE_COUNT        0x24
+
 enum cam_csiphy_state {
 	CAM_CSIPHY_INIT,
 	CAM_CSIPHY_ACQUIRE,
@@ -151,10 +154,21 @@ struct csiphy_reg_parms_t {
 	uint32_t csiphy_interrupt_status_size;
 	uint32_t csiphy_num_common_status_regs;
 	uint32_t csiphy_common_array_size;
+	uint32_t csiphy_common_3ph_array_size;
+	uint32_t csiphy_extra_3ph_2p5G_array_num;
+	uint32_t csiphy_extra_3ph_2p5G_array_size;
 	uint32_t csiphy_reset_enter_array_size;
 	uint32_t csiphy_reset_exit_array_size;
 	uint32_t csiphy_2ph_config_array_size;
 	uint32_t csiphy_3ph_config_array_size;
+	uint32_t csiphy_3ph_2p5G_array_num;
+	uint32_t csiphy_3ph_2p5G_array_size;
+	uint32_t csiphy_3ph_1p5G_array_num;
+	uint32_t csiphy_3ph_1p5G_array_size;
+	uint32_t csiphy_3ph_2p5G_extra_halfrate_array_num;
+	uint32_t csiphy_3ph_2p5G_extra_halfrate_array_size;
+	uint32_t csiphy_3ph_1p5G_extra_halfrate_array_num;
+	uint32_t csiphy_3ph_1p5G_extra_halfrate_array_size;
 	uint32_t csiphy_2ph_3ph_config_array_size;
 	uint32_t csiphy_cpas_cp_bits_per_phy;
 	uint32_t csiphy_cpas_cp_is_interleaved;
@@ -256,14 +270,21 @@ struct bist_reg_settings_t {
 struct csiphy_ctrl_t {
 	struct csiphy_reg_parms_t csiphy_reg;
 	struct csiphy_reg_t *csiphy_common_reg;
+	struct csiphy_reg_t *csiphy_common_3ph_reg;
 	struct csiphy_reg_t *csiphy_irq_reg;
 	struct csiphy_reg_t *csiphy_reset_enter_regs;
 	struct csiphy_reg_t *csiphy_reset_exit_regs;
+	struct csiphy_reg_t *csiphy_reset_exit_3ph_regs;
 	struct csiphy_reg_t (*csiphy_2ph_reg)[MAX_SETTINGS_PER_LANE];
 	struct csiphy_reg_t (*csiphy_2ph_combo_mode_reg)[MAX_SETTINGS_PER_LANE];
 	struct csiphy_reg_t (*csiphy_3ph_reg)[MAX_SETTINGS_PER_LANE];
 	struct csiphy_reg_t (*csiphy_3ph_combo_reg)[MAX_SETTINGS_PER_LANE];
 	struct csiphy_reg_t (*csiphy_2ph_3ph_mode_reg)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*csiphy_extra_3ph_2p5G_reg)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*csiphy_3ph_2p5G_reg)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*csiphy_3ph_1p5G_reg)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*csiphy_3ph_2p5G_extra_halfrate_reg)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*csiphy_3ph_1p5G_extra_halfrate_reg)[MAX_SETTINGS_PER_LANE];
 	struct bist_reg_settings_t *csiphy_bist_reg;
 	enum   cam_vote_level (*getclockvoting)(struct csiphy_device *phy_dev,
 		int32_t index);

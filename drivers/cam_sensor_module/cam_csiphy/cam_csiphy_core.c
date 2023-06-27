@@ -201,7 +201,11 @@ static inline int cam_csiphy_release_from_reset_state(struct csiphy_device *csip
 
 	csiphy_reg = &csiphy_dev->ctrl_reg->csiphy_reg;
 	for (i = 0; i < csiphy_reg->csiphy_reset_exit_array_size; i++) {
-		csiphy_reset_release_reg = &csiphy_dev->ctrl_reg->csiphy_reset_exit_regs[i];
+        if (csiphy_dev->csiphy_info[instance].csiphy_3phase) {
+			csiphy_reset_release_reg = &csiphy_dev->ctrl_reg->csiphy_reset_exit_3ph_regs[i];
+        } else {
+			csiphy_reset_release_reg = &csiphy_dev->ctrl_reg->csiphy_reset_exit_regs[i];
+        }
 
 		switch (csiphy_reset_release_reg->csiphy_param_type) {
 		case CSIPHY_2PH_REGS:
@@ -1046,6 +1050,11 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 	uint32_t     lane_enable = 0;
 	uint32_t     size = 0;
 	uint16_t     i = 0, cfg_size = 0;
+	uint16_t     cfg_array_num = 0;
+	uint16_t     cfg_array_size = 0;
+	uint16_t     cfg_extra_halfrate_array_num = 0;
+	uint16_t     cfg_extra_halfrate_array_size = 0;
+	uint16_t     j = 0, k = 0;
 	uint16_t     lane_assign = 0;
 	uint8_t      lane_cnt;
 	int          max_lanes = 0;
@@ -1057,6 +1066,8 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 	void __iomem *csiphybase;
 	struct csiphy_reg_t *csiphy_common_reg = NULL;
 	struct csiphy_reg_t (*reg_array)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*reg_array_extra)[MAX_SETTINGS_PER_LANE];
+	struct csiphy_reg_t (*reg_array_extra_halfrate)[MAX_SETTINGS_PER_LANE];
 	bool         is_3phase = false;
 	csiphybase = csiphy_dev->soc_info.reg_map[0].mem_base;
 
@@ -1079,6 +1090,10 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 
 	if (csiphy_dev->csiphy_info[index].csiphy_3phase)
 		is_3phase = true;
+
+	intermediate_var = csiphy_dev->csiphy_info[index].settle_time;
+	do_div(intermediate_var, 200000000);
+	settle_cnt = intermediate_var;
 
 	if (csiphy_dev->combo_mode) {
 		/* for CPHY(3Phase) or DPHY(2Phase) combo mode selection */
@@ -1133,10 +1148,34 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 		if (is_3phase) {
 			CAM_DBG(CAM_CSIPHY,
 				"3phase Non combo mode reg array selected");
-			reg_array = csiphy_dev->ctrl_reg->csiphy_3ph_reg;
-			max_lanes = CAM_CSIPHY_MAX_CPHY_LANES;
-			cfg_size = csiphy_dev->ctrl_reg->csiphy_reg
-				.csiphy_3ph_config_array_size;
+			if (settle_cnt < CPHY_1P5_GBPS_PER_LANE_SETTLE_COUNT) {
+				CAM_DBG(CAM_CSIPHY, "COMMON Register Set in 2.5Gsps (CPHY)");
+				reg_array = csiphy_dev->ctrl_reg->csiphy_3ph_2p5G_reg;
+				reg_array_extra_halfrate = csiphy_dev->ctrl_reg->csiphy_3ph_2p5G_extra_halfrate_reg;
+                reg_array_extra = csiphy_dev->ctrl_reg->csiphy_extra_3ph_2p5G_reg;
+				max_lanes = CAM_CSIPHY_MAX_CPHY_LANES;
+				cfg_array_num = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_2p5G_array_num;
+				cfg_array_size = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_2p5G_array_size;
+				cfg_extra_halfrate_array_num = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_2p5G_extra_halfrate_array_num;
+				cfg_extra_halfrate_array_size = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_2p5G_extra_halfrate_array_size;
+			} else {
+				CAM_DBG(CAM_CSIPHY, "COMMON Register Set in 1.5Gsps (CPHY)");
+				reg_array = csiphy_dev->ctrl_reg->csiphy_3ph_1p5G_reg;
+				reg_array_extra_halfrate = csiphy_dev->ctrl_reg->csiphy_3ph_1p5G_extra_halfrate_reg;
+				max_lanes = CAM_CSIPHY_MAX_CPHY_LANES;
+				cfg_array_num = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_1p5G_array_num;
+				cfg_array_size = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_1p5G_array_size;
+				cfg_extra_halfrate_array_num = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_1p5G_extra_halfrate_array_num;
+				cfg_extra_halfrate_array_size = csiphy_dev->ctrl_reg->csiphy_reg
+					.csiphy_3ph_1p5G_extra_halfrate_array_size;
+			}
 		} else {
 			CAM_DBG(CAM_CSIPHY,
 				"2PHASE Non combo mode reg array selected");
@@ -1151,9 +1190,21 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 	lane_assign = csiphy_dev->csiphy_info[index].lane_assign;
 	lane_enable = csiphy_dev->csiphy_info[index].lane_enable;
 
-	size = csiphy_dev->ctrl_reg->csiphy_reg.csiphy_common_array_size;
+	if (is_3phase) {
+		//COMMON Register Set in CSIPHY_3PHASE (CPHY)
+		size = csiphy_dev->ctrl_reg->csiphy_reg.csiphy_common_3ph_array_size;
+		usleep_range(500, 505);
+	} else {
+		size = csiphy_dev->ctrl_reg->csiphy_reg.csiphy_common_array_size;
+	}
+
 	for (i = 0; i < size; i++) {
-		csiphy_common_reg = &csiphy_dev->ctrl_reg->csiphy_common_reg[i];
+		if (is_3phase) {
+			csiphy_common_reg = &csiphy_dev->ctrl_reg->csiphy_common_3ph_reg[i];
+		} else {
+			csiphy_common_reg = &csiphy_dev->ctrl_reg->csiphy_common_reg[i];
+		}
+
 		switch (csiphy_common_reg->csiphy_param_type) {
 		case CSIPHY_LANE_ENABLE:
 			CAM_DBG(CAM_CSIPHY, "LANE_ENABLE: 0x%x", lane_enable);
@@ -1186,6 +1237,25 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 				csiphy_common_reg->delay + 5);
 	}
 
+	if (is_3phase && settle_cnt < CPHY_1P5_GBPS_PER_LANE_SETTLE_COUNT) {
+		//COMMON Register Set in 2.5Gsps for common (CPHY)
+		for (j = 0; j < csiphy_dev->ctrl_reg->csiphy_reg.csiphy_extra_3ph_2p5G_array_num; j++ ) {
+			usleep_range(10, 11);
+			for (k = 0; k < csiphy_dev->ctrl_reg->csiphy_reg.csiphy_extra_3ph_2p5G_array_size; k++) {
+				switch (reg_array_extra[j][k].csiphy_param_type) {
+					case CSIPHY_DEFAULT_PARAMS:
+						cam_io_w_mb(reg_array_extra[j][k].reg_data,
+							csiphybase +
+							reg_array_extra[j][k].reg_addr);
+					break;
+					default:
+						CAM_DBG(CAM_CSIPHY, "Do Nothing");
+					break;
+				}
+			}
+		}
+	}
+
 	if (csiphy_dev->csiphy_info[index].csiphy_3phase) {
 		rc = cam_csiphy_cphy_data_rate_config(csiphy_dev, index);
 		if (rc) {
@@ -1196,10 +1266,14 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 		}
 	}
 
-	intermediate_var = csiphy_dev->csiphy_info[index].settle_time;
-	do_div(intermediate_var, 200000000);
-	settle_cnt = intermediate_var;
 	skew_cal_enable = csiphy_dev->csiphy_info[index].mipi_flags;
+
+
+	if (is_3phase) {
+		//COMMON Register Set for Lane (CPHY)
+		max_lanes = cfg_array_num;
+		cfg_size = cfg_array_size;
+	}
 
 	for (lane_pos = 0; lane_pos < max_lanes; lane_pos++) {
 		CAM_DBG(CAM_CSIPHY, "lane_pos: %d is configuring", lane_pos);
@@ -1240,6 +1314,25 @@ int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 				usleep_range(reg_array[lane_pos][i].delay,
 					reg_array[lane_pos][i].delay + 5);
 			}
+		}
+	}
+
+	//COMMON Register Set for extra (CPHY), csi_extra_halfrate_init
+	if (is_3phase) {
+		for (j = 0; j < cfg_extra_halfrate_array_num; j++) {
+			for (k = 0; k < cfg_extra_halfrate_array_size; k++) {
+				switch (reg_array_extra_halfrate[j][k].csiphy_param_type) {
+					case CSIPHY_DEFAULT_PARAMS:
+						cam_io_w_mb(reg_array_extra_halfrate[j][k].reg_data,
+							csiphybase +
+							reg_array_extra_halfrate[j][k].reg_addr);
+					break;
+					default:
+						CAM_DBG(CAM_CSIPHY, "Do Nothing");
+					break;
+				}
+			}
+			usleep_range(10, 11);
 		}
 	}
 
