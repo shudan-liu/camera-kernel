@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -23,7 +24,7 @@
 
 static struct cam_ope_hw_intf_data cam_ope_dev_list[OPE_DEV_MAX];
 static struct cam_ope_device_hw_info ope_hw_info;
-static struct cam_ope_soc_private ope_soc_info;
+struct cam_ope_soc_private ope_soc_info;
 EXPORT_SYMBOL(ope_soc_info);
 
 static struct hw_version_reg ope_hw_version_reg = {
