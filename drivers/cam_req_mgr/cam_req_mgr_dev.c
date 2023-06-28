@@ -549,6 +549,10 @@ static long cam_private_ioctl(struct file *file, void *fh,
 				((tmp_sync_info.num_links - 1) *
 				sizeof(struct cam_req_mgr_sync_link_desc));
 		sync_info = kzalloc(sync_size, GFP_KERNEL);
+		if (!sync_info) {
+			CAM_ERR(CAM_CRM, "Failed to allocate %d bytes", sync_size);
+			return -ENOMEM;
+		}
 
 		if (copy_from_user(sync_info,
 			u64_to_user_ptr(k_ioctl->handle), sync_size)) {
