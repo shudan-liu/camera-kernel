@@ -1,0 +1,55 @@
+headers_src = [
+    "include/uapi/camera/*/**/*.h",
+]
+
+qcx_headers_out = [
+    "media/ais_sensor.h",
+    "media/cam_cpas.h",
+    "media/cam_cre.h",
+    "media/cam_custom.h",
+    "media/cam_defs.h",
+    "media/cam_fd.h",
+    "media/cam_icp.h",
+    "media/cam_isp.h",
+    "media/cam_isp_ife.h",
+    "media/cam_isp_sfe.h",
+    "media/cam_isp_tfe.h",
+    "media/cam_isp_vfe.h",
+    "media/cam_jpeg.h",
+    "media/cam_lrme.h",
+    "media/cam_ope.h",
+    "media/cam_req_mgr.h",
+    "media/cam_sensor.h",
+    "media/cam_sync.h",
+    "media/cam_tfe.h",
+    "media/cam_v4l2loopback.h",
+    "media/cam_v4l2loopback_internal.h",
+]
+
+qcx_kernel_headers_verbose = "--verbose "
+genrule {
+    name: "qti_generate_qcx_kernel_headers",
+    tools: ["headers_install.sh",
+            "unifdef"
+    ],
+    tool_files: [
+         "qcx_kernel_headers.py",
+    ],
+    srcs: headers_src,
+    cmd: "python3 -u $(location qcx_kernel_headers.py) " +
+        qcx_kernel_headers_verbose +
+        "--header_arch arm64 " +
+        "--gen_dir $(genDir) " +
+        "--qcx_include_uapi $(locations include/uapi/camera/*/**/*.h) " +
+        "--unifdef $(location unifdef) " +
+        "--headers_install $(location headers_install.sh)",
+    out: qcx_headers_out,
+}
+
+cc_library_headers {
+    name: "qti_qcx_kernel_uapi",
+    generated_headers: ["qti_generate_qcx_kernel_headers"],
+    export_generated_headers: ["qti_generate_qcx_kernel_headers"],
+    vendor: true,
+    recovery_available: true
+}
