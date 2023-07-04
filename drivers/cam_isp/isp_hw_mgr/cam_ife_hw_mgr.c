@@ -3452,7 +3452,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 	ife_out_res->use_wm_pack = ife_src_res->use_wm_pack;
 	ife_out_res->res_id = vfe_out_res_id;
 	ife_out_res->res_type = CAM_ISP_RESOURCE_VFE_OUT;
-	if (out_port->secure_mode)
+	if (out_port && out_port->secure_mode)
 		ife_out_res->is_secure = true;
 	if (per_port_acquire) {
 		ife_out_res->linked = false;
