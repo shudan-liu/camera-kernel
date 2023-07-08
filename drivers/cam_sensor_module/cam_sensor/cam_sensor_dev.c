@@ -414,6 +414,7 @@ static int cam_sensor_driver_i2c_remove(struct i2c_client *client)
 static const struct of_device_id cam_sensor_driver_dt_match[] = {
 	{.compatible = "qcom,cam-sensor"},
 	{.compatible = "lt,lt6911gxc"},
+	{.compatible = "lt,lt7911uxc"},
 	{}
 };
 
@@ -424,6 +425,7 @@ static const struct of_device_id cam_sensor_driver_platform_dt_match[] = {
 
 static const struct of_device_id cam_sensor_driver_i2c_dt_match[] = {
 	{.compatible = "lt,lt6911gxc"},
+	{.compatible = "lt,lt7911uxc"},
 	{}
 };
 
