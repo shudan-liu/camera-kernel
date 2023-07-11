@@ -10670,6 +10670,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Setting secure non secure port failed ctx %d",
 			ctx->ctx_index);
+		rc = -EINVAL;
 		goto cdm_streamoff;
 	}
 
