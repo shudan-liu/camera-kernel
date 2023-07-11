@@ -7158,12 +7158,23 @@ static int cam_ife_hw_mgr_set_secure_port_info(
 	else
 		rc = cam_isp_notify_secure_unsecure_port(sec_unsec_port_info);
 end:
-	if (!is_release)
+	if (!is_release) {
+		if (cam_ife_hw_mgr_is_secure_context(ife_ctx)) {
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id]++;
+		}
 		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]++;
+		CAM_DBG(CAM_ISP, "phy ref cnt %d sec_phy_ref cnt %d is_phy_sec %d is_release %d", ife_ctx->hw_mgr->phy_ref_cnt[phy_id],
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id], ife_ctx->hw_mgr->is_phy_secure[phy_id], is_release);
+	}
 	else {
 		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]--;
-		if (!ife_ctx->hw_mgr->phy_ref_cnt[phy_id])
+		if (cam_ife_hw_mgr_is_secure_context(ife_ctx)) {
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id]--;
+		}
+		if (!ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id])
 			ife_ctx->hw_mgr->is_phy_secure[phy_id] = FALSE;
+		CAM_DBG(CAM_ISP, "phy ref cnt %d sec_phy_ref cnt %d is_phy_sec %d is_release %d", ife_ctx->hw_mgr->phy_ref_cnt[phy_id],
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id], ife_ctx->hw_mgr->is_phy_secure[phy_id], is_release);
 	}
 
 	return rc;
@@ -18526,6 +18537,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 
 	for (i = 0; i < CAM_IFE_MAX_PHY_ID; i++) {
 		g_ife_hw_mgr.phy_ref_cnt[i] = 0;
+		g_ife_hw_mgr.sec_phy_ref_cnt[i] = 0;
 		g_ife_hw_mgr.is_phy_secure[i] = FALSE;
 	}
 
