@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2018, 2020-2021 The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sync_util.h"
@@ -517,6 +517,7 @@ void cam_sync_util_dispatch_signaled_cb(struct cam_sync_signal_param *param,
 		temp_sync_cb, &signalable_row->callback_list, list) {
 		sync_cb->status = param->status;
 		list_del_init(&sync_cb->list);
+		sync_cb->workq_scheduled_ts = ktime_get();
 		queue_work(sync_dev->work_queue,
 			&sync_cb->cb_dispatch_work);
 	}

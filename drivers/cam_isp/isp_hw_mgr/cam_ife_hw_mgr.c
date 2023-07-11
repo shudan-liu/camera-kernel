@@ -7022,6 +7022,18 @@ static int cam_ife_mgr_get_phy_id(uint32_t res_id)
 	return phy_id;
 }
 
+inline int cam_ife_mgr_is_tpg(uint32_t res_id)
+{
+	int is_tpg = FALSE;
+	if (res_id == CAM_ISP_IFE_IN_RES_TPG ||
+		res_id == CAM_ISP_IFE_IN_RES_CPHY_TPG_0 ||
+		res_id == CAM_ISP_IFE_IN_RES_CPHY_TPG_1 ||
+		res_id == CAM_ISP_IFE_IN_RES_CPHY_TPG_2) {
+		is_tpg = TRUE;
+	}
+	return is_tpg;
+}
+
 static bool cam_ife_hw_mgr_is_secure_context(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx)
 {
@@ -7054,6 +7066,8 @@ static int cam_ife_hw_mgr_secure_phy_contexts(
 		rc = cam_ife_hw_mgr_set_secure_port_info(ife_hwr_mgr_ctx, FALSE);
 		if (rc)
 			break;
+		else
+			ife_ctx->hw_mgr->phy_ref_cnt[phy_id]--;
 	}
 	return rc;
 }
@@ -7070,6 +7084,10 @@ static int cam_ife_hw_mgr_set_secure_port_info(
 	hw_id = cam_convert_hw_idx_to_ife_hw_num(ife_ctx->left_hw_idx);
 	hw_type = cam_convert_hw_id_to_secure_hw_type(hw_id);
 
+	if (cam_ife_mgr_is_tpg(ife_ctx->res_list_ife_in.res_id)) {
+		CAM_INFO(CAM_ISP, "No security required for TPG usecase");
+		return rc;
+	}
 	if (hw_type < 0 || phy_id < 0) {
 		CAM_ERR(CAM_ISP, "Invalid hw type %d or phy_id %d", hw_type, phy_id);
 		return -EINVAL;
@@ -7135,7 +7153,10 @@ static int cam_ife_hw_mgr_set_secure_port_info(
 		sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].protect, sec_unsec_port_info[CAM_IFE_SECURE_PORT_IDX].mask,
 		sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].protect, sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].mask,
 		is_release, ife_ctx->ctx_index);
-	rc = cam_isp_notify_secure_unsecure_port(sec_unsec_port_info);
+	if (!sec_unsec_port_info[CAM_IFE_NON_SECURE_PORT_IDX].mask)
+		CAM_INFO(CAM_ISP, "No port to mask as unsecure in secure usecase");
+	else
+		rc = cam_isp_notify_secure_unsecure_port(sec_unsec_port_info);
 end:
 	if (!is_release)
 		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]++;
@@ -16228,7 +16249,7 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 	 */
 	if (ife_ctx->num_reg_dump_buf) {
 		cam_ife_mgr_user_dump_hw(ife_ctx, dump_args);
-		goto end;
+		return 0;
 	}
 
 	rc  = cam_mem_get_cpu_buf(dump_args->buf_handle,
@@ -16242,6 +16263,14 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 
 	isp_hw_dump_args.offset = dump_args->offset;
 	isp_hw_dump_args.req_id = dump_args->request_id;
+
+	if (isp_hw_dump_args.buf_len <= isp_hw_dump_args.offset) {
+		CAM_ERR(CAM_ISP,
+			"Dump offset overshoot offset %zu buf_len %zu",
+			isp_hw_dump_args.offset, isp_hw_dump_args.buf_len);
+		cam_mem_put_cpu_buf(dump_args->buf_handle);
+		return -EINVAL;
+	}
 
 	list_for_each_entry(hw_mgr_res, &ife_ctx->res_list_ife_csid, list) {
 		for (i = 0; i < CAM_ISP_HW_SPLIT_MAX; i++) {
@@ -16318,9 +16347,9 @@ static int cam_ife_mgr_dump(void *hw_mgr_priv, void *args)
 			}
 		}
 	}
+
 	dump_args->offset = isp_hw_dump_args.offset;
-end:
-	CAM_DBG(CAM_ISP, "offset %u", dump_args->offset);
+	cam_mem_put_cpu_buf(dump_args->buf_handle);
 	return rc;
 }
 
