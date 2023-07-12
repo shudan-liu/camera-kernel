@@ -1435,9 +1435,12 @@ static int cam_sensor_intr_deinit(struct cam_sensor_ctrl_t *s_ctrl,
 	}
 
 	for (idx = 0; idx < AIS_MAX_INTR_GPIO; idx++) {
-		if (s_ctrl->s_intr[idx].work_inited == 1)
+		if (s_ctrl->s_intr[idx].work_inited == 1) {
+			mutex_unlock(&s_ctrl->cam_sensor_mutex);
 			cancel_work_sync(
 			&s_ctrl->s_intr[idx].irq_work);
+			mutex_lock(&s_ctrl->cam_sensor_mutex);
+		}
 	}
 
 free_gpio_intr_deinit_config:
