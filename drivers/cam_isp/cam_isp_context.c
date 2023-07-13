@@ -902,7 +902,8 @@ static int cam_isp_ctx_dump_req(
 				CAM_ERR(CAM_ISP,
 					"Invalid offset exp %u actual %u",
 					req_isp->cfg[i].offset, (uint32_t)len);
-				cam_mem_put_cpu_buf(req_isp->cfg[i].handle);
+
+				cam_packet_util_put_cmd_mem_addr(req_isp->cfg[i].handle);
 				return -EINVAL;
 			}
 			remain_len = len - req_isp->cfg[i].offset;
@@ -913,7 +914,7 @@ static int cam_isp_ctx_dump_req(
 					"Invalid len exp %u remain_len %u",
 					req_isp->cfg[i].len,
 					(uint32_t)remain_len);
-				cam_mem_put_cpu_buf(req_isp->cfg[i].handle);
+				cam_packet_util_put_cmd_mem_addr(req_isp->cfg[i].handle);
 				return -EINVAL;
 			}
 
@@ -939,7 +940,7 @@ static int cam_isp_ctx_dump_req(
 					return rc;
 			} else
 				cam_cdm_util_dump_cmd_buf(buf_start, buf_end);
-			cam_mem_put_cpu_buf(req_isp->cfg[i].handle);
+			cam_packet_util_put_cmd_mem_addr(req_isp->cfg[i].handle);
 		}
 	}
 	return rc;
@@ -1634,7 +1635,8 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_sync_timestamp ev_timestamp;
 	uint32_t *kernel_buf_ptr;
-	struct cam_sync_signal_param param;
+	int32_t kernel_buf_handle;
+	struct  cam_sync_signal_param param;
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 	ctx_isp->active_req_cnt--;
@@ -1657,6 +1659,7 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 				ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 				ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
 				kernel_buf_ptr = req_isp->fence_map_out[i].kernel_map_buf_addr[0];
+				kernel_buf_handle = req_isp->fence_map_out[i].buf_handle[0];
 
 				if (kernel_buf_ptr != NULL  &&
 					ctx_isp->slave_metadata_en) {
@@ -1666,6 +1669,12 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 						(ev_timestamp.slave_timestamp << 32) |
 						kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
 					ev_timestamp.tracker_id = *kernel_buf_ptr;
+					/*
+					 * Get cpu buffer for this is at the time of
+					 * add io config as soon as we get buf done for
+					 * this buffer we should put the buffer.
+					 */
+					cam_mem_put_cpu_buf(kernel_buf_handle);
 				}
 				memset(&param, 0, sizeof(param));
 				param.sync_obj = req_isp->fence_map_out[i].sync_id;
@@ -1744,6 +1753,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 	struct cam_sync_timestamp ev_timestamp;
 	struct cam_sync_signal_param param;
 	uint32_t *kernel_buf_ptr;
+	int32_t kernel_buf_handle;
 	trace_cam_buf_done("ISP", ctx, req);
 
 	req_isp = (struct cam_isp_ctx_req *) req->req_priv;
@@ -1840,6 +1850,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
 			if (kernel_buf_ptr != NULL  &&
 				ctx_isp->slave_metadata_en) {
@@ -1849,6 +1860,12 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 					(ev_timestamp.slave_timestamp << 32) |
 					kernel_buf_ptr[CAM_ISP_SLAVE_TS_LSB_IDX];
 				ev_timestamp.tracker_id = *kernel_buf_ptr;
+				/*
+				 * Get cpu buffer for this is at the time of
+				 * add io config as soon as we get buf done for
+				 * this buffer we should put the buffer.
+				 */
+				cam_mem_put_cpu_buf(kernel_buf_handle);
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -1919,6 +1936,7 @@ static int __cam_isp_handle_deferred_buf_done(
 	struct cam_sync_timestamp ev_timestamp;
 	struct cam_sync_signal_param param;
 	uint32_t *kernel_buf_ptr;
+	int32_t kernel_buf_handle;
 
 	CAM_DBG(CAM_ISP,
 		"ctx[%d] : Req %llu : Handling %d deferred buf_dones num_acked=%d, bubble_handling=%d",
@@ -1952,6 +1970,7 @@ static int __cam_isp_handle_deferred_buf_done(
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
 			if (kernel_buf_ptr != NULL  &&
 				ctx_isp->slave_metadata_en) {
@@ -1960,6 +1979,7 @@ static int __cam_isp_handle_deferred_buf_done(
 				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
 					((uint64_t)kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX] << 32));
 				ev_timestamp.tracker_id = *kernel_buf_ptr;
+				cam_mem_put_cpu_buf(kernel_buf_handle);
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -2040,6 +2060,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 	struct cam_sync_timestamp  ev_timestamp;
 	struct cam_sync_signal_param param;
 	uint32_t *kernel_buf_ptr;
+	int32_t kernel_buf_handle;
 
 	trace_cam_buf_done("ISP", ctx, req);
 
@@ -2146,6 +2167,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
 			if (kernel_buf_ptr != NULL  &&
 				ctx_isp->slave_metadata_en) {
@@ -2154,6 +2176,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
 					((uint64_t)kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX] << 32));
 				ev_timestamp.tracker_id = *kernel_buf_ptr;
+				cam_mem_put_cpu_buf(kernel_buf_handle);
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -2184,6 +2207,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
 			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
+			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
 			if (kernel_buf_ptr != NULL &&
 				ctx_isp->slave_metadata_en) {
@@ -2192,6 +2216,7 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 				ev_timestamp.slave_timestamp = (ev_timestamp.slave_timestamp |
 					((uint64_t)kernel_buf_ptr[CAM_ISP_SLAVE_TS_MSB_IDX] << 32));
 				ev_timestamp.tracker_id = *kernel_buf_ptr;
+				cam_mem_put_cpu_buf(kernel_buf_handle);
 			}
 			memset(&param, 0, sizeof(param));
 			param.sync_obj = req_isp->fence_map_out[j].sync_id;
@@ -6268,6 +6293,7 @@ static int __cam_isp_ctx_append_user_bl(
 		slave_pkt[(*pkt_offset)++] = cfg->len;
 		*num_config += 1;
 		memcpy(slave_pkt + *pkt_offset, U64_TO_PTR(cpu_addr + cfg->offset), cfg->len);
+		cam_mem_put_cpu_buf(cfg->handle);
 		*pkt_offset += cfg->len / 4;
 	}
 err_out:

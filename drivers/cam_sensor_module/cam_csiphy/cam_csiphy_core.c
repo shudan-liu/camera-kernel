@@ -649,6 +649,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 			"Inval cam_packet strut size: %zu, len_of_buff: %zu",
 			 sizeof(struct cam_packet), len);
 		rc = -EINVAL;
+		cam_mem_put_cpu_buf(cfg_dev->packet_handle);
 		return rc;
 	}
 
@@ -660,6 +661,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 		remain_len)) {
 		CAM_ERR(CAM_CSIPHY, "Invalid packet params");
 		rc = -EINVAL;
+		cam_mem_put_cpu_buf(cfg_dev->packet_handle);
 		return rc;
 	}
 
@@ -672,6 +674,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	if (rc < 0) {
 		CAM_ERR(CAM_CSIPHY,
 			"Failed to get cmd buf Mem address : %d", rc);
+		cam_mem_put_cpu_buf(cfg_dev->packet_handle);
 		return rc;
 	}
 
@@ -680,7 +683,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 		CAM_ERR(CAM_CSIPHY,
 			"Not enough buffer provided for cam_cisphy_info");
 		rc = -EINVAL;
-		return rc;
+		goto end;
 	}
 
 	cmd_buf = (uint32_t *)generic_ptr;
@@ -690,7 +693,8 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	index = cam_csiphy_get_instance_offset(csiphy_dev, cfg_dev->dev_handle);
 	if (index < 0 || index  >= csiphy_dev->session_max_device_support) {
 		CAM_ERR(CAM_CSIPHY, "index in invalid: %d", index);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	rc = cam_csiphy_sanitize_lane_cnt(csiphy_dev, index,
@@ -699,7 +703,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 		CAM_ERR(CAM_CSIPHY,
 			"Wrong configuration lane_cnt: %u",
 			cam_cmd_csiphy_info->lane_cnt);
-		return rc;
+		goto end;
 	}
 
 
@@ -717,7 +721,8 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 			"Cannot support %s combo mode with differnt preamble settings",
 			(csiphy_dev->csiphy_info[index].csiphy_3phase ?
 			"CPHY" : "DPHY"));
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	csiphy_dev->preamble_enable = preamble_en;
@@ -785,6 +790,7 @@ int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 
 reset_settings:
 	cam_csiphy_reset_phyconfig_param(csiphy_dev, index);
+end:
 	cam_mem_put_cpu_buf(cfg_dev->packet_handle);
 	cam_mem_put_cpu_buf(cmd_desc->mem_handle);
 	return rc;
