@@ -2251,6 +2251,58 @@ static int cam_vfe_bus_ver3_stop_vfe_out(
 	return rc;
 }
 
+static int cam_vfe_bus_ver3_stop_vfe_out_wrapper(
+	void *hw_priv, void *stop_args, uint32_t arg_size)
+{
+	int rc = 0, i;
+	struct cam_vfe_hw_stop_args           *vfe_stop = NULL;
+	struct cam_isp_resource_node          *vfe_out = NULL;
+	struct cam_vfe_bus_ver3_vfe_out_data  *rsrc_data = NULL;
+	unsigned long                          flags;
+
+	if (!stop_args || (arg_size != sizeof(struct cam_vfe_hw_stop_args))) {
+		CAM_ERR(CAM_ISP, "Vfe: Invalid args");
+		return -EINVAL;
+	}
+	vfe_stop = stop_args;
+	vfe_out = vfe_stop->node_res;
+	if (!vfe_out) {
+		CAM_ERR(CAM_ISP, "Invalid input");
+		return -EINVAL;
+	}
+	rsrc_data = vfe_out->res_priv;
+	if (vfe_out->res_state == CAM_ISP_RESOURCE_STATE_AVAILABLE ||
+		vfe_out->res_state == CAM_ISP_RESOURCE_STATE_RESERVED) {
+		CAM_DBG(CAM_ISP, "Stop VFE:%d out_type:0x%X state:%d",
+			rsrc_data->common_data->core_index, rsrc_data->out_type,
+			vfe_out->res_state);
+		return rc;
+	}
+	if (rsrc_data->common_data->init_irq_subscribed) {
+		if (!vfe_stop->is_internal_stop) {
+			spin_lock_irqsave(
+				&rsrc_data->bus_priv->common_data.spin_lock, flags);
+			INIT_LIST_HEAD(
+				&rsrc_data->bus_priv->common_data.free_payload_list);
+			for (i = 0; i < CAM_VFE_BUS_VER3_PAYLOAD_MAX; i++) {
+				INIT_LIST_HEAD(
+					&rsrc_data->bus_priv->common_data.evt_payload[i].list);
+				list_add_tail(
+					&rsrc_data->bus_priv->common_data.evt_payload[i].list,
+					&rsrc_data->bus_priv->common_data.free_payload_list);
+			}
+			spin_unlock_irqrestore(
+				&rsrc_data->bus_priv->common_data.spin_lock, flags);
+		}
+	}
+	rc = cam_vfe_bus_ver3_stop_vfe_out(vfe_out);
+	if (rc) {
+		CAM_ERR(CAM_ISP, "Stop VFE:%d out_type:0x%X failed",
+			rsrc_data->common_data->core_index, rsrc_data->out_type);
+	}
+	return rc;
+}
+
 static int cam_vfe_bus_ver3_handle_vfe_out_done_top_half(uint32_t evt_id,
 	struct cam_irq_th_payload *th_payload)
 {
@@ -4412,7 +4464,8 @@ static int cam_vfe_bus_ver3_start_hw(void *hw_priv,
 static int cam_vfe_bus_ver3_stop_hw(void *hw_priv,
 	void *stop_hw_args, uint32_t arg_size)
 {
-	return cam_vfe_bus_ver3_stop_vfe_out(hw_priv);
+	return cam_vfe_bus_ver3_stop_vfe_out_wrapper(hw_priv, stop_hw_args,
+		arg_size);
 }
 
 static int cam_vfe_bus_ver3_init_hw(void *hw_priv,

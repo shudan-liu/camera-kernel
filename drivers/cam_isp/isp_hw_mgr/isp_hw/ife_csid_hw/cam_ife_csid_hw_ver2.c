@@ -4701,6 +4701,7 @@ int cam_ife_csid_ver2_stop(void *hw_priv,
 	uint32_t i;
 	struct cam_csid_hw_stop_args         *csid_stop;
 	struct cam_csid_reset_cfg_args       reset = {0};
+	unsigned long flags;
 
 	if (!hw_priv || !stop_args ||
 		(arg_size != sizeof(struct cam_csid_hw_stop_args))) {
@@ -4766,7 +4767,16 @@ int cam_ife_csid_ver2_stop(void *hw_priv,
 			csid_hw->top_err_irq_handle);
 		csid_hw->top_err_irq_handle = 0;
 	}
-
+	if (!csid_stop->is_internal_stop) {
+		spin_lock_irqsave(&csid_hw->path_payload_lock, flags);
+		INIT_LIST_HEAD(&csid_hw->path_free_payload_list);
+		for (i = 0; i < CAM_IFE_CSID_VER2_PAYLOAD_MAX; i++) {
+			INIT_LIST_HEAD(&csid_hw->path_evt_payload[i].list);
+			list_add_tail(&csid_hw->path_evt_payload[i].list,
+				&csid_hw->path_free_payload_list);
+		}
+		spin_unlock_irqrestore(&csid_hw->path_payload_lock, flags);
+	}
 	cam_ife_csid_ver2_disable_csi2(csid_hw);
 	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 
