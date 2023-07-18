@@ -1974,3 +1974,255 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 
 	return rc;
 }
+
+static int cam_cci_core_process_read_cmd(struct v4l2_subdev *sd,
+						struct cam_control *cmd,
+						struct cam_cci_ctrl cci_ctrl)
+{
+	int rc = 0;
+	struct ais_cci_cmd_t cci_cmd;
+	unsigned char buf[CAMERA_SENSOR_I2C_TYPE_MAX];
+
+	rc = copy_from_user(&cci_cmd,
+		(void __user *) cmd->handle, sizeof(cci_cmd));
+	if (rc < 0) {
+		CAM_ERR(CAM_CCI, "Failed Copying from user");
+		return rc;
+	}
+
+	if (cci_cmd.cmd.i2c_read.addr_type <=
+			CAMERA_SENSOR_I2C_TYPE_INVALID
+			|| cci_cmd.cmd.i2c_read.addr_type >=
+			CAMERA_SENSOR_I2C_TYPE_MAX
+			|| cci_cmd.cmd.i2c_read.data_type <=
+			CAMERA_SENSOR_I2C_TYPE_INVALID
+			|| cci_cmd.cmd.i2c_read.data_type >=
+			CAMERA_SENSOR_I2C_TYPE_MAX) {
+			CAM_ERR(CAM_CCI, "Mismatch in addr type %d or data type %d",
+				cci_cmd.cmd.i2c_write.addr_type,
+				cci_cmd.cmd.i2c_write.data_type);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	cci_ctrl.cci_info->i2c_freq_mode =
+		cci_cmd.cci_client.i2c_freq_mode;
+	cci_ctrl.cci_info->cci_i2c_master =
+		cci_cmd.cci_client.cci_i2c_master;
+	cci_ctrl.cci_info->timeout = cci_cmd.cci_client.timeout;
+	cci_ctrl.cci_info->retries = cci_cmd.cci_client.retries;
+	cci_ctrl.cci_info->sid =
+		cci_cmd.cmd.i2c_read.i2c_config.slave_addr >> 1;
+
+	cci_ctrl.cmd = MSM_CCI_I2C_READ;
+
+	cci_ctrl.cfg.cci_i2c_read_cfg.addr_type =
+		cci_cmd.cmd.i2c_read.addr_type;
+	cci_ctrl.cfg.cci_i2c_read_cfg.data_type =
+		cci_cmd.cmd.i2c_read.data_type;
+	cci_ctrl.cfg.cci_i2c_read_cfg.addr =
+		cci_cmd.cmd.i2c_read.reg_addr;
+	cci_ctrl.cfg.cci_i2c_read_cfg.data = buf;
+	cci_ctrl.cfg.cci_i2c_read_cfg.num_byte =
+		cci_cmd.cmd.i2c_read.data_type;
+
+	rc = cam_cci_core_cfg(sd, &cci_ctrl);
+
+	if (cci_cmd.cmd.i2c_read.data_type ==
+		CAMERA_SENSOR_I2C_TYPE_BYTE)
+		cci_cmd.cmd.i2c_read.reg_data = buf[0];
+	else if (cci_cmd.cmd.i2c_read.data_type ==
+		CAMERA_SENSOR_I2C_TYPE_WORD)
+		cci_cmd.cmd.i2c_read.reg_data =
+		buf[0] << 8 | buf[1];
+	else if (cci_cmd.cmd.i2c_read.data_type ==
+		CAMERA_SENSOR_I2C_TYPE_3B)
+		cci_cmd.cmd.i2c_read.reg_data =
+		buf[0] << 16 | buf[1] << 8 | buf[2];
+	else
+		cci_cmd.cmd.i2c_read.reg_data =
+		buf[0] << 24 | buf[1] << 16 |
+			buf[2] << 8 | buf[3];
+
+	CAM_DBG(CAM_CCI, "Read 0x%x : 0x%x <- 0x%x",
+		cci_cmd.cmd.i2c_read.i2c_config.slave_addr,
+		cci_cmd.cmd.i2c_read.reg_addr,
+		cci_cmd.cmd.i2c_read.reg_data);
+
+	if (copy_to_user((void __user *) cmd->handle, &cci_cmd,
+			sizeof(cci_cmd))) {
+		CAM_ERR(CAM_CCI, "Failed Copy to User");
+		rc = -EFAULT;
+	}
+	return rc;
+}
+
+static int cam_cci_core_process_write_cmd(struct v4l2_subdev *sd,
+						struct cam_control *cmd,
+						struct cam_cci_ctrl cci_ctrl)
+{
+	int rc = 0;
+	struct ais_cci_cmd_t cci_cmd;
+	struct cam_sensor_i2c_reg_array reg_setting;
+
+	rc = copy_from_user(&cci_cmd,
+		(void __user *) cmd->handle, sizeof(cci_cmd));
+	if (rc < 0) {
+		CAM_ERR(CAM_CCI, "Failed Copying from user");
+		return rc;
+	}
+
+	if (cci_cmd.cmd.i2c_write.addr_type <=
+		CAMERA_SENSOR_I2C_TYPE_INVALID
+		|| cci_cmd.cmd.i2c_write.addr_type >=
+		CAMERA_SENSOR_I2C_TYPE_MAX
+		|| cci_cmd.cmd.i2c_write.data_type <=
+		CAMERA_SENSOR_I2C_TYPE_INVALID
+		|| cci_cmd.cmd.i2c_write.data_type >=
+		CAMERA_SENSOR_I2C_TYPE_MAX) {
+		CAM_ERR(CAM_CCI, "Mismatch in addr type %d or data type %d",
+				cci_cmd.cmd.i2c_write.addr_type,
+				cci_cmd.cmd.i2c_write.data_type);
+		rc = -EINVAL;
+		return rc;
+	}
+
+	cci_ctrl.cci_info->i2c_freq_mode =
+		cci_cmd.cci_client.i2c_freq_mode;
+	cci_ctrl.cci_info->cci_i2c_master =
+		cci_cmd.cci_client.cci_i2c_master;
+	cci_ctrl.cci_info->timeout =
+		cci_cmd.cci_client.timeout;
+	cci_ctrl.cci_info->retries =
+		cci_cmd.cci_client.retries;
+	cci_ctrl.cci_info->sid =
+		cci_cmd.cmd.i2c_write.i2c_config.slave_addr >> 1;
+
+	cci_ctrl.cmd = MSM_CCI_I2C_WRITE;
+
+	reg_setting.reg_addr =
+		cci_cmd.cmd.i2c_write.wr_payload.reg_addr;
+	reg_setting.reg_data =
+		cci_cmd.cmd.i2c_write.wr_payload.reg_data;
+	reg_setting.delay =
+		cci_cmd.cmd.i2c_write.wr_payload.delay;
+	reg_setting.data_mask = 0;
+
+	cci_ctrl.cfg.cci_i2c_write_cfg.addr_type =
+		cci_cmd.cmd.i2c_write.addr_type;
+	cci_ctrl.cfg.cci_i2c_write_cfg.data_type =
+		cci_cmd.cmd.i2c_write.data_type;
+	cci_ctrl.cfg.cci_i2c_write_cfg.reg_setting =
+		&reg_setting;
+	cci_ctrl.cfg.cci_i2c_write_cfg.size = 1;
+	cci_ctrl.cfg.cci_i2c_write_cfg.delay = 0;
+
+	CAM_DBG(CAM_CCI,
+		"Write 0x%x, 0x%x <- 0x%x [%d, %d]",
+		cci_cmd.cmd.i2c_write.i2c_config.slave_addr,
+		cci_cmd.cmd.i2c_write.wr_payload.reg_addr,
+		cci_cmd.cmd.i2c_write.wr_payload.reg_data,
+		cci_cmd.cmd.i2c_write.addr_type,
+		cci_cmd.cmd.i2c_write.data_type);
+
+	rc = cam_cci_core_cfg(sd, &cci_ctrl);
+
+	if (reg_setting.delay > 20)
+		msleep(reg_setting.delay);
+	else if (reg_setting.delay)
+		usleep_range(reg_setting.delay * 1000,
+			(reg_setting.delay * 1000)
+			+ 1000);
+	return rc;
+}
+
+int32_t cam_cci_core_cam_ctrl(struct v4l2_subdev *sd,
+	void *arg)
+{
+	int32_t rc = 0;
+	struct cci_device *cci_dev = v4l2_get_subdevdata(sd);
+	struct cam_control *cmd = (struct cam_control *)arg;
+	struct cam_cci_ctrl cci_ctrl = {};
+
+	if (!cci_dev || !arg) {
+		CAM_ERR(CAM_CCI, "s_ctrl is NULL");
+		return -EINVAL;
+	}
+
+	CAM_DBG(CAM_CCI, "cmd %d", cmd->op_code);
+
+	if (cmd->handle_type != CAM_HANDLE_USER_POINTER) {
+		CAM_ERR(CAM_CCI, "Invalid handle type: %d",
+				cmd->handle_type);
+		return -EINVAL;
+	}
+
+	cci_ctrl.cci_info = kzalloc(sizeof(struct cam_sensor_cci_client),
+		GFP_KERNEL);
+	if (!cci_ctrl.cci_info)
+		return -ENOMEM;
+
+	switch (cmd->op_code) {
+	case CAM_QUERY_CAP: {
+		struct  cam_sensor_query_cap sensor_cap = {};
+
+		sensor_cap.slot_info = cci_dev->soc_info.index;
+		if (copy_to_user(u64_to_user_ptr(cmd->handle),
+			&sensor_cap, sizeof(sensor_cap))) {
+			CAM_ERR(CAM_CCI, "Failed Copy to User");
+			rc = -EFAULT;
+		}
+        }
+		break;
+	case AIS_SENSOR_I2C_POWER_UP: {
+		struct ais_sensor_cmd_i2c_pwrup cci_pwrup;
+
+		rc = copy_from_user(&cci_pwrup,
+			(void __user *) cmd->handle, sizeof(cci_pwrup));
+		if (rc < 0) {
+			CAM_ERR(CAM_CCI, "Failed Copying from user");
+			goto error;
+		}
+
+		cci_ctrl.cci_info->cci_i2c_master = cci_pwrup.master;
+		cci_ctrl.cci_info->retries = cci_pwrup.retries;
+
+		cci_ctrl.cmd = MSM_CCI_INIT;
+
+		rc = cam_cci_core_cfg(sd, &cci_ctrl);
+        }
+		break;
+	case AIS_SENSOR_I2C_POWER_DOWN: {
+		struct ais_sensor_cmd_i2c_pwrdown cci_pwrdown;
+
+		rc = copy_from_user(&cci_pwrdown,
+			(void __user *) cmd->handle, sizeof(cci_pwrdown));
+		if (rc < 0) {
+			CAM_ERR(CAM_CCI, "Failed Copying from user");
+			goto error;
+		}
+
+		cci_ctrl.cci_info->cci_i2c_master = cci_pwrdown.master;
+		cci_ctrl.cci_info->retries = cci_pwrdown.retries;
+
+		cci_ctrl.cmd = MSM_CCI_RELEASE;
+
+		rc = cam_cci_core_cfg(sd, &cci_ctrl);
+        }
+		break;
+	case AIS_SENSOR_I2C_READ:
+		rc = cam_cci_core_process_read_cmd(sd, cmd, cci_ctrl);
+		break;
+	case AIS_SENSOR_I2C_WRITE:
+		rc = cam_cci_core_process_write_cmd(sd, cmd, cci_ctrl);
+		break;
+	default:
+		CAM_ERR(CAM_CCI, "Invalid opcode: %d",
+				cmd->op_code);
+    }
+
+error:
+	kfree(cci_ctrl.cci_info);
+	return rc;
+
+}
