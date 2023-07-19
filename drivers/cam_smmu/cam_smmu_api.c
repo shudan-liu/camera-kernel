@@ -65,7 +65,7 @@ struct cam_smmu_work_payload {
 };
 
 enum cam_io_coherency_mode {
-	CAM_SMMU_NO_COHERENCY,
+	CAM_SMMU_NO_COHERENCY = 1,
 	CAM_SMMU_DMA_COHERENT,
 	CAM_SMMU_DMA_COHERENT_HINT_CACHED,
 };
@@ -187,6 +187,7 @@ struct cam_iommu_cb_set {
 	struct list_head payload_list;
 	u32 non_fatal_fault;
 	struct dentry *dentry;
+	u32 coherency_mode;
 	bool cb_dump_enable;
 	bool map_profile_enable;
 	bool force_cache_allocs;
@@ -3751,6 +3752,14 @@ int cam_smmu_destroy_handle(int handle)
 }
 EXPORT_SYMBOL(cam_smmu_destroy_handle);
 
+u32 cam_smmu_get_coherency_mode(void)
+{
+
+	return iommu_cb_set.coherency_mode;
+
+}
+EXPORT_SYMBOL(cam_smmu_get_coherency_mode);
+
 static void cam_smmu_deinit_cb(struct cam_context_bank_info *cb)
 {
 	if (cb->io_support && cb->domain)
@@ -4218,13 +4227,14 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 	}
 
 	/* set the name of the context bank */
-	for (i = 0; i < cb->num_shared_hdl; i++)
+	for (i = 0; i < cb->num_shared_hdl; i++) {
 		rc = of_property_read_string_index(dev->of_node,
 		"cam-smmu-label", i, &cb->name[i]);
-	if (rc < 0) {
-		CAM_ERR(CAM_SMMU,
-			"Error: failed to read label from sub device");
-		goto cb_init_fail;
+		if (rc < 0) {
+			CAM_ERR(CAM_SMMU,
+				"Error: failed to read label from sub device");
+			goto cb_init_fail;
+		}
 	}
 
 	rc = cam_smmu_get_memory_regions_info(dev->of_node,
@@ -4298,6 +4308,22 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 	dma_set_seg_boundary(dev, (unsigned long)DMA_BIT_MASK(64));
 
 end:
+	/*
+	 * we are enforcing is - all camera CBs (except secure CB)
+	 * must have same coherency mode set, so only get once.
+	 */
+	if (iommu_cb_set.cb_init_count == 0) {
+		iommu_cb_set.coherency_mode = cb->coherency_mode;
+		CAM_DBG(CAM_SMMU, "cb coherency mode :%d",
+			iommu_cb_set.coherency_mode);
+	} else {
+		if (iommu_cb_set.coherency_mode != cb->coherency_mode) {
+			CAM_ERR(CAM_SMMU, "CB %s has different coherency mode %d with %d",
+				cb->name[0], cb->coherency_mode, iommu_cb_set.coherency_mode);
+			rc = -EINVAL;
+			return rc;
+		}
+	}
 	/* increment count to next bank */
 	iommu_cb_set.cb_init_count++;
 	CAM_DBG(CAM_SMMU, "X: cb init count :%d", iommu_cb_set.cb_init_count);

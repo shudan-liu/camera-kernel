@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SMMU_API_H_
@@ -232,6 +233,13 @@ int cam_smmu_put_scratch_iova(int handle,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_destroy_handle(int handle);
+
+/**
+ *@brief        : Get smmu cb coherency mode
+ *
+ * @return coherency mode.
+ */
+u32 cam_smmu_get_coherency_mode(void);
 
 /**
  * @brief       : Returns if context bank identified by handle has a shared region
