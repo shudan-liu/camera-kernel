@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -465,6 +465,7 @@ int32_t cam_context_config_dev_to_hw(
 		rc = -EFAULT;
 	}
 
+	cam_mem_put_cpu_buf((int32_t) cmd->packet_handle);
 	return rc;
 }
 
@@ -1264,6 +1265,7 @@ static int cam_context_dump_context(struct cam_context *ctx,
 	if (dump_args->offset >= buf_len) {
 		CAM_WARN(CAM_CTXT, "dump buffer overshoot offset %zu len %zu",
 			dump_args->offset, buf_len);
+		cam_mem_put_cpu_buf(dump_args->buf_handle);
 		return -ENOSPC;
 	}
 
@@ -1275,6 +1277,7 @@ static int cam_context_dump_context(struct cam_context *ctx,
 	if (remain_len < min_len) {
 		CAM_WARN(CAM_CTXT, "dump buffer exhaust remain %zu min %u",
 			remain_len, min_len);
+		cam_mem_put_cpu_buf(dump_args->buf_handle);
 		return -ENOSPC;
 	}
 	dst = (uint8_t *)cpu_addr + dump_args->offset;
@@ -1299,7 +1302,10 @@ static int cam_context_dump_context(struct cam_context *ctx,
 	hdr->size = hdr->word_size * (addr - start);
 	dump_args->offset += hdr->size +
 		sizeof(struct cam_context_dump_header);
+
+	cam_mem_put_cpu_buf(dump_args->buf_handle);
 	return rc;
+
 }
 
 int32_t cam_context_dump_dev_to_hw(struct cam_context *ctx,
@@ -1379,7 +1385,7 @@ size_t cam_context_parse_config_cmd(struct cam_context *ctx, struct cam_config_d
 		CAM_ERR(CAM_CTXT, "invalid buff length: %zu or offset: %zu", len,
 			(size_t)cmd->offset);
 		rc = -EINVAL;
-		goto err;
+		goto put_cpu_buf;
 	}
 
 	*packet = (struct cam_packet *) ((uint8_t *)packet_addr + (uint32_t)cmd->offset);
@@ -1389,12 +1395,15 @@ size_t cam_context_parse_config_cmd(struct cam_context *ctx, struct cam_config_d
 		cmd->packet_handle, packet_addr, cmd->offset, len, (*packet)->header.request_id,
 		(*packet)->header.size, (*packet)->header.op_code);
 
+	cam_mem_put_cpu_buf((int32_t) cmd->packet_handle);
 	return (len - (size_t)cmd->offset);
 
+put_cpu_buf:
+	if (cmd)
+		cam_mem_put_cpu_buf((int32_t) cmd->packet_handle);
 err:
 	if (packet)
 		*packet = ERR_PTR(rc);
-
 	return 0;
 }
 

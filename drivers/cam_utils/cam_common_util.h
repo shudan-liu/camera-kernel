@@ -191,4 +191,6 @@ static inline int cam_common_register_mini_dump_cb(
 	return 0;
 }
 #endif
+
+void cam_common_util_get_curr_timestamp(struct timespec64 *time_stamp);
 #endif /* _CAM_COMMON_UTIL_H_ */
