@@ -18,6 +18,7 @@
 #include <linux/mutex.h>
 #include <linux/msm_ion.h>
 
+
 /*Enum for possible CAM SMMU operations */
 enum cam_smmu_ops_param {
 	CAM_SMMU_ATTACH,
@@ -68,6 +69,24 @@ struct cam_smmu_pf_info {
 	uint32_t             bid;
 	uint32_t             pid;
 	uint32_t             mid;
+};
+
+struct cam_dma_buff_info {
+	struct dma_buf *buf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *table;
+	enum dma_data_direction dir;
+	enum cam_smmu_region_id region_id;
+	int iommu_dir;
+	int ref_count;
+	dma_addr_t paddr;
+	struct list_head list;
+	int ion_fd;
+	unsigned long i_ino;
+	size_t len;
+	size_t phys_len;
+	bool is_internal;
+	struct timespec64 ts;
 };
 
 /**
@@ -130,8 +149,9 @@ int cam_smmu_ops(int handle, enum cam_smmu_ops_param op);
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_smmu_map_user_iova(int handle, int ion_fd, struct dma_buf *dmabuf,
-	bool dis_delayed_unmap, enum cam_smmu_map_dir dir, dma_addr_t *dma_addr, size_t *len_ptr,
-	enum cam_smmu_region_id region_id, bool is_internal);
+	bool dis_delayed_unmap, enum cam_smmu_map_dir dir, dma_addr_t *dma_addr,
+	size_t *len_ptr, enum cam_smmu_region_id region_id,
+	bool is_internal);
 
 /**
  * @brief        : Maps kernel space IOVA for calling driver
@@ -267,34 +287,6 @@ void cam_smmu_set_client_page_fault_handler(int handle,
  * @param token: It is input param when trigger page fault handler
  */
 void cam_smmu_unset_client_page_fault_handler(int handle, void *token);
-
-/**
- * @brief Maps memory from an ION fd into IOVA space
- *
- * @param handle: SMMU handle identifying the context bank to map to
- * @param ion_fd: ION fd of memory to map to
- * @param dma_buf: DMA buf of memory to map to
- * @param paddr_ptr: Pointer IOVA address that will be returned
- * @param len_ptr: Length of memory mapped
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_smmu_get_iova(int handle, int ion_fd, struct dma_buf *dma_buf,
-	dma_addr_t *paddr_ptr, size_t *len_ptr);
-
-/**
- * @brief Maps memory from an ION fd into IOVA space
- *
- * @param handle: SMMU handle identifying the secure context bank to map to
- * @param ion_fd: ION fd of memory to map to
- * @param dma_buf: DMA Buf of memory to map to
- * @param paddr_ptr: Pointer IOVA address that will be returned
- * @param len_ptr: Length of memory mapped
- *
- * @return Status of operation. Negative in case of error. Zero otherwise.
- */
-int cam_smmu_get_stage2_iova(int handle, int ion_fd, struct dma_buf *dma_buf,
-	dma_addr_t *paddr_ptr, size_t *len_ptr);
 
 /**
  * @brief Unmaps memory from context bank
