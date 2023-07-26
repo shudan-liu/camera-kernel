@@ -86,7 +86,7 @@ static int cam_ife_csid_component_bind(struct device *dev,
 	}
 
 	platform_set_drvdata(pdev, csid_dev);
-	CAM_DBG(CAM_ISP, "CSID:%d component bound successfully",
+	CAM_INFO(CAM_ISP, "CSID:%d component bound successfully",
 		csid_hw_intf->hw_idx);
 
 
@@ -119,7 +119,7 @@ static void cam_ife_csid_component_unbind(struct device *dev,
 	csid_hw_intf = csid_dev->hw_intf;
 	csid_hw_info = csid_dev->hw_info;
 
-	CAM_DBG(CAM_ISP, "CSID:%d component unbind",
+	CAM_INFO(CAM_ISP, "CSID:%d component unbind",
 		csid_dev->hw_intf->hw_idx);
 
 	cam_ife_csid_hw_deinit(csid_dev);
@@ -139,7 +139,7 @@ int cam_ife_csid_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 
-	CAM_DBG(CAM_ISP, "Adding IFE CSID component");
+	CAM_INFO(CAM_ISP, "Adding IFE CSID component");
 	rc = component_add(&pdev->dev, &cam_ife_csid_component_ops);
 	if (rc)
 		CAM_ERR(CAM_ISP, "failed to add component rc: %d", rc);

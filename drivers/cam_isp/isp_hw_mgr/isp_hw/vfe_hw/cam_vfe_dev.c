@@ -66,7 +66,7 @@ static int cam_vfe_component_bind(struct device *dev,
 	vfe_hw_intf->hw_ops.process_cmd = cam_vfe_process_cmd;
 	vfe_hw_intf->hw_type = CAM_ISP_HW_TYPE_VFE;
 
-	CAM_DBG(CAM_ISP, "VFE component bind, type %d index %d",
+	CAM_INFO(CAM_ISP, "VFE component bind, type %d index %d",
 		vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
 
 	platform_set_drvdata(pdev, vfe_hw_intf);
@@ -155,7 +155,7 @@ static void cam_vfe_component_unbind(struct device *dev,
 		return;
 	}
 
-	CAM_DBG(CAM_ISP, "VFE component unbind, type %d index %d",
+	CAM_INFO(CAM_ISP, "VFE component unbind, type %d index %d",
 		vfe_hw_intf->hw_type, vfe_hw_intf->hw_idx);
 
 	if (vfe_hw_intf->hw_idx < CAM_VFE_HW_NUM_MAX)
