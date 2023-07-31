@@ -86,7 +86,8 @@ static int cam_ife_hw_mgr_event_handler(
 
 static int cam_ife_hw_mgr_set_secure_port_info(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
-	bool                                is_release);
+	bool                                is_release,
+	bool                                is_shutdown);
 
 static int cam_ife_mgr_prog_default_settings(
 	bool need_rup_aup, struct cam_ife_hw_mgr_ctx *ctx);
@@ -3452,7 +3453,7 @@ static int cam_ife_hw_mgr_acquire_res_ife_out_rdi(
 	ife_out_res->use_wm_pack = ife_src_res->use_wm_pack;
 	ife_out_res->res_id = vfe_out_res_id;
 	ife_out_res->res_type = CAM_ISP_RESOURCE_VFE_OUT;
-	if (out_port->secure_mode)
+	if (out_port && out_port->secure_mode)
 		ife_out_res->is_secure = true;
 	if (per_port_acquire) {
 		ife_out_res->linked = false;
@@ -7063,7 +7064,8 @@ static int cam_ife_hw_mgr_secure_phy_contexts(
 		if (cam_ife_mgr_get_phy_id(ife_hwr_mgr_ctx->res_list_ife_in.res_id) !=
 			phy_id)
 			continue;
-		rc = cam_ife_hw_mgr_set_secure_port_info(ife_hwr_mgr_ctx, FALSE);
+		rc = cam_ife_hw_mgr_set_secure_port_info(ife_hwr_mgr_ctx,
+			FALSE, FALSE);
 		if (rc)
 			break;
 		else
@@ -7074,7 +7076,8 @@ static int cam_ife_hw_mgr_secure_phy_contexts(
 
 static int cam_ife_hw_mgr_set_secure_port_info(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
-	bool                                is_release)
+	bool                                is_release,
+	bool                                is_shutdown)
 {
 	int i, hw_id, hw_type, phy_id;
 	struct port_info sec_unsec_port_info[CAM_VFE_SECURE_NON_SECURE_PORT_MAX_IDX];
@@ -7107,6 +7110,8 @@ static int cam_ife_hw_mgr_set_secure_port_info(
 
 	ife_ctx->hw_mgr->is_phy_secure[phy_id] = TRUE;
 
+	if (is_shutdown)
+		goto end;
 	for (i = 0; i < CAM_VFE_SECURE_NON_SECURE_PORT_MAX_IDX; i++)
 		memset(&sec_unsec_port_info[i], 0, sizeof(sec_unsec_port_info[i]));
 
@@ -7158,12 +7163,23 @@ static int cam_ife_hw_mgr_set_secure_port_info(
 	else
 		rc = cam_isp_notify_secure_unsecure_port(sec_unsec_port_info);
 end:
-	if (!is_release)
+	if (!is_release) {
+		if (cam_ife_hw_mgr_is_secure_context(ife_ctx)) {
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id]++;
+		}
 		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]++;
+		CAM_DBG(CAM_ISP, "phy ref cnt %d sec_phy_ref cnt %d is_phy_sec %d is_release %d", ife_ctx->hw_mgr->phy_ref_cnt[phy_id],
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id], ife_ctx->hw_mgr->is_phy_secure[phy_id], is_release);
+	}
 	else {
 		ife_ctx->hw_mgr->phy_ref_cnt[phy_id]--;
-		if (!ife_ctx->hw_mgr->phy_ref_cnt[phy_id])
+		if (cam_ife_hw_mgr_is_secure_context(ife_ctx)) {
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id]--;
+		}
+		if (!ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id])
 			ife_ctx->hw_mgr->is_phy_secure[phy_id] = FALSE;
+		CAM_DBG(CAM_ISP, "phy ref cnt %d sec_phy_ref cnt %d is_phy_sec %d is_release %d", ife_ctx->hw_mgr->phy_ref_cnt[phy_id],
+			ife_ctx->hw_mgr->sec_phy_ref_cnt[phy_id], ife_ctx->hw_mgr->is_phy_secure[phy_id], is_release);
 	}
 
 	return rc;
@@ -7171,7 +7187,8 @@ end:
 #else
 static int cam_ife_hw_mgr_set_secure_port_info(
 	struct cam_ife_hw_mgr_ctx           *ife_ctx,
-	bool                                is_release)
+	bool                                is_release,
+	bool                                is_shutdown)
 {
 	return 0;
 }
@@ -9888,7 +9905,7 @@ reset_scratch_buffers:
 	if (stop_isp->stop_only)
 		goto end;
 
-	cam_ife_hw_mgr_set_secure_port_info(ctx, TRUE);
+	cam_ife_hw_mgr_set_secure_port_info(ctx, TRUE, stop_isp->is_shutdown);
 
 	if (cam_cdm_stream_off(ctx->cdm_handle))
 		CAM_ERR(CAM_ISP, "CDM stream off failed %d", ctx->cdm_handle);
@@ -10649,7 +10666,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		goto safe_disable;
 	}
 
-	rc = cam_ife_hw_mgr_set_secure_port_info(ctx, FALSE);
+	rc = cam_ife_hw_mgr_set_secure_port_info(ctx, FALSE, FALSE);
 	if (rc) {
 		CAM_ERR(CAM_ISP, "Setting secure non secure port failed ctx %d",
 			ctx->ctx_index);
@@ -10822,7 +10839,7 @@ stop_workq:
 	workq_info = (struct cam_req_mgr_core_workq *)ctx->common.workq_info;
 	cam_req_mgr_workq_flush(workq_info);
 revert_secure_port:
-	cam_ife_hw_mgr_set_secure_port_info(ctx, TRUE);
+	cam_ife_hw_mgr_set_secure_port_info(ctx, TRUE, FALSE);
 cdm_streamoff:
 	cam_cdm_stream_off(ctx->cdm_handle);
 safe_disable:
@@ -18526,6 +18543,7 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 
 	for (i = 0; i < CAM_IFE_MAX_PHY_ID; i++) {
 		g_ife_hw_mgr.phy_ref_cnt[i] = 0;
+		g_ife_hw_mgr.sec_phy_ref_cnt[i] = 0;
 		g_ife_hw_mgr.is_phy_secure[i] = FALSE;
 	}
 

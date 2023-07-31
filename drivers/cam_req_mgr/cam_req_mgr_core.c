@@ -3945,12 +3945,14 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 {
 	int                                      rc = 0, i = 0, num_devices = 0;
 	struct cam_req_mgr_core_dev_link_setup   link_data;
-	struct cam_req_mgr_connected_device     *dev;
+	struct cam_req_mgr_connected_device     *dev = NULL;
 	struct cam_req_mgr_req_tbl              *pd_tbl;
 	enum cam_pipeline_delay                  max_delay;
 	int                                     *dev_hdls, session_hdl;
 	struct cam_req_mgr_no_crm_handshake_data handshake;
 	uint32_t num_trigger_devices = 0;
+
+	memset(&handshake, 0, sizeof(handshake));
 	if (link_info->version == VERSION_1) {
 		if (link_info->u.link_info_v1.num_devices >
 			CAM_REQ_MGR_MAX_HANDLES)
@@ -4127,10 +4129,12 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 
 	/* Get anchor pipeline delay and frame_skip callback */
 	handshake.link_hdl = link->link_hdl;
-	handshake.dev_hdl = dev->dev_hdl;
-	if (i != num_devices && dev->no_crm_ops && dev->no_crm_ops->handshake)
-		dev->no_crm_ops->handshake(&handshake);
-	handshake.anchor_pd = handshake.pipeline_delay;
+	if (dev) {
+		handshake.dev_hdl = dev->dev_hdl;
+		if (i != num_devices && dev->no_crm_ops && dev->no_crm_ops->handshake)
+			dev->no_crm_ops->handshake(&handshake);
+		handshake.anchor_pd = handshake.pipeline_delay;
+	}
 
 	for (i = 0; i < num_devices; i++) {
 		dev = &link->l_dev[i];

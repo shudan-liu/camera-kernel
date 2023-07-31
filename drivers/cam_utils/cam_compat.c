@@ -76,53 +76,65 @@ int cam_ife_notify_safe_lut_scm(bool safe_trigger)
 }
 
 int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
-	bool protect, int32_t offset)
+	bool protect, int32_t offset, bool is_shutdown)
 {
 	int rc = 0;
 
 #ifdef CONFIG_SECURE_CAMERA_V3
-	struct smci_object client_env, sc_object;
-	struct tc_driver_sensor_info params = {0};
+	if (!is_shutdown) {
+		struct smci_object client_env, sc_object;
+		struct tc_driver_sensor_info params = {0};
 
-	if (offset >= CSIPHY_MAX_INSTANCES_PER_PHY) {
-		CAM_ERR(CAM_CSIPHY, "Invalid CSIPHY offset");
-		return -EINVAL;
-	}
+		if (offset >= CSIPHY_MAX_INSTANCES_PER_PHY) {
+			CAM_ERR(CAM_CSIPHY, "Invalid CSIPHY offset");
+			return -EINVAL;
+		}
 
-	rc = get_client_env_object(&client_env);
-	if (rc) {
-		CAM_ERR(CAM_CSIPHY, "Failed getting mink env object, rc: %d", rc);
-		return rc;
-	}
+		rc = get_client_env_object(&client_env);
+		if (rc) {
+			CAM_ERR(CAM_CSIPHY, "Failed getting mink env object, rc: %d", rc);
+			return rc;
+		}
 
-	rc = smci_clientenv_open(client_env, CTRUSTEDCAMERADRIVER_UID, &sc_object);
-	if (rc) {
-		CAM_ERR(CAM_CSIPHY, "Failed getting mink sc_object, rc: %d", rc);
-		return rc;
-	}
+		rc = smci_clientenv_open(client_env, CTRUSTEDCAMERADRIVER_UID, &sc_object);
+		if (rc) {
+			CAM_ERR(CAM_CSIPHY, "Failed getting mink sc_object, rc: %d", rc);
+			return rc;
+		}
 
-	params.phy_lane_sel_mask = csiphy_dev->csiphy_info[offset].csiphy_cpas_cp_reg_mask;
-	params.protect = protect ? 1 : 0;
+		params.phy_lane_sel_mask = csiphy_dev->csiphy_info[offset].csiphy_cpas_cp_reg_mask;
+		params.protect = protect ? 1 : 0;
 
-	CAM_DBG(CAM_UTIL, "phy_sel_m: %d protect: %d",
-				params.phy_lane_sel_mask,
-				params.protect);
+		CAM_DBG(CAM_UTIL, "phy_sel_m: %d protect: %d",
+					params.phy_lane_sel_mask,
+					params.protect);
 
-	rc = trusted_camera_driver_dynamic_protect_sensor(sc_object, &params);
-	if (rc) {
-		CAM_ERR(CAM_CSIPHY, "Mink secure call failed, rc: %d", rc);
-		return rc;
-	}
+		rc = trusted_camera_driver_dynamic_protect_sensor(sc_object, &params);
+		if (rc) {
+			CAM_ERR(CAM_CSIPHY, "Mink secure call failed, rc: %d", rc);
+			return rc;
+		}
 
-	rc = smci_object_release(sc_object);
-	if (rc) {
-		CAM_ERR(CAM_CSIPHY, "Failed releasing secure camera object, rc: %d", rc);
-		return rc;
-	}
-	rc = smci_object_release(client_env);
-	if (rc) {
-		CAM_ERR(CAM_CSIPHY, "Failed releasing mink env object, rc: %d", rc);
-		return rc;
+		rc = smci_object_release(sc_object);
+		if (rc) {
+			CAM_ERR(CAM_CSIPHY, "Failed releasing secure camera object, rc: %d", rc);
+			return rc;
+		}
+		rc = smci_object_release(client_env);
+		if (rc) {
+			CAM_ERR(CAM_CSIPHY, "Failed releasing mink env object, rc: %d", rc);
+			return rc;
+		}
+	} else {
+		if (offset >= csiphy_dev->session_max_device_support) {
+			CAM_ERR(CAM_CSIPHY, "Invalid CSIPHY offset");
+			rc = -EINVAL;
+		} else if (qcom_scm_camera_protect_phy_lanes(protect,
+				csiphy_dev->csiphy_info[offset]
+					.csiphy_cpas_cp_reg_mask)) {
+			CAM_ERR(CAM_CSIPHY, "SCM call to hypervisor failed");
+			rc = -EINVAL;
+		}
 	}
 #else
 	if (offset >= csiphy_dev->session_max_device_support) {

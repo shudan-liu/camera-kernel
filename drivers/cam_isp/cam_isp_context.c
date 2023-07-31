@@ -5046,6 +5046,10 @@ static int __cam_isp_ctx_flush_req_in_top_state(
 		__cam_isp_ctx_trigger_reg_dump(CAM_HW_MGR_CMD_REG_DUMP_ON_FLUSH, ctx);
 
 		stop_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+		if (ctx->is_shutdown)
+			stop_isp.is_shutdown = TRUE;
+		else
+			stop_isp.is_shutdown = FALSE;
 		stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_IMMEDIATELY;
 		stop_isp.stop_only = true;
 		stop_isp.is_internal_stop = false;
@@ -7769,7 +7773,10 @@ static int __cam_isp_ctx_stop_dev_in_activated_unlock(
 	/* stop hw first */
 	if (ctx_isp->hw_ctx) {
 		stop.ctxt_to_hw_map = ctx_isp->hw_ctx;
-
+		if (ctx->is_shutdown)
+			stop_isp.is_shutdown = TRUE;
+		else
+			stop_isp.is_shutdown = FALSE;
 		stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_IMMEDIATELY;
 		stop_isp.stop_only = false;
 		stop_isp.is_internal_stop = false;
@@ -8049,6 +8056,10 @@ static int __cam_isp_ctx_reset_and_recover(
 		req->request_id, ctx->ctx_id, ctx->state, ctx->link_hdl);
 
 	stop_args.ctxt_to_hw_map = ctx_isp->hw_ctx;
+	if (ctx->is_shutdown)
+			stop_isp.is_shutdown = TRUE;
+		else
+			stop_isp.is_shutdown = FALSE;
 	stop_isp.hw_stop_cmd = CAM_ISP_HW_STOP_IMMEDIATELY;
 	stop_isp.stop_only = true;
 	stop_isp.is_internal_stop = true;

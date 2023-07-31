@@ -153,7 +153,6 @@ static int cam_ife_csid_ver2_sof_irq_debug(
 {
 	int      i = 0;
 	bool     sof_irq_enable = false;
-	struct   cam_ife_csid_ver2_reg_info    *csid_reg;
 	struct   cam_ife_csid_ver2_path_cfg    *path_cfg;
 	struct   cam_isp_resource_node         *res;
 	uint32_t irq_mask[CAM_IFE_CSID_IRQ_REG_MAX] = {0};
@@ -172,8 +171,6 @@ static int cam_ife_csid_ver2_sof_irq_debug(
 	}
 
 	data_idx = csid_hw->rx_cfg.phy_sel - 1;
-	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
-			csid_hw->core_info->csid_reg;
 
 	for (i = CAM_IFE_PIX_PATH_RES_RDI_0; i < CAM_IFE_PIX_PATH_RES_MAX;
 		i++) {
@@ -269,11 +266,8 @@ static int cam_ife_csid_ver2_top_err_irq_top_half(
 	int rc = 0;
 	struct cam_ife_csid_ver2_hw               *csid_hw = NULL;
 	struct cam_ife_csid_ver2_evt_payload      *evt_payload;
-	struct cam_ife_csid_ver2_reg_info         *csid_reg = NULL;
 
 	csid_hw = th_payload->handler_priv;
-	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
-			csid_hw->core_info->csid_reg;
 
 	rc  = cam_ife_csid_ver2_get_evt_payload(csid_hw, &evt_payload,
 			&csid_hw->path_free_payload_list,
@@ -669,13 +663,8 @@ static int cam_ife_csid_ver2_stop_csi2_in_err(
 static int cam_ife_csid_ver2_disable_csi2(
 	struct cam_ife_csid_ver2_hw  *csid_hw)
 {
-	const struct cam_ife_csid_ver2_reg_info *csid_reg;
-	struct cam_hw_soc_info                  *soc_info;
 	int rc = 0;
 
-	soc_info = &csid_hw->hw_info->soc_info;
-	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
-			csid_hw->core_info->csid_reg;
 	CAM_DBG(CAM_ISP, "CSID:%d Disable csi2 rx",
 		csid_hw->hw_intf->hw_idx);
 
@@ -700,7 +689,7 @@ static int cam_ife_csid_ver2_disable_csi2(
 	}
 	csid_hw->flags.rx_enabled = false;
 
-	return 0;
+	return rc;
 }
 
 static int cam_ife_csid_ver2_rx_err_top_half(
@@ -897,8 +886,6 @@ static int cam_ife_csid_ver2_rx_top_half(
 	struct cam_irq_th_payload                 *th_payload)
 {
 	struct cam_ife_csid_ver2_hw                *csid_hw = NULL;
-	const struct cam_ife_csid_csi2_rx_reg_info *csi2_reg;
-	struct cam_ife_csid_ver2_reg_info          *csid_reg;
 	uint32_t                                    irq_status;
 	uint32_t                                    bit_pos = 0;
 
@@ -910,10 +897,6 @@ static int cam_ife_csid_ver2_rx_top_half(
 	}
 
 	irq_status = th_payload->evt_status_arr[CAM_IFE_CSID_IRQ_REG_RX];
-
-	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
-			csid_hw->core_info->csid_reg;
-	csi2_reg = csid_reg->csi2_reg;
 
 	while (irq_status) {
 
@@ -3063,7 +3046,6 @@ static int  cam_ife_csid_ver2_program_init_cfg1_rdi_path(
 	const struct cam_ife_csid_ver2_reg_info        *csid_reg;
 	struct cam_hw_soc_info                         *soc_info;
 	struct cam_ife_csid_ver2_path_cfg              *path_cfg;
-	struct cam_csid_soc_private                    *soc_private;
 	const struct cam_ife_csid_ver2_path_reg_info   *path_reg = NULL;
 	const struct cam_ife_csid_ver2_common_reg_info *cmn_reg = NULL;
 	void __iomem *mem_base;
@@ -3073,8 +3055,6 @@ static int  cam_ife_csid_ver2_program_init_cfg1_rdi_path(
 	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
 			csid_hw->core_info->csid_reg;
 	path_reg = csid_reg->path_reg[res->res_id];
-	soc_private = (struct cam_csid_soc_private *)
-		soc_info->soc_private;
 
 	if (!path_reg) {
 		CAM_ERR(CAM_ISP,
@@ -3296,14 +3276,11 @@ static int cam_ife_csid_ver2_init_config_pxl_path(
 	struct cam_ife_csid_ver2_path_cfg *path_cfg;
 	struct cam_ife_csid_cid_data *cid_data;
 	void __iomem *mem_base;
-	struct cam_csid_soc_private              *soc_private;
 
 	soc_info = &csid_hw->hw_info->soc_info;
 	csid_reg = (struct cam_ife_csid_ver2_reg_info *)
 			csid_hw->core_info->csid_reg;
 	path_reg = csid_reg->path_reg[res->res_id];
-	soc_private = (struct cam_csid_soc_private *)
-		soc_info->soc_private;
 
 	if (!path_reg) {
 		CAM_ERR(CAM_ISP,
@@ -5096,8 +5073,6 @@ static int cam_ife_csid_ver2_get_time_stamp(
 	struct cam_hw_soc_info              *soc_info;
 	struct cam_csid_get_time_stamp_args *timestamp_args;
 	struct cam_ife_csid_ver2_reg_info *csid_reg;
-	uint64_t  time_delta;
-	struct timespec64 ts;
 
 	timestamp_args = (struct cam_csid_get_time_stamp_args *)cmd_args;
 	res = timestamp_args->node_res;
@@ -5142,18 +5117,15 @@ static int cam_ife_csid_ver2_get_time_stamp(
 			path_reg->timestamp_curr1_sof_addr);
 	}
 
-	time_delta = timestamp_args->time_stamp_val -
-		csid_hw->timestamp[res->res_id].prev_sof_ts;
-
-	if (!csid_hw->timestamp[res->res_id].prev_boot_ts) {
-		ktime_get_boottime_ts64(&ts);
-		timestamp_args->boot_timestamp =
-			(uint64_t)((ts.tv_sec * 1000000000) +
-			ts.tv_nsec);
-	} else {
-		timestamp_args->boot_timestamp =
-			csid_hw->timestamp[res->res_id].prev_boot_ts + time_delta;
+	if (g_ref_time.btime == 0) {
+		g_ref_time.qtime = arch_timer_read_counter();
+		g_ref_time.btime = ktime_get_boottime_ns();
+		g_ref_time.qtime = mul_u64_u32_div(g_ref_time.qtime,
+				CAM_IFE_CSID_QTIMER_MUL_FACTOR, CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 	}
+
+	timestamp_args->boot_timestamp = g_ref_time.btime + timestamp_args->time_stamp_val -
+		g_ref_time.qtime;
 
 	CAM_DBG(CAM_ISP, "CSID:%d Resource[id:%d name:%s] btime:%lld qtime:%lld",
 			csid_hw->hw_intf->hw_idx, res->res_id, res->res_name,

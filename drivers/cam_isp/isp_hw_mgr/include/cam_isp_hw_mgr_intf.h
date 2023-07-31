@@ -144,12 +144,14 @@ enum cam_isp_hw_stop_cmd {
  * @is_internal_stop:          Stop triggered internally for reset & recovery
  * @stop_only:                 Send stop only to hw drivers. No Deinit to be
  *                             done.
+ * @is_shutdown:               Is shut down
  *
  */
 struct cam_isp_stop_args {
 	enum cam_isp_hw_stop_cmd      hw_stop_cmd;
 	bool                          is_internal_stop;
 	bool                          stop_only;
+	bool                          is_shutdown;
 };
 
 /**
