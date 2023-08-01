@@ -92,7 +92,7 @@ int32_t cam_csiphy_get_instance_offset(
 		return -EINVAL;
 	}
 
-	for (i = 0; i < csiphy_dev->acquire_count; i++) {
+	for (i = 0; i < csiphy_dev->session_max_device_support; i++) {
 		if (dev_handle ==
 			csiphy_dev->csiphy_info[i].hdl_data.device_hdl)
 			break;
@@ -1995,12 +1995,21 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		bridge_params.media_entity_flag = 0;
 		bridge_params.priv = csiphy_dev;
 		bridge_params.dev_id = CAM_CSIPHY;
-		index = csiphy_dev->acquire_count;
 		csiphy_acq_dev.device_handle =
 			cam_create_device_hdl(&bridge_params);
 		if (csiphy_acq_dev.device_handle <= 0) {
 			rc = -EFAULT;
 			CAM_ERR(CAM_CSIPHY, "Can not create device handle");
+			goto release_mutex;
+		}
+
+		for (index = 0; index < csiphy_dev->session_max_device_support; index++) {
+			if (csiphy_dev->csiphy_info[index].hdl_data.device_hdl == -1)
+				break;
+		}
+
+		if (index >= csiphy_dev->session_max_device_support) {
+			CAM_ERR(CAM_CSIPHY, "Index is invalid: %d", index);
 			goto release_mutex;
 		}
 
