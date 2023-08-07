@@ -90,7 +90,7 @@ struct camera_submodule {
 };
 
 static const struct camera_submodule_component camera_base[] = {
-#ifdef CONFIG_MSM_QCX
+#ifdef CONFIG_SPECTRA_CORE
 	{&cam_req_mgr_init, &cam_req_mgr_exit},
 	{&cam_rpmsg_init, &cam_rpmsg_exit},
 	{&cam_sync_init, &cam_sync_exit},
@@ -264,7 +264,7 @@ static const struct camera_submodule submodule_table[] = {
 		.component = camera_presil,
 	},
 	{
-		.name = "Camera V4L2loopback_v2",
+		.name = "CAM V4L2LOOPBACK driver",
 		.num_component = ARRAY_SIZE(camera_v4l2loopback),
 		.component = camera_v4l2loopback,
 	}
