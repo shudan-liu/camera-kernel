@@ -8,6 +8,7 @@
 #define HDMI_BDG_FW_VERSION 0x000001
 #define HDMI_BDG_HDMI_CONNECTED    0x01
 #define HDMI_BDG_HDMI_DISCONNECTED 0x00
+#define HDMI_SENSOR_NAME "lt6911gxc"
 
 /**
  * @s_ctrl: Sensor ctrl structure

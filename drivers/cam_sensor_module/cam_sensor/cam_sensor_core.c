@@ -13,6 +13,7 @@
 #include "cam_common_util.h"
 #include "cam_packet_util.h"
 #include "cam_hdmi_bdg_core.h"
+#include "cam_dp_bdg_core.h"
 
 
 static int cam_sensor_update_req_mgr(
@@ -888,7 +889,14 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 				CAM_ERR(CAM_SENSOR, "PowerOn REG_WR failed");
 				goto free_power_settings;
 			}
-			cam_hdmi_bdg_set_cam_ctrl(s_ctrl);
+			if (!strcmp(HDMI_SENSOR_NAME,s_ctrl->io_master_info.client->name))
+			{
+				cam_hdmi_bdg_set_cam_ctrl(s_ctrl);
+			}
+			if (!strcmp(DP_SENSOR_NAME,s_ctrl->io_master_info.client->name))
+			{
+				cam_dp_bdg_set_cam_ctrl(s_ctrl);
+			}
 		}
 
 		/* Match sensor ID */
