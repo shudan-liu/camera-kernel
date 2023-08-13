@@ -20,6 +20,7 @@
 #define HDMI_BDG_IRQ_HANDLER_IOCTL_GETRES        0x01
 #define HDMI_BDG_IRQ_HANDLER_IOCTL_GETRES_DIR    0x02
 #define HDMI_BDG_IRQ_HANDLER_IOCTL_RST           0x03
+#define HDMI_BDG_IRQ_HANDLER_IOCTL_UPGRADE_FW    0x04
 
 struct hdmi_bdg_res_info {
 	int32_t width;
@@ -39,6 +40,9 @@ struct hdmi_bdg_res_info {
 #define HDMI_BDG_IRQ_HANDLER_IOCTL_CMD_RST   \
 	_IO(HDMI_BDG_IRQ_HANDLER_MAGIC_NUM,      \
 	HDMI_BDG_IRQ_HANDLER_IOCTL_RST)
+#define HDMI_BDG_IRQ_HANDLER_IOCTL_CMD_UPGRADE_FW   \
+	_IO(HDMI_BDG_IRQ_HANDLER_MAGIC_NUM,      \
+	HDMI_BDG_IRQ_HANDLER_IOCTL_UPGRADE_FW)
 
 
 static const struct  of_device_id hdmi_bdg_irq_handler_dev_id[] = {
@@ -92,6 +96,7 @@ static long hdmi_bdg_irq_handler_dev_ioctl(struct file *filp,
 			CAM_ERR(CAM_SENSOR, "hdmi_bdg_irq_handler: IOCTL read error!");
 		break;
 	case HDMI_BDG_IRQ_HANDLER_IOCTL_CMD_GETRES_DIR:
+		CAM_INFO(CAM_SENSOR, "LT6911 firmare version: 0x%08x", cam_hdmi_bdg_get_fw_version());
 		rc = cam_hdmi_bdg_get_src_resolution(
 			&s_hdmi_bdg_res_info.have_hdmi_signal,
 			&s_hdmi_bdg_res_info.width,
@@ -114,11 +119,16 @@ static long hdmi_bdg_irq_handler_dev_ioctl(struct file *filp,
 		s_hdmi_bdg_res_info.have_hdmi_signal = false;
 		s_hdmi_bdg_res_info.id = 0;
 		break;
+	case HDMI_BDG_IRQ_HANDLER_IOCTL_CMD_UPGRADE_FW:
+		CAM_INFO(CAM_SENSOR, "hdmi_bdg_irq_handler: Upgrading firmware...");
+		rc = cam_hdmi_bdg_upgrade_firmware();
+		CAM_INFO(CAM_SENSOR, "hdmi_bdg_irq_handler: rc %d", rc);
+		break;
 	default:
 		CAM_ERR(CAM_SENSOR, "hdmi_bdg_irq_handler: IOCTL unknown command!");
 		break;
 	}
-	return 0;
+	return rc;
 }
 
 #ifdef CONFIG_COMPAT
