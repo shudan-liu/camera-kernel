@@ -1075,8 +1075,9 @@ static int ais_ife_csid_force_reset(void *hw_priv,
 	if (csid_hw_info->open_count) {
 		csid_hw_info->open_count = 1;
 
-		CAM_DBG(CAM_ISP, "Disabling CSID Hw");
+		CAM_DBG(CAM_ISP, "Disabling CSID Hw = %d", csid_hw->hw_intf->hw_idx);
 		rc = ais_ife_csid_disable_hw(csid_hw);
+		csid_hw->csi2_cfg_cnt = 0;
 	}
 
 	mutex_unlock(&csid_hw->hw_info->hw_mutex);
@@ -1685,6 +1686,7 @@ static int ais_csid_event_dispatch_process(void *priv, void *data)
 	evt_payload.msg.idx = csid_hw->hw_intf->hw_idx;
 	evt_payload.msg.boot_ts = work_data->timestamp;
 	evt_payload.msg.path = 0xF;
+	evt_payload.msg.reserved = sizeof(struct ais_ife_event_data);
 	evt_payload.u.err_msg.reserved =
 		work_data->irq_status[CSID_IRQ_STATUS_RX];
 
