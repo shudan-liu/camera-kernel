@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_ISP_CONTEXT_H_
@@ -247,6 +247,7 @@ struct cam_isp_context_event_record {
  * @boot_timestamp:            Boot time stamp for a given req_id
  * @eof_timestamp_val:         Captured time stamp value at eof hw event
  * @eof_boot_timestamp:        eof boot time stamp for a given req_id
+ * @monotonic_ts:              Montonic/System time stamp
  * @active_req_cnt:            Counter for the active request
  * @reported_req_id:           Last reported request id
  * @eof_reported_req_id:       Last reported request id of eof event
@@ -295,6 +296,7 @@ struct cam_isp_context {
 	uint64_t                         boot_timestamp;
 	uint64_t                         eof_timestamp_val;
 	uint64_t                         eof_boot_timestamp;
+	uint64_t                         monotonic_ts;
 	int32_t                          active_req_cnt;
 	int64_t                          reported_req_id;
 	int64_t                          eof_reported_req_id;

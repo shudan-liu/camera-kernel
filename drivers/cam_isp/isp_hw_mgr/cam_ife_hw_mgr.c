@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -7852,7 +7852,8 @@ static inline void cam_ife_hw_mgr_get_timestamp(
 static int cam_ife_mgr_cmd_get_sof_timestamp(
 	struct cam_ife_hw_mgr_ctx            *ife_ctx,
 	uint64_t                             *time_stamp,
-	uint64_t                             *boot_time_stamp)
+	uint64_t                             *boot_time_stamp,
+	uint64_t                             *monotonic_ts)
 {
 	int                                   rc = -EINVAL;
 	uint32_t                              i;
@@ -7896,6 +7897,8 @@ static int cam_ife_mgr_cmd_get_sof_timestamp(
 					csid_get_time.time_stamp_val;
 				*boot_time_stamp =
 					csid_get_time.boot_timestamp;
+				*monotonic_ts =
+					csid_get_time.monotonic_ts;
 			}
 		}
 	}
@@ -8473,9 +8476,11 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 				&sof_done_event_data.boot_time);
 			else
 				cam_ife_mgr_cmd_get_sof_timestamp(
-				hw_mgr_ctx,
-				&sof_done_event_data.timestamp,
-				&sof_done_event_data.boot_time);
+					hw_mgr_ctx,
+					&sof_done_event_data.timestamp,
+					&sof_done_event_data.boot_time,
+					&sof_done_event_data.monotonic_ts);
+
 		}
 
 		if (atomic_read(&ife_ctx->overflow_pending))
@@ -8494,7 +8499,8 @@ static int cam_ife_hw_mgr_handle_hw_sof(
 			break;
 		cam_ife_mgr_cmd_get_sof_timestamp(hw_mgr_ctx,
 			&sof_done_event_data.timestamp,
-			&sof_done_event_data.boot_time);
+			&sof_done_event_data.boot_time,
+			&sof_done_event_data.monotonic_ts);
 		if (atomic_read(&ife_ctx->overflow_pending))
 			break;
 		ife_hw_irq_sof_cb(hw_mgr_ctx->cb_priv,
