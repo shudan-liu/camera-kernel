@@ -2157,11 +2157,11 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 			continue;
 		} else if (!req_isp->bubble_detected) {
 			CAM_DBG(CAM_ISP,
-				"Sync with success: req %lld res 0x%x fd 0x%x, ctx %u",
+				"Sync with success: req %lld res 0x%x fd 0x%x, ctx %u sof_timestamp x%llx boot timestamp 0x%llx",
 				req->request_id,
 				req_isp->fence_map_out[j].resource_handle,
 				req_isp->fence_map_out[j].sync_id,
-				ctx->ctx_id);
+				ctx->ctx_id, ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp);
 
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
 			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
