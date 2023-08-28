@@ -889,24 +889,24 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 			if (rc == -EFAULT)
 				goto err;
 
-			grp_cfg->stream_cfg[j].sensor_id =
+			grp_cfg->stream_cfg[grp_cfg->stream_cfg_cnt].sensor_id =
 				stream_grp_cfg->stream_cfg[j].sensor_id;
-			grp_cfg->stream_cfg[j].decode_format =
+			grp_cfg->stream_cfg[grp_cfg->stream_cfg_cnt].decode_format =
 				stream_grp_cfg->stream_cfg[j].decode_format;
 
 			rc = cam_ife_mgr_update_vc_dt_sensor_stream_cfg(
 					stream_grp_cfg->stream_cfg[j].path_id,
 					stream_grp_cfg->stream_cfg[j].vc,
-					stream_grp_cfg->stream_cfg[j].dt, i, j);
+					stream_grp_cfg->stream_cfg[j].dt, i, grp_cfg->stream_cfg_cnt);
 			if (rc) {
 				CAM_ERR(CAM_ISP,
 					"Invalid path_id :%d sensor_id:%d valid_vc_dt [%d %d %d %d]",
 					stream_grp_cfg->stream_cfg[j].path_id,
 					stream_grp_cfg->stream_cfg[j].sensor_id,
-					grp_cfg->stream_cfg[j].num_valid_vc_dt_pxl,
-					grp_cfg->stream_cfg[j].num_valid_vc_dt_ppp,
-					grp_cfg->stream_cfg[j].num_valid_vc_dt_lcr,
-					grp_cfg->stream_cfg[j].num_valid_vc_dt_rdi);
+					grp_cfg->stream_cfg[grp_cfg->stream_cfg_cnt].num_valid_vc_dt_pxl,
+					grp_cfg->stream_cfg[grp_cfg->stream_cfg_cnt].num_valid_vc_dt_ppp,
+					grp_cfg->stream_cfg[grp_cfg->stream_cfg_cnt].num_valid_vc_dt_lcr,
+					grp_cfg->stream_cfg[grp_cfg->stream_cfg_cnt].num_valid_vc_dt_rdi);
 					rc = -EFAULT;
 					goto err;
 			}
@@ -2708,13 +2708,13 @@ static int cam_ife_hw_mgr_link_csid_rdi_resources(
 	struct cam_isp_hw_mgr_res                *csid_res;
 	struct cam_isp_out_port_generic_info     *out_port = NULL;
 	struct cam_csid_hw_reserve_resource_args  rdi_csid_acquire;
-	int i;
+	int i, j;
 	bool per_port_feature_enable = false;
 	int rc = -EINVAL;
 
 	for (i = 0; i < in_port->num_out_res; i++) {
+		per_port_feature_enable = false;
 		out_port = &in_port->data[i];
-
 		if (!cam_ife_hw_mgr_is_rdi_res(out_port->res_type))
 			continue;
 
@@ -2726,9 +2726,9 @@ static int cam_ife_hw_mgr_link_csid_rdi_resources(
 				(hw_mgr_res->hw_res[0]->res_id <=
 				CAM_IFE_PIX_PATH_RES_RDI_5)) &&
 				(!hw_mgr_res->linked)) {
-				for (i = 0; i < in_port->num_valid_vc_dt; i++) {
-					if ((in_port->vc[i] == hw_mgr_res->vc) &&
-						(in_port->dt[i] == hw_mgr_res->dt)) {
+				for (j = 0; j < in_port->num_valid_vc_dt; j++) {
+					if ((in_port->vc[j] == hw_mgr_res->vc) &&
+						(in_port->dt[j] == hw_mgr_res->dt)) {
 						hw_mgr_res->linked = true;
 						per_port_feature_enable = true;
 						CAM_DBG(CAM_ISP, "res_id: %d ctx:%d",
@@ -2737,7 +2737,7 @@ static int cam_ife_hw_mgr_link_csid_rdi_resources(
 						break;
 					}
 				}
-				if (i != in_port->num_valid_vc_dt)
+				if (j != in_port->num_valid_vc_dt)
 					break;
 			}
 		}
@@ -3093,13 +3093,15 @@ static int cam_ife_hw_mgr_link_res_ife_out_rdi(
 			CAM_ERR(CAM_ISP,
 				"i = %d, vfe_out_res_id = %d, out_port: %d virtual_mapped_out_port :%d",
 				i, vfe_out_res_id, out_port->res_type, out_port_res_type);
-			rc = -EINVAL;
-			goto err;
+			out_port_res_type = -EINVAL;
 		} else {
+			CAM_DBG(CAM_ISP, "Matched 0x%x", vfe_out_res_id);
 			break;
 		}
 	}
 
+	if (out_port_res_type < 0)
+		goto err;
 	if (i == in_port->num_out_res || (out_port_res_type < 0)) {
 		CAM_ERR(CAM_ISP,
 			"Cannot acquire out resource, i=%d, num_out_res=%d out_port_res_type:%d",
@@ -9702,7 +9704,9 @@ static int cam_ife_hw_mgr_res_stream_on_off_grp_cfg(
 			}
 			grp_cfg->stream_cfg[j].is_streamon =
 				false;
-			grp_cfg->stream_on_cnt--;
+
+			if (grp_cfg->stream_on_cnt > 0)
+				grp_cfg->stream_on_cnt--;
 		}
 
 		if ((grp_cfg->stream_on_cnt == 0)
@@ -10465,7 +10469,8 @@ static int cam_ife_mgr_update_irq_mask_affected_ctx_stream_grp(
 					}
 					g_ife_sns_grp_cfg.grp_cfg[index].stream_cfg[i].is_streamon =
 						false;
-					g_ife_sns_grp_cfg.grp_cfg[index].stream_on_cnt--;
+					if(g_ife_sns_grp_cfg.grp_cfg[index].stream_on_cnt > 0)
+						g_ife_sns_grp_cfg.grp_cfg[index].stream_on_cnt--;
 				}
 			}
 		}
