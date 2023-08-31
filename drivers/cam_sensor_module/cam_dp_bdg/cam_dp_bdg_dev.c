@@ -20,6 +20,7 @@
 #define DP_BDG_IRQ_HANDLER_IOCTL_GETRES        0x05
 #define DP_BDG_IRQ_HANDLER_IOCTL_GETRES_DIR    0x06
 #define DP_BDG_IRQ_HANDLER_IOCTL_RST           0x07
+#define DP_BDG_IRQ_HANDLER_IOCTL_UPGRADE_FW    0x08
 
 struct dp_bdg_res_info {
 	int32_t width;
@@ -39,6 +40,9 @@ struct dp_bdg_res_info {
 #define DP_BDG_IRQ_HANDLER_IOCTL_CMD_RST   \
 	_IO(DP_BDG_IRQ_HANDLER_MAGIC_NUM,      \
 	DP_BDG_IRQ_HANDLER_IOCTL_RST)
+#define DP_BDG_IRQ_HANDLER_IOCTL_CMD_UPGRADE_FW   \
+	_IO(DP_BDG_IRQ_HANDLER_MAGIC_NUM,      \
+	DP_BDG_IRQ_HANDLER_IOCTL_UPGRADE_FW)
 
 
 static const struct  of_device_id dp_bdg_irq_handler_dev_id[] = {
@@ -92,6 +96,7 @@ static long dp_bdg_irq_handler_dev_ioctl(struct file *filp,
 			CAM_ERR(CAM_SENSOR, "dp_bdg_irq_handler: IOCTL read error!");
 		break;
 	case DP_BDG_IRQ_HANDLER_IOCTL_CMD_GETRES_DIR:
+		CAM_INFO(CAM_SENSOR, "LT7911 firmare version: 0x%08x", cam_dp_bdg_get_fw_version());
 		rc = cam_dp_bdg_get_src_resolution(
 			&s_dp_bdg_res_info.have_dp_signal,
 			&s_dp_bdg_res_info.width,
@@ -114,11 +119,16 @@ static long dp_bdg_irq_handler_dev_ioctl(struct file *filp,
 		s_dp_bdg_res_info.have_dp_signal = false;
 		s_dp_bdg_res_info.id = 0;
 		break;
+	case DP_BDG_IRQ_HANDLER_IOCTL_CMD_UPGRADE_FW:
+		CAM_INFO(CAM_SENSOR, "dp_bdg_irq_handler: Upgrading firmware...");
+		rc = cam_dp_bdg_upgrade_firmware();
+		CAM_INFO(CAM_SENSOR, "dp_bdg_irq_handler: rc %d", rc);
+		break;
 	default:
 		CAM_ERR(CAM_SENSOR, "dp_bdg_irq_handler: IOCTL unknown command!");
 		break;
 	}
-	return 0;
+	return rc;
 }
 
 #ifdef CONFIG_COMPAT
