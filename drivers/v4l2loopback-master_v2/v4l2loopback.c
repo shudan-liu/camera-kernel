@@ -829,7 +829,13 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	if (dev->state & V4L2L_READY_FOR_CAPTURE) {
 		/* format has already been negotiated
@@ -882,7 +888,13 @@ static int    vidioc_enum_fmt_cap(struct file *file, void *fh,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	if (f->index)
 		return -EINVAL;
@@ -929,7 +941,13 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "%s opener: %p data: %p",
 		opener, data);
@@ -968,7 +986,13 @@ static int vidioc_try_fmt_cap(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1018,6 +1042,10 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_streamdata *data;
 
+	if (!f) {
+		CAM_ERR(CAM_V4L2, "f is null");
+		return -EINVAL;
+	}
 
 	dev = v4l2loopback_getdevice(file);
 	if (!dev) {
@@ -1030,7 +1058,13 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	if (dev->state & V4L2L_READY_FOR_CAPTURE) {
 		const __u32 format = data->pix_format.pixelformat;
@@ -1098,7 +1132,13 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1142,7 +1182,13 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "dev is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1207,7 +1253,13 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "dev is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1449,7 +1501,13 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return 0;
 	}
 	opener = fh_to_opener(fh);
-	data = opener->data;
+
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	/* release buffer when request buffer 0*/
 	if (b->count == 0) {
@@ -1507,7 +1565,12 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 			(b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
@@ -1552,7 +1615,12 @@ static int vidioc_expbuf(struct file *file, void *fh,
 		return -EINVAL;
 	}
 
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	if (e->index == -1U) {
 		CAM_INFO(CAM_V4L2, "support DMABUF");
@@ -1711,6 +1779,7 @@ static int vidioc_qbuf(struct file *file,
 	}
 
 	data = opener->data;
+
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
 		rc = -EINVAL;
@@ -1823,6 +1892,7 @@ static int vidioc_dqbuf(struct file *file,
 	}
 
 	data = opener->data;
+
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
 		rc = -EINVAL;
@@ -1938,8 +2008,13 @@ static int vidioc_streamon(struct file *file,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-
-	data = opener->data;
+	
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_INFO(CAM_V4L2, "opener: %p data: %p", opener, data);
 
@@ -2021,6 +2096,7 @@ static int vidioc_streamoff(struct file *file,
 	}
 
 	data = opener->data;
+
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
 		return -EINVAL;
@@ -2449,7 +2525,12 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		return -EINVAL;
 	}
 
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p cmd %d",
 		opener, data, kcmd->cmd);
@@ -2583,7 +2664,13 @@ static __poll_t v4l2_loopback_poll(struct file *file,
 		return (__force __poll_t)-EINVAL;
 	}
 
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
+
 	if (req_events & EPOLLPRI) {
 		if (!v4l2_event_pending(&opener->fh))
 			poll_wait(file, &opener->fh.wait, pts);
@@ -2753,7 +2840,7 @@ static int v4l2_loopback_close(struct file *file)
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
-	struct v4l2_streamdata *data;
+
 	int is_main = 0;
 	int is_writer = 0;
 	int rc = 0;
@@ -2770,8 +2857,6 @@ static int v4l2_loopback_close(struct file *file)
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-
-	data = opener->data;
 
 	if (opener == dev->main_opener)
 		is_main = 1;
