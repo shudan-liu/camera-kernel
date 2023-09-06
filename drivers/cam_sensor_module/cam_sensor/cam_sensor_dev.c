@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -42,7 +43,7 @@ static long cam_sensor_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_sensor_driver_cmd(s_ctrl, arg);
 		break;
 	default:
-		CAM_ERR(CAM_SENSOR, "Invalid ioctl cmd: %d", cmd);
+		CAM_WARN(CAM_SENSOR, "Invalid ioctl cmd: %d", cmd);
 		rc = -EINVAL;
 		break;
 	}

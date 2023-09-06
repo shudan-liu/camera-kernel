@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /* Copyright (c) 2017-2018, 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -80,7 +80,7 @@ static long ais_ife_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = ais_ife_driver_cmd(p_ife_dev, arg);
 		break;
 	default:
-		CAM_ERR(CAM_ISP, "Invalid ioctl cmd: %d", cmd);
+		CAM_WARN(CAM_ISP, "Invalid ioctl cmd: %d", cmd);
 		rc = -EINVAL;
 		break;
 	}

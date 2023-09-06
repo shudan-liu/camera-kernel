@@ -42,7 +42,7 @@ static long cam_cci_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_cci_core_cam_ctrl(sd, arg);
 		break;
 	default:
-		CAM_ERR(CAM_CCI, "Invalid ioctl cmd: %d", cmd);
+		CAM_WARN(CAM_CCI, "Invalid ioctl cmd: %d", cmd);
 		rc = -ENOIOCTLCMD;
 	}
 
@@ -231,14 +231,14 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		struct cam_cci_master_info *cci_master_info;
 		cci_dev->cci_master_info[MASTER_0].status = -EINVAL;
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_NACK_ERROR_BMSK)
-			CAM_ERR(CAM_CCI, "Base:%pK, M0 NACK ERROR: 0x%x",
+			CAM_WARN(CAM_CCI, "Base:%pK, M0 NACK ERROR: 0x%x",
 				base, irq_status0);
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_Q0Q1_ERROR_BMSK)
-			CAM_ERR(CAM_CCI,
+			CAM_WARN(CAM_CCI,
 			"Base:%pK, M0 QUEUE_OVER/UNDER_FLOW OR CMD ERR: 0x%x",
 				base, irq_status0);
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M0_RD_ERROR_BMSK)
-			CAM_ERR(CAM_CCI,
+			CAM_WARN(CAM_CCI,
 				"Base: %pK, M0 RD_OVER/UNDER_FLOW ERROR: 0x%x",
 				base, irq_status0);
 		cam_io_w_mb(CCI_M0_HALT_REQ_RMSK, base + CCI_HALT_REQ_ADDR);
@@ -259,14 +259,14 @@ irqreturn_t cam_cci_irq(int irq_num, void *data)
 		struct cam_cci_master_info *cci_master_info;
 		cci_dev->cci_master_info[MASTER_1].status = -EINVAL;
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_NACK_ERROR_BMSK)
-			CAM_ERR(CAM_CCI, "Base:%pK, M1 NACK ERROR: 0x%x",
+			CAM_WARN(CAM_CCI, "Base:%pK, M1 NACK ERROR: 0x%x",
 				base, irq_status0);
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_Q0Q1_ERROR_BMSK)
-			CAM_ERR(CAM_CCI,
+			CAM_WARN(CAM_CCI,
 			"Base:%pK, M1 QUEUE_OVER_UNDER_FLOW OR CMD ERROR:0x%x",
 				base, irq_status0);
 		if (irq_status0 & CCI_IRQ_STATUS_0_I2C_M1_RD_ERROR_BMSK)
-			CAM_ERR(CAM_CCI,
+			CAM_WARN(CAM_CCI,
 				"Base:%pK, M1 RD_OVER/UNDER_FLOW ERROR: 0x%x",
 				base, irq_status0);
 		cam_io_w_mb(CCI_M1_HALT_REQ_RMSK, base + CCI_HALT_REQ_ADDR);

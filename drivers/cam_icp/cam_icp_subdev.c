@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -87,7 +88,7 @@ static int cam_icp_subdev_open(struct v4l2_subdev *sd,
 
 	mutex_lock(&g_icp_dev.icp_lock);
 	if (g_icp_dev.open_cnt >= 1) {
-		CAM_ERR(CAM_ICP, "ICP subdev is already opened");
+		CAM_WARN(CAM_ICP, "ICP subdev is already opened");
 		rc = -EALREADY;
 		goto end;
 	}

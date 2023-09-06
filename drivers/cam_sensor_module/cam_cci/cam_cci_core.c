@@ -1535,7 +1535,7 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 			rc = -ETIMEDOUT;
 		val = cam_io_r_mb(base +
 			CCI_I2C_M0_READ_BUF_LEVEL_ADDR + master * 0x100);
-		CAM_ERR(CAM_CCI,
+		CAM_WARN(CAM_CCI,
 			"wait_for_completion_timeout rc = %d FIFO buf_lvl: 0x%x",
 			rc, val);
 		cam_cci_flush_queue(cci_dev, master);
@@ -1549,7 +1549,7 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 			&cci_dev->cci_master_info[master].reset_complete,
 			CCI_TIMEOUT);
 			if (rc <= 0) {
-				CAM_ERR(CAM_CCI,
+				CAM_WARN(CAM_CCI,
 					"wait_for_completion_timeout rc = %d, rc");
 			} else
 				rc = 0;
@@ -1560,7 +1560,7 @@ static int32_t cam_cci_read(struct v4l2_subdev *sd,
 		CCI_I2C_M0_READ_BUF_LEVEL_ADDR + master * 0x100);
 	exp_words = ((read_cfg->num_byte / 4) + 1);
 	if (read_words != exp_words) {
-		CAM_ERR(CAM_CCI, "read_words = %d, exp words = %d",
+		CAM_WARN(CAM_CCI, "read_words = %d, exp words = %d",
 			read_words, exp_words);
 		memset(read_cfg->data, 0, read_cfg->num_byte);
 		rc = -EINVAL;
@@ -2050,7 +2050,7 @@ int32_t cam_cci_core_cfg(struct v4l2_subdev *sd,
 	struct cci_device *cci_dev;
 
 	if (sd == NULL || cci_ctrl == NULL) {
-		CAM_ERR(CAM_CCI, "cci_ctrl or sd null");
+		CAM_WARN(CAM_CCI, "cci_ctrl or sd null");
 		rc = -ENODEV;
 		return rc;
 	}

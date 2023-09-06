@@ -1,4 +1,5 @@
 /* Copyright (c) 2017-2018, 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -66,7 +67,7 @@ static long cam_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 		cam_req_mgr_rwsem_read_op(CAM_SUBDEV_UNLOCK);
 		break;
 	default:
-		CAM_ERR(CAM_CORE, "Invalid command %d for %s", cmd,
+		CAM_WARN(CAM_CORE, "Invalid command %d for %s", cmd,
 			node->name);
 		rc = -EINVAL;
 	}

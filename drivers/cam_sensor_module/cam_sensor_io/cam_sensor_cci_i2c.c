@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2018,2020-2021 The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -301,7 +302,7 @@ int32_t cam_sensor_cci_i2c_util(struct cam_sensor_cci_client *cci_client,
 
 	rc = cam_cci_core_cfg(cci_client->cci_subdev, &cci_ctrl);
 	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR, "Failed rc = %d", rc);
+		CAM_WARN(CAM_SENSOR, "Failed rc = %d", rc);
 	}
 
 	return rc;

@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1003,7 +1003,7 @@ static int cam_sensor_process_read_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 		i2c_read.reg_addr, &i2c_read.reg_data,
 		i2c_read.addr_type, i2c_read.data_type);
 	if (rc < 0) {
-		CAM_ERR(CAM_SENSOR, "Failed to read 0x%x:0x%x, rc = %d",
+		CAM_WARN(CAM_SENSOR, "Failed to read 0x%x:0x%x, rc = %d",
 			slave_info.slave_addr, i2c_read.reg_addr, rc);
 		(void)cam_sensor_restore_slave_info(s_ctrl);
 		return rc;
@@ -1751,7 +1751,7 @@ int32_t cam_sensor_driver_cmd(struct cam_sensor_ctrl_t *s_ctrl,
 	switch (cmd->op_code) {
 	case CAM_SENSOR_PROBE_CMD: {
 		if (s_ctrl->is_probe_succeed == 1) {
-			CAM_ERR(CAM_SENSOR,
+			CAM_WARN(CAM_SENSOR,
 				"Already Sensor Probed in the slot");
 			break;
 		}

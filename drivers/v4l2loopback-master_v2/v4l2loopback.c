@@ -8,7 +8,7 @@
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved
- * Copyright (c) 2021-2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -2716,7 +2716,7 @@ static int v4l2_loopback_open(struct file *file)
 				opener, connected_opener, data);
 			mutex_unlock(&dev->dev_mutex);
 		} else {
-			CAM_ERR(CAM_V4L2, "invalid operation state %d", dev->state);
+			CAM_WARN(CAM_V4L2, "invalid operation state %d", dev->state);
 			return -EINVAL;
 		}
 	}

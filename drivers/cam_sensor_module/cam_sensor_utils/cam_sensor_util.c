@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2019, 2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1400,7 +1400,7 @@ int msm_camera_pinctrl_init(
 		pinctrl_lookup_state(sensor_pctrl->pinctrl,
 				CAM_SENSOR_PINCTRL_STATE_DEFAULT);
 	if (IS_ERR_OR_NULL(sensor_pctrl->gpio_state_active)) {
-		CAM_ERR(CAM_SENSOR,
+		CAM_WARN(CAM_SENSOR,
 			"Failed to get the active state pinctrl handle");
 		return -EINVAL;
 	}
@@ -1725,7 +1725,7 @@ int cam_sensor_disable_regulator(struct cam_sensor_power_ctrl_t *ctrl,
 	soc_info->rgltr_op_mode[power_setting->seq_val],
 	soc_info->rgltr_delay[power_setting->seq_val]);
 	if (ret) {
-		CAM_ERR(CAM_SENSOR,
+		CAM_WARN(CAM_SENSOR,
 		"Reg: %s disable failed",
 		soc_info->rgltr_name[
 			power_setting->seq_val]);

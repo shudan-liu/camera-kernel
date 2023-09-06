@@ -1,4 +1,5 @@
 /* Copyright (c) 2015-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -1294,7 +1295,7 @@ int cam_soc_util_regulator_disable(struct regulator *rgltr,
 	int32_t rc = 0;
 
 	if (!rgltr) {
-		CAM_ERR(CAM_UTIL, "Invalid NULL parameter");
+		CAM_WARN(CAM_UTIL, "Invalid NULL parameter");
 		return -EINVAL;
 	}
 
