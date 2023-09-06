@@ -683,8 +683,8 @@ struct host_dest_camera_init_payload_v3 {
  */
 struct sensorlite_sys_cmd {
 	struct sensor_lite_header            header;
-	uint32_t                             sensor_id;
-	uint16_t                             sys_cmd;
+	uint8_t                              sensor_id;
+	uint8_t                              sys_cmd;
 	uint16_t                             reserved;
 } __packed;
 
