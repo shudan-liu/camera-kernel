@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_CDM_H_
@@ -475,8 +475,6 @@ struct cam_cdm_work_payload {
 	uint32_t irq_status;
 	uint32_t irq_data;
 	int fifo_idx;
-	ktime_t workq_scheduled_ts;
-	struct work_struct work;
 };
 
 /* struct cam_cdm_bl_cb_request_entry - callback entry for work to process.*/
@@ -507,7 +505,7 @@ struct cam_cdm_hw_mem {
 /* struct cam_cdm_bl_fifo - CDM hw memory struct */
 struct cam_cdm_bl_fifo {
 	struct completion bl_complete;
-	struct workqueue_struct *work_queue;
+	struct cam_req_mgr_core_worker *worker;
 	struct list_head bl_request_list;
 	spinlock_t fifo_hw_lock;
 	struct mutex fifo_lock;
@@ -525,7 +523,7 @@ struct cam_cdm_bl_fifo {
  * @id:                  enum for possible CDM hardwares
  * @flags:               enum to tell if CDM is private of shared
  * @reset_complete:      completion event to make CDM wait for reset
- * @work_queue:          workqueue to schedule work for virtual CDM
+ * @worker:              worker to schedule work for virtual CDM
  * @bl_request_list:     bl_request list for submitted commands in
  *                       virtual CDM
  * @version:             CDM version with major, minor, incr and reserved
@@ -549,7 +547,7 @@ struct cam_cdm {
 	enum cam_cdm_id id;
 	enum cam_cdm_flags flags;
 	struct completion reset_complete;
-	struct workqueue_struct *work_queue;
+	struct cam_req_mgr_core_worker *worker;
 	struct list_head bl_request_list;
 	struct cam_hw_version version;
 	uint32_t hw_version;

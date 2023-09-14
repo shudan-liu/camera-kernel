@@ -25,7 +25,7 @@
 #include "cam_cdm_util.h"
 #include "cam_common_util.h"
 #include "cam_subdev.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 
 /* CSIPHY TPG VC/DT values */
 #define CAM_IFE_CPHY_TPG_VC_VAL                         0x0
@@ -2825,8 +2825,8 @@ int cam_ife_csid_ver2_reserve(void *hw_priv,
 	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	res->is_per_port_acquire = is_per_port_acquire;
 	csid_hw->event_cb = reserve->event_cb;
-	csid_hw->workq  = reserve->workq;
-	res->workq_info  = reserve->workq;
+	csid_hw->worker  = reserve->worker;
+	res->worker_info  = reserve->worker;
 	reserve->buf_done_controller = csid_hw->buf_done_irq_controller;
 	res->cdm_ops = reserve->cdm_ops;
 	csid_hw->flags.sfe_en = reserve->sfe_en;
@@ -3446,8 +3446,8 @@ static inline int cam_ife_csid_ver2_subscribe_sof_for_discard(
 		res,
 		top_half_handler,
 		bottom_half_handler,
-		res->workq_info,
-		&workq_bh_api,
+		res->worker_info,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 
 	if (path_cfg->discard_irq_handle < 1) {
@@ -3576,8 +3576,8 @@ static int cam_ife_csid_ver2_program_rdi_path(
 		res,
 		cam_ife_csid_ver2_path_top_half,
 		cam_ife_csid_ver2_rdi_bottom_half,
-		res->workq_info,
-		&workq_bh_api,
+		res->worker_info,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 
 	if (path_cfg->irq_handle < 1) {
@@ -3603,8 +3603,8 @@ static int cam_ife_csid_ver2_program_rdi_path(
 			res,
 			cam_ife_csid_ver2_path_err_top_half,
 			cam_ife_csid_ver2_rdi_bottom_half,
-			res->workq_info,
-			&workq_bh_api,
+			res->worker_info,
+			&worker_bh_api,
 			CAM_IRQ_EVT_GROUP_0);
 
 	if (path_cfg->err_irq_handle < 1) {
@@ -3711,8 +3711,8 @@ static int cam_ife_csid_ver2_program_ipp_path(
 				    res,
 				    cam_ife_csid_ver2_path_top_half,
 				    cam_ife_csid_ver2_ipp_bottom_half,
-				    res->workq_info,
-				    &workq_bh_api,
+				    res->worker_info,
+				    &worker_bh_api,
 				    CAM_IRQ_EVT_GROUP_0);
 
 	if (path_cfg->irq_handle < 1) {
@@ -3738,8 +3738,8 @@ static int cam_ife_csid_ver2_program_ipp_path(
 		res,
 		cam_ife_csid_ver2_path_err_top_half,
 		cam_ife_csid_ver2_ipp_bottom_half,
-		res->workq_info,
-		&workq_bh_api,
+		res->worker_info,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 
 	if (path_cfg->err_irq_handle < 1) {
@@ -3941,8 +3941,8 @@ static int cam_ife_csid_ver2_program_ppp_path(
 				csid_hw,
 				cam_ife_csid_ver2_path_top_half,
 				cam_ife_csid_ver2_ppp_bottom_half,
-				res->workq_info,
-				&workq_bh_api,
+				res->worker_info,
+				&worker_bh_api,
 				CAM_IRQ_EVT_GROUP_0);
 
 
@@ -3969,8 +3969,8 @@ static int cam_ife_csid_ver2_program_ppp_path(
 					res,
 					cam_ife_csid_ver2_path_err_top_half,
 					cam_ife_csid_ver2_ipp_bottom_half,
-					res->workq_info,
-					&workq_bh_api,
+					res->worker_info,
+					&worker_bh_api,
 					CAM_IRQ_EVT_GROUP_0);
 
 	if (path_cfg->err_irq_handle < 1) {
@@ -4144,8 +4144,8 @@ static int cam_ife_csid_ver2_enable_csi2(struct cam_ife_csid_ver2_hw *csid_hw)
 				    csid_hw,
 				    cam_ife_csid_ver2_rx_err_top_half,
 				    cam_ife_csid_ver2_rx_err_bottom_half,
-				    csid_hw->workq,
-				    &workq_bh_api,
+				    csid_hw->worker,
+				    &worker_bh_api,
 				    CAM_IRQ_EVT_GROUP_0);
 
 	if (csid_hw->rx_cfg.err_irq_handle < 1) {
@@ -4399,8 +4399,8 @@ static int cam_ife_csid_ver2_enable_hw(
 		csid_hw,
 		cam_ife_csid_ver2_top_err_irq_top_half,
 		cam_ife_csid_ver2_top_err_irq_bottom_half,
-		csid_hw->workq,
-		&workq_bh_api,
+		csid_hw->worker,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 
 	if (csid_hw->top_err_irq_handle < 1) {
@@ -5589,8 +5589,8 @@ static int cam_ife_csid_ver2_update_res_data(struct cam_ife_csid_ver2_hw *csid_h
 		}
 	}
 
-	csid_hw->workq  = reserve->workq;
-	res->workq_info  = reserve->workq;
+	csid_hw->worker  = reserve->worker;
+	res->worker_info  = reserve->worker;
 	csid_hw->event_cb = reserve->event_cb;
 	res->cdm_ops = reserve->cdm_ops;
 
@@ -5667,8 +5667,8 @@ static int cam_ife_csid_ver2_subscribe_path_irqs(
 		res,
 		cam_ife_csid_ver2_path_top_half,
 		bh_handler,
-		res->workq_info,
-		&workq_bh_api,
+		res->worker_info,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 	if (path_cfg->irq_handle < 1) {
 		CAM_ERR(CAM_ISP, "CSID[%d] Subscribe res id %d Irq fail",
@@ -5691,8 +5691,8 @@ static int cam_ife_csid_ver2_subscribe_path_irqs(
 		res,
 		cam_ife_csid_ver2_path_err_top_half,
 		bh_handler,
-		res->workq_info,
-		&workq_bh_api,
+		res->worker_info,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 	if (path_cfg->err_irq_handle < 1) {
 		CAM_ERR(CAM_ISP, "CSID[%d] Subscribe Err Irq fail %d",

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -11,7 +11,7 @@
 #include <media/cam_tfe.h>
 
 #include "cam_smmu_api.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 #include "cam_isp_hw_mgr_intf.h"
 #include "cam_isp_hw.h"
 #include "cam_tfe_csid_hw_intf.h"
@@ -5170,7 +5170,7 @@ static int cam_tfe_hw_mgr_do_error_recovery(
 	struct cam_tfe_hw_event_recovery_data  *tfe_mgr_recovery_data)
 {
 	int32_t                             rc = 0;
-	struct crm_workq_task              *task = NULL;
+	struct crm_worker_task              *task = NULL;
 	struct cam_tfe_hw_event_recovery_data  *recovery_data = NULL;
 
 	recovery_data = kmemdup(tfe_mgr_recovery_data,
@@ -5181,7 +5181,7 @@ static int cam_tfe_hw_mgr_do_error_recovery(
 
 	CAM_DBG(CAM_ISP, "Enter: error_type (%d)", recovery_data->error_type);
 
-	task = cam_req_mgr_workq_get_task(g_tfe_hw_mgr.workq);
+	task = cam_req_mgr_worker_get_task(g_tfe_hw_mgr.worker);
 	if (!task) {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "No empty task frame");
 		kfree(recovery_data);
@@ -5190,7 +5190,7 @@ static int cam_tfe_hw_mgr_do_error_recovery(
 
 	task->process_cb = &cam_tfe_mgr_process_recovery_cb;
 	task->payload = recovery_data;
-	rc = cam_req_mgr_workq_enqueue_task(task,
+	rc = cam_req_mgr_worker_enqueue_task(task,
 		recovery_data->affected_ctx[0]->hw_mgr,
 		CRM_TASK_PRIORITY_0);
 
@@ -5789,11 +5789,6 @@ static inline int cam_tfe_hw_mgr_debug_register(void)
 }
 #endif
 
-static void cam_req_mgr_process_tfe_worker(struct work_struct *w)
-{
-	cam_req_mgr_process_workq(w);
-}
-
 int cam_tfe_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 {
 	int rc = -EFAULT;
@@ -5948,9 +5943,8 @@ int cam_tfe_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	}
 
 	/* Create Worker for tfe_hw_mgr with 10 tasks */
-	rc = cam_req_mgr_workq_create("cam_tfe_worker", 10,
-		&g_tfe_hw_mgr.workq, CRM_WORKQ_USAGE_NON_IRQ, 0,
-		cam_req_mgr_process_tfe_worker);
+	rc = cam_req_mgr_worker_create("cam_tfe_worker", 10,
+		&g_tfe_hw_mgr.worker, CRM_WORKER_USAGE_NON_IRQ, 0);
 	if (rc < 0) {
 		CAM_ERR(CAM_ISP, "Unable to create worker");
 		goto end;
@@ -6001,7 +5995,7 @@ void cam_tfe_hw_mgr_deinit(void)
 {
 	int i = 0;
 
-	cam_req_mgr_workq_destroy(&g_tfe_hw_mgr.workq);
+	cam_req_mgr_worker_destroy(&g_tfe_hw_mgr.worker);
 	debugfs_remove_recursive(g_tfe_hw_mgr.debug_cfg.dentry);
 	g_tfe_hw_mgr.debug_cfg.dentry = NULL;
 
