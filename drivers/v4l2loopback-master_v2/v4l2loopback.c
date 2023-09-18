@@ -2528,12 +2528,7 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		return -EINVAL;
 	}
 
-	if (opener->data) {
-		data = opener->data;
-	} else {
-		CAM_ERR(CAM_V4L2, "opener data is null");
-		return -EINVAL;
-	}
+	data = opener->data;
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p cmd %d",
 		opener, data, kcmd->cmd);
