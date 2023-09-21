@@ -14,14 +14,13 @@ cam_generated_h: $(shell find . -iname "*.c") $(shell find . -iname "*.h") $(she
 	echo '#define CAMERA_COMPILE_TIME "$(CAMERA_COMPILE_TIME)"' > cam_generated_h
 	echo '#define CAMERA_COMPILE_BY "$(CAMERA_COMPILE_BY)"' >> cam_generated_h
 	echo '#define CAMERA_COMPILE_HOST "$(CAMERA_COMPILE_HOST)"' >> cam_generated_h
+SRC := $(shell pwd)
 
 modules: cam_generated_h
-
-modules dtbs:
-	$(MAKE) -C $(KERNEL_SRC) M=$(M) modules $(KBUILD_OPTIONS)
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules $(KBUILD_OPTIONS)
 
 modules_install:
-	$(MAKE) M=$(M) -C $(KERNEL_SRC) modules_install
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules_install
 
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(M) clean
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) clean
