@@ -30,6 +30,7 @@ struct cam_irq_bh_api worker_bh_api = {
 
 #ifdef CONFIG_KTHREAD_WORKER
 #define WORK struct kthread_work
+static struct cam_kthread_info g_cam_kthread_info;
 #else
 #define WORK struct work_struct
 #endif
@@ -130,6 +131,42 @@ void cam_req_mgr_process_worker(WORK *w)
 
 
 #ifdef CONFIG_KTHREAD_WORKER
+int cam_req_mgr_kthread_set_thread_prop(struct cam_kthread_data *kthread_data)
+{
+	struct sched_attr sched_attr = {0};
+	struct cpumask cpu_affinity;
+	int i = 0, temp, rc = 0;
+
+	if (g_cam_kthread_info.priority) {
+		if (g_cam_kthread_info.priority != -1)
+			sched_attr.sched_priority = g_cam_kthread_info.priority;
+		else
+			sched_attr.sched_nice = g_cam_kthread_info.nice;
+		sched_attr.sched_policy = g_cam_kthread_info.policy;
+		CAM_DBG(CAM_REQ, "priority %d nice %d policy %d", sched_attr.sched_priority,
+			sched_attr.sched_nice, sched_attr.sched_policy);
+		rc =  sched_setattr(kthread_data->kthread_worker->task, &sched_attr);
+		if (rc) {
+			CAM_ERR(CAM_REQ, "Failed to set priority %d policy %d nice %d return %d",
+				sched_attr.sched_priority, sched_attr.sched_policy,
+				sched_attr.sched_nice, rc);
+			goto end;
+		}
+	}
+	if (g_cam_kthread_info.affinity) {
+		temp = g_cam_kthread_info.affinity;
+		while (temp) {
+			if (temp & 0x1)
+				cpumask_set_cpu(i, &cpu_affinity);
+			temp >>= 1;
+			i++;
+		}
+		kthread_bind_mask(kthread_data->kthread_worker->task, &cpu_affinity);
+	}
+end:
+	return rc;
+}
+
 inline int cam_req_mgr_kthread_create(struct cam_req_mgr_core_worker *crm_worker, char *name)
 {
 	char buf[128] = "crm_kthread-";
@@ -150,6 +187,7 @@ inline void cam_req_mgr_kthread_destroy(struct cam_req_mgr_core_worker *worker)
 {
 	struct kthread_worker   *kthread_worker;
 	unsigned long flags = 0;
+	struct cam_kthread_data *kthread_data;
 
 	if (worker->job) {
 		kthread_worker = worker->job;
@@ -157,6 +195,13 @@ inline void cam_req_mgr_kthread_destroy(struct cam_req_mgr_core_worker *worker)
 		WORKER_RELEASE_LOCK(worker, flags);
 		kthread_destroy_worker(kthread_worker);
 		WORKER_ACQUIRE_LOCK(worker, flags);
+	}
+	list_for_each_entry(kthread_data, &g_cam_kthread_info.kthread_list, list) {
+		if (kthread_data->kthread_worker == kthread_worker) {
+			list_del_init(&kthread_data->list);
+			vfree(kthread_data);
+			break;
+		}
 	}
 }
 
@@ -252,6 +297,9 @@ inline int cam_req_mgr_worker_create(char *name, int32_t num_tasks,
 	int32_t i, rc;
 	struct crm_worker_task  *task;
 	struct cam_req_mgr_core_worker *crm_worker = NULL;
+#ifdef CONFIG_KTHREAD_WORKER
+	struct cam_kthread_data *kthread_data;
+#endif
 
 	if (!*worker) {
 		crm_worker = vzalloc(sizeof(struct cam_req_mgr_core_worker));
@@ -294,6 +342,18 @@ inline int cam_req_mgr_worker_create(char *name, int32_t num_tasks,
 			cam_req_mgr_worker_put_task(task);
 		}
 		*worker = crm_worker;
+#ifdef CONFIG_KTHREAD_WORKER
+		kthread_data = vzalloc(sizeof(struct cam_kthread_data));
+		kthread_data->kthread_worker = crm_worker->job;
+		if (!g_cam_kthread_info.is_list_initalized) {
+			INIT_LIST_HEAD(&g_cam_kthread_info.kthread_list);
+			g_cam_kthread_info.is_list_initalized = true;
+		}
+		INIT_LIST_HEAD(&kthread_data->list);
+		list_add_tail(&kthread_data->list,
+			&g_cam_kthread_info.kthread_list);
+		cam_req_mgr_kthread_set_thread_prop(kthread_data);
+#endif
 		CAM_DBG(CAM_CRM, "free tasks %d",
 			atomic_read(&crm_worker->task.free_cnt));
 	}
@@ -435,4 +495,26 @@ inline void cam_req_mgr_worker_resume(struct cam_req_mgr_core_worker *worker)
 	CAM_DBG(CAM_CRM, "resume worker %s, free_cnt %d",
 			worker->worker_name, atomic_read(&worker->task.free_cnt));
 
+}
+
+inline int cam_req_mgr_set_thread_prop(struct cam_req_mgr_thread_prop_control *thread_prop)
+{
+#ifdef CONFIG_KTHREAD_WORKER
+	struct cam_kthread_data *kthread_data;
+	int rc = 0;
+
+	g_cam_kthread_info.affinity = thread_prop->affinity;
+	g_cam_kthread_info.policy   = thread_prop->policy;
+	g_cam_kthread_info.priority = thread_prop->priority;
+	g_cam_kthread_info.nice     = thread_prop->nice;
+	list_for_each_entry(kthread_data, &g_cam_kthread_info.kthread_list, list) {
+		rc = cam_req_mgr_kthread_set_thread_prop(kthread_data);
+		if(rc)
+			return rc;
+	}
+	return rc;
+#else
+	CAM_INFO(CAM_REQ, "Kthread not enabled");
+	return -EOPNOTSUPP;
+#endif
 }

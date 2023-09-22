@@ -701,6 +701,37 @@ static long cam_private_ioctl(struct file *file, void *fh,
 			V4L_EVENT_CAM_REQ_MGR_EVENT);
 		}
 		break;
+	case CAM_REQ_MGR_THREAD_PROP_CONTROL: {
+		struct cam_req_mgr_thread_prop_control cmd;
+		__u32  version;
+
+		if (copy_from_user(&version,
+			u64_to_user_ptr(k_ioctl->handle), sizeof(version))) {
+			rc = -EFAULT;
+			break;
+		}
+
+		if (version == 1) {
+			if (k_ioctl->size != sizeof(cmd))
+				return -EINVAL;
+
+			if (copy_from_user(&cmd,
+				u64_to_user_ptr(k_ioctl->handle),
+					sizeof(struct cam_req_mgr_thread_prop_control))) {
+				rc = -EFAULT;
+				break;
+			}
+			if (cmd.session_hdl || cmd.link_hdl || cmd.dev_hdl) {
+				CAM_ERR(CAM_REQ, "Property of all threads supported only");
+				return -EOPNOTSUPP;
+			}
+			rc  = cam_req_mgr_set_thread_prop(&cmd);
+		} else {
+			CAM_ERR(CAM_REQ, "version %d not supported", version);
+			return -EOPNOTSUPP;
+		}
+		}
+		break;
 	default:
 		CAM_ERR(CAM_CRM, "Invalid ioctl command %x", k_ioctl->op_code);
 		return -ENOIOCTLCMD;

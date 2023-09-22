@@ -14,6 +14,10 @@
 #include<linux/slab.h>
 #include<linux/timer.h>
 #include<linux/kthread.h>
+#include <linux/cpumask.h>
+#include <uapi/linux/sched/types.h>
+
+#include "media/cam_req_mgr.h"
 
 /* Threshold for scheduling delay in ms */
 #define CAM_WORKER_SCHEDULE_TIME_THRESHOLD   5
@@ -134,6 +138,33 @@ struct cam_req_mgr_core_worker {
 	} task;
 };
 
+/**
+ * struct cam_kthread_data - Single node of information about a kthread worker *
+ * @kthread_worker  : Kthread worker
+ * @list     : List member used to append this node to a linked list
+ */
+struct cam_kthread_data {
+	struct kthread_worker  *kthread_worker;
+	struct list_head        list;
+};
+
+/**
+ * struct cam_kthread_info - Kthread scheduling information *
+ * @policy               : Scheduling policy
+ * @priority             : Scheduling priority
+ * @nice                 : Nice value
+ * @affinity             : Core affinity
+ * @is_list_initialized  : bool to show if list is intialized
+ * @kthread_list         : List of all created kthreads
+ */
+struct cam_kthread_info {
+	uint32_t              policy;
+	int32_t               priority;
+	int32_t               nice;
+	uint32_t              affinity;
+	bool                  is_list_initalized;
+	struct list_head      kthread_list;
+};
 
 /**
  * cam_req_mgr_workq_get_task()
@@ -198,6 +229,12 @@ void cam_req_mgr_worker_pause(struct cam_req_mgr_core_worker *worker);
  * @worker: pointer to worker data struct
  */
 void cam_req_mgr_worker_resume(struct cam_req_mgr_core_worker *worker);
+
+/**
+ * cam_req_mgr_set_thread_prop()
+ * @worker: pointer to worker data struct
+ */
+int cam_req_mgr_set_thread_prop(struct cam_req_mgr_thread_prop_control *worker);
 
 extern struct cam_irq_bh_api worker_bh_api;
 
