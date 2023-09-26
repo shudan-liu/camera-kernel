@@ -30,22 +30,14 @@ ccflags-y += ${ccflags-m}
 camera-y := \
 	drivers/cam_req_mgr/cam_req_mgr_core.o \
 	drivers/cam_req_mgr/cam_req_mgr_dev.o \
-	drivers/cam_req_mgr/cam_req_mgr_util.o \
-	drivers/cam_req_mgr/cam_mem_mgr.o \
-	drivers/cam_req_mgr/cam_req_mgr_workq.o \
-	drivers/cam_req_mgr/cam_req_mgr_timer.o \
 	drivers/cam_req_mgr/cam_req_mgr_debug.o \
 	drivers/cam_utils/cam_soc_util.o \
 	drivers/cam_utils/cam_packet_util.o \
-	drivers/cam_utils/cam_debug_util.o \
 	drivers/cam_utils/cam_trace.o \
-	drivers/cam_utils/cam_common_util.o \
-	drivers/cam_utils/cam_compat.o \
 	drivers/cam_core/cam_context.o \
 	drivers/cam_core/cam_context_utils.o \
 	drivers/cam_core/cam_node.o \
 	drivers/cam_core/cam_subdev.o \
-	drivers/cam_smmu/cam_smmu_api.o \
 	drivers/cam_sync/cam_sync.o \
 	drivers/cam_sync/cam_sync_util.o \
 	drivers/cam_cpas/cpas_top/cam_cpastop_hw.o \
@@ -59,20 +51,19 @@ camera-y := \
 	drivers/cam_cdm/cam_cdm_core_common.o \
 	drivers/cam_cdm/cam_cdm_virtual_core.o \
 	drivers/cam_cdm/cam_cdm_hw_core.o \
-	drivers/cam_utils/cam_io_util.o
-
-ifeq (,$(filter $(CONFIG_CAM_PRESIL),y m))
-	camera-y += drivers/cam_utils/cam_io_util.o
-else
-	camera-y += drivers/cam_presil/presil/cam_presil_io_util.o
-	camera-y += drivers/cam_presil/presil/cam_presil_hw_access.o
-	camera-y += drivers/cam_presil/presil_framework_dev/cam_presil_framework_dev.o
-	ccflags-y += -DCONFIG_CAM_PRESIL=1
-endif
+	drivers/cam_req_mgr/cam_mem_mgr.o \
+	common/cam_common_util.o \
+	common/cam_compat.o \
+	common/cam_debug_util.o \
+	common/cam_io_util.o \
+	common/cam_req_mgr_timer.o \
+	common/cam_req_mgr_util.o \
+	common/cam_req_mgr_workq.o \
+	common/cam_smmu_api.o \
+	common/cam_soc_icc.o
 
 camera-$(CONFIG_QCOM_CX_IPEAK) += drivers/cam_utils/cam_cx_ipeak.o
 camera-$(CONFIG_QCOM_BUS_SCALING) += drivers/cam_utils/cam_soc_bus.o
-camera-$(CONFIG_INTERCONNECT_QCOM) += drivers/cam_utils/cam_soc_icc.o
 
 camera-$(CONFIG_SPECTRA_ISP) += \
 	drivers/cam_isp/isp_hw_mgr/hw_utils/cam_tasklet_util.o \
