@@ -569,6 +569,7 @@ static struct cam_vfe_bus_ver3_hw_info vfe650x_bus_hw_info = {
 			.source_group  = CAM_VFE_BUS_VER3_SRC_GRP_0,
 			.num_wm        = 1,
 			.mid[0]        = 12,
+			.line_based    = 1,
 			.wm_idx        = {
 				4,
 			},

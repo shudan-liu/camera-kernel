@@ -1131,10 +1131,14 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 		case CAM_FORMAT_PLAIN16_10:
 		case CAM_FORMAT_PLAIN16_12:
 		case CAM_FORMAT_PLAIN16_14:
-			rsrc_data->width = 0;
-			rsrc_data->height = 0;
-			rsrc_data->stride = 1;
-			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+			if (rsrc_data->default_line_based) {
+				rsrc_data->en_cfg = 0x1;
+			} else {
+				rsrc_data->width = 0;
+				rsrc_data->height = 0;
+				rsrc_data->stride = 1;
+				rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+			}
 			break;
 		default:
 			if (wm_res->is_per_port_acquire) {
