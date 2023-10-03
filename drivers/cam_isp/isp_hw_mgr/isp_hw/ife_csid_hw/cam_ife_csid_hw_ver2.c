@@ -1538,7 +1538,7 @@ static int cam_ife_csid_ver2_ipp_bottom_half(
 	struct cam_ife_csid_ver2_reg_info            *csid_reg;
 	struct cam_isp_resource_node                 *res;
 	struct cam_ife_csid_ver2_hw                  *csid_hw = NULL;
-	struct cam_isp_hw_event_info                  evt_info;
+	struct cam_isp_hw_event_info                  evt_info = {0};
 	struct cam_hw_info                           *hw_info;
 	struct cam_ife_csid_ver2_path_cfg            *path_cfg;
 	void                                         *token = NULL;
@@ -1756,7 +1756,7 @@ static int cam_ife_csid_ver2_rdi_bottom_half(
 	uint32_t                                      irq_status_rdi;
 	uint32_t                                      err_mask;
 	uint32_t                                      err_type = 0;
-	struct cam_isp_hw_event_info                  evt_info;
+	struct cam_isp_hw_event_info                  evt_info = {0};
 	int                                           i, rc = 0;
 	void                                         *token = NULL;
 	uint64_t                                      timestamp = 0;
