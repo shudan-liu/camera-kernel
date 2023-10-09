@@ -549,7 +549,7 @@ struct cam_ife_csid_token_info {
  * @path_evt_payload               Payload for path events
  * @rx_free_payload_list:     Free Payload list for rx events
  * @free_payload_list:        Free Payload list for rx events
- * @lock_state :              spin lock
+ * @lock_state :              mutex lock
  * @payload_lock:             spin lock for path payload
  * @rx_payload_lock:          spin lock for rx payload
  * @csid_irq_controller:      common csid irq controller
@@ -590,7 +590,7 @@ struct cam_ife_csid_ver2_hw {
 						CAM_IFE_CSID_VER2_PAYLOAD_MAX];
 	struct list_head                       rx_free_payload_list;
 	struct list_head                       path_free_payload_list;
-	spinlock_t                             lock_state;
+	struct mutex                           lock_state;
 	spinlock_t                             path_payload_lock;
 	spinlock_t                             rx_payload_lock;
 	void                                  *csid_irq_controller;

@@ -144,9 +144,9 @@ static int cam_req_mgr_open(struct file *filep)
 		goto end;
 	}
 
-	spin_lock_bh(&g_dev.cam_eventq_lock);
+	mutex_lock(&g_dev.cam_eventq_lock);
 	g_dev.cam_eventq = filep->private_data;
-	spin_unlock_bh(&g_dev.cam_eventq_lock);
+	mutex_unlock(&g_dev.cam_eventq_lock);
 
 	g_dev.open_cnt++;
 	rc = cam_mem_mgr_init();
@@ -224,9 +224,9 @@ static int cam_req_mgr_close(struct file *filep)
 	g_dev.shutdown_state = false;
 	v4l2_fh_release(filep);
 
-	spin_lock_bh(&g_dev.cam_eventq_lock);
+	mutex_lock(&g_dev.cam_eventq_lock);
 	g_dev.cam_eventq = NULL;
-	spin_unlock_bh(&g_dev.cam_eventq_lock);
+	mutex_unlock(&g_dev.cam_eventq_lock);
 
 	cam_req_mgr_util_free_hdls();
 	cam_mem_mgr_deinit();
@@ -956,7 +956,7 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 	g_dev.open_cnt = 0;
 	g_dev.shutdown_state = false;
 	mutex_init(&g_dev.cam_lock);
-	spin_lock_init(&g_dev.cam_eventq_lock);
+	mutex_init(&g_dev.cam_eventq_lock);
 	mutex_init(&g_dev.dev_lock);
 
 	rc = cam_req_mgr_util_init();

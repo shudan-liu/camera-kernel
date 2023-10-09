@@ -791,7 +791,7 @@ static void __cam_req_mgr_validate_crm_wd_timer(
 			"Skip modifying wd timer, continue with same timeout");
 		return;
 	}
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->watchdog) {
 		if ((next_frame_timeout + CAM_REQ_MGR_WATCHDOG_TIMEOUT) >
 			link->watchdog->expires) {
@@ -824,7 +824,7 @@ static void __cam_req_mgr_validate_crm_wd_timer(
 	} else {
 		CAM_WARN(CAM_CRM, "Watchdog timer exited already");
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 }
 
 /**
@@ -1874,13 +1874,13 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 	 * mutex is released when flushing the worker. In case the wq is scheduled
 	 * thereafter this API will then check the updated link state and exit
 	 */
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state == CAM_CRM_LINK_STATE_IDLE) {
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		mutex_unlock(&session->lock);
 		return -EPERM;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	in_q = link->req.in_q;
 	/*
@@ -1994,7 +1994,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 			 * hence try again in next sof
 			 */
 			slot->status = CRM_SLOT_STATUS_REQ_PENDING;
-			spin_lock_bh(&link->link_state_spin_lock);
+			mutex_lock(&link->link_state_mutex_lock);
 			if (link->state == CAM_CRM_LINK_STATE_ERR) {
 				/*
 				 * During error recovery all tables should be
@@ -2007,7 +2007,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 					in_q->slot[in_q->rd_idx].status);
 				rc = -EPERM;
 			}
-			spin_unlock_bh(&link->link_state_spin_lock);
+			mutex_unlock(&link->link_state_mutex_lock);
 			__cam_req_mgr_notify_frame_skip(link, trigger);
 			__cam_req_mgr_validate_crm_wd_timer(link);
 			goto end;
@@ -2067,13 +2067,13 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 
 		CAM_DBG(CAM_CRM, "Applied req[%lld] on link[%x] success",
 			slot->req_id, link->link_hdl);
-		spin_lock_bh(&link->link_state_spin_lock);
+		mutex_lock(&link->link_state_mutex_lock);
 		if (link->state == CAM_CRM_LINK_STATE_ERR) {
 			CAM_WARN(CAM_CRM, "Err recovery done idx %d",
 				in_q->rd_idx);
 			link->state = CAM_CRM_LINK_STATE_READY;
 		}
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 
 		if (link->sync_link_sof_skip)
 			link->sync_link_sof_skip = false;
@@ -2314,13 +2314,13 @@ static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 		return -EINVAL;
 	}
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		return -EINVAL;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	in_q = link->req.in_q;
 	if (in_q) {
@@ -2331,15 +2331,15 @@ static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 		mutex_unlock(&link->req.lock);
 	}
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if ((link->watchdog) && (link->watchdog->pause_timer)) {
 		CAM_INFO(CAM_CRM,
 			"link:%x watchdog paused, maybe stream on/off is delayed",
 			link->link_hdl);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		return rc;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	CAM_ERR(CAM_CRM,
 		"SOF freeze for session: %d link: 0x%x max_pd: %d last_req_id:%d",
@@ -2788,13 +2788,14 @@ int cam_req_mgr_process_flush_req(void *priv, void *data)
 	task_data = (struct crm_task_payload *)data;
 	flush_info  = (struct cam_req_mgr_flush_info *)&task_data->u;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		return -EINVAL;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	CAM_DBG(CAM_REQ, "link_hdl %x req_id %lld type %d",
 		flush_info->link_hdl,
@@ -2862,14 +2863,14 @@ int cam_req_mgr_process_sched_req(void *priv, void *data)
 	task_data = (struct crm_task_payload *)data;
 	sched_req  = (struct cam_req_mgr_sched_request *)&task_data->u;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc =  -EINVAL;
 		goto end;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	in_q = link->req.in_q;
 
@@ -2964,14 +2965,14 @@ int cam_req_mgr_process_add_req(void *priv, void *data)
 	task_data = (struct crm_task_payload *)data;
 	add_req = (struct cam_req_mgr_add_request *)&task_data->u;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc =  -EINVAL;
 		goto end;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	for (i = 0; i < link->num_devs; i++) {
 		device = &link->l_dev[i];
@@ -3142,14 +3143,14 @@ int cam_req_mgr_process_error(void *priv, void *data)
 	task_data = (struct crm_task_payload *)data;
 	err_info  = (struct cam_req_mgr_error_notify *)&task_data->u;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc =  -EINVAL;
 		goto end;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	CAM_DBG(CAM_CRM, "link_hdl %x req_id %lld error %d",
 		err_info->link_hdl,
@@ -3203,9 +3204,9 @@ int cam_req_mgr_process_error(void *priv, void *data)
 			if (in_q->slot[idx].status == CRM_SLOT_STATUS_REQ_APPLIED)
 				in_q->slot[idx].status = CRM_SLOT_STATUS_REQ_ADDED;
 
-			spin_lock_bh(&link->link_state_spin_lock);
+			mutex_lock(&link->link_state_mutex_lock);
 			link->state = CAM_CRM_LINK_STATE_ERR;
-			spin_unlock_bh(&link->link_state_spin_lock);
+			mutex_unlock(&link->link_state_mutex_lock);
 			link->open_req_cnt++;
 
 			/* Apply immediately to highest pd device on same frame */
@@ -3283,14 +3284,14 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 	task_data = (struct crm_task_payload *)data;
 	trigger_data = (struct cam_req_mgr_trigger_notify *)&task_data->u;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_ERR(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc =  -EINVAL;
 		goto end;
 	}
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	CAM_DBG(CAM_REQ,
 		"link_hdl %x frame_id %lld, trigger %x curr req_id:%lld last buf done req_id:%lld ",
@@ -3355,12 +3356,12 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 	CAM_DBG(CAM_CRM, "link_hdl %x curent idx %d req_status %d",
 		link->link_hdl, in_q->rd_idx, in_q->slot[in_q->rd_idx].status);
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d for link 0x%x",
 			link->state, link->link_hdl);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc = -EPERM;
 		goto release_lock;
 	}
@@ -3370,7 +3371,7 @@ static int cam_req_mgr_process_trigger(void *priv, void *data)
 			in_q->rd_idx,
 			in_q->slot[in_q->rd_idx].status);
 
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	/*
 	 * Move to next req at SOF only in case
@@ -3550,15 +3551,15 @@ static int cam_req_mgr_cb_notify_err(
 		goto end;
 	}
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state != CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc = -EPERM;
 		goto end;
 	}
 	crm_timer_reset(link->watchdog);
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	task = cam_req_mgr_worker_get_task(link->worker);
 	if (!task) {
@@ -3647,10 +3648,10 @@ static int cam_req_mgr_cb_notify_timer(
 		goto end;
 	}
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc = -EPERM;
 		goto end;
 	}
@@ -3664,7 +3665,7 @@ static int cam_req_mgr_cb_notify_timer(
 			link->link_hdl, link->watchdog->pause_timer);
 	}
 
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 end:
 	return rc;
@@ -3705,16 +3706,17 @@ static int cam_req_mgr_cb_notify_stop(
 		CAM_DBG(CAM_CRM, "CRM notify stop not required for no-CRM");
 		goto end;
 	}
-	spin_lock_bh(&link->link_state_spin_lock);
+
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state != CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc = -EPERM;
 		goto end;
 	}
 	crm_timer_reset(link->watchdog);
 	link->watchdog->pause_timer = true;
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	task = cam_req_mgr_worker_get_task(link->worker);
 	if (!task) {
@@ -3916,10 +3918,10 @@ static int cam_req_mgr_cb_notify_trigger(
 		goto end;
 	}
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	if (link->state < CAM_CRM_LINK_STATE_READY) {
 		CAM_WARN(CAM_CRM, "invalid link state:%d", link->state);
-		spin_unlock_bh(&link->link_state_spin_lock);
+		mutex_unlock(&link->link_state_mutex_lock);
 		rc = -EPERM;
 		goto end;
 	}
@@ -3934,13 +3936,13 @@ static int cam_req_mgr_cb_notify_trigger(
 			link->trigger_cnt[trigger_id][trigger]++;
 			rc = __cam_req_mgr_check_for_dual_trigger(link, trigger);
 			if (rc) {
-				spin_unlock_bh(&link->link_state_spin_lock);
+				mutex_unlock(&link->link_state_mutex_lock);
 				goto end;
 			}
 		} else {
 			CAM_ERR(CAM_CRM, "trigger_id invalid %d", trigger_id);
 			rc = -EINVAL;
-			spin_unlock_bh(&link->link_state_spin_lock);
+			mutex_unlock(&link->link_state_mutex_lock);
 			goto end;
 		}
 	}
@@ -3951,7 +3953,7 @@ static int cam_req_mgr_cb_notify_trigger(
 	else if (link->feature_flag & CAM_REQ_MGR_LINK_TRIGGER_TYPE)
 		crm_timer_modify(link->watchdog, CAM_REQ_MGR_WATCHDOG_MAX_TIMEOUT);
 
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	task = cam_req_mgr_worker_get_task(worker);
 	if (PTR_ERR(task) == -EIO) {
@@ -4297,9 +4299,9 @@ static int __cam_req_mgr_unlink(
 {
 	int rc;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	link->state = CAM_CRM_LINK_STATE_IDLE;
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	if (!link->is_shutdown) {
 		rc = __cam_req_mgr_disconnect_link(link);
@@ -4309,11 +4311,11 @@ static int __cam_req_mgr_unlink(
 	}
 
 	mutex_lock(&link->lock);
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	/* Destroy timer of link */
 	crm_timer_exit(&link->watchdog);
-	spin_unlock_bh(&link->link_state_spin_lock);
-	/* Release session mutex for worker processing */
+	mutex_unlock(&link->link_state_mutex_lock);
+	/* Release session mutex for workq processing */
 	mutex_unlock(&session->lock);
 	/* Destroy worker of link */
 	cam_req_mgr_worker_destroy(&link->worker);
@@ -4467,9 +4469,9 @@ int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info)
 	if (rc < 0)
 		goto setup_failed;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	link->state = CAM_CRM_LINK_STATE_READY;
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	/* Create worker for current link */
 	snprintf(buf, sizeof(buf), "%x-%x",
@@ -4578,9 +4580,9 @@ int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info)
 	if (rc < 0)
 		goto setup_failed;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	link->state = CAM_CRM_LINK_STATE_READY;
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	/* Create worker for current link */
 	snprintf(buf, sizeof(buf), "%x-%x",
@@ -4700,9 +4702,9 @@ int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info)
 	if (rc < 0)
 		goto setup_failed;
 
-	spin_lock_bh(&link->link_state_spin_lock);
+	mutex_lock(&link->link_state_mutex_lock);
 	link->state = CAM_CRM_LINK_STATE_READY;
-	spin_unlock_bh(&link->link_state_spin_lock);
+	mutex_unlock(&link->link_state_mutex_lock);
 
 	/* Create worker for current link */
 	snprintf(buf, sizeof(buf), "%x-%x",
@@ -5200,9 +5202,9 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 
 		mutex_lock(&link->lock);
 		if (control->ops == CAM_REQ_MGR_LINK_ACTIVATE) {
-			spin_lock_bh(&link->link_state_spin_lock);
+			mutex_lock(&link->link_state_mutex_lock);
 			link->state = CAM_CRM_LINK_STATE_READY;
-			spin_unlock_bh(&link->link_state_spin_lock);
+			mutex_unlock(&link->link_state_mutex_lock);
 			if (control->init_timeout[i])
 				link->skip_init_frame = true;
 			init_timeout = (2 * control->init_timeout[i]);
@@ -5237,11 +5239,11 @@ int cam_req_mgr_link_control(struct cam_req_mgr_link_control *control)
 				CRM_KMD_ERR_MAX, link);
 
 			/* Destroy SOF watchdog timer */
-			spin_lock_bh(&link->link_state_spin_lock);
+			mutex_lock(&link->link_state_mutex_lock);
 			link->state = CAM_CRM_LINK_STATE_IDLE;
 			link->skip_init_frame = false;
 			crm_timer_exit(&link->watchdog);
-			spin_unlock_bh(&link->link_state_spin_lock);
+			mutex_unlock(&link->link_state_mutex_lock);
 			CAM_DBG(CAM_CRM,
 				"De-activate link: 0x%x", link->link_hdl);
 		} else {
@@ -5478,7 +5480,7 @@ int cam_req_mgr_core_device_init(void)
 
 	for (i = 0; i < MAXIMUM_LINKS_PER_SESSION; i++) {
 		mutex_init(&g_links[i].lock);
-		spin_lock_init(&g_links[i].link_state_spin_lock);
+		mutex_init(&g_links[i].link_state_mutex_lock);
 		atomic_set(&g_links[i].is_used, 0);
 		cam_req_mgr_core_link_reset(&g_links[i]);
 	}

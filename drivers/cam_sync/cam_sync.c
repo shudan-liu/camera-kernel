@@ -1401,7 +1401,7 @@ static int cam_sync_component_bind(struct device *dev,
 	set_bit(0, sync_dev->bitmap);
 
 	cam_req_mgr_worker_create("sync_worker", 5,
-		&sync_dev->worker, CRM_WORKER_USAGE_NON_IRQ, 0);
+		&sync_dev->worker, CRM_WORKER_USAGE_IRQ, 0);
 
 	if (!sync_dev->worker) {
 		CAM_ERR(CAM_SYNC,

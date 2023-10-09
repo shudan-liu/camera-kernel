@@ -366,7 +366,7 @@ struct cam_req_mgr_connected_device {
  * @state                : link state machine
  * @parent               : pvt data - link's parent is session
  * @lock                 : mutex lock to guard link data operations
- * @link_state_spin_lock : spin lock to protect link state variable
+ * @link_state_mutex_lock: mutex lock to protect link state variable
  * @sync_link            : array of pointer to the sync link for synchronization
  * @num_sync_links       : num of links sync associated with this link
  * @sync_link_sof_skip   : flag determines if a pkt is not available for a given
@@ -414,7 +414,7 @@ struct cam_req_mgr_core_link {
 	enum cam_req_mgr_link_state          state;
 	void                                *parent;
 	struct mutex                         lock;
-	spinlock_t                           link_state_spin_lock;
+	struct mutex                         link_state_mutex_lock;
 	struct cam_req_mgr_core_link
 			*sync_link[MAXIMUM_LINKS_PER_SESSION - 1];
 	int32_t                              num_sync_links;

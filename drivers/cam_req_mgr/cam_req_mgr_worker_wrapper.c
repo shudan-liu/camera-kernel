@@ -18,14 +18,14 @@ struct cam_irq_bh_api worker_bh_api = {
 	if ((worker)->in_irq) \
 		spin_lock_irqsave(&(worker)->lock_bh, (flags)); \
 	else \
-		spin_lock_bh(&(worker)->lock_bh); \
+		mutex_lock(&(worker)->mutex_lock); \
 }
 
 #define WORKER_RELEASE_LOCK(worker, flags) {\
 	if ((worker)->in_irq) \
 		spin_unlock_irqrestore(&(worker)->lock_bh, (flags)); \
 	else	\
-		spin_unlock_bh(&(worker)->lock_bh); \
+		mutex_unlock(&(worker)->mutex_lock); \
 }
 
 #ifdef CONFIG_KTHREAD_WORKER
@@ -311,6 +311,7 @@ inline int cam_req_mgr_worker_create(char *name, int32_t num_tasks,
 			return rc;
 		}
 		spin_lock_init(&crm_worker->lock_bh);
+		mutex_init(&crm_worker->mutex_lock);
 		CAM_DBG(CAM_CRM, "LOCK_DBG worker %s lock %pK",
 			name, &crm_worker->lock_bh);
 
@@ -386,6 +387,7 @@ inline void cam_req_mgr_worker_destroy(struct cam_req_mgr_core_worker **crm_work
 			INIT_LIST_HEAD(&worker->task.process_head[i]);
 		*crm_worker = NULL;
 		WORKER_RELEASE_LOCK(worker, flags);
+		mutex_destroy(&worker->mutex_lock);
 		vfree(worker);
 	}
 

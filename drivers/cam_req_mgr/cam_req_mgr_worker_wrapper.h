@@ -95,6 +95,7 @@ struct crm_worker_task {
  * @work        : work token used by workqueue
  * @job         : workqueue internal job struct
  * @lock_bh     : lock for task structs
+ * @mutex_lock  : mutex lock for task structs
  * @in_irq      : set true if workque can be used in irq context
  * @is_paused   : flag to indicate if worker is paused or not
  * @worker_scheduled_ts: enqueue time of worker
@@ -119,6 +120,7 @@ struct cam_req_mgr_core_worker {
 	struct kthread_work        work;
 #endif
 	spinlock_t                 lock_bh;
+	struct mutex               mutex_lock;
 	uint32_t                   in_irq;
 	bool                       is_paused;
 	ktime_t                    worker_scheduled_ts;
