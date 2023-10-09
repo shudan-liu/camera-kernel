@@ -2143,7 +2143,7 @@ static int cam_cci_core_process_read_burst_cmd(struct v4l2_subdev *sd,
 	int rc = 0;
 	struct ais_cci_cmd_t cci_cmd;
 	unsigned char *read_data_bytes;
-	uint32_t *read_data;
+	uint8_t *read_data;
 	int i, c;
 	uint8_t data_type;
 
@@ -2179,7 +2179,7 @@ static int cam_cci_core_process_read_burst_cmd(struct v4l2_subdev *sd,
 
 	read_data = kcalloc(
 				cci_cmd.cmd.i2c_burst.count,
-				(sizeof(uint32_t)),
+				(sizeof(uint8_t)),
 				GFP_KERNEL);
 
 	if (!read_data) {
@@ -2243,7 +2243,7 @@ static int cam_cci_core_process_read_burst_cmd(struct v4l2_subdev *sd,
 
 	if (copy_to_user((void __user *)(cci_cmd.cmd.i2c_burst.data),
 			read_data,
-			cci_cmd.cmd.i2c_burst.count * sizeof(uint32_t))) {
+			cci_cmd.cmd.i2c_burst.count * sizeof(uint8_t))) {
 		CAM_ERR(CAM_CCI, "Failed to copy read data to User");
 		rc = -EFAULT;
 	}
@@ -2265,7 +2265,7 @@ static int cam_cci_core_process_write_burst_cmd(struct v4l2_subdev *sd,
 	int rc = 0;
 	struct ais_cci_cmd_t cci_cmd;
 	struct cam_sensor_i2c_reg_array *reg_data_arr;
-	unsigned int *wr_data;
+	uint8_t *wr_data;
 	int i;
 
 	rc = copy_from_user(&cci_cmd,
@@ -2300,7 +2300,7 @@ static int cam_cci_core_process_write_burst_cmd(struct v4l2_subdev *sd,
 
 	cci_ctrl.cmd = MSM_CCI_I2C_WRITE_BURST;
 	wr_data = kcalloc(cci_cmd.cmd.i2c_burst.count,
-					(sizeof(unsigned int)),
+					(sizeof(uint8_t)),
 					GFP_KERNEL);
 	if (!wr_data) {
 		rc = -ENOMEM;
@@ -2319,7 +2319,7 @@ static int cam_cci_core_process_write_burst_cmd(struct v4l2_subdev *sd,
 	if (copy_from_user(wr_data,
 			(void __user *)(cci_cmd.cmd.i2c_burst.data),
 			cci_cmd.cmd.i2c_burst.count *
-			sizeof(unsigned int))) {
+			sizeof(uint8_t))) {
 		pr_err("%s:%d failed\n", __func__, __LINE__);
 		kfree(wr_data);
 		kfree(reg_data_arr);
