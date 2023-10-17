@@ -38,6 +38,8 @@ extern struct platform_driver cam_actuator_platform_driver;
 extern struct platform_driver cam_sensor_platform_driver;
 extern struct platform_driver cam_eeprom_platform_driver;
 extern struct platform_driver cam_ois_platform_driver;
+extern struct platform_driver hdmi_bdg_irq_handler_driver;
+extern struct platform_driver dp_bdg_irq_handler_driver;
 #if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2) || \
 	IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
 extern struct platform_driver cam_flash_platform_driver;
@@ -107,6 +109,8 @@ static struct platform_driver *const cam_component_drivers[] = {
 	&cam_sensor_platform_driver,
 	&cam_eeprom_platform_driver,
 	&cam_ois_platform_driver,
+	&hdmi_bdg_irq_handler_driver,
+	&dp_bdg_irq_handler_driver,
 #if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2) || \
 	IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
 	&cam_flash_platform_driver,

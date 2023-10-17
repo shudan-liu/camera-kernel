@@ -983,19 +983,11 @@ int cam_hdmi_bdg_set_cam_ctrl(struct cam_sensor_ctrl_t *s_ctrl)
 	int rc = 0;
 	struct cam_camera_slave_info *slave_info;
 
-	if (s_ctrl == NULL) {
-		CAM_ERR(CAM_SENSOR, " failed s_ctrl: %pK", s_ctrl);
+	if (!s_ctrl || !s_ctrl->sensordata) {
+		CAM_ERR(CAM_SENSOR, "Invalid ptr");
 		return -EINVAL;
 	}
-	if (s_ctrl->sensordata == NULL) {
-		CAM_ERR(CAM_SENSOR, " failed sensordata: %pK", s_ctrl->sensordata);
-		return -EINVAL;
-	}
-	if (s_ctrl->sensordata == NULL) {
-		CAM_ERR(CAM_SENSOR, " failed: %pK",
-				s_ctrl->sensordata);
-		return -EINVAL;
-	}
+
 	slave_info = &(s_ctrl->sensordata->slave_info);
 	if (!slave_info) {
 		CAM_ERR(CAM_SENSOR, " failed slave_info: %pK", slave_info);

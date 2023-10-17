@@ -14,6 +14,7 @@
 #include <linux/interrupt.h>
 #include <linux/delay.h>
 #include "cam_dp_bdg_core.h"
+#include "camera_main.h"
 
 #define DP_BDG_IRQ_HANDLER_DEVNAME             "dp_bdg_irq_handler"
 #define DP_BDG_IRQ_HANDLER_MAGIC_NUM           0xff
@@ -177,10 +178,8 @@ static int dp_bdg_irq_handler_probe(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	enum of_gpio_flags flags;
-
-	dp_bdg_irq_gpio = of_get_named_gpio_flags(pdev->dev.of_node,
-			"dp_bdg_irq_pin", 0, &flags);
+	dp_bdg_irq_gpio = of_get_named_gpio(pdev->dev.of_node,
+		"dp_bdg_irq_pin", 0);
 	ret = gpio_request(dp_bdg_irq_gpio, "dp_bdg_irq_pin");
 	if (ret) {
 		CAM_ERR(CAM_SENSOR, "Error! can't request irq pin %x", dp_bdg_irq_gpio);
@@ -214,8 +213,7 @@ static int dp_bdg_irq_handler_probe(struct platform_device *pdev)
 	ret = cdev_add(dp_bdg_irq_handler_cdev, dp_bdg_irq_handler_dev, 1);
 	if (ret)
 		goto fail_cdev_del;
-	dp_bdg_irq_handler_class = class_create(THIS_MODULE,
-			DP_BDG_IRQ_HANDLER_DEVNAME);
+	dp_bdg_irq_handler_class = class_create(DP_BDG_IRQ_HANDLER_DEVNAME);
 	if (IS_ERR(dp_bdg_irq_handler_class)) {
 		ret = PTR_ERR(dp_bdg_irq_handler_class);
 		goto fail_cdev_del;
@@ -251,7 +249,7 @@ static int dp_bdg_irq_handler_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver dp_bdg_irq_handler_drv = {
+struct platform_driver dp_bdg_irq_handler_driver = {
 	.probe = dp_bdg_irq_handler_probe,
 	.remove = dp_bdg_irq_handler_remove,
 	.suspend = NULL,
@@ -264,12 +262,12 @@ static struct platform_driver dp_bdg_irq_handler_drv = {
 
 int dp_bdg_irq_handler_init(void)
 {
-	return platform_driver_register(&dp_bdg_irq_handler_drv);
+	return platform_driver_register(&dp_bdg_irq_handler_driver);
 }
 
 void dp_bdg_irq_handler_exit(void)
 {
-	platform_driver_unregister(&dp_bdg_irq_handler_drv);
+	platform_driver_unregister(&dp_bdg_irq_handler_driver);
 }
 
 MODULE_DESCRIPTION("dp driver");
