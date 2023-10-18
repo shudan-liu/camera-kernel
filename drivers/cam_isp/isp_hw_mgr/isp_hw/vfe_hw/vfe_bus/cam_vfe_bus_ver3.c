@@ -524,6 +524,7 @@ static enum cam_vfe_bus_ver3_packer_format
 	switch (out_fmt) {
 	case CAM_FORMAT_MIPI_RAW_6:
 	case CAM_FORMAT_MIPI_RAW_16:
+	case CAM_FORMAT_MIPI_RAW_24:
 	case CAM_FORMAT_PLAIN16_8:
 	case CAM_FORMAT_PLAIN128:
 	case CAM_FORMAT_PD8:
@@ -888,6 +889,19 @@ static int cam_vfe_bus_ver3_config_rdi_wm(
 		}
 		break;
 	case CAM_FORMAT_MIPI_RAW_16:
+		if (rsrc_data->default_line_based) {
+			rsrc_data->en_cfg = 0x1;
+			rsrc_data->width =
+				ALIGNUP((rsrc_data->width * 2), 16) / 16;
+		} else {
+			rsrc_data->width = CAM_VFE_RDI_BUS_DEFAULT_WIDTH;
+			rsrc_data->height = 0;
+			rsrc_data->stride = CAM_VFE_RDI_BUS_DEFAULT_STRIDE;
+			rsrc_data->en_cfg = (0x1 << 16) | 0x1;
+		}
+		break;
+	case CAM_FORMAT_MIPI_RAW_24:
+		/* TODO Fix width size in line based mode */
 		if (rsrc_data->default_line_based) {
 			rsrc_data->en_cfg = 0x1;
 			rsrc_data->width =

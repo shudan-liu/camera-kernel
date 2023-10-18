@@ -232,6 +232,15 @@ static int cam_ife_csid_validate_rdi_format(uint32_t in_format,
 			break;
 		}
 		break;
+	case CAM_FORMAT_MIPI_RAW_24:
+		switch (out_format) {
+		case CAM_FORMAT_MIPI_RAW_24:
+			break;
+		default:
+			rc = -EINVAL;
+			break;
+		}
+		break;
 	default:
 		rc = -EINVAL;
 		break;
@@ -294,6 +303,10 @@ int cam_ife_csid_get_format_rdi(
 		path_format->decode_fmt = 0x6;
 		path_format->bits_per_pxl = 20;
 		break;
+	case CAM_FORMAT_MIPI_RAW_24:
+		path_format->decode_fmt = 0x7;
+		path_format->bits_per_pxl = 24;
+		break;
 	default:
 		rc = -EINVAL;
 		goto err;
@@ -340,6 +353,7 @@ int cam_ife_csid_get_format_rdi(
 		path_format->plain_fmt = 0x1;
 		break;
 	case CAM_FORMAT_MIPI_RAW_20:
+	case CAM_FORMAT_MIPI_RAW_24:
 		if (mipi_unpacked)
 			path_format->plain_fmt = 0x2;
 		else
