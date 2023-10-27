@@ -1470,7 +1470,7 @@ int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 		firmware_start,
 		(phys_addr_t) icp_fw.fw_hdl,
 		firmware_len,
-		IOMMU_READ|IOMMU_WRITE|IOMMU_PRIV);
+		IOMMU_READ|IOMMU_WRITE|IOMMU_PRIV, GFP_KERNEL);
 
 	if (rc) {
 		CAM_ERR(CAM_SMMU, "Failed to map FW into IOMMU");
@@ -1618,7 +1618,7 @@ int cam_smmu_alloc_qdss(int32_t smmu_hdl,
 		qdss_start,
 		qdss_phy_addr,
 		qdss_len,
-		IOMMU_READ|IOMMU_WRITE);
+		IOMMU_READ|IOMMU_WRITE, GFP_KERNEL);
 
 	if (rc) {
 		CAM_ERR(CAM_SMMU, "Failed to map QDSS into IOMMU");
@@ -1903,7 +1903,7 @@ int cam_smmu_reserve_sec_heap(int32_t smmu_hdl,
 		sec_heap_iova,
 		secheap_buf->table->sgl,
 		secheap_buf->table->orig_nents,
-		prot);
+		prot, GFP_KERNEL);
 	if (size != sec_heap_iova_len) {
 		CAM_ERR(CAM_SMMU,
 			"IOMMU mapping failed size=%zu, sec_heap_iova_len=%zu",
@@ -2054,7 +2054,7 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 			prot |= IOMMU_CACHE;
 
 		size = iommu_map_sg(domain, iova, table->sgl, table->orig_nents,
-				prot);
+				prot, GFP_KERNEL);
 
 		if (size < 0) {
 			CAM_ERR(CAM_SMMU, "IOMMU mapping failed");
@@ -2548,7 +2548,7 @@ static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
 		iova,
 		table->sgl,
 		table->nents,
-		iommu_dir) != virt_len) {
+		iommu_dir, GFP_KERNEL) != virt_len) {
 		CAM_ERR(CAM_SMMU, "iommu_map_sg() failed");
 		goto err_iommu_map;
 	}
