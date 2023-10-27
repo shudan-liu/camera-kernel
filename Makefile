@@ -1,5 +1,3 @@
-# Makefile for use with Android's kernel/build system
-
 KBUILD_OPTIONS += CAMERA_KERNEL_ROOT=$(shell pwd)
 KBUILD_OPTIONS += KERNEL_ROOT=$(ROOT_DIR)/$(KERNEL_DIR)
 KBUILD_OPTIONS += MODNAME=camera
@@ -24,3 +22,6 @@ modules_install:
 
 clean:
 	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) clean
+
+headers_install:
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) headers_install $(KBUILD_OPTIONS)
