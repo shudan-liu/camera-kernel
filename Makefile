@@ -21,7 +21,7 @@ modules_install:
 	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) modules_install
 
 clean:
-	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) clean
+	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) clean $(KBUILD_OPTIONS)
 
 headers_install:
 	$(MAKE) -C $(KERNEL_SRC) M=$(SRC) headers_install $(KBUILD_OPTIONS)

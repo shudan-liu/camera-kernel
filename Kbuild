@@ -1,63 +1,11 @@
 # SPDX-License-Identifier: GPL-2.0-only
 
-ifeq ($(CONFIG_QCOM_CAMERA_DEBUG), y)
 $(info "CAMERA_KERNEL_ROOT is: $(CAMERA_KERNEL_ROOT)")
 $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
-endif
+$(info "MACHINE is: $(MACHINE)")
 
 # Include Architecture configurations
-ifeq ($(CONFIG_ARCH_PINEAPPLE), y)
-include $(CAMERA_KERNEL_ROOT)/config/pineapple.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KALAMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kalama.mk
-endif
-
-ifeq ($(CONFIG_ARCH_WAIPIO), y)
-include $(CAMERA_KERNEL_ROOT)/config/waipio.mk
-endif
-
-ifeq ($(CONFIG_ARCH_LAHAINA), y)
-include $(CAMERA_KERNEL_ROOT)/config/lahaina.mk
-endif
-
-ifeq ($(CONFIG_ARCH_KONA), y)
-include $(CAMERA_KERNEL_ROOT)/config/kona.mk
-endif
-
-ifeq ($(CONFIG_ARCH_BENGAL), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_BLAIR), y)
-include $(CAMERA_KERNEL_ROOT)/config/blair.mk
-endif
-
-ifeq ($(CONFIG_ARCH_HOLI), y)
-include $(CAMERA_KERNEL_ROOT)/config/holi.mk
-endif
-
-ifeq ($(CONFIG_ARCH_LITO), y)
-include $(CAMERA_KERNEL_ROOT)/config/lito.mk
-endif
-
-ifeq ($(CONFIG_ARCH_SHIMA), y)
-include $(CAMERA_KERNEL_ROOT)/config/shima.mk
-endif
-
-ifeq ($(CONFIG_ARCH_DIWALI), y)
-include $(CAMERA_KERNEL_ROOT)/config/diwali.mk
-endif
-
-ifeq ($(CONFIG_ARCH_CAPE), y)
-include $(CAMERA_KERNEL_ROOT)/config/cape.mk
-endif
-
-ifeq ($(CONFIG_ARCH_PARROT), y)
-include $(CAMERA_KERNEL_ROOT)/config/parrot.mk
-endif
-
+include $(CAMERA_KERNEL_ROOT)/config/qcm6490-camera.mk
 ifneq ($(KBUILD_EXTRA_CONFIGS),)
 include $(KBUILD_EXTRA_CONFIGS)
 endif
@@ -75,14 +23,6 @@ LINUXINCLUDE +=                                 \
 	-I$(CAMERA_KERNEL_ROOT)/include/uapi/camera \
 	-I$(CAMERA_KERNEL_ROOT)/include/uapi        \
 	-I$(CAMERA_KERNEL_ROOT)/
-# Optional include directories
-SYNXVENDORDIR=$(CAMERA_KERNEL_ROOT)/../synx-kernel
-ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm/synx
-ccflags-$(TARGET_SYNX_ENABLE) += -I$(SYNXVENDORDIR)/include/uapi/synx/media
-ccflags-$(TARGET_SYNX_ENABLE) += -I$(SYNXVENDORDIR)/msm/synx
-ccflags-$(TARGET_SYNX_ENABLE) += -DCONFIG_TARGET_SYNX_ENABLE=1
-ccflags-y += -I$(CAMERA_KERNEL_ROOT)/../securemsm-kernel/
-ccflags-y += -I$(CAMERA_KERNEL_ROOT)/../securemsm-kernel/include/
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 ccflags-y += ${ccflags-m}
@@ -118,7 +58,8 @@ camera-y := \
 	drivers/cam_cdm/cam_cdm_intf.o \
 	drivers/cam_cdm/cam_cdm_core_common.o \
 	drivers/cam_cdm/cam_cdm_virtual_core.o \
-	drivers/cam_cdm/cam_cdm_hw_core.o
+	drivers/cam_cdm/cam_cdm_hw_core.o \
+	drivers/cam_utils/cam_io_util.o
 
 ifeq (,$(filter $(CONFIG_CAM_PRESIL),y m))
 	camera-y += drivers/cam_utils/cam_io_util.o
