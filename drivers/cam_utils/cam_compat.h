@@ -11,12 +11,7 @@
 #include <linux/platform_device.h>
 #include <linux/component.h>
 #include <linux/list_sort.h>
-#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0)
 #include <linux/dma-iommu.h>
-#endif
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
-#include <soc/qcom/of_common.h>
-#endif
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
 #include "cam_smmu_api.h"
@@ -27,20 +22,7 @@
 
 #endif
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
-
-#include <linux/msm_ion.h>
 #include <linux/iommu.h>
-#include <linux/ion.h>
-#include <linux/qcom_scm.h>
-
-#else
-
-#include <linux/msm_ion.h>
-#include <linux/ion_kernel.h>
-#include <soc/qcom/scm.h>
-
-#endif
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
 MODULE_IMPORT_NS(DMA_BUF);

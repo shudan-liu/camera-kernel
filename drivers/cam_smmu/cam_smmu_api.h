@@ -15,7 +15,6 @@
 #include <linux/random.h>
 #include <linux/spinlock_types.h>
 #include <linux/mutex.h>
-#include <linux/msm_ion.h>
 
 /*Enum for possible CAM SMMU operations */
 enum cam_smmu_ops_param {

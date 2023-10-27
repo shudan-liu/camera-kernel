@@ -12,12 +12,9 @@
 #include <linux/slab.h>
 #include <linux/dma-mapping.h>
 #include <linux/of_address.h>
-#include <linux/msm_dma_iommu_mapping.h>
 #include <linux/workqueue.h>
 #include <linux/genalloc.h>
 #include <linux/debugfs.h>
-
-#include <soc/qcom/secure_buffer.h>
 
 #include <media/cam_req_mgr.h>
 
@@ -2073,8 +2070,6 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		}
 		iommu_cb_set.cb_info[idx].shared_mapping_size += *len_ptr;
 	} else if (region_id == CAM_SMMU_REGION_IO) {
-		if (!dis_delayed_unmap)
-			attach->dma_map_attrs |= DMA_ATTR_DELAYED_UNMAP;
 
 		table = dma_buf_map_attachment(attach, dma_dir);
 		if (IS_ERR_OR_NULL(table)) {
@@ -2289,10 +2284,6 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 		iommu_cb_set.cb_info[idx].shared_mapping_size -=
 			mapping_info->len;
 	} else if (mapping_info->region_id == CAM_SMMU_REGION_IO) {
-		if (mapping_info->is_internal)
-			mapping_info->attach->dma_map_attrs |=
-				DMA_ATTR_SKIP_CPU_SYNC;
-
 		dma_buf_unmap_attachment(mapping_info->attach,
 			mapping_info->table, mapping_info->dir);
 		iommu_cb_set.cb_info[idx].io_mapping_size -= mapping_info->len;
@@ -2825,8 +2816,6 @@ static int cam_smmu_map_stage2_buffer_and_add_to_list(int idx, int ion_fd,
 		goto err_out;
 	}
 
-	attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
-
 	table = dma_buf_map_attachment(attach, dma_dir);
 	if (IS_ERR_OR_NULL(table)) {
 		CAM_ERR(CAM_SMMU, "Error: dma buf map attachment failed");
@@ -2962,9 +2951,6 @@ static int cam_smmu_secure_unmap_buf_and_remove_from_list(
 			(void *)mapping_info->attach);
 		return -EINVAL;
 	}
-
-	/* skip cache operations */
-	mapping_info->attach->dma_map_attrs |= DMA_ATTR_SKIP_CPU_SYNC;
 
 	/* iommu buffer clean up */
 	dma_buf_unmap_attachment(mapping_info->attach,
