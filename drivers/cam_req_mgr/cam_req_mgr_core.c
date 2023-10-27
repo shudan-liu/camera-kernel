@@ -2214,7 +2214,7 @@ static int __cam_req_mgr_process_sof_freeze(void *priv, void *data)
 	spin_unlock_bh(&link->link_state_spin_lock);
 
 	CAM_ERR(CAM_CRM,
-		"SOF freeze for session: %d link: 0x%x max_pd: %d last_req_id:%d",
+		"SOF freeze for session: %d link: 0x%x max_pd: %d last_req_id:%lld",
 		session->session_hdl, link->link_hdl, link->max_delay,
 		last_applied_req_id);
 
@@ -4317,7 +4317,7 @@ int cam_req_mgr_sync_config(
 		link[i] = cam_get_link_priv(sync_info->link_hdls[i]);
 		if (!link[i] || (link[i]->link_hdl != sync_info->link_hdls[i])) {
 			CAM_ERR(CAM_CRM, "link: %s, sync_info->link_hdl:%x, link->link_hdl:%x",
-				CAM_IS_NULL_TO_STR(link), sync_info->link_hdls[i],
+				CAM_IS_NULL_TO_STR(link[i]), sync_info->link_hdls[i],
 				(!link[i]) ? CAM_REQ_MGR_DEFAULT_HDL_VAL : link[i]->link_hdl);
 			rc = -EINVAL;
 			goto done;

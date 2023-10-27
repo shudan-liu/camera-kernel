@@ -1184,7 +1184,7 @@ int cam_ife_csid_path_reserve(struct cam_ife_csid_hw *csid_hw,
 			reserve->in_port->vc[i] > 0x1f) {
 			CAM_ERR(CAM_ISP, "CSID:%d Invalid vc:%d dt %d",
 				csid_hw->hw_intf->hw_idx,
-				reserve->in_port->vc, reserve->in_port->dt);
+				reserve->in_port->vc[i], reserve->in_port->dt[i]);
 			rc = -EINVAL;
 			goto end;
 		}
@@ -1476,7 +1476,7 @@ static int cam_ife_csid_enable_hw(struct cam_ife_csid_hw  *csid_hw)
 	rc = cam_soc_util_get_clk_level(soc_info, csid_hw->clk_rate,
 		soc_info->src_clk_idx, &clk_lvl);
 	if (rc) {
-		CAM_ERR(CAM_ISP, "Failed to get clk level for rate %d",
+		CAM_ERR(CAM_ISP, "Failed to get clk level for rate %lld",
 			csid_hw->clk_rate);
 		goto err;
 	}
@@ -3859,7 +3859,7 @@ static int cam_ife_csid_reset_regs(
 				rem_jiffies);
 			goto end;
 		}
-		CAM_ERR(CAM_ISP, "CSID:%d csid_reset %s fail rc = %d",
+		CAM_ERR(CAM_ISP, "CSID:%d csid_reset %s fail rc = %ld",
 			csid_hw->hw_intf->hw_idx, reset_hw ? "hw" : "sw",
 			rem_jiffies);
 		rc = -ETIMEDOUT;

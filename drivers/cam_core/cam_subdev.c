@@ -70,7 +70,7 @@ static long cam_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 		cntrl_cmd.handle = (uint64_t)sd;
 		rc = cam_node_handle_shutdown_dev(node, &cntrl_cmd, fh);
 		if (rc)
-			CAM_ERR(CAM_CORE, "shutdown device failed(rc = %d)",
+			CAM_ERR(CAM_CORE, "shutdown device failed(rc = %ld)",
 				rc);
 		break;
 	default:

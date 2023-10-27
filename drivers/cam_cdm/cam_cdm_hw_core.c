@@ -944,7 +944,7 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 				test_bit(CAM_CDM_RESET_HW_STATUS,
 					&core->cdm_status)) {
 			CAM_ERR_RATE_LIMIT(CAM_CDM,
-				"In error/reset state cnt=%d total cnt=%d cdm_status 0x%x",
+				"In error/reset state cnt=%d total cnt=%d cdm_status 0x%lx",
 				i, req->data->cmd_arrary_count,
 				core->cdm_status);
 			rc = -EAGAIN;

@@ -67,28 +67,28 @@ ssize_t cam_debug_sysfs_node_store(struct device *dev,
 	char *value_str = NULL;
 	u64 value;
 
-	CAM_INFO(CAM_UTIL, "Sysfs debug attr name:[%s] buf:[%s] bytes:[%d]",
+	CAM_INFO(CAM_UTIL, "Sysfs debug attr name:[%s] buf:[%s] bytes:[%zu]",
 		attr->attr.name, buf, count);
 	local_buf = kmemdup(buf, (count + sizeof(char)), GFP_KERNEL);
 	local_buf_temp = local_buf;
 	driver = strsep(&local_buf, "#");
 	if (!driver) {
 		CAM_ERR(CAM_UTIL,
-			"Invalid input driver name buf:[%s], count:%d",
+			"Invalid input driver name buf:[%s], count:%zu",
 			buf, count);
 		goto error;
 	}
 
 	setting = strsep(&local_buf, "=");
 	if (!setting) {
-		CAM_ERR(CAM_UTIL, "Invalid input setting buf:[%s], count:%d",
+		CAM_ERR(CAM_UTIL, "Invalid input setting buf:[%s], count:%zu",
 			buf, count);
 		goto error;
 	}
 
 	value_str = strsep(&local_buf, "=");
 	if (!value_str) {
-		CAM_ERR(CAM_UTIL, "Invalid input value buf:[%s], count:%d",
+		CAM_ERR(CAM_UTIL, "Invalid input value buf:[%s], count:%zu",
 			buf, count);
 		goto error;
 	}

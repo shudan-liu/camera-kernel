@@ -4,8 +4,6 @@
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
-#define pr_fmt(fmt) "CAM-REQ-MGR_UTIL %s:%d " fmt, __func__, __LINE__
-
 #include <linux/module.h>
 #include <linux/of_platform.h>
 #include <linux/slab.h>

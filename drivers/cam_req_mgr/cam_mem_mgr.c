@@ -52,7 +52,7 @@ static void cam_mem_mgr_print_tbl(void)
 			min = do_div(tmp, 60);
 			hrs = do_div(tmp, 24);
 			CAM_INFO(CAM_MEM,
-				"%llu:%llu:%llu:%llu idx %d fd %d size %llu",
+				"%llu:%llu:%llu:%llu idx %d fd %d size %zu",
 				hrs, min, sec, ms, i, tbl.bufq[i].fd,
 				tbl.bufq[i].len);
 		}
@@ -338,8 +338,8 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 		*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 		*len = tbl.bufq[idx].len;
 	} else {
-		CAM_ERR(CAM_MEM, "No KMD access requested, kmdvddr= %p, idx= %d, buf_handle= %d",
-			tbl.bufq[idx].kmdvaddr, idx, buf_handle);
+		CAM_ERR(CAM_MEM, "No KMD access requested, kmdvddr= %pK, idx= %d, buf_handle= %d",
+			(void *)tbl.bufq[idx].kmdvaddr, idx, buf_handle);
 		return -EINVAL;
 	}
 
@@ -593,7 +593,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 		*buf = dma_heap_buffer_alloc(try_heap, len, O_RDWR, 0);
 		if (IS_ERR_OR_NULL(*buf)) {
 			CAM_WARN(CAM_MEM,
-				"Failed in allocating from try heap, heap=%pK, len=%zu, err=%d",
+				"Failed in allocating from try heap, heap=%pK, len=%zu, err=%ld",
 				try_heap, len, PTR_ERR(*buf));
 			*buf = NULL;
 		}
@@ -949,7 +949,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd_v2 *cmd)
 
 		if (rc) {
 			CAM_ERR(CAM_MEM,
-				"Failed in map_hw_va len=%llu, flags=0x%x, fd=%d, region=%d, num_hdl=%d, rc=%d",
+				"Failed in map_hw_va len=%zu, flags=0x%x, fd=%d, region=%d, num_hdl=%d, rc=%d",
 				len, cmd->flags,
 				fd, region, cmd->num_hdl, rc);
 			if (rc == -EALREADY) {
@@ -1094,7 +1094,7 @@ int cam_mem_mgr_map(struct cam_mem_mgr_map_cmd_v2 *cmd)
 			is_internal);
 		if (rc) {
 			CAM_ERR(CAM_MEM,
-				"Failed in map_hw_va, flags=0x%x, fd=%d, len=%llu, region=%d, num_hdl=%d, rc=%d",
+				"Failed in map_hw_va, flags=0x%x, fd=%d, len=%zu, region=%d, num_hdl=%d, rc=%d",
 				cmd->flags, cmd->fd, len,
 				CAM_SMMU_REGION_IO, cmd->num_hdl, rc);
 			if (rc == -EALREADY) {

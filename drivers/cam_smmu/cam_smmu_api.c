@@ -353,7 +353,7 @@ static void cam_smmu_dump_monitor_array(
 		hrs = do_div(tmp, 24);
 
 		CAM_INFO(CAM_SMMU,
-		"**** %llu:%llu:%llu.%llu : Index[%d] [%s] : ion_fd=%d start=0x%x end=0x%x len=%u region=%d",
+		"**** %llu:%llu:%llu.%llu : Index[%d] [%s] : ion_fd=%d start=0x%p end=0x%llx len=%u region=%d",
 		hrs, min, sec, ms,
 		index,
 		cb_info->monitor_entries[index].is_map ? "MAP" : "UNMAP",
@@ -567,7 +567,7 @@ static void cam_smmu_dump_cb_info(int idx)
 			min = do_div(tmp, 60);
 			hrs = do_div(tmp, 24);
 			CAM_ERR(CAM_SMMU,
-				"%llu:%llu:%llu:%llu: %u ion_fd=%d start=0x%x end=0x%x len=%u region=%d",
+				"%llu:%llu:%llu:%llu: %u ion_fd=%d start=0x%p end=0x%llx len=%u region=%d",
 				hrs, min, sec, ms, i, mapping->ion_fd,
 				(void *)mapping->paddr,
 				((uint64_t)mapping->paddr +
@@ -669,7 +669,7 @@ end:
 	if (closest_mapping) {
 		buf_handle = GET_MEM_HANDLE(idx, closest_mapping->ion_fd);
 		CAM_INFO(CAM_SMMU,
-			"Closest map fd %d 0x%lx %llu-%llu 0x%lx-0x%lx buf=%pK mem %0x",
+			"Closest map fd %d 0x%lx %zu-%zu 0x%lx-0x%lx buf=%pK mem %0x",
 			closest_mapping->ion_fd, current_addr,
 			mapping->len, closest_mapping->len,
 			(unsigned long)closest_mapping->paddr,
@@ -2094,10 +2094,8 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		goto err_detach;
 	}
 
-	CAM_DBG(CAM_SMMU,
-		"iova=%pK, region_id=%d, paddr=0x%x, len=%d, dma_map_attrs=%d",
-		iova, region_id, (uint64_t)*paddr_ptr, *len_ptr,
-		attach->dma_map_attrs);
+	CAM_DBG(CAM_SMMU, "iova=%pK, region_id=%d, paddr=%pK, len=%d",
+		iova, region_id, *paddr_ptr, *len_ptr);
 
 	if (iommu_cb_set.map_profile_enable) {
 		CAM_GET_TIMESTAMP(ts2);
@@ -2145,7 +2143,7 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 		goto err_alloc;
 	}
 
-	CAM_DBG(CAM_SMMU, "idx=%d, dma_buf=%pK, dev=%pK, paddr=0x%x, len=%u",
+	CAM_DBG(CAM_SMMU, "idx=%d, dma_buf=%pK, dev=%pK, paddr=%pK, len=%u",
 		idx, buf, (void *)iommu_cb_set.cb_info[idx].dev,
 		(void *)*paddr_ptr, (unsigned int)*len_ptr);
 
@@ -2257,10 +2255,8 @@ static int cam_smmu_unmap_buf_and_remove_from_list(
 	cam_smmu_update_monitor_array(&iommu_cb_set.cb_info[idx], false,
 		mapping_info);
 
-	CAM_DBG(CAM_SMMU,
-		"region_id=%d, paddr=0x%x, len=%d, dma_map_attrs=%d",
-		mapping_info->region_id, mapping_info->paddr, mapping_info->len,
-		mapping_info->attach->dma_map_attrs);
+	CAM_DBG(CAM_SMMU, "region_id=%d, paddr=%pK, len=%d",
+		mapping_info->region_id, mapping_info->paddr, mapping_info->len);
 
 	if (iommu_cb_set.map_profile_enable)
 		CAM_GET_TIMESTAMP(ts1);
@@ -3145,7 +3141,7 @@ int cam_smmu_map_user_iova(int handle, int ion_fd, bool dis_delayed_unmap,
 			hrs = do_div(tmp, 24);
 		}
 		CAM_ERR(CAM_SMMU,
-			"fd=%d already in list [%llu:%llu:%lu:%llu] cb=%s idx=%d handle=%d len=%llu,give same addr back",
+			"fd=%d already in list [%llu:%llu:%llu:%llu] cb=%s idx=%d handle=%d len=%zu,give same addr back",
 			ion_fd, hrs, min, sec, ms,
 			iommu_cb_set.cb_info[idx].name[0],
 			idx, handle, *len_ptr);
@@ -3964,7 +3960,7 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 			(cb->discard_iova_len !=
 			cb->io_info.discard_iova_len)) {
 			CAM_ERR(CAM_SMMU,
-				"Mismatch Discard region specified, [0x%x 0x%x] [0x%x 0x%x]",
+				"Mismatch Discard region specified, [0x%llx 0x%zx] [0x%llx 0x%zx]",
 				cb->discard_iova_start,
 				cb->discard_iova_len,
 				cb->io_info.discard_iova_start,
@@ -3979,7 +3975,7 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 			(cb->discard_iova_start + cb->discard_iova_len >=
 			cb->io_info.iova_start + cb->io_info.iova_len)) {
 				CAM_ERR(CAM_SMMU,
-				"[%s] : Incorrect Discard region specified [0x%x 0x%x] in [0x%x 0x%x]",
+				"[%s] : Incorrect Discard region specified [0x%llx 0x%llx] in [0x%llx 0x%llx]",
 				cb->name[0],
 				cb->discard_iova_start,
 				cb->discard_iova_start + cb->discard_iova_len,
@@ -3990,7 +3986,7 @@ static int cam_smmu_get_memory_regions_info(struct device_node *of_node,
 			}
 
 			CAM_INFO(CAM_SMMU,
-				"[%s] : Discard region specified [0x%x 0x%x] in [0x%x 0x%x]",
+				"[%s] : Discard region specified [0x%llx 0x%llx] in [0x%llx 0x%llx]",
 				cb->name[0],
 				cb->discard_iova_start,
 				cb->discard_iova_start + cb->discard_iova_len,
