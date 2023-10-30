@@ -268,6 +268,16 @@ void cam_check_iommu_faults(struct iommu_domain *domain,
 	pf_info->mid = fault_ids.mid;
 }
 #else
+struct iommu_fault_ids {
+	int bid;
+	int pid;
+	int mid;
+};
+static int iommu_get_fault_ids(struct iommu_domain *domain, struct iommu_fault_ids *fault_ids)
+{
+	WARN_ONCE(1, "iommu_get_fault_ids unimplemented");
+	return 0;
+}
 void cam_check_iommu_faults(struct iommu_domain *domain,
 	struct cam_smmu_pf_info *pf_info)
 {
