@@ -297,7 +297,7 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 					}
 
 					of_node_put(src_args.np);
-					if (src_args.args_count != 1) {
+					if (src_args.args_count != 2) {
 						CAM_ERR(CAM_CPAS,
 							"Invalid number of axi src args: %d",
 							src_args.args_count);
@@ -319,7 +319,7 @@ static int cam_cpas_parse_node_tree(struct cam_cpas *cpas_core,
 					}
 
 					of_node_put(dst_args.np);
-					if (dst_args.args_count != 1) {
+					if (dst_args.args_count != 2) {
 						CAM_ERR(CAM_CPAS,
 							"Invalid number of axi dst args: %d",
 							dst_args.args_count);
@@ -691,7 +691,7 @@ int cam_cpas_get_custom_dt_info(struct cam_hw_info *cpas_hw,
 		}
 
 		of_node_put(src_args.np);
-		if (src_args.args_count != 1) {
+		if (src_args.args_count != 2) {
 			CAM_ERR(CAM_CPAS,
 				"Invalid number of ahb src args: %d",
 				src_args.args_count);
@@ -710,7 +710,7 @@ int cam_cpas_get_custom_dt_info(struct cam_hw_info *cpas_hw,
 		}
 
 		of_node_put(dst_args.np);
-		if (dst_args.args_count != 1) {
+		if (dst_args.args_count != 2) {
 			CAM_ERR(CAM_CPAS,
 				"Invalid number of ahb dst args: %d",
 				dst_args.args_count);
