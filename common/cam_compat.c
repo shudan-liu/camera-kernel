@@ -14,7 +14,6 @@
 #include "cam_cpas_api.h"
 #include "camera_main.h"
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 int cam_reserve_icp_fw(struct cam_fw_alloc_info *icp_fw, size_t fw_length)
 {
 	int rc = 0;
@@ -108,105 +107,11 @@ static int camera_platform_compare_dev(struct device *dev, const void *data)
 {
 	return platform_bus_type.match(dev, (struct device_driver *) data);
 }
-#else
-int cam_reserve_icp_fw(struct cam_fw_alloc_info *icp_fw, size_t fw_length)
-{
-	int rc = 0;
 
-	icp_fw->fw_kva = dma_alloc_coherent(icp_fw->fw_dev, fw_length,
-		&icp_fw->fw_hdl, GFP_KERNEL);
-
-	if (!icp_fw->fw_kva) {
-		CAM_ERR(CAM_SMMU, "FW memory alloc failed");
-		rc = -ENOMEM;
-	}
-
-	return rc;
-}
-
-void cam_unreserve_icp_fw(struct cam_fw_alloc_info *icp_fw, size_t fw_length)
-{
-	dma_free_coherent(icp_fw->fw_dev, fw_length, icp_fw->fw_kva,
-		icp_fw->fw_hdl);
-}
-
-#ifdef CONFIG_SPECTRA_SECURE
-int cam_ife_notify_safe_lut_scm(bool safe_trigger)
-{
-	const uint32_t smmu_se_ife = 0;
-	uint32_t camera_hw_version, rc = 0;
-	struct scm_desc description = {
-		.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL),
-		.args[0] = smmu_se_ife,
-		.args[1] = safe_trigger,
-	};
-
-	rc = cam_cpas_get_cpas_hw_version(&camera_hw_version);
-	if (!rc && scm_call2(SCM_SIP_FNID(0x15, 0x3), &description)) {
-		switch (camera_hw_version) {
-		case CAM_CPAS_TITAN_170_V100:
-		case CAM_CPAS_TITAN_170_V110:
-		case CAM_CPAS_TITAN_175_V100:
-			CAM_ERR(CAM_ISP, "scm call to enable safe failed");
-			rc = -EINVAL;
-			break;
-		default:
-			break;
-		}
-	}
-
-	return rc;
-}
-
-int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
-	bool protect, int32_t offset)
-{
-	int rc = 0;
-	struct scm_desc description = {
-		.arginfo = SCM_ARGS(2, SCM_VAL, SCM_VAL),
-		.args[0] = protect,
-		.args[1] = csiphy_dev->csiphy_info[offset]
-			.csiphy_cpas_cp_reg_mask,
-	};
-
-	if (offset >= CSIPHY_MAX_INSTANCES_PER_PHY) {
-		CAM_ERR(CAM_CSIPHY, "Invalid CSIPHY offset");
-		rc = -EINVAL;
-	} else if (scm_call2(SCM_SIP_FNID(0x18, 0x7), &description)) {
-		CAM_ERR(CAM_CSIPHY, "SCM call to hypervisor failed");
-		rc = -EINVAL;
-	}
-
-	return rc;
-}
-
-void cam_cpastop_scm_write(struct cam_cpas_hw_errata_wa *errata_wa)
-{
-	int reg_val;
-
-	reg_val = scm_io_read(errata_wa->data.reg_info.offset);
-	reg_val |= errata_wa->data.reg_info.value;
-	scm_io_write(errata_wa->data.reg_info.offset, reg_val);
-}
-#endif /* CONFIG_SPECTRA_SECURE */
-
-static int camera_platform_compare_dev(struct device *dev, void *data)
-{
-	return platform_bus_type.match(dev, (struct device_driver *) data);
-}
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0)
 void cam_free_clear(const void * ptr)
 {
 	kfree_sensitive(ptr);
 }
-#else
-void cam_free_clear(const void * ptr)
-{
-	kzfree(ptr);
-}
-#endif
 
 /* Callback to compare device from match list before adding as component */
 static inline int camera_component_compare_dev(struct device *dev, void *data)
@@ -229,14 +134,9 @@ int camera_component_match_add_drivers(struct device *master_dev,
 	}
 
 	for (i = 0; i < ARRAY_SIZE(cam_component_drivers); i++) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
 		struct device_driver const *drv =
 			&cam_component_drivers[i]->driver;
 		const void *drv_ptr = (const void *)drv;
-#else
-		struct device_driver *drv = &cam_component_drivers[i]->driver;
-		void *drv_ptr = (void *)drv;
-#endif
 		start_dev = NULL;
 		while ((match_dev = bus_find_device(&platform_bus_type,
 			start_dev, drv_ptr, &camera_platform_compare_dev))) {
@@ -254,24 +154,6 @@ end:
 	return rc;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 10, 0) && LINUX_VERSION_CODE <= KERNEL_VERSION(6, 1, 0)
-#include <linux/qcom-iommu-util.h>
-void cam_check_iommu_faults(struct iommu_domain *domain,
-	struct cam_smmu_pf_info *pf_info)
-{
-	struct qcom_iommu_fault_ids fault_ids = {0, 0, 0};
-
-	if (qcom_iommu_get_fault_ids(domain, &fault_ids))
-		CAM_ERR(CAM_SMMU, "Cannot get smmu fault ids");
-	else
-		CAM_ERR(CAM_SMMU, "smmu fault ids bid:%d pid:%d mid:%d",
-			fault_ids.bid, fault_ids.pid, fault_ids.mid);
-
-	pf_info->bid = fault_ids.bid;
-	pf_info->pid = fault_ids.pid;
-	pf_info->mid = fault_ids.mid;
-}
-#else
 struct iommu_fault_ids {
 	int bid;
 	int pid;
@@ -297,7 +179,6 @@ void cam_check_iommu_faults(struct iommu_domain *domain,
 	pf_info->pid = fault_ids.pid;
 	pf_info->mid = fault_ids.mid;
 }
-#endif
 
 static int inline cam_subdev_list_cmp(struct cam_subdev *entry_1, struct cam_subdev *entry_2)
 {
@@ -309,7 +190,6 @@ static int inline cam_subdev_list_cmp(struct cam_subdev *entry_1, struct cam_sub
 		return 0;
 }
 
-#if (KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE)
 int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr)
 {
 	struct iosys_map mapping;
@@ -335,55 +215,6 @@ void cam_compat_util_put_dmabuf_va(struct dma_buf *dmabuf, void *vaddr)
 	dma_buf_vunmap(dmabuf, &mapping);
 }
 
-#elif (KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE)
-int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr)
-{
-	struct dma_buf_map mapping;
-	int error_code = dma_buf_vmap(dmabuf, &mapping);
-
-	if (error_code) {
-		*vaddr = 0;
-	} else {
-		*vaddr = (mapping.is_iomem) ?
-			(uintptr_t)mapping.vaddr_iomem : (uintptr_t)mapping.vaddr;
-		CAM_DBG(CAM_MEM,
-			"dmabuf=%p, *vaddr=%p, is_iomem=%d, vaddr_iomem=%p, vaddr=%p",
-			dmabuf, *vaddr, mapping.is_iomem, mapping.vaddr_iomem, mapping.vaddr);
-	}
-
-	return error_code;
-}
-
-void cam_compat_util_put_dmabuf_va(struct dma_buf *dmabuf, void *vaddr)
-{
-	struct dma_buf_map mapping = DMA_BUF_MAP_INIT_VADDR(vaddr);
-
-	dma_buf_vunmap(dmabuf, &mapping);
-}
-
-#else
-int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr)
-{
-	int error_code = 0;
-	void *addr = dma_buf_vmap(dmabuf);
-
-	if (!addr) {
-		*vaddr = 0;
-		error_code = -ENOSPC;
-	} else {
-		*vaddr = (uintptr_t)addr;
-	}
-
-	return error_code;
-}
-
-void cam_compat_util_put_dmabuf_va(struct dma_buf *dmabuf, void *vaddr)
-{
-	dma_buf_vunmap(dmabuf, vaddr);
-}
-#endif
-
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 15, 0)
 void cam_smmu_util_iommu_custom(struct device *dev,
 	dma_addr_t discard_start, size_t discard_length)
 {
@@ -397,44 +228,11 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 		list_entry(head_2, struct cam_subdev, list));
 }
 
-#else
-void cam_smmu_util_iommu_custom(struct device *dev,
-	dma_addr_t discard_start, size_t discard_length)
-{
-	iommu_dma_enable_best_fit_algo(dev);
-
-	if (discard_start)
-		iommu_dma_reserve_iova(dev, discard_start, discard_length);
-
-	return;
-}
-
-int cam_req_mgr_ordered_list_cmp(void *priv,
-	struct list_head *head_1, struct list_head *head_2)
-{
-	return cam_subdev_list_cmp(list_entry(head_1, struct cam_subdev, list),
-		list_entry(head_2, struct cam_subdev, list));
-}
-#endif
-
-#if (KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE && \
-	KERNEL_VERSION(5, 18, 0) > LINUX_VERSION_CODE)
-long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name)
-{
-	long ret = 0;
-
-	ret = dma_buf_set_name(dmabuf, name);
-
-	return ret;
-}
-#else
 long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name)
 {
 	return 0;
 }
-#endif
 
-#if KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE
 int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
@@ -448,20 +246,3 @@ int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
 	return rc;
 }
 
-#else
-int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
-{
-	int rc = 0;
-
-	soc_info->irq_line =
-		platform_get_resource_byname(soc_info->pdev,
-		IORESOURCE_IRQ, soc_info->irq_name);
-	if (!soc_info->irq_line) {
-		rc = -ENODEV;
-		return rc;
-	}
-	soc_info->irq_num = soc_info->irq_line->start;
-
-	return rc;
-}
-#endif
