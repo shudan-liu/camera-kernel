@@ -11,10 +11,6 @@
 #include <linux/dma-buf.h>
 #include <linux/version.h>
 #include <linux/debugfs.h>
-#if IS_REACHABLE(CONFIG_DMABUF_HEAPS)
-#include <linux/mem-buf.h>
-#include <soc/qcom/secure_buffer.h>
-#endif
 
 #include "cam_compat.h"
 #include "cam_req_mgr_util.h"
@@ -525,10 +521,12 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	struct timespec64 ts1, ts2;
 	long microsec = 0;
 	bool use_cached_heap = false;
+#ifdef CONFIG_SPECTRA_SECURE
 	struct mem_buf_lend_kernel_arg arg;
 	int vmids[CAM_MAX_VMIDS];
 	int perms[CAM_MAX_VMIDS];
 	int num_vmids = 0;
+#endif /* CONFIG_SPECTRA_SECURE */
 
 	if (!buf) {
 		CAM_ERR(CAM_MEM, "Invalid params");
@@ -557,6 +555,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			cam_flags, tbl.force_cache_allocs);
 	}
 
+#ifdef CONFIG_SPECTRA_SECURE
 	if (cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		heap = tbl.secure_display_heap;
 
@@ -571,7 +570,9 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			perms[num_vmids] = PERM_READ | PERM_WRITE;
 			num_vmids++;
 		}
-	} else if (use_cached_heap) {
+	} else
+#endif /* CONFIG_SPECTRA_SECURE */
+	if (use_cached_heap) {
 		try_heap = tbl.camera_heap;
 		heap = tbl.system_heap;
 	} else {
@@ -611,6 +612,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 		}
 	}
 
+#ifdef CONFIG_SPECTRA_SECURE
 	if (cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		if (num_vmids >= CAM_MAX_VMIDS) {
 			CAM_ERR(CAM_MEM, "Insufficient array size for vmids %d", num_vmids);
@@ -630,6 +632,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			goto end;
 		}
 	}
+#endif /* CONFIG_SPECTRA_SECURE */
 
 	CAM_DBG(CAM_MEM, "Allocate success, len=%zu, *buf=%pK", len, *buf);
 
@@ -641,9 +644,12 @@ static int cam_mem_util_get_dma_buf(size_t len,
 	}
 
 	return rc;
+
+#ifdef CONFIG_SPECTRA_SECURE
 end:
 	dma_buf_put(*buf);
 	return rc;
+#endif /* CONFIG_SPECTRA_SECURE */
 }
 #else
 static int cam_mem_util_get_dma_buf(size_t len,

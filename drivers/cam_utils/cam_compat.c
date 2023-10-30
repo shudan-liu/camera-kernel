@@ -53,6 +53,7 @@ void cam_unreserve_icp_fw(struct cam_fw_alloc_info *icp_fw, size_t fw_length)
 	iounmap(icp_fw->fw_kva);
 }
 
+#ifdef CONFIG_SPECTRA_SECURE
 int cam_ife_notify_safe_lut_scm(bool safe_trigger)
 {
 	const uint32_t smmu_se_ife = 0;
@@ -101,6 +102,7 @@ void cam_cpastop_scm_write(struct cam_cpas_hw_errata_wa *errata_wa)
 	reg_val |= errata_wa->data.reg_info.value;
 	qcom_scm_io_writel(errata_wa->data.reg_info.offset, reg_val);
 }
+#endif /* CONFIG_SPECTRA_SECURE */
 
 static int camera_platform_compare_dev(struct device *dev, const void *data)
 {
@@ -128,6 +130,7 @@ void cam_unreserve_icp_fw(struct cam_fw_alloc_info *icp_fw, size_t fw_length)
 		icp_fw->fw_hdl);
 }
 
+#ifdef CONFIG_SPECTRA_SECURE
 int cam_ife_notify_safe_lut_scm(bool safe_trigger)
 {
 	const uint32_t smmu_se_ife = 0;
@@ -185,6 +188,7 @@ void cam_cpastop_scm_write(struct cam_cpas_hw_errata_wa *errata_wa)
 	reg_val |= errata_wa->data.reg_info.value;
 	scm_io_write(errata_wa->data.reg_info.offset, reg_val);
 }
+#endif /* CONFIG_SPECTRA_SECURE */
 
 static int camera_platform_compare_dev(struct device *dev, void *data)
 {
