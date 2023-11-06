@@ -33,6 +33,12 @@
  */
 #define MAX_PHY_MSK_PER_REG 4
 
+#ifdef __ANDROID__
+#define MAX_PHY_ACQUIRE_COUNT 4
+#else
+#define MAX_PHY_ACQUIRE_COUNT 1
+#endif
+
 static DEFINE_MUTEX(active_csiphy_cnt_mutex);
 static DEFINE_MUTEX(main_aon_selection);
 
@@ -1864,9 +1870,9 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->combo_mode);
 		if ((csiphy_dev->csiphy_state == CAM_CSIPHY_START) &&
 			(csiphy_dev->combo_mode == 0) &&
-			(csiphy_dev->acquire_count > 0)) {
+			(csiphy_dev->acquire_count >= MAX_PHY_ACQUIRE_COUNT)) {
 			CAM_ERR(CAM_CSIPHY,
-				"NonComboMode does not support multiple acquire: Acquire_count: %d",
+				"Max acquire count reached, Acquire_count: %d",
 				csiphy_dev->acquire_count);
 			rc = -EINVAL;
 			goto release_mutex;
@@ -1932,7 +1938,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		if (!csiphy_acq_params.combo_mode &&
 			!csiphy_acq_params.cphy_dphy_combo_mode) {
 			CAM_DBG(CAM_CSIPHY, "Non Combo Mode stream");
-			csiphy_dev->session_max_device_support = 1;
+			csiphy_dev->session_max_device_support = MAX_PHY_ACQUIRE_COUNT;
 		}
 
 		if (csiphy_dev->is_aggregator_rx)

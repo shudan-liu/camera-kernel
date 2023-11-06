@@ -183,7 +183,8 @@ struct cam_iommu_handle {
 #define CAM_FORMAT_ARGB_16                      48
 #define CAM_FORMAT_PLAIN16_10_LSB               49
 #define CAM_FORMAT_YUV422_10                    50
-#define CAM_FORMAT_MAX                          51
+#define CAM_FORMAT_MIPI_RAW_24                  51
+#define CAM_FORMAT_MAX                          52
 
 /* Pixel Patterns */
 #define PIXEL_PATTERN_RGRGRG                    0x0
