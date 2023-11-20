@@ -1129,7 +1129,7 @@ static int cam_ife_hw_mgr_release_hw_for_ctx(
 
 	/* clean up the callback function */
 	ife_ctx->common.cb_priv = NULL;
-	memset(ife_ctx->common.event_cb, 0, sizeof(ife_ctx->common.event_cb));
+	ife_ctx->common.event_cb = NULL;
 
 	CAM_DBG(CAM_ISP, "release context completed ctx id:%d",
 		ife_ctx->ctx_index);
@@ -6961,9 +6961,9 @@ static void cam_ife_mgr_dump_pf_data(
 
 	if (i == CAM_IFE_HW_NUM_MAX) {
 		CAM_INFO(CAM_ISP,
-			"PID:%d  is not matching with any IFE HW PIDs ctx id:%d",
+			"PID:%d is not matching with any IFE HW PIDs ctx id:%d",
 			hw_cmd_args->u.pf_args.pid,  ctx->ctx_index);
-		return;
+		goto outportlog;
 	}
 
 	for (i = 0; i < ctx->num_base; i++) {
