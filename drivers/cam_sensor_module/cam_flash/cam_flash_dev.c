@@ -601,8 +601,7 @@ static int32_t cam_flash_platform_probe(struct platform_device *pdev)
 	return rc;
 }
 
-static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
+static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client)
 {
 	int32_t rc = 0, i = 0;
 	struct cam_flash_ctrl *fctrl;
@@ -612,10 +611,6 @@ static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client,
 		CAM_ERR(CAM_FLASH, "Invalid Args client: %pK",
 			client);
 		return -EINVAL;
-	}
-
-	if (id == NULL) {
-		CAM_DBG(CAM_FLASH, "device id is Null");
 	}
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {

@@ -954,11 +954,12 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 		soc_info = &csiphy_dev->soc_info;
 
 		for (i = 0; i < csiphy_dev->acquire_count; i++) {
+#ifdef CONFIG_SECURE_CAMERA
 			if (csiphy_dev->csiphy_info[i].secure_mode)
 				cam_csiphy_notify_secure_mode(
 					csiphy_dev,
 					CAM_SECURE_MODE_NON_SECURE, i);
-
+#endif
 			csiphy_dev->csiphy_info[i].secure_mode =
 				CAM_SECURE_MODE_NON_SECURE;
 
@@ -1279,10 +1280,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		if (--csiphy_dev->start_dev_count) {
 			CAM_DBG(CAM_CSIPHY, "Stop Dev ref Cnt: %d",
 				csiphy_dev->start_dev_count);
+#ifdef CONFIG_SECURE_CAMERA
 			if (csiphy_dev->csiphy_info[offset].secure_mode)
 				cam_csiphy_notify_secure_mode(
 					csiphy_dev,
 					CAM_SECURE_MODE_NON_SECURE, offset);
+#endif
 
 			csiphy_dev->csiphy_info[offset].secure_mode =
 				CAM_SECURE_MODE_NON_SECURE;
@@ -1292,12 +1295,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			cam_csiphy_update_lane(csiphy_dev, offset, false);
 			goto release_mutex;
 		}
-
+#ifdef CONFIG_SECURE_CAMERA
 		if (csiphy_dev->csiphy_info[offset].secure_mode)
 			cam_csiphy_notify_secure_mode(
 				csiphy_dev,
 				CAM_SECURE_MODE_NON_SECURE, offset);
-
+#endif
 		csiphy_dev->csiphy_info[offset].secure_mode =
 			CAM_SECURE_MODE_NON_SECURE;
 
@@ -1354,12 +1357,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			CAM_ERR(CAM_CSIPHY, "index is invalid: %d", offset);
 			goto release_mutex;
 		}
-
+#ifdef CONFIG_SECURE_CAMERA
 		if (csiphy_dev->csiphy_info[offset].secure_mode)
 			cam_csiphy_notify_secure_mode(
 				csiphy_dev,
 				CAM_SECURE_MODE_NON_SECURE, offset);
-
+#endif
 		csiphy_dev->csiphy_info[offset].secure_mode =
 			CAM_SECURE_MODE_NON_SECURE;
 
@@ -1464,7 +1467,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 						clk_rate);
 				}
 			}
-
+#ifdef CONFIG_SECURE_CAMERA
 			if (csiphy_dev->csiphy_info[offset].secure_mode == 1) {
 				if (!cam_cpas_is_feature_supported(
 					CAM_CPAS_SECURE_CAMERA_ENABLE,
@@ -1486,7 +1489,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 					goto release_mutex;
 				}
 			}
-
+#endif
 			if (csiphy_dev->csiphy_info[offset].csiphy_3phase) {
 				rc = cam_csiphy_cphy_data_rate_config(
 					csiphy_dev, offset);
@@ -1529,7 +1532,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			CAM_ERR(CAM_CSIPHY, "voting CPAS: %d", rc);
 			goto release_mutex;
 		}
-
+#ifdef CONFIG_SECURE_CAMERA
 		if (csiphy_dev->csiphy_info[offset].secure_mode == 1) {
 			if (!cam_cpas_is_feature_supported(
 					CAM_CPAS_SECURE_CAMERA_ENABLE,
@@ -1551,7 +1554,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				goto release_mutex;
 			}
 		}
-
+#endif
 		rc = cam_csiphy_enable_hw(csiphy_dev, offset);
 		if (rc != 0) {
 			CAM_ERR(CAM_CSIPHY, "cam_csiphy_enable_hw failed");

@@ -177,8 +177,7 @@ static int cam_eeprom_init_subdev(struct cam_eeprom_ctrl_t *e_ctrl)
 	return rc;
 }
 
-static int cam_eeprom_i2c_driver_probe(struct i2c_client *client,
-	 const struct i2c_device_id *id)
+static int cam_eeprom_i2c_driver_probe(struct i2c_client *client)
 {
 	int                             rc = 0;
 	struct cam_eeprom_ctrl_t       *e_ctrl = NULL;

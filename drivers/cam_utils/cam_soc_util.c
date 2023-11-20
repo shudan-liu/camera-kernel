@@ -12,6 +12,7 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/pm_opp.h>
+#include <linux/pinctrl/consumer.h>
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_cx_ipeak.h"
@@ -1155,7 +1156,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 		return -EINVAL;
 	}
 
-	gpio_array_size = of_gpio_count(of_node);
+	gpio_array_size = of_count_phandle_with_args(of_node, "gpios", "#gpio-cells");
 
 	if (gpio_array_size <= 0)
 		return 0;

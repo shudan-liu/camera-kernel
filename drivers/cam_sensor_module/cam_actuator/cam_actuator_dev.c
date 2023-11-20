@@ -160,8 +160,7 @@ static int cam_actuator_init_subdev(struct cam_actuator_ctrl_t *a_ctrl)
 	return rc;
 }
 
-static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
+static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client)
 {
 	int32_t                         rc = 0;
 	int32_t                         i = 0;
@@ -169,9 +168,9 @@ static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client,
 	struct cam_hw_soc_info          *soc_info = NULL;
 	struct cam_actuator_soc_private *soc_private = NULL;
 
-	if (client == NULL || id == NULL) {
-		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK id: %pK",
-			client, id);
+	if (client == NULL) {
+		CAM_ERR(CAM_ACTUATOR, "Invalid Args client: %pK",
+			client);
 		return -EINVAL;
 	}
 
@@ -471,7 +470,7 @@ static struct i2c_driver cam_actuator_driver_i2c = {
 
 int cam_actuator_driver_init(void)
 {
-	int32_t rc = 0;
+	int rc = 0;
 
 	rc = platform_driver_register(&cam_actuator_platform_driver);
 	if (rc < 0) {

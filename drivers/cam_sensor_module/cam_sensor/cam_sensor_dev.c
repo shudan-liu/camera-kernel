@@ -154,13 +154,18 @@ static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
-static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
+static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client)
 {
 	int32_t rc = 0;
 	int i = 0;
 	struct cam_sensor_ctrl_t *s_ctrl = NULL;
 	struct cam_hw_soc_info   *soc_info = NULL;
+
+	if (client == NULL) {
+		CAM_ERR(CAM_SENSOR, "Invalid Args client: %pK",
+			client);
+		return -EINVAL;
+	}
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		CAM_ERR(CAM_SENSOR,

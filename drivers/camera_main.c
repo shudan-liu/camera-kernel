@@ -117,8 +117,11 @@ static const struct camera_submodule_component camera_sensor[] = {
 	{&cam_sensor_driver_init, &cam_sensor_driver_exit},
 	{&cam_eeprom_driver_init, &cam_eeprom_driver_exit},
 	{&cam_ois_driver_init, &cam_ois_driver_exit},
+	// TODO: need to compile dp/hdmi bdg APIs
+#ifdef HDMI_DP_SENSOR
 	{&hdmi_bdg_irq_handler_init, &hdmi_bdg_irq_handler_exit},
 	{&dp_bdg_irq_handler_init, &dp_bdg_irq_handler_exit},
+#endif
 #if IS_REACHABLE(CONFIG_LEDS_QPNP_FLASH_V2) || \
 	IS_REACHABLE(CONFIG_LEDS_QTI_FLASH)
 	{&cam_flash_init_module, &cam_flash_exit_module},

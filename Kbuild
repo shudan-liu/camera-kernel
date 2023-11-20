@@ -181,6 +181,10 @@ camera-$(CONFIG_SPECTRA_SENSOR) += \
 	drivers/cam_sensor_module/cam_flash/cam_flash_dev.o \
 	drivers/cam_sensor_module/cam_flash/cam_flash_core.o \
 	drivers/cam_sensor_module/cam_flash/cam_flash_soc.o
+#	drivers/cam_sensor_module/cam_dp_bdg/cam_dp_bdg_dev.o \
+#	drivers/cam_sensor_module/cam_dp_bdg/cam_dp_bdg_core.o \
+#	drivers/cam_sensor_module/cam_hdmi_bdg/cam_hdmi_bdg_dev.o \
+#	drivers/cam_sensor_module/cam_hdmi_bdg/cam_hdmi_bdg_core.o \
 
 camera-$(CONFIG_SPECTRA_CUSTOM) += \
 	drivers/cam_cust/cam_custom_hw_mgr/cam_custom_hw1/cam_custom_sub_mod_soc.o \
