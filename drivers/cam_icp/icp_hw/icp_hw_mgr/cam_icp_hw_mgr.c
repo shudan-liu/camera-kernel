@@ -3129,7 +3129,7 @@ static int cam_icp_mgr_hfi_resume(struct cam_icp_hw_mgr *hw_mgr)
 	hfi_mem.qtbl.kva = icp_hw_mgr.hfi_mem.qtbl.kva;
 	hfi_mem.qtbl.iova = icp_hw_mgr.hfi_mem.qtbl.iova;
 	hfi_mem.qtbl.len = icp_hw_mgr.hfi_mem.qtbl.len;
-	 CAM_DBG(CAM_ICP, "qtbl kva = %llX IOVA = %X length = %lld\n",
+	CAM_DBG(CAM_ICP, "qtbl kva = %llX IOVA = %X length = %lld\n",
 		hfi_mem.qtbl.kva, hfi_mem.qtbl.iova, hfi_mem.qtbl.len);
 
 	hfi_mem.cmd_q.kva = icp_hw_mgr.hfi_mem.cmd_q.kva;
@@ -3153,13 +3153,16 @@ static int cam_icp_mgr_hfi_resume(struct cam_icp_hw_mgr *hw_mgr)
 	hfi_mem.sfr_buf.kva = icp_hw_mgr.hfi_mem.sfr_buf.kva;
 	hfi_mem.sfr_buf.iova = icp_hw_mgr.hfi_mem.sfr_buf.iova;
 	hfi_mem.sfr_buf.len = icp_hw_mgr.hfi_mem.sfr_buf.len;
-	CAM_DBG(CAM_ICP, "sfr kva = %llX IOVA = %X length = %lld\n",
+	CAM_DBG(CAM_ICP, "sfr_buf kva = %llX IOVA = %X length = %lld\n",
 		hfi_mem.sfr_buf.kva, hfi_mem.sfr_buf.iova,
 		hfi_mem.sfr_buf.len);
 
 	hfi_mem.sec_heap.kva = icp_hw_mgr.hfi_mem.sec_heap.kva;
 	hfi_mem.sec_heap.iova = icp_hw_mgr.hfi_mem.sec_heap.iova;
 	hfi_mem.sec_heap.len = icp_hw_mgr.hfi_mem.sec_heap.len;
+	CAM_DBG(CAM_ICP, "sec_heap kva = %llX IOVA = %X length = %lld\n",
+		hfi_mem.sec_heap.kva, hfi_mem.sec_heap.iova,
+		hfi_mem.sec_heap.len);
 
 	hfi_mem.shmem.iova = icp_hw_mgr.hfi_mem.shmem.iova_start;
 	hfi_mem.shmem.len = icp_hw_mgr.hfi_mem.shmem.iova_len;

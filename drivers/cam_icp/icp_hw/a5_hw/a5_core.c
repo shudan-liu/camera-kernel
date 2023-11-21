@@ -272,7 +272,7 @@ static int cam_a5_fw_dump(
 	}
 	if (!core_info->fw_kva_addr || !dump_args->cpu_addr) {
 		CAM_ERR(CAM_ICP, "invalid params %pK, 0x%zx",
-		    core_info->fw_kva_addr, dump_args->cpu_addr);
+		    (void *)core_info->fw_kva_addr, dump_args->cpu_addr);
 		return -EINVAL;
 	}
 

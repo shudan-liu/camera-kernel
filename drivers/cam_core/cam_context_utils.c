@@ -396,8 +396,8 @@ int32_t cam_context_prepare_dev_to_hw(struct cam_context *ctx,
 
 	if (packet->header.request_id <= ctx->last_flush_req) {
 		CAM_ERR(CAM_CORE,
-			"request %lld has been flushed, reject packet",
-			packet->header.request_id);
+			"request %lld has been flushed, reject packet last %u",
+			packet->header.request_id, ctx->last_flush_req);
 		rc = -EBADR;
 		goto free_req;
 	}

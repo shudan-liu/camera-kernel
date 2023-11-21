@@ -747,7 +747,9 @@ static long cam_cpas_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = __cam_cpas_subdev_close(sd, NULL);
 		break;
 	default:
-		CAM_ERR(CAM_CPAS, "Invalid command %d for CPAS!", cmd);
+		CAM_ERR(CAM_CPAS,
+			"Invalid command %d for CPAS! from pid %d, comm %s",
+			cmd, current->tgid, current->comm);
 		rc = -EINVAL;
 		break;
 	}

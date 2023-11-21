@@ -74,8 +74,8 @@ static long cam_subdev_ioctl(struct v4l2_subdev *sd, unsigned int cmd,
 				rc);
 		break;
 	default:
-		CAM_ERR(CAM_CORE, "Invalid command %d for %s", cmd,
-			node->name);
+		CAM_ERR(CAM_CORE, "Invalid command %d for %s from pid %d comm %s", cmd,
+			node->name, current->tgid, current->comm);
 		rc = -EINVAL;
 	}
 end:
