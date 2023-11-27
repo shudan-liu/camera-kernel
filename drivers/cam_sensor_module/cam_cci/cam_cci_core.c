@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -838,15 +839,15 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 					case CAMERA_SENSOR_I2C_TYPE_DWORD:
 						data[i++] = (i2c_cmd->reg_data &
 							0xFF000000) >> 24;
-						/* fallthrough */
+						fallthrough;
 					case CAMERA_SENSOR_I2C_TYPE_3B:
 						data[i++] = (i2c_cmd->reg_data &
 							0x00FF0000) >> 16;
-						/* fallthrough */
+						fallthrough;
 					case CAMERA_SENSOR_I2C_TYPE_WORD:
 						data[i++] = (i2c_cmd->reg_data &
 							0x0000FF00) >> 8;
-						/* fallthrough */
+						fallthrough;
 					case CAMERA_SENSOR_I2C_TYPE_BYTE:
 						data[i++] = i2c_cmd->reg_data &
 							0x000000FF;
@@ -1173,7 +1174,7 @@ static int32_t cam_cci_burst_read(struct v4l2_subdev *sd,
 					CCI_I2C_M0_READ_BUF_LEVEL_ADDR +
 					master * 0x100);
 				CAM_ERR(CAM_CCI,
-					"wait timeout for RD_DONE irq for cci: %d, master: %d, rc = %d FIFO buf_lvl:0x%x, rc: %d",
+					"wait timeout for RD_DONE irq for cci: %d, master: %d, FIFO buf_lvl:0x%x, rc: %d",
 					cci_dev->soc_info.index, master,
 					val, rc);
 				cam_cci_dump_registers(cci_dev,

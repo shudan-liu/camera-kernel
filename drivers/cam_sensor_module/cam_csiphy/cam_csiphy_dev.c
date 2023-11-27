@@ -231,7 +231,7 @@ static int cam_csiphy_component_bind(struct device *dev,
 		!cam_cpas_is_feature_supported(
 			CAM_CPAS_CSIPHY_FUSE,
 			(1 << new_csiphy_dev->soc_info.index), NULL)) {
-		CAM_ERR(CAM_CSIPHY, "PHY%d is not supported: %d",
+		CAM_ERR(CAM_CSIPHY, "PHY%d is not supported",
 			new_csiphy_dev->soc_info.index);
 		goto csiphy_no_resource;
 	}
