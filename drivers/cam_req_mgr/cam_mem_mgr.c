@@ -600,8 +600,10 @@ static int cam_mem_uc_vmap(struct dma_buf *dmabuf, struct iosys_map *map)
 	int npages = PAGE_ALIGN(dmabuf->size) / PAGE_SIZE;
 
 	i = cam_mem_find_slot_for_buf(dmabuf);
-	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+	if (i == CAM_MEM_UNCACHE_BUF_MAX) {
+		CAM_ERR(CAM_MEM, "Invalid slot");
 		return -EBUSY;
+	}
 
 	if (uc_tbl.privs[i].vmap_cnt) {
 		uc_tbl.privs[i].vmap_cnt++;
@@ -643,8 +645,10 @@ static void cam_mem_uc_vunmap(struct dma_buf *dmabuf, struct iosys_map *map)
 	int i;
 
 	i = cam_mem_find_slot_for_buf(dmabuf);
-	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+	if (i == CAM_MEM_UNCACHE_BUF_MAX) {
+		CAM_ERR(CAM_MEM, "Invalid slot");
 		return;
+	}
 
 	if (!--uc_tbl.privs[i].vmap_cnt) {
 		vunmap(uc_tbl.privs[i].vaddr);
@@ -663,8 +667,10 @@ static int cam_mem_uc_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
 	int rc = 0, i;
 
 	i = cam_mem_find_slot_for_buf(dmabuf);
-	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+	if (i == CAM_MEM_UNCACHE_BUF_MAX) {
+		CAM_ERR(CAM_MEM, "Invalid slot");
 		return -EBUSY;
+	}
 
 	table = uc_tbl.privs[i].table;
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
@@ -693,8 +699,10 @@ static void cam_mem_uc_release(struct dma_buf *dmabuf)
 	int i;
 
 	i = cam_mem_find_slot_for_buf(dmabuf);
-	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+	if (i == CAM_MEM_UNCACHE_BUF_MAX) {
+		CAM_ERR(CAM_MEM, "Invalid slot");
 		return;
+	}
 
 	dma_buf_unmap_attachment(uc_tbl.privs[i].attach, uc_tbl.privs[i].table,
 		DMA_BIDIRECTIONAL);
@@ -881,7 +889,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			return rc;
 		}
 	}
-	if (use_cached_heap)
+	if (!use_cached_heap)
 		*buf = cam_mem_to_uncached_buf(*buf);
 #ifdef CONFIG_SPECTRA_SECURE
 	if (cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) {
