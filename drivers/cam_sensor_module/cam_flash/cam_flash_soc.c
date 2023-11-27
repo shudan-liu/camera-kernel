@@ -140,8 +140,7 @@ static int32_t cam_get_source_node_info(
 			if (soc_private->is_wled_flash) {
 				rc = cam_flash_led_prepare(
 					fctrl->flash_trigger[i],
-					QUERY_MAX_AVAIL_CURRENT,
-					&soc_private->flash_max_current[i],
+					BIT(2), &soc_private->flash_max_current[i],
 					true);
 				if (rc) {
 					CAM_ERR(CAM_FLASH,
@@ -231,8 +230,7 @@ static int32_t cam_get_source_node_info(
 			if (soc_private->is_wled_flash) {
 				rc = cam_flash_led_prepare(
 					fctrl->torch_trigger[i],
-					QUERY_MAX_AVAIL_CURRENT,
-					&soc_private->torch_max_current[i],
+					BIT(2), &soc_private->torch_max_current[i],
 					true);
 				if (rc) {
 					CAM_ERR(CAM_FLASH,

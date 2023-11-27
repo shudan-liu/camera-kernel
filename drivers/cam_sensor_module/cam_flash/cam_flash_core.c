@@ -1738,7 +1738,7 @@ int cam_flash_pmic_pkt_parser(struct cam_flash_ctrl *fctrl, void *arg)
 				(struct cam_flash_query_curr *)cmd_buf;
 
 			rc = cam_flash_led_prepare(fctrl->switch_trigger,
-				QUERY_MAX_AVAIL_CURRENT, &query_curr_ma,
+				BIT(2), &query_curr_ma,
 				soc_private->is_wled_flash);
 
 			CAM_DBG(CAM_FLASH, "query_curr_ma = %d",
