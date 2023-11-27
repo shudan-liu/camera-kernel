@@ -232,7 +232,7 @@ long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name)
 {
 	return 0;
 }
-#if KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE
+
 int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
 {
 	int rc = 0;
@@ -245,24 +245,8 @@ int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
 
 	return rc;
 }
-#else
-int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
-{
-	int rc = 0;
 
-	soc_info->irq_line =
-		platform_get_resource_byname(soc_info->pdev,
-		IORESOURCE_IRQ, soc_info->irq_name);
-	if (!soc_info->irq_line) {
-		rc = -ENODEV;
-		return rc;
-	}
-	soc_info->irq_num = soc_info->irq_line->start;
-
-	return rc;
-}
-#endif
-
+#if CONFIG_SPECTRA_SENSOR
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
 void cam_actuator_driver_i2c_remove(struct i2c_client *client)
 {
@@ -369,4 +353,5 @@ static int32_t cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 
 	return rc;
 }
+#endif
 #endif

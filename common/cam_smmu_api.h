@@ -82,6 +82,8 @@ struct cam_smmu_region_info {
 	size_t discard_iova_len;
 };
 
+extern struct platform_device *g_camsmmu_pdev;
+
 /**
  * @brief           : Gets an smmu handle
  *

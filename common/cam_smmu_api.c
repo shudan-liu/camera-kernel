@@ -49,6 +49,8 @@
 static int g_num_pf_handled = 1;
 module_param(g_num_pf_handled, int, 0644);
 
+struct platform_device *g_camsmmu_pdev = NULL;
+
 struct cam_fw_alloc_info icp_fw;
 
 struct cam_smmu_work_payload {
@@ -1324,8 +1326,6 @@ static int cam_smmu_detach_device(int idx)
 	return rc;
 }
 
-
-
 int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 	dma_addr_t *iova,
 	uintptr_t *cpuva,
@@ -1392,7 +1392,7 @@ int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 		IOMMU_READ|IOMMU_WRITE|IOMMU_PRIV, GFP_KERNEL);
 
 	if (rc) {
-		CAM_ERR(CAM_SMMU, "Failed to map FW into IOMMU");
+		CAM_ERR(CAM_SMMU, "Failed to map FW into IOMMU rc:%d", rc);
 		rc = -ENOMEM;
 		goto alloc_fail;
 	}
@@ -1540,7 +1540,7 @@ int cam_smmu_alloc_qdss(int32_t smmu_hdl,
 		IOMMU_READ|IOMMU_WRITE, GFP_KERNEL);
 
 	if (rc) {
-		CAM_ERR(CAM_SMMU, "Failed to map QDSS into IOMMU");
+		CAM_ERR(CAM_SMMU, "Failed to map QDSS into IOMMU rc %d", rc);
 		goto unlock_and_end;
 	}
 
@@ -1781,7 +1781,9 @@ static int cam_smmu_map_to_pool(struct iommu_domain *domain,
 	 * the assumed buffer size is smaller. Use the real buffer size
 	 * for IOVA space allocation to take care of this.
 	 */
-	WARN_ON_ONCE(buffer_size > *size);
+	WARN_ONCE(*size && buffer_size > *size,
+		"size zero or greater then buffer_size %zd > %zd",
+		buffer_size,  *size);
 
 	*iova = gen_pool_alloc(pool, buffer_size);
 	if (!*iova)
@@ -1995,11 +1997,10 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 	struct timespec64 ts1, ts2;
 	long microsec = 0;
 
-
 	if (IS_ERR_OR_NULL(buf)) {
 		rc = PTR_ERR(buf);
 		CAM_ERR(CAM_SMMU,
-			"Error: dma get buf failed. rc = %d", rc);
+			"Error: invalid dma_buf rc = %d", rc);
 		goto err_out;
 	}
 
@@ -3109,7 +3110,7 @@ int cam_smmu_map_kernel_iova(int handle, struct dma_buf *buf,
 	}
 
 	buf_state = cam_smmu_check_dma_buf_in_list(idx, buf,
-	paddr_ptr, len_ptr);
+		paddr_ptr, len_ptr);
 	if (buf_state == CAM_SMMU_BUFF_EXIST) {
 		CAM_ERR(CAM_SMMU,
 			"dma_buf :%pK already in the list", buf);
@@ -3520,7 +3521,6 @@ static void cam_smmu_deinit_cb(struct cam_context_bank_info *cb)
 		kfree(cb->scratch_map.bitmap);
 		cb->scratch_map.bitmap = NULL;
 	}
-	iommu_domain_free(cb->domain);
 }
 
 static void cam_smmu_release_cb(struct platform_device *pdev)
@@ -3585,8 +3585,6 @@ static int cam_smmu_setup_cb(struct cam_context_bank_info *cb,
 			(unsigned long)cb->shared_info.iova_start);
 		CAM_DBG(CAM_SMMU, "Shared mem len->%zu",
 			cb->shared_info.iova_len);
-
-
 	}
 
 	if (cb->scratch_buf_support) {
@@ -4027,17 +4025,17 @@ static int cam_populate_smmu_context_banks(struct device *dev,
 			cb->name[0]);
 		goto cb_init_fail;
 	}
-	if (cb->io_support && cb->domain)
-		iommu_set_fault_handler(cb->domain,
-			cam_smmu_iommu_fault_handler,
-			(void *)cb->name[0]);
 
-	cb->domain = iommu_domain_alloc(&platform_bus_type);
+	cb->domain = iommu_get_domain_for_dev(dev);
 	if (IS_ERR_OR_NULL(cb->domain)) {
 		CAM_ERR(CAM_SMMU, "Invalid domain for device");
 		rc= PTR_ERR(cb->domain);
 		goto cb_init_fail;
 	}
+	if (cb->io_support && cb->domain)
+		iommu_set_fault_handler(cb->domain,
+			cam_smmu_iommu_fault_handler,
+			(void *)cb->name[0]);
 
 	if (!dev->dma_parms)
 		dev->dma_parms = devm_kzalloc(dev,
@@ -4210,6 +4208,7 @@ static int cam_smmu_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 	struct device *dev = &pdev->dev;
+	g_camsmmu_pdev = pdev;
 
 	dev->dma_parms = NULL;
 	CAM_DBG(CAM_SMMU, "Adding SMMU component: %s", pdev->name);

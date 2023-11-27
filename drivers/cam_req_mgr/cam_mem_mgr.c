@@ -11,6 +11,7 @@
 #include <linux/dma-buf.h>
 #include <linux/version.h>
 #include <linux/debugfs.h>
+#include <linux/hashtable.h>
 
 #include "cam_compat.h"
 #include "cam_req_mgr_util.h"
@@ -22,6 +23,28 @@
 
 static struct cam_mem_table tbl;
 static atomic_t cam_mem_mgr_state = ATOMIC_INIT(CAM_MEM_MGR_UNINITIALIZED);
+
+#define CAM_MEM_UNCACHE_BUF_MAX 512
+
+struct cam_mem_uncached_priv {
+	struct hlist_node hlist;
+	struct dma_buf *dma_buf;
+	struct dma_buf *orig;
+	struct sg_table *table;
+	struct dma_buf_attachment *attach;
+	void *vaddr;
+	uint32_t vmap_cnt;
+};
+
+struct cam_mem_uncached_tbl {
+	struct mutex uc_mutex;
+	DECLARE_HASHTABLE(uc_buf_map, 7);
+	struct dma_buf_ops uc_ops;
+	DECLARE_BITMAP(bitmap, CAM_MEM_UNCACHE_BUF_MAX);
+	struct cam_mem_uncached_priv privs[CAM_MEM_UNCACHE_BUF_MAX];
+};
+
+static struct cam_mem_uncached_tbl uc_tbl;
 
 static void cam_mem_mgr_print_tbl(void)
 {
@@ -105,6 +128,7 @@ static int cam_mem_util_map_cpu_va(struct dma_buf *dmabuf,
 
 	return rc;
 }
+
 static int cam_mem_util_unmap_cpu_va(struct dma_buf *dmabuf,
 	uint64_t vaddr)
 {
@@ -153,6 +177,18 @@ end:
 	return rc;
 }
 
+static int cam_mem_mgr_init_uncached(void)
+{
+	mutex_init(&uc_tbl.uc_mutex);
+	hash_init(uc_tbl.uc_buf_map);
+	return 0;
+}
+
+static void cam_mem_mgr_deinit_uncached(void)
+{
+	return;
+}
+
 int cam_mem_mgr_init(void)
 {
 	int i;
@@ -192,6 +228,8 @@ int cam_mem_mgr_init(void)
 	mutex_init(&tbl.m_lock);
 
 	atomic_set(&cam_mem_mgr_state, CAM_MEM_MGR_INITIALIZED);
+
+	cam_mem_mgr_init_uncached();
 
 	cam_mem_mgr_create_debug_fs();
 
@@ -299,11 +337,6 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 		return -EINVAL;
 	}
 
-	if (!atomic_read(&cam_mem_mgr_state)) {
-		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
-		return -EINVAL;
-	}
-
 	if (!buf_handle || !vaddr_ptr || !len)
 		return -EINVAL;
 
@@ -334,7 +367,7 @@ int cam_mem_get_cpu_buf(int32_t buf_handle, uintptr_t *vaddr_ptr, size_t *len)
 		*vaddr_ptr = tbl.bufq[idx].kmdvaddr;
 		*len = tbl.bufq[idx].len;
 	} else {
-		CAM_ERR(CAM_MEM, "No KMD access requested, kmdvddr= %pK, idx= %d, buf_handle= %d",
+		CAM_ERR(CAM_MEM, "No KMD access requested, kmdvddr= %pK, idx= %d, buf_handle= 0x%x",
 			(void *)tbl.bufq[idx].kmdvaddr, idx, buf_handle);
 		return -EINVAL;
 	}
@@ -447,10 +480,10 @@ static int cam_mem_mgr_get_dma_heaps(void)
 	tbl.camera_uncached_heap = NULL;
 	tbl.secure_display_heap = NULL;
 
-	tbl.system_heap = dma_heap_find("qcom,system");
+	tbl.system_heap = dma_heap_find("system");
 	if (IS_ERR_OR_NULL(tbl.system_heap)) {
 		rc = PTR_ERR(tbl.system_heap);
-		CAM_ERR(CAM_MEM, "qcom system heap not found, rc=%d", rc);
+		CAM_ERR(CAM_MEM, "system heap not found, rc=%d", rc);
 		tbl.system_heap = NULL;
 		goto put_heaps;
 	}
@@ -509,6 +542,243 @@ static int cam_mem_mgr_get_dma_heaps(void)
 put_heaps:
 	cam_mem_mgr_put_dma_heaps();
 	return rc;
+}
+
+static int32_t cam_mem_find_slot_for_buf(struct dma_buf *dmabuf)
+{
+	struct cam_mem_uncached_priv *priv;
+
+	hash_for_each_possible(uc_tbl.uc_buf_map, priv, hlist,
+		PTR_TO_U64(dmabuf))
+	{
+		if (dmabuf == priv->dma_buf) {
+			CAM_DBG(CAM_MEM, "returning %ld", priv - uc_tbl.privs);
+			return priv - uc_tbl.privs;
+		}
+	}
+	CAM_ERR(CAM_MEM, "unable to find slot for buf %pK in uc_priv", dmabuf);
+	return CAM_MEM_UNCACHE_BUF_MAX;
+}
+
+static int32_t cam_mem_get_uc_slot_for_buf(struct dma_buf *dmabuf)
+{
+	int i, rc;
+
+	mutex_lock(&uc_tbl.uc_mutex);
+	i = find_first_zero_bit(uc_tbl.bitmap, CAM_MEM_UNCACHE_BUF_MAX);
+	if (i == CAM_MEM_UNCACHE_BUF_MAX) {
+		rc = -ENOMEM;
+		CAM_ERR(CAM_MEM, "unable to find free slot for buf %pK in uc_priv", dmabuf);
+		goto exit;
+	}
+	set_bit(i, uc_tbl.bitmap);
+	hash_add(uc_tbl.uc_buf_map, &uc_tbl.privs[i].hlist,
+		PTR_TO_U64(dmabuf));
+exit:
+	mutex_unlock(&uc_tbl.uc_mutex);
+	CAM_DBG(CAM_MEM, "get uncached slot %d", i);
+	return i;
+}
+
+static void cam_mem_put_uc_slot_for_buf(size_t i)
+{
+	CAM_DBG(CAM_MEM, "put uncached slot %d", i);
+	mutex_lock(&uc_tbl.uc_mutex);
+	hash_del(&uc_tbl.privs[i].hlist);
+	memset(&uc_tbl.privs[i], 0, sizeof(uc_tbl.privs[i]));
+	clear_bit(i, uc_tbl.bitmap);
+	mutex_unlock(&uc_tbl.uc_mutex);
+}
+
+static int cam_mem_uc_vmap(struct dma_buf *dmabuf, struct iosys_map *map)
+{
+	void *kmdvaddr;
+	struct page **pages;
+	struct page **tmp;
+	struct sg_page_iter piter;
+	int ret = 0, i;
+	int npages = PAGE_ALIGN(dmabuf->size) / PAGE_SIZE;
+
+	i = cam_mem_find_slot_for_buf(dmabuf);
+	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+		return -EBUSY;
+
+	if (uc_tbl.privs[i].vmap_cnt) {
+		uc_tbl.privs[i].vmap_cnt++;
+		iosys_map_set_vaddr(map, uc_tbl.privs[i].vaddr);
+		goto out;
+	}
+
+	pages = vmalloc(sizeof(struct page *) * npages);
+	if (!pages)
+		return -ENOMEM;
+
+	tmp = pages;
+	for_each_sgtable_page(uc_tbl.privs[i].table, &piter, 0) {
+		WARN_ON(tmp - pages >= npages);
+		*tmp++ = sg_page_iter_page(&piter);
+	}
+
+	kmdvaddr = vmap(pages, npages, VM_MAP,
+		pgprot_writecombine(PAGE_KERNEL));
+	if (!kmdvaddr) {
+		ret = -ENOMEM;
+		CAM_ERR(CAM_MEM, "vmap failed %pK tmp %pK page %pK",
+			kmdvaddr, tmp, pages);
+		goto out;
+	}
+
+	uc_tbl.privs[i].vaddr = kmdvaddr;
+	uc_tbl.privs[i].vmap_cnt++;
+	iosys_map_set_vaddr(map, uc_tbl.privs[i].vaddr);
+out:
+	vfree(pages);
+	CAM_DBG(CAM_MEM, "vmap success for dmabuf %pK vaddr %pK",
+		dmabuf, kmdvaddr);
+	return ret;
+}
+
+static void cam_mem_uc_vunmap(struct dma_buf *dmabuf, struct iosys_map *map)
+{
+	int i;
+
+	i = cam_mem_find_slot_for_buf(dmabuf);
+	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+		return;
+
+	if (!--uc_tbl.privs[i].vmap_cnt) {
+		vunmap(uc_tbl.privs[i].vaddr);
+		uc_tbl.privs[i].vaddr = NULL;
+	}
+	iosys_map_clear(map);
+	CAM_DBG(CAM_MEM, "vunmap success for dmabuf %pK vaddr %pK",
+		dmabuf, uc_tbl.privs[i].vaddr);
+}
+
+static int cam_mem_uc_mmap(struct dma_buf *dmabuf, struct vm_area_struct *vma)
+{
+	struct sg_table *table;
+	unsigned long addr = vma->vm_start;
+	struct sg_page_iter piter;
+	int rc = 0, i;
+
+	i = cam_mem_find_slot_for_buf(dmabuf);
+	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+		return -EBUSY;
+
+	table = uc_tbl.privs[i].table;
+	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+	for_each_sgtable_page(table, &piter, vma->vm_pgoff) {
+		struct page *page = sg_page_iter_page(&piter);
+
+		rc = remap_pfn_range(vma, addr, page_to_pfn(page), PAGE_SIZE,
+				      vma->vm_page_prot);
+		if (rc)
+			CAM_ERR(CAM_SMMU, "start %lx addr %lx end %lx rc %d",
+					vma->vm_start, addr, vma->vm_end, rc);
+		if (rc)
+			goto end;
+		addr += PAGE_SIZE;
+		if (addr >= vma->vm_end)
+			break;
+	}
+end:
+	CAM_DBG(CAM_MEM, "mapping buffer %pK on user cpu idx %d rc %d",
+		dmabuf, i, rc);
+	return rc;
+}
+
+static void cam_mem_uc_release(struct dma_buf *dmabuf)
+{
+	int i;
+
+	i = cam_mem_find_slot_for_buf(dmabuf);
+	if (i == CAM_MEM_UNCACHE_BUF_MAX)
+		return;
+
+	dma_buf_unmap_attachment(uc_tbl.privs[i].attach, uc_tbl.privs[i].table,
+		DMA_BIDIRECTIONAL);
+	dma_buf_detach(dmabuf, uc_tbl.privs[i].attach);
+	dma_buf_put(uc_tbl.privs[i].orig);
+	CAM_DBG(CAM_MEM, "release uncached dmabuf %pK idx %d", dmabuf, i);
+	cam_mem_put_uc_slot_for_buf(i);
+}
+
+static struct dma_buf *cam_mem_to_uncached_buf(struct dma_buf *orig)
+{
+	static int intitalized = 0;
+	struct dma_buf *rbuf;
+	struct dma_buf_attachment *attach;
+	struct sg_table *table;
+	int i, rc;
+	DEFINE_DMA_BUF_EXPORT_INFO(exp_info);
+
+	if (!intitalized) {
+		mutex_lock(&uc_tbl.uc_mutex);
+		if (!intitalized) {
+			uc_tbl.uc_ops = *orig->ops;
+			uc_tbl.uc_ops.mmap = cam_mem_uc_mmap;
+			uc_tbl.uc_ops.vmap = cam_mem_uc_vmap;
+			uc_tbl.uc_ops.vunmap = cam_mem_uc_vunmap;
+			uc_tbl.uc_ops.release = cam_mem_uc_release;
+			intitalized = 1;
+		}
+		mutex_unlock(&uc_tbl.uc_mutex);
+	}
+
+	if (!g_camsmmu_pdev) {
+		CAM_ERR(CAM_SMMU, "cam_smmu pdev not set");
+		return ERR_PTR(-EBUSY);
+	}
+
+	exp_info.ops = &uc_tbl.uc_ops;
+	exp_info.size = orig->size;
+	exp_info.flags = O_RDWR;
+	exp_info.priv = orig->priv;
+	exp_info.exp_name = kasprintf(GFP_KERNEL, "%s", KBUILD_MODNAME);
+
+	rbuf = dma_buf_export(&exp_info);
+	if (IS_ERR(rbuf)) {
+		CAM_ERR(CAM_SMMU, "Failed to export dmabuf as uncached");
+		dma_buf_put(orig);
+		return rbuf;
+	}
+
+	attach = dma_buf_attach(rbuf, &g_camsmmu_pdev->dev);
+	if (IS_ERR_OR_NULL(attach)) {
+		rc = PTR_ERR(attach);
+		CAM_ERR(CAM_MEM, "dma_buf_attach failed for cam_smmu rc %d", rc);
+		goto end;
+	}
+
+	table = dma_buf_map_attachment(attach,
+			DMA_BIDIRECTIONAL);
+	if (IS_ERR_OR_NULL(table)) {
+		rc = PTR_ERR(table);
+		CAM_ERR(CAM_MEM, "dma buf attach failed rc %d", rc);
+		goto err_detech;
+	}
+
+	i = cam_mem_get_uc_slot_for_buf(rbuf);
+	if (i == CAM_MEM_UNCACHE_BUF_MAX) {
+		rc = -ENOMEM;
+		goto err_slot;
+	}
+	uc_tbl.privs[i].orig = orig;
+	uc_tbl.privs[i].dma_buf = rbuf;
+	uc_tbl.privs[i].attach = attach;
+	uc_tbl.privs[i].table = table;
+
+	CAM_DBG(CAM_MEM, "slot %d buffer %pK uncached orig %pK", i, rbuf, orig);
+	return rbuf;
+
+err_slot:
+	dma_buf_unmap_attachment(attach, table, DMA_BIDIRECTIONAL);
+err_detech:
+	dma_buf_detach(rbuf, attach);
+end:
+	CAM_ERR(CAM_MEM, "buffer %pK uncached i %d rc %d", rbuf, i, rc);
+	return ERR_PTR(rc);
 }
 
 static int cam_mem_util_get_dma_buf(size_t len,
@@ -577,7 +847,7 @@ static int cam_mem_util_get_dma_buf(size_t len,
 		heap = tbl.system_heap;
 	} else {
 		try_heap = tbl.camera_uncached_heap;
-		heap = tbl.system_uncached_heap;
+		heap = tbl.system_heap;
 	}
 
 	CAM_DBG(CAM_MEM, "Using heaps : try=%pK, heap=%pK", try_heap, heap);
@@ -611,7 +881,8 @@ static int cam_mem_util_get_dma_buf(size_t len,
 			return rc;
 		}
 	}
-
+	if (use_cached_heap)
+		*buf = cam_mem_to_uncached_buf(*buf);
 #ifdef CONFIG_SPECTRA_SECURE
 	if (cam_flags & CAM_MEM_FLAG_PROTECTED_MODE) {
 		if (num_vmids >= CAM_MAX_VMIDS) {
