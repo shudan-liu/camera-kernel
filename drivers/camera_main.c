@@ -5,7 +5,6 @@
  */
 #include <linux/module.h>
 #include <linux/build_bug.h>
-#include <linux/stringify.h>
 
 #include "cam_req_mgr_dev.h"
 #include "cam_sync_api.h"
@@ -63,9 +62,10 @@
 #include "cam_csid_ppi100.h"
 #include "camera_main.h"
 
-char camera_banner[] = "Camera-Banner: (" __stringify(KBUILD_BUILD_USER) "@"\
-	__stringify(KBUILD_BUILD_HOST) ")\
-	(" __stringify(KBUILD_BUILD_TIMESTAMP) ")";
+#include "cam_generated_h"
+
+const char camera_banner[] = "Camera-Banner: (" CAMERA_COMPILE_HOST
+	") (" CAMERA_COMPILE_TIME ") (" CAMERA_CC_VERSION ")";
 
 struct camera_submodule_component {
 	int (*init)(void);
