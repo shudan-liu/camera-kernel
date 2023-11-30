@@ -442,6 +442,12 @@ static inline void __cam_irq_controller_disable_irq(
 	update_mask = evt_handler->evt_bit_mask_arr;
 	priority    = evt_handler->priority;
 
+	if(CAM_IRQ_PRIORITY_MAX == priority)
+	{
+		CAM_ERR(CAM_IRQ_CTRL, "Invalid priority received, returning");
+		return;
+	}
+
 	for (i = 0; i < controller->num_registers; i++) {
 		irq_register = &controller->irq_register_arr[i];
 		irq_register->top_half_enable_mask[priority] &= ~update_mask[i];
@@ -461,6 +467,12 @@ static inline void __cam_irq_controller_enable_irq(
 
 	update_mask = evt_handler->evt_bit_mask_arr;
 	priority    = evt_handler->priority;
+
+	if(CAM_IRQ_PRIORITY_MAX == priority)
+	{
+		CAM_ERR(CAM_IRQ_CTRL, "Invalid priority received, returning");
+		return;
+	}
 
 	for (i = 0; i < controller->num_registers; i++) {
 		irq_register = &controller->irq_register_arr[i];

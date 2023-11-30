@@ -692,7 +692,7 @@ static int cam_ife_mgr_check_for_previous_sensor_cfg(
 	grp_cfg = &g_ife_sns_grp_cfg.grp_cfg[idx];
 	stream_grp_cfg = &sensor_grp_config->stream_grp_cfg[idx];
 
-	for (i = 0; i < grp_cfg->stream_cfg_cnt; i++) {
+	for (i = 0; i < grp_cfg->stream_cfg_cnt && i < CAM_ISP_STREAM_CFG_MAX; i++) {
 		if (grp_cfg->stream_cfg[i].sensor_id ==
 			stream_grp_cfg->stream_cfg[stream_idx].sensor_id) {
 			rc = cam_ife_mgr_update_vc_dt_sensor_stream_cfg(
@@ -871,7 +871,7 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 		grp_cfg->lane_cfg     = stream_grp_cfg->lane_cfg;
 		grp_cfg->feature_mask = stream_grp_cfg->feature_mask;
 
-		for (j = 0; j < stream_grp_cfg->stream_cfg_cnt; j++) {
+		for (j = 0; j < stream_grp_cfg->stream_cfg_cnt && j < CAM_ISP_STREAM_CFG_MAX; j++) {
 			/*check if configuration is for previous sensor id */
 			rc = cam_ife_mgr_check_for_previous_sensor_cfg(&sensor_grp_config, i, j);
 			if (!rc)
@@ -2592,11 +2592,6 @@ static int cam_ife_hw_mgr_link_csid_pxl_resources(
 	list_for_each_entry_safe(hw_mgr_res, hw_mgr_res_tmp,
 		&g_ife_sns_grp_cfg.grp_cfg[index].res_ife_csid_list,
 		list) {
-		if (hw_mgr_res == NULL) {
-			CAM_DBG(CAM_ISP, "skipping hw_res index:%d", index);
-			continue;
-		}
-
 		if ((hw_mgr_res->res_id == path_res_id) &&
 			(!hw_mgr_res->linked)) {
 			for (i = 0; i < in_port->num_valid_vc_dt; i++) {
@@ -5237,7 +5232,7 @@ static int cam_ife_hw_mgr_update_vc_dt_stream_grp(
 
 	if (index != CAM_IFE_STREAM_GRP_INDEX_NONE) {
 		grp_cfg = &g_ife_sns_grp_cfg.grp_cfg[index];
-		for (i = 0; i < grp_cfg->stream_cfg_cnt; i++) {
+		for (i = 0; i < grp_cfg->stream_cfg_cnt && i < CAM_ISP_STREAM_CFG_MAX; i++) {
 			if (is_rdi_path) {
 				for (j = grp_cfg->stream_cfg[i].rdi_vc_dt_updated;
 					j < grp_cfg->stream_cfg[i].num_valid_vc_dt_rdi;
