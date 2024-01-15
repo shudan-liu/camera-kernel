@@ -2500,7 +2500,7 @@ static int cam_soc_util_regulator_enable_default(
 	int j = 0, rc = 0;
 	uint32_t num_rgltr = soc_info->num_rgltr;
 
-	for (j = 0; j < num_rgltr; j++) {
+	for (j = 0; j < num_rgltr && j < CAM_SOC_MAX_REGULATOR; j++) {
 		if (soc_info->rgltr_ctrl_support == true) {
 			rc = cam_soc_util_regulator_enable(soc_info->rgltr[j],
 				soc_info->rgltr_name[j],
