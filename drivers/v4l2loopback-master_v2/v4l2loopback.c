@@ -835,6 +835,10 @@ static int vidioc_enum_framesizes(struct file *file, void *fh,
 		/* format has already been negotiated
 		 * cannot change during runtime
 		 */
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		argp->type = V4L2_FRMSIZE_TYPE_DISCRETE;
 
 		argp->discrete.width = data->pix_format.width;
@@ -888,7 +892,12 @@ static int    vidioc_enum_fmt_cap(struct file *file, void *fh,
 		return -EINVAL;
 
 	if (dev->state & V4L2L_READY_FOR_CAPTURE) {
-		const __u32 format = data->pix_format.pixelformat;
+		__u32 format;
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
+		format = data->pix_format.pixelformat;
 
 		snprintf(f->description, sizeof(f->description),
 				"[%c%c%c%c]",
@@ -929,7 +938,12 @@ static int vidioc_g_fmt_cap(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "%s opener: %p data: %p",
 		opener, data);
@@ -968,7 +982,12 @@ static int vidioc_try_fmt_cap(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1018,6 +1037,10 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_streamdata *data;
 
+	if (!f) {
+		CAM_ERR(CAM_V4L2, "f is null");
+		return -EINVAL;
+	}
 
 	dev = v4l2loopback_getdevice(file);
 	if (!dev) {
@@ -1033,7 +1056,12 @@ static int vidioc_enum_fmt_out(struct file *file, void *fh,
 	data = opener->data;
 
 	if (dev->state & V4L2L_READY_FOR_CAPTURE) {
-		const __u32 format = data->pix_format.pixelformat;
+		__u32 format;
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
+		format = data->pix_format.pixelformat;
 
 		/* format has been fixed by the writer,
 		 * so only one single format is supported
@@ -1098,7 +1126,12 @@ static int vidioc_g_fmt_out(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "opener is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1142,7 +1175,12 @@ static int vidioc_try_fmt_out(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "dev is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1207,7 +1245,12 @@ static int vidioc_s_fmt_out(struct file *file, void *priv,
 		CAM_ERR(CAM_V4L2, "dev is null");
 		return -EINVAL;
 	}
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	CAM_DBG(CAM_V4L2, "opener: %p data: %p",
 		opener, data);
@@ -1449,7 +1492,12 @@ static int vidioc_reqbufs(struct file *file, void *fh,
 		return 0;
 	}
 	opener = fh_to_opener(fh);
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	/* release buffer when request buffer 0*/
 	if (b->count == 0) {
@@ -1507,7 +1555,12 @@ static int vidioc_querybuf(struct file *file, void *fh, struct v4l2_buffer *b)
 		return -EINVAL;
 	}
 
-	data = opener->data;
+	if (opener->data) {
+		data = opener->data;
+	} else {
+		CAM_ERR(CAM_V4L2, "opener data is null");
+		return -EINVAL;
+	}
 
 	if ((b->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 			(b->type != V4L2_BUF_TYPE_VIDEO_OUTPUT)) {
@@ -1559,6 +1612,10 @@ static int vidioc_expbuf(struct file *file, void *fh,
 		return 0;
 	}
 
+	if (!data) {
+		CAM_ERR(CAM_V4L2, "data is null");
+		return -EINVAL;
+	}
 	if (e->index >= data->used_buffers) {
 		CAM_WARN(CAM_V4L2, "invalid index %d", e->index);
 		return -EINVAL;
@@ -1813,16 +1870,20 @@ static int vidioc_dqbuf(struct file *file,
 		return -EINVAL;
 	}
 
+	mutex_lock(&dev->dev_mutex);
+
 	opener = fh_to_opener(file->private_data);
-	if (!opener) {
+	if (!opener || !opener->connected_opener) {
 		CAM_ERR(CAM_V4L2, "opener is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	data = opener->data;
 	if (!data) {
 		CAM_ERR(CAM_V4L2, "data is null");
-		return -EINVAL;
+		rc = -EINVAL;
+		goto end;
 	}
 
 	switch (buf->type) {
@@ -1867,10 +1928,10 @@ static int vidioc_dqbuf(struct file *file,
 				return -EAGAIN;
 
 			wait_event_interruptible(data->read_event, can_read(data, opener));
-			return -EAGAIN;
+			rc = -EAGAIN;
 		}
 
-		return rc;
+		break;
 	case V4L2_BUF_TYPE_VIDEO_OUTPUT:
 		mutex_lock(&data->outbufs_mutex);
 		if (!list_empty(&data->outbufs_list)) {
@@ -1895,14 +1956,18 @@ static int vidioc_dqbuf(struct file *file,
 			mutex_unlock(&data->outbufs_mutex);
 			CAM_WARN(CAM_V4L2, "[dev %s] output list is empty", dev->vdev->name);
 			// for proxy, must use NONBLOCK method
-			return -EAGAIN;
+			rc = -EAGAIN;
 		}
-		return rc;
+		break;
 	default:
 		CAM_ERR(CAM_V4L2, "[dev %s] unsupported buf type %d",
 			dev->vdev->name, buf->type);
-		return -EINVAL;
+		rc = -EINVAL;
+		break;
 	}
+end:
+	mutex_unlock(&dev->dev_mutex);
+	return rc;
 }
 
 /* ------------- STREAMING ------------------- */
@@ -1940,6 +2005,10 @@ static int vidioc_streamon(struct file *file,
 		rc = 0;
 		break;
 	case V4L2_BUF_TYPE_VIDEO_CAPTURE: {
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		if (data->is_streaming) {
 			CAM_WARN(CAM_V4L2, "data: %p already is streamoned, return", data);
 			rc = -EINVAL;
@@ -2453,13 +2522,25 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 	}
 	case AIS_V4L2_OUTPUT_PRIV_SET_PARAM_RET:
 		/* signal capture_s_param_cond */
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		data->qcarcam_sparam_ret = kcmd->param_type;
 		complete(&data->sparam_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_SET_PARAM2:
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		rc = process_set_param2(kcmd, data);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_GET_PARAM:
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		rc = process_get_param(kcmd, data);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_OPEN_RET:
@@ -2472,14 +2553,26 @@ static int process_output_cmd(struct v4l2_loopback_device *dev,
 		complete(&dev->close_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_START_RET:
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		data->qcarcam_ctrl_ret = kcmd->ctrl_ret;
 		complete(&data->ctrl_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_STOP_RET:
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		data->qcarcam_ctrl_ret = kcmd->ctrl_ret;
 		complete(&data->ctrl_complete);
 		break;
 	case AIS_V4L2_OUTPUT_PRIV_SET_BUFS: {
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 		rc = process_set_bufs(kcmd, data);
 		break;
 	}
@@ -2593,6 +2686,10 @@ static __poll_t v4l2_loopback_poll(struct file *file,
 	case V4L2L_READER:
 		if (dev->open_count.counter == 0)
 			return POLLERR;
+		if (!data) {
+			CAM_ERR(CAM_V4L2, "data is null");
+			return -EINVAL;
+		}
 
 		if (!can_read(opener->data, opener)) {
 			if (ret_mask)
@@ -2745,7 +2842,7 @@ static int v4l2_loopback_close(struct file *file)
 {
 	struct v4l2_loopback_opener *opener;
 	struct v4l2_loopback_device *dev;
-	struct v4l2_streamdata *data;
+
 	int is_main = 0;
 	int is_writer = 0;
 	int rc = 0;
@@ -2763,7 +2860,6 @@ static int v4l2_loopback_close(struct file *file)
 		return -EINVAL;
 	}
 
-	data = opener->data;
 
 	if (opener == dev->main_opener)
 		is_main = 1;
@@ -2783,11 +2879,21 @@ static int v4l2_loopback_close(struct file *file)
 			CAM_WARN(CAM_V4L2, "invalid proxy close, state %d", dev->state);
 	} else if (is_writer) {
 		// todo: refine the close flow
+		mutex_lock(&dev->dev_mutex);
 		if (opener->connected_opener) {
 			CAM_WARN(CAM_V4L2, "proxy close");
 			opener->connected_opener->connected_opener = NULL;
 			opener->connected_opener = NULL;
 		}
+
+		v4l2_fh_del(file->private_data);
+		v4l2_fh_exit(file->private_data);
+		kfree(opener);
+		opener = NULL;
+
+		CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when proxy close",
+				dev->open_count.counter);
+		mutex_unlock(&dev->dev_mutex);
 	} else {
 		/* notify ais_v4l2_proxy to close the input */
 		mutex_lock(&dev->dev_mutex);
@@ -2824,17 +2930,15 @@ static int v4l2_loopback_close(struct file *file)
 		} else {
 			CAM_WARN(CAM_V4L2, "invalid close state %d", dev->state);
 		}
+		v4l2_fh_del(file->private_data);
+		v4l2_fh_exit(file->private_data);
+		kfree(opener);
+		opener = NULL;
+
+		CAM_WARN(CAM_V4L2, "v4l2 del v4l2 fh open_count is %d when app close",
+				dev->open_count.counter);
 		mutex_unlock(&dev->dev_mutex);
 	}
-
-	CAM_WARN(CAM_V4L2, "x v4l2 del v4l2 fh open_count is %d when close",
-		dev->open_count.counter);
-
-	v4l2_fh_del(file->private_data);
-	v4l2_fh_exit(file->private_data);
-
-	kfree(opener);
-	opener = NULL;
 
 	MARK();
 

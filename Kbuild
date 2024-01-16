@@ -1,3 +1,4 @@
+ifneq ($(TARGET_USES_QMAA_OVERRIDE_CAMERA),false)
 ifeq ($(CONFIG_QCOM_CAMERA_DEBUG), y)
 $(info "CAMERA_KERNEL_ROOT is: $(CAMERA_KERNEL_ROOT)")
 $(info "KERNEL_ROOT is: $(KERNEL_ROOT)")
@@ -229,3 +230,5 @@ ais-y += drivers/ais_main.o
 
 obj-m += ais.o
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/ais.ko
+
+endif
