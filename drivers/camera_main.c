@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/build_bug.h>
@@ -89,6 +89,66 @@ struct camera_submodule {
 	const struct camera_submodule_component *component;
 };
 
+#ifdef CAMERA_BUILD_FOR_AUTO
+static const struct camera_submodule_component camera_base[] = {
+#ifdef CONFIG_SPECTRA_CORE
+	{&cam_req_mgr_init, &cam_req_mgr_exit},
+	{&cam_rpmsg_init, &cam_rpmsg_exit},
+	{&cam_sync_init, &cam_sync_exit},
+	{&cam_smmu_init_module, &cam_smmu_exit_module},
+	{&cam_cpas_dev_init_module, &cam_cpas_dev_exit_module},
+	{&cam_cdm_intf_init_module, &cam_cdm_intf_exit_module},
+	{&cam_hw_cdm_init_module, &cam_hw_cdm_exit_module},
+#endif
+};
+
+static const struct camera_submodule_component camera_sensor[] = {
+#ifdef CONFIG_SPECTRA_SENSOR
+	{&cam_res_mgr_init, &cam_res_mgr_exit},
+	{&cam_cci_init_module, &cam_cci_exit_module},
+	{&cam_csiphy_init_module, &cam_csiphy_exit_module},
+	{&cam_sensor_driver_init, &cam_sensor_driver_exit},
+#endif
+};
+
+static const struct camera_submodule_component camera_isp[] = {
+#ifdef CONFIG_SPECTRA_ISP
+	{&cam_ife_csid_lite_init_module, &cam_ife_csid_lite_exit_module},
+	{&cam_vfe_init_module, &cam_vfe_exit_module},
+	{&cam_isp_dev_init_module, &cam_isp_dev_exit_module},
+#endif
+};
+
+static const struct camera_submodule_component camera_v4l2loopback[] = {
+#ifdef CONFIG_V4L2_LOOPBACK
+	{&v4l2loopback_init_module, &v4l2loopback_cleanup_module},
+#endif
+};
+
+static const struct camera_submodule submodule_table[] = {
+	{
+		.name = "Camera BASE",
+		.num_component = ARRAY_SIZE(camera_base),
+		.component = camera_base,
+	},
+	{
+		.name = "Camera SENSOR",
+		.num_component = ARRAY_SIZE(camera_sensor),
+		.component = camera_sensor
+	},
+	{
+		.name = "Camera ISP",
+		.num_component = ARRAY_SIZE(camera_isp),
+		.component = camera_isp,
+	},
+	{
+		.name = "CAM V4L2LOOPBACK driver",
+		.num_component = ARRAY_SIZE(camera_v4l2loopback),
+		.component = camera_v4l2loopback,
+	}
+};
+
+#else
 static const struct camera_submodule_component camera_base[] = {
 #ifdef CONFIG_SPECTRA_CORE
 	{&cam_req_mgr_init, &cam_req_mgr_exit},
@@ -269,6 +329,7 @@ static const struct camera_submodule submodule_table[] = {
 		.component = camera_v4l2loopback,
 	}
 };
+#endif
 
 static int camera_verify_submodules(void)
 {

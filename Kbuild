@@ -38,6 +38,7 @@ ccflags-$(CONFIG_MSM_GLOBAL_SYNX) += -I$(KERNEL_ROOT)/drivers/media/platform/msm
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 # stack frame size error limit is 2048 by default, increasing it to 4096
 ccflags-y += ${ccflags-m} -Wframe-larger-than=4096 -DENABLE_ONLY_IFELITE=1 -DHNDL_CAMX_SNSR_SYNC=1 -D__ANDROID__=1
+ccflags-y += -DCAMERA_BUILD_FOR_AUTO=1
 
 
 camera-$(CONFIG_SPECTRA_CORE) := \
@@ -48,7 +49,6 @@ camera-$(CONFIG_SPECTRA_CORE) := \
 	drivers/cam_req_mgr/cam_req_mgr_workq.o \
 	drivers/cam_req_mgr/cam_req_mgr_timer.o \
 	drivers/cam_req_mgr/cam_req_mgr_debug.o \
-	drivers/cam_req_mgr/cam_fastrpc.o \
 	drivers/cam_utils/cam_soc_util.o \
 	drivers/cam_utils/cam_packet_util.o \
 	drivers/cam_utils/cam_compat.o \
@@ -160,7 +160,8 @@ camera-$(CONFIG_SPECTRA_JPEG) += \
 	drivers/cam_jpeg/jpeg_hw/jpeg_dma_hw/jpeg_dma_soc.o \
 	drivers/cam_jpeg/jpeg_hw/cam_jpeg_hw_mgr.o \
 	drivers/cam_jpeg/cam_jpeg_dev.o \
-	drivers/cam_jpeg/cam_jpeg_context.o
+	drivers/cam_jpeg/cam_jpeg_context.o \
+	drivers/cam_req_mgr/cam_fastrpc.o
 
 camera-$(CONFIG_SPECTRA_FD) += \
 	drivers/cam_fd/fd_hw_mgr/fd_hw/cam_fd_hw_dev.o \

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -27,7 +27,9 @@ static int state;
 
 static struct cam_rpmsg_instance_data cam_rpdev_idata[CAM_RPMSG_HANDLE_MAX];
 struct cam_rpmsg_slave_pvt slave_private;
+#ifdef CONFIG_SPECTRA_JPEG
 static struct cam_rpmsg_jpeg_pvt jpeg_private;
+#endif
 
 struct cam_rpmsg_jpeg_payload {
 	struct rpmsg_device *rpdev;
@@ -178,6 +180,7 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 	return rc;
 }
 
+#ifdef CONFIG_SPECTRA_JPEG
 static const char *__dsp_cmd_to_string(uint32_t val)
 {
 	switch (val) {
@@ -249,6 +252,7 @@ int cam_rpmsg_send_cpu2dsp_error(int error_type, int core_id, uint32_t far)
 err:
 	return ret;
 }
+#endif
 
 int cam_rpmsg_system_send_ping(void) {
 	int rc = 0, handle;
@@ -368,8 +372,10 @@ unsigned int cam_rpmsg_get_handle(char *name)
 {
 	if (!strcmp("helios", name))
 		return CAM_RPMSG_HANDLE_SLAVE;
+#ifdef CONFIG_SPECTRA_JPEG
 	else if (!strcmp("jpeg", name))
 		return CAM_RPMSG_HANDLE_JPEG;
+#endif
 	else {
 		CAM_ERR(CAM_RPMSG, "Unknown dev name %s", name);
 		return CAM_RPMSG_HANDLE_MAX;
@@ -582,6 +588,7 @@ int cam_rpmsg_send(unsigned int handle, void *data, int len)
 	return ret;
 }
 
+#ifdef CONFIG_SPECTRA_JPEG
 static int cam_rpmsg_handle_jpeg_poweroff(struct cam_rpmsg_jpeg_payload *payload)
 {
 	struct cam_jpeg_cmd_msg cmd_msg = {0};
@@ -929,6 +936,7 @@ static int cam_rpmsg_jpeg_cb(struct rpmsg_device *rpdev, void *data, int len,
 	}
 	return 0;
 }
+#endif
 
 static int cam_rpmsg_create_slave_debug_fs(void)
 {
@@ -1145,6 +1153,7 @@ static int cam_rpmsg_slave_probe(struct rpmsg_device *rpdev)
 	return 0;
 }
 
+#ifdef CONFIG_SPECTRA_JPEG
 static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 {
 	int rc = 0;
@@ -1175,6 +1184,7 @@ static int cam_rpmsg_jpeg_probe(struct rpmsg_device *rpdev)
 
 	return rc;
 }
+#endif
 
 static void cam_rpmsg_slave_remove(struct rpmsg_device *rpdev)
 {
@@ -1189,6 +1199,7 @@ static void cam_rpmsg_slave_remove(struct rpmsg_device *rpdev)
 	cam_rpmsg_notify_slave_status_change(idata, CAM_REQ_MGR_SLAVE_DOWN);
 }
 
+#ifdef CONFIG_SPECTRA_JPEG
 static void cam_rpmsg_jpeg_remove(struct rpmsg_device *rpdev)
 {
 	struct cam_rpmsg_instance_data *idata = dev_get_drvdata(&rpdev->dev);
@@ -1212,6 +1223,7 @@ static void cam_rpmsg_jpeg_remove(struct rpmsg_device *rpdev)
 	complete(&jpeg_private.error_data.complete);
 	spin_unlock_irqrestore(&idata->sp_lock, flag);
 }
+#endif
 
 /* Channel name */
 static struct rpmsg_device_id cam_rpmsg_slave_id_table[] = {
@@ -1237,6 +1249,7 @@ static struct rpmsg_driver cam_rpmsg_slave_client = {
 	},
 };
 
+#ifdef CONFIG_SPECTRA_JPEG
 static struct rpmsg_device_id cam_rpmsg_cdsp_id_table[] = {
 	{ .name = "cam-nsp-jpeg" },
 	{ },
@@ -1257,6 +1270,7 @@ static struct rpmsg_driver cam_rpmsg_jpeg_client = {
 		.name           = "qcom,cam-jpeg-rpmsg",
 	},
 };
+#endif
 
 int cam_rpmsg_init(void)
 {
@@ -1283,11 +1297,13 @@ int cam_rpmsg_init(void)
 	}
 	CAM_DBG(CAM_RPMSG, "salve channel %s, rc %d", CAM_SLAVE_CHANNEL_NAME, rc);
 
+#ifdef CONFIG_SPECTRA_JPEG
 	rc = register_rpmsg_driver(&cam_rpmsg_jpeg_client);
 	if (rc) {
 		CAM_ERR(CAM_RPMSG, "Failed to register jpeg rpmsg");
 		return rc;
 	}
+#endif
 
 	return rc;
 }
@@ -1297,7 +1313,9 @@ void cam_rpmsg_exit(void)
 	state = 0;
 	debugfs_remove_recursive(slave_private.dentry);
 	unregister_rpmsg_driver(&cam_rpmsg_slave_client);
+#ifdef CONFIG_SPECTRA_JPEG
 	unregister_rpmsg_driver(&cam_rpmsg_jpeg_client);
+#endif
 }
 
 MODULE_DESCRIPTION("CAM Remote processor messaging driver");

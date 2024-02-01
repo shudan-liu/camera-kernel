@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -27,7 +27,9 @@
 #include "cam_common_util.h"
 #include "cam_presil_hw_access.h"
 #include "cam_compat.h"
+#ifdef CONFIG_SPECTRA_JPEG
 #include "cam_fastrpc.h"
+#endif
 
 #define CAM_MEM_SHARED_BUFFER_PAD_4K (4 * 1024)
 
@@ -1085,6 +1087,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 	cmd->out.fd = tbl.bufq[idx].fd;
 	cmd->out.vaddr = 0;
 
+#ifdef CONFIG_SPECTRA_JPEG
 	if (cmd->flags & CAM_MEM_FLAG_NSP_ACCESS)
 	{
 		rc = cam_fastrpc_dev_map_dma(&tbl.bufq[idx],
@@ -1097,6 +1100,7 @@ int cam_mem_mgr_alloc_and_map(struct cam_mem_mgr_alloc_cmd *cmd)
 		}
 		tbl.bufq[idx].is_nsp_buf = true;
 	}
+#endif
 
 	CAM_DBG(CAM_MEM,
 		"fd=%d, flags=0x%x, num_hdl=%d, idx=%d, buf handle=%x, len=%zu, i_ino=%lu",
@@ -1479,10 +1483,12 @@ static void cam_mem_util_unmap(struct kref *kref)
 			CAM_ERR(CAM_MEM, "Failed, dmabuf=%pK",
 				tbl.bufq[idx].dma_buf);
 	}
+#ifdef CONFIG_SPECTRA_JPEG
 	if (tbl.bufq[idx].flags & CAM_MEM_FLAG_NSP_ACCESS)
 	{
 		rc = cam_fastrpc_dev_unmap_dma(&tbl.bufq[idx]);
 	}
+#endif
 
 	mutex_lock(&tbl.m_lock);
 	mutex_lock(&tbl.bufq[idx].q_lock);
