@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -3455,7 +3455,8 @@ static int cam_ife_csid_get_time_stamp(
 	struct cam_hw_soc_info                     *soc_info;
 	const struct cam_ife_csid_rdi_reg_offset   *rdi_reg;
 	const struct cam_ife_csid_udi_reg_offset   *udi_reg;
-	struct timespec64 ts;
+	struct timespec64 ts_boot;
+	struct timespec64 ts_mono;
 	uint32_t  time_32, id;
 	uint64_t  time_delta = 0;
 
@@ -3530,18 +3531,24 @@ static int cam_ife_csid_get_time_stamp(
 		CAM_IFE_CSID_QTIMER_DIV_FACTOR);
 
 	if (!csid_hw->prev_boot_timestamp) {
-		ktime_get_boottime_ts64(&ts);
+		ktime_get_boottime_ts64(&ts_boot);
+		ktime_get_ts64(&ts_mono);
 		time_stamp->boot_timestamp =
-			(uint64_t)((ts.tv_sec * 1000000000) +
-			ts.tv_nsec);
+			(uint64_t)((ts_boot.tv_sec * 1000000000) +
+			ts_boot.tv_nsec);
+		time_stamp->monotonic_ts = (uint64_t)((ts_mono.tv_sec * 1000000000) + ts_mono.tv_nsec);
 		csid_hw->prev_qtimer_ts = 0;
-		CAM_DBG(CAM_ISP, "timestamp:%lld",
-			time_stamp->boot_timestamp);
+		CAM_DBG(CAM_ISP, "boot_timestamp: %lld mono_timestmap: %lld",
+			time_stamp->boot_timestamp, time_stamp->monotonic_ts);
 	} else {
+		ktime_get_ts64(&ts_mono);
 		time_delta = time_stamp->time_stamp_val -
 			csid_hw->prev_qtimer_ts;
 		time_stamp->boot_timestamp =
 			csid_hw->prev_boot_timestamp + time_delta;
+		time_stamp->monotonic_ts = (uint64_t)((ts_mono.tv_sec * 1000000000) + ts_mono.tv_nsec);
+		CAM_DBG(CAM_ISP, "boot_timestamp: %lld mono_timestmap: %lld",
+			time_stamp->boot_timestamp, time_stamp->monotonic_ts);
 		if (time_delta == 0)
 			CAM_WARN_RATE_LIMIT(CAM_ISP,
 				"CSID:%d No qtimer update ts: %lld prev ts:%lld",
@@ -3549,6 +3556,7 @@ static int cam_ife_csid_get_time_stamp(
 				time_stamp->time_stamp_val,
 				csid_hw->prev_qtimer_ts);
 	}
+
 	csid_hw->prev_qtimer_ts = time_stamp->time_stamp_val;
 	csid_hw->prev_boot_timestamp = time_stamp->boot_timestamp;
 
