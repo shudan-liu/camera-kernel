@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -2818,6 +2818,7 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
 			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 			notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
+			notify.trigger_id = ctx_isp->trigger_id;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
 			CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -2996,6 +2997,7 @@ static int __cam_isp_ctx_fs2_reg_upd_in_applied_state(
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
 			notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 			notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
+			notify.trigger_id = ctx_isp->trigger_id;
 
 			ctx->ctx_crm_intf->notify_trigger(&notify);
 			CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -4001,6 +4003,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
 		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
+		notify.trigger_id = ctx_isp->trigger_id;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -4114,6 +4117,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 			notify.trigger = CAM_TRIGGER_POINT_SOF;
 		notify.frame_id = ctx_isp->frame_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
+
 		CAM_WARN_RATE_LIMIT(CAM_ISP,
 			"Notify CRM about Bubble req %lld frame %lld ctx %u",
 			req->request_id,
@@ -4290,6 +4294,7 @@ end:
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
 		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
+		notify.trigger_id = ctx_isp->trigger_id;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
@@ -4380,6 +4385,7 @@ static int __cam_isp_ctx_rdi_only_reg_upd_in_bubble_applied_state(
 		notify.trigger = CAM_TRIGGER_POINT_SOF;
 		notify.req_id = ctx_isp->req_info.last_bufdone_req_id;
 		notify.sof_timestamp_val = ctx_isp->sof_timestamp_val;
+		notify.trigger_id = ctx_isp->trigger_id;
 
 		ctx->ctx_crm_intf->notify_trigger(&notify);
 		CAM_DBG(CAM_ISP, "Notify CRM  SOF frame %lld",
