@@ -104,7 +104,7 @@ int cam_sync_init_group_object(struct sync_table_row *table,
 		child_row = table + sync_obj;
 		spin_lock_bh(&sync_dev->row_spinlocks[sync_obj]);
 
-		if (!cam_sync_check_uid_valid(sync_objs[i])) {
+		if (SYNC_UID_OLD == cam_sync_check_uid_valid(sync_objs[i])) {
 			CAM_DBG(CAM_SYNC, "sync_var: %d is old, don't add to parent list",
 				sync_objs[i]);
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
