@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -2067,7 +2067,10 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->csiphy_info[offset].csiphy_cpas_cp_reg_mask
 				= 0;
 
-			cam_csiphy_update_lane(csiphy_dev, offset, false);
+			//Commenting out below code so as to update the lane
+			//only when the last camera of that particular deserializer
+			//is closed
+			//cam_csiphy_update_lane(csiphy_dev, offset, false);
 
 			CAM_INFO(CAM_CSIPHY,
 				"CAM_STOP_PHYDEV: %d, Type: %s, dev_cnt: %u, slot: %d, Datarate: %llu, Settletime: %llu",
@@ -2102,6 +2105,9 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		if (csiphy_dev->preamble_enable)
 			__cam_csiphy_get_preamble_status(csiphy_dev, offset);
 
+		//Update the lane only when last camera of that particular deserializer
+		//is closed
+		cam_csiphy_update_lane(csiphy_dev, offset, false);
 		rc = cam_csiphy_disable_hw(csiphy_dev);
 		if (rc < 0)
 			CAM_ERR(CAM_CSIPHY, "Failed in csiphy release");
