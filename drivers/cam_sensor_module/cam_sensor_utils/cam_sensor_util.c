@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
@@ -606,6 +606,41 @@ int cam_sensor_i2c_command_parser(
 				byte_cnt += cmd_length_in_bytes;
 				break;
 			}
+			case CAMERA_SENSOR_CMD_TYPE_I2C_NOP: {
+				uint32_t cmd_length_in_bytes   = 0;
+				struct cam_cmd_i2c_random_wr
+					*cam_cmd_i2c_random_wr =
+					(struct cam_cmd_i2c_random_wr *)cmd_buf;
+
+				if ((remain_len - byte_cnt) <
+					sizeof(struct cam_cmd_i2c_random_wr)) {
+					CAM_ERR(CAM_SENSOR,
+						"Not enough buffer provided");
+					rc = -EINVAL;
+					goto end;
+				}
+				tot_size = sizeof(struct i2c_rdwr_header) +
+					(sizeof(struct i2c_random_wr_payload) *
+					cam_cmd_i2c_random_wr->header.count);
+
+				if (tot_size > (remain_len - byte_cnt)) {
+					CAM_ERR(CAM_SENSOR,
+						"Not enough buffer provided");
+					rc = -EINVAL;
+					goto end;
+				}
+
+				cmd_length_in_bytes =
+					(sizeof(struct i2c_rdwr_header) +
+					sizeof(struct i2c_random_wr_payload) *
+					(cam_cmd_i2c_random_wr->header.count));
+
+				cmd_buf  += cmd_length_in_bytes /
+					sizeof(uint32_t);
+				byte_cnt += cmd_length_in_bytes;
+				CAM_DBG(CAM_SENSOR, "NOP command received");
+				break;
+			}
 			case CAMERA_SENSOR_CMD_TYPE_I2C_CONT_WR: {
 				uint32_t cmd_length_in_bytes   = 0;
 				struct cam_cmd_i2c_continuous_wr
@@ -873,6 +908,10 @@ int cam_sensor_util_i2c_apply_setting(
 		}
 	break;
 	}
+	case CAM_SENSOR_I2C_NOP: {
+		CAM_DBG(CAM_SENSOR, "Skip i2c Nop packet.");
+		break;
+    }
 	default:
 		CAM_ERR(CAM_SENSOR, "Wrong Opcode: %d", i2c_list->op_code);
 		rc = -EINVAL;
@@ -1302,22 +1341,29 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 	int32_t i = 0, pwr_up = 0, pwr_down = 0;
 	struct cam_sensor_power_setting *pwr_settings;
 	void *ptr = cmd_buf, *scr;
-	struct cam_cmd_power *pwr_cmd = (struct cam_cmd_power *)cmd_buf;
 	struct common_header *cmm_hdr = (struct common_header *)cmd_buf;
+	struct cam_cmd_power *pwr_cmd =
+		kzalloc(sizeof(struct cam_cmd_power), GFP_KERNEL);
+	if (!pwr_cmd)
+		return -ENOMEM;
+	memcpy(pwr_cmd, cmd_buf, sizeof(struct cam_cmd_power));
 
 	if (!pwr_cmd || !cmd_length || cmd_buf_len < (size_t)cmd_length ||
 		cam_sensor_validate(cmd_buf, cmd_buf_len)) {
 		CAM_ERR(CAM_SENSOR, "Invalid Args: pwr_cmd %pK, cmd_length: %d",
 			pwr_cmd, cmd_length);
-		return -EINVAL;
+		rc = -EINVAL;
+		goto free_power_command;
 	}
 
 	power_info->power_setting_size = 0;
 	power_info->power_setting =
 		kzalloc(sizeof(struct cam_sensor_power_setting) *
 			MAX_POWER_CONFIG, GFP_KERNEL);
-	if (!power_info->power_setting)
-		return -ENOMEM;
+	if (!power_info->power_setting) {
+		rc = -ENOMEM;
+		goto free_power_command;
+	}
 
 	power_info->power_down_setting_size = 0;
 	power_info->power_down_setting =
@@ -1327,7 +1373,8 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 		kfree(power_info->power_setting);
 		power_info->power_setting = NULL;
 		power_info->power_setting_size = 0;
-		return -ENOMEM;
+		rc = -ENOMEM;
+		goto free_power_command;
 	}
 
 	while (tot_size < cmd_length) {
@@ -1511,7 +1558,7 @@ int32_t cam_sensor_update_power_settings(void *cmd_buf,
 		}
 	}
 
-	return rc;
+	goto free_power_command;
 free_power_settings:
 	kfree(power_info->power_down_setting);
 	kfree(power_info->power_setting);
@@ -1519,6 +1566,9 @@ free_power_settings:
 	power_info->power_setting = NULL;
 	power_info->power_down_setting_size = 0;
 	power_info->power_setting_size = 0;
+free_power_command:
+	kfree(pwr_cmd);
+	pwr_cmd = NULL;
 	return rc;
 }
 
