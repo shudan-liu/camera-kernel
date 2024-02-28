@@ -2110,15 +2110,6 @@ static int cam_ife_csid_ver2_disable_path(
 	struct cam_ife_csid_ver2_path_cfg       *path_cfg;
 	int                                      rc = 0;
 
-	if (res->res_state != CAM_ISP_RESOURCE_STATE_STREAMING) {
-		/* possible reason can be irqs are already disabled in case per port feature*/
-		CAM_DBG(CAM_ISP,
-			"CSID:%d path res type:%d res_id:%d Invalid state:%d",
-			csid_hw->hw_intf->hw_idx,
-			res->res_type, res->res_id, res->res_state);
-		return 0;
-	}
-
 	if (res->res_id >= CAM_IFE_PIX_PATH_RES_MAX) {
 		CAM_DBG(CAM_ISP, "CSID:%d Invalid res id%d",
 			csid_hw->hw_intf->hw_idx, res->res_id);
@@ -2126,6 +2117,15 @@ static int cam_ife_csid_ver2_disable_path(
 	}
 
 	path_cfg = (struct cam_ife_csid_ver2_path_cfg *)res->res_priv;
+
+	if (res->res_state != CAM_ISP_RESOURCE_STATE_STREAMING) {
+		/* possible reason can be irqs are already disabled in case per port feature*/
+		CAM_DBG(CAM_ISP,
+			"CSID:%d path res type:%d res_id:%d Invalid state:%d possible reason:per port enabled",
+			csid_hw->hw_intf->hw_idx,
+			res->res_type, res->res_id, res->res_state);
+	}
+
 	if (path_cfg->irq_handle) {
 		rc = cam_irq_controller_unsubscribe_irq(
 			csid_hw->csid_irq_controller,
@@ -4569,7 +4569,8 @@ int cam_ife_csid_ver2_deinit_hw(void *hw_priv,
 	}
 
 disable_hw:
-	res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
+	if (res->res_state != CAM_ISP_RESOURCE_STATE_AVAILABLE)
+		res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 	cam_ife_csid_ver2_disable_core(csid_hw);
 	mutex_unlock(&csid_hw->hw_info->hw_mutex);
 	CAM_DBG(CAM_ISP, "De-Init CSID %d Path: %d",
