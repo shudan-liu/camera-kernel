@@ -1,5 +1,4 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -352,11 +351,6 @@ enum msm_sensor_output_format_t {
 	MSM_SENSOR_BAYER,
 	MSM_SENSOR_YCBCR,
 	MSM_SENSOR_META,
-};
-
-struct cam_sensor_power_seq_array {
-	struct cam_sensor_power_setting *power_seq;
-	uint16_t power_seq_size;
 };
 
 struct cam_sensor_power_setting {
