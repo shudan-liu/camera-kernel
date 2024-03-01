@@ -1,5 +1,5 @@
 /* Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -52,12 +52,6 @@ int cam_sensor_util_init_gpio_pin_tbl(
 	struct cam_hw_soc_info *soc_info,
 	struct msm_camera_gpio_num_info **pgpio_num_info);
 
-int cam_sensor_util_power_up(struct cam_sensor_power_ctrl_t *ctrl,
-		struct cam_hw_soc_info *soc_info);
-
-int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
-		struct cam_hw_soc_info *soc_info);
-
 int cam_sensor_util_power_apply(struct cam_sensor_power_ctrl_t *ctrl,
 	struct cam_hw_soc_info *soc_info,
 	struct cam_sensor_power_setting *power_seq);
@@ -87,10 +81,10 @@ int32_t ais_sensor_update_power_sequence(
 	struct ais_sensor_power_settings_seq *pwr_cfg,
 	struct cam_sensor_power_seq_array *pwr_info);
 
-int ais_sensor_util_power_up_resources(struct cam_sensor_power_ctrl_t *ctrl,
+int cam_sensor_util_power_up_resources(struct cam_sensor_power_ctrl_t *ctrl,
 	struct cam_hw_soc_info *soc_info);
 
-int ais_sensor_util_power_down_resources(struct cam_sensor_power_ctrl_t *ctrl,
+int cam_sensor_util_power_down_resources(struct cam_sensor_power_ctrl_t *ctrl,
 	struct cam_hw_soc_info *soc_info);
 
 #endif /* _CAM_SENSOR_UTIL_H_ */
