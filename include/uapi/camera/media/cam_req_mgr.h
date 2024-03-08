@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only WITH Linux-syscall-note */
 /*
  * Copyright (c) 2016-2020, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef __UAPI_LINUX_CAM_REQ_MGR_H
@@ -57,6 +57,7 @@
 #define V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS    2
 #define V4L_EVENT_CAM_REQ_MGR_CUSTOM_EVT     3
 #define V4L_EVENT_CAM_REQ_MGR_EOF_BOOT_TS    4
+#define V4L_EVENT_CAM_REQ_MGR_SOF_MONO_TS    5
 
 /* SOF Event status */
 #define CAM_REQ_MGR_SOF_EVENT_SUCCESS           0
