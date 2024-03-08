@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/debugfs.h>
@@ -691,31 +691,42 @@ static void __cam_isp_ctx_send_eof_boot_timestamp(
 			request_id);
 }
 
-static void __cam_isp_ctx_send_sof_boot_timestamp(
-	struct cam_isp_context *ctx_isp, uint64_t request_id,
-	uint32_t sof_event_status)
+static int __cam_isp_ctx_notify_timestamp_event_to_crm(
+	struct cam_isp_context *ctx_isp,
+	struct cam_req_mgr_message *req_msg,
+	int v4l_event)
 {
-	struct cam_req_mgr_message   req_msg;
-
-	req_msg.session_hdl = ctx_isp->base->session_hdl;
-	req_msg.u.frame_msg.frame_id = ctx_isp->frame_id;
-	req_msg.u.frame_msg.request_id = request_id;
-	req_msg.u.frame_msg.timestamp = ctx_isp->boot_timestamp;
-	req_msg.u.frame_msg.link_hdl = ctx_isp->base->link_hdl;
-	req_msg.u.frame_msg.sof_status = sof_event_status;
-	req_msg.u.frame_msg.frame_id_meta = ctx_isp->frame_id_meta;
+	switch (v4l_event) {
+	case V4L_EVENT_CAM_REQ_MGR_SOF:
+		req_msg->u.frame_msg.timestamp = ctx_isp->sof_timestamp_val;
+		break;
+	case V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS:
+		req_msg->u.frame_msg.timestamp = ctx_isp->boot_timestamp;
+		break;
+	case V4L_EVENT_CAM_REQ_MGR_SOF_MONO_TS:
+		req_msg->u.frame_msg.timestamp = ctx_isp->monotonic_ts;
+		break;
+	case V4L_EVENT_CAM_REQ_MGR_CUSTOM_EVT:
+		return 0;
+	default:
+		CAM_ERR(CAM_ISP, "Incorrect V4L2 event");
+		return -EINVAL;
+	};
 
 	CAM_DBG(CAM_ISP,
-		"request id:%lld frame number:%lld boot time stamp:0x%llx status:%u",
-		 request_id, ctx_isp->frame_id,
-		 ctx_isp->boot_timestamp, sof_event_status);
+		"request id:%lld frame number:%lld v4l2_event: %d SOF time stamp:0x%llx status:%u",
+		req_msg->u.frame_msg.request_id, ctx_isp->frame_id, v4l_event,
+		req_msg->u.frame_msg.timestamp, req_msg->u.frame_msg.sof_status);
 
-	if (cam_req_mgr_notify_message(&req_msg,
-		V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS,
-		V4L_EVENT_CAM_REQ_MGR_EVENT))
+	if (cam_req_mgr_notify_message(req_msg, v4l_event,
+		V4L_EVENT_CAM_REQ_MGR_EVENT)) {
 		CAM_ERR(CAM_ISP,
 			"Error in notifying the boot time for req id:%lld",
-			request_id);
+			req_msg->u.frame_msg.request_id);
+		return -EINVAL;
+	}
+
+	return 0;
 }
 
 static void __cam_isp_ctx_send_sof_timestamp_frame_header(
@@ -760,31 +771,22 @@ static void __cam_isp_ctx_send_sof_timestamp(
 {
 	struct cam_req_mgr_message   req_msg;
 
-	if ((ctx_isp->use_frame_header_ts) || (request_id == 0))
-		goto end;
-
 	req_msg.session_hdl = ctx_isp->base->session_hdl;
 	req_msg.u.frame_msg.frame_id = ctx_isp->frame_id;
 	req_msg.u.frame_msg.request_id = request_id;
-	req_msg.u.frame_msg.timestamp = ctx_isp->sof_timestamp_val;
 	req_msg.u.frame_msg.link_hdl = ctx_isp->base->link_hdl;
 	req_msg.u.frame_msg.sof_status = sof_event_status;
 	req_msg.u.frame_msg.frame_id_meta = ctx_isp->frame_id_meta;
 
-	CAM_DBG(CAM_ISP,
-		"request id:%lld frame number:%lld SOF time stamp:0x%llx status:%u",
-		 request_id, ctx_isp->frame_id,
-		ctx_isp->sof_timestamp_val, sof_event_status);
+	if ((ctx_isp->use_frame_header_ts) && (request_id) &&
+		(sof_event_status == CAM_REQ_MGR_SOF_EVENT_SUCCESS))
+		goto end;
 
-	if (cam_req_mgr_notify_message(&req_msg,
-		V4L_EVENT_CAM_REQ_MGR_SOF, V4L_EVENT_CAM_REQ_MGR_EVENT))
-		CAM_ERR(CAM_ISP,
-			"Error in notifying the sof time for req id:%lld",
-			request_id);
+	__cam_isp_ctx_notify_timestamp_event_to_crm(ctx_isp, &req_msg, V4L_EVENT_CAM_REQ_MGR_SOF);
 
 end:
-	__cam_isp_ctx_send_sof_boot_timestamp(ctx_isp,
-		request_id, sof_event_status);
+	__cam_isp_ctx_notify_timestamp_event_to_crm(ctx_isp, &req_msg, V4L_EVENT_CAM_REQ_MGR_SOF_BOOT_TS);
+	__cam_isp_ctx_notify_timestamp_event_to_crm(ctx_isp, &req_msg, V4L_EVENT_CAM_REQ_MGR_SOF_MONO_TS);
 }
 
 static void __cam_isp_ctx_handle_buf_done_fail_log(
@@ -2111,12 +2113,15 @@ static int __cam_isp_ctx_sof_in_activated_state(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_SOF, request_id);
 
-	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx, ctx %u",
-		ctx_isp->frame_id, ctx_isp->sof_timestamp_val, ctx->ctx_id);
+	CAM_INFO(CAM_ISP,
+		"frame id: %lld time stamp:0x%llx, mono_boottime:0x%llx, monotonic_ts:0x%llx, ctx %u",
+		ctx_isp->frame_id, ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp,
+		ctx_isp->monotonic_ts, ctx->ctx_id);
 
 	return rc;
 }
@@ -2342,6 +2347,7 @@ static int __cam_isp_ctx_sof_in_epoch(struct cam_isp_context *ctx_isp,
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 
 	if (list_empty(&ctx->active_req_list))
 		ctx_isp->substate_activated = CAM_ISP_CTX_ACTIVATED_SOF;
@@ -2831,6 +2837,7 @@ static int __cam_isp_ctx_fs2_sof_in_sof_state(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
@@ -4055,6 +4062,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
@@ -4124,6 +4132,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_applied_state(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
@@ -4158,6 +4167,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_applied(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 
@@ -4272,6 +4282,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_bubble_state(
 	ctx_isp->frame_id++;
 	ctx_isp->sof_timestamp_val = sof_event_data->timestamp;
 	ctx_isp->boot_timestamp = sof_event_data->boot_time;
+	ctx_isp->monotonic_ts = sof_event_data->monotonic_ts;
 	CAM_DBG(CAM_ISP, "frame id: %lld time stamp:0x%llx",
 		ctx_isp->frame_id, ctx_isp->sof_timestamp_val);
 

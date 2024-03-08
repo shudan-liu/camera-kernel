@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -1467,8 +1467,6 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 				camif_priv->irq_debug_cnt = 0;
 			}
 		} else {
-			CAM_DBG(CAM_ISP, "VFE:%d Received SOF",
-				evt_info.hw_idx);
 			camif_priv->sof_ts.tv_sec =
 				payload->ts.mono_time.tv_sec;
 			camif_priv->sof_ts.tv_nsec =
@@ -1476,7 +1474,6 @@ static int cam_vfe_camif_ver3_handle_irq_bottom_half(void *handler_priv,
 		}
 
 		cam_cpas_notify_event("IFE SOF", evt_info.hw_idx);
-
 		if (camif_priv->event_cb)
 			camif_priv->event_cb(camif_priv->priv,
 				CAM_ISP_HW_EVENT_SOF, (void *)&evt_info);
