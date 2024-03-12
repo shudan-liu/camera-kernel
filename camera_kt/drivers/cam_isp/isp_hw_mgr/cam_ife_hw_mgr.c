@@ -6784,6 +6784,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 		}
 
 		/* get IO buffers */
+		mutex_lock(&g_ife_hw_mgr.wm_cfg_mutex[ctx->base[i].idx]);
 		rc = cam_isp_add_io_buffers(
 			hw_mgr->mgr_common.img_iommu_hdl,
 			hw_mgr->mgr_common.img_iommu_hdl_secure,
@@ -6792,6 +6793,7 @@ static int cam_ife_mgr_prepare_hw_update(void *hw_mgr_priv,
 			&ctx->res_list_ife_in_rd,
 			max_ife_out_res, fill_fence,
 			&frame_header_info);
+		mutex_unlock(&g_ife_hw_mgr.wm_cfg_mutex[ctx->base[i].idx]);
 
 		if (rc) {
 			CAM_ERR(CAM_ISP,
@@ -8415,6 +8417,9 @@ int cam_ife_hw_mgr_init(struct cam_hw_mgr_intf *hw_mgr_intf, int *iommu_hdl)
 	memset(&g_ife_hw_mgr, 0, sizeof(g_ife_hw_mgr));
 
 	mutex_init(&g_ife_hw_mgr.ctx_mutex);
+	for (i = 0, j = 0; i < CAM_IFE_HW_NUM_MAX; i++) {
+		mutex_init(&g_ife_hw_mgr.wm_cfg_mutex[i]);
+	}
 	spin_lock_init(&g_ife_hw_mgr.ctx_lock);
 
 	if (CAM_IFE_HW_NUM_MAX != CAM_IFE_CSID_HW_NUM_MAX) {
