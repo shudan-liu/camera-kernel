@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -5136,10 +5136,14 @@ static int cam_ife_csid_ver2_get_time_stamp(
 	}
 
 	if (g_ref_time.btime == 0) {
-		g_ref_time.qtime = arch_timer_read_counter();
-		g_ref_time.btime = ktime_get_boottime_ns();
-		g_ref_time.qtime = mul_u64_u32_div(g_ref_time.qtime,
+		mutex_lock(&g_ref_time.lock);
+		if (g_ref_time.btime == 0) {
+			g_ref_time.qtime = arch_timer_read_counter();
+			g_ref_time.btime = ktime_get_boottime_ns();
+			g_ref_time.qtime = mul_u64_u32_div(g_ref_time.qtime,
 				CAM_IFE_CSID_QTIMER_MUL_FACTOR, CAM_IFE_CSID_QTIMER_DIV_FACTOR);
+		}
+		mutex_unlock(&g_ref_time.lock);
 	}
 
 	timestamp_args->boot_timestamp = g_ref_time.btime + timestamp_args->time_stamp_val -
