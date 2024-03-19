@@ -4453,7 +4453,7 @@ static int cam_vfe_bus_ver3_enable_irq_vfe_out(void *bus_priv, void *res_irq_mas
 		if (rsrc_data->is_dual && !rsrc_data->is_master)
 			goto end;
 
-		if (!vfe_out->irq_handle && !vfe_out->is_per_port_start) {
+		if (!vfe_out->irq_handle && !vfe_out->is_per_port_start && irq_args->enable_irq) {
 			vfe_out->irq_handle = cam_irq_controller_subscribe_irq(
 				common_data->buf_done_controller,
 				CAM_IRQ_PRIORITY_1,
