@@ -162,9 +162,14 @@ int cam_sync_register_callback(sync_callback cb_func,
 				sync_cb->sync_obj,
 				sync_uid);
 			task = cam_req_mgr_worker_get_task(sync_dev->worker);
-			task->payload = sync_cb;
-			task->process_cb = cam_sync_util_cb_dispatch;
-			cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+			if (IS_ERR_OR_NULL(task)) {
+				CAM_ERR(CAM_SYNC, "Failed to get task = %d", PTR_ERR(task));
+				kfree(sync_cb);
+			} else {
+				task->payload = sync_cb;
+				task->process_cb = cam_sync_util_cb_dispatch;
+				cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+			}
 			spin_unlock_bh(&sync_dev->row_spinlocks[sync_obj]);
 		}
 

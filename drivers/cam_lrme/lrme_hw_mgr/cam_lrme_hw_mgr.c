@@ -469,8 +469,8 @@ static int cam_lrme_mgr_util_schedule_frame_req(
 	struct cam_lrme_mgr_work_data *work_data;
 
 	task = cam_req_mgr_worker_get_task(hw_device->work);
-	if (!task) {
-		CAM_ERR(CAM_LRME, "Can not get task for worker");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_LRME, "Can not get task = %d for worker", PTR_ERR(task));
 		return -ENOMEM;
 	}
 

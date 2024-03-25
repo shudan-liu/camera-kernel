@@ -1367,8 +1367,8 @@ irqreturn_t cam_lrme_hw_irq(int irq_num, void *data)
 	if (top_irq_status || fe_irq_status ||
 		we_irq_status0 || we_irq_status1) {
 		task = cam_req_mgr_worker_get_task(lrme_core->work);
-		if (!task) {
-			CAM_ERR(CAM_LRME, "no empty task available");
+		if (IS_ERR_OR_NULL(task)) {
+			CAM_ERR(CAM_LRME, "no empty task = %d available", PTR_ERR(task));
 			return IRQ_NONE;
 		}
 		work_data = (struct cam_lrme_hw_work_data *)task->payload;

@@ -704,8 +704,8 @@ static void cam_cre_device_timer_cb(struct timer_list *timer_data)
 
 	spin_lock_irqsave(&cre_hw_mgr->hw_mgr_lock, flags);
 	task = cam_req_mgr_worker_get_task(cre_hw_mgr->timer_work);
-	if (!task) {
-		CAM_ERR(CAM_CRE, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRE, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&cre_hw_mgr->hw_mgr_lock, flags);
 		return;
 	}
@@ -1305,8 +1305,8 @@ int32_t cam_cre_hw_mgr_cb(void *irq_data, int32_t result_size, void *data)
 
 	spin_lock_irqsave(&hw_mgr->hw_mgr_lock, flags);
 	task = cam_req_mgr_worker_get_task(cre_hw_mgr->msg_work);
-	if (!task) {
-		CAM_ERR(CAM_CRE, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRE, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&hw_mgr->hw_mgr_lock, flags);
 		return -ENOMEM;
 	}
@@ -2313,8 +2313,8 @@ static int cam_cre_mgr_enqueue_config(struct cam_cre_hw_mgr *hw_mgr,
 	CAM_DBG(CAM_CRE, "req_id = %lld %pK", request_id, config_args->priv);
 
 	task = cam_req_mgr_worker_get_task(cre_hw_mgr->cmd_work);
-	if (!task) {
-		CAM_ERR(CAM_CRE, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRE, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
 	}
 

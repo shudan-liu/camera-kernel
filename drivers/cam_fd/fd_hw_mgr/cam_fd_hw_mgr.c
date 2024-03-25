@@ -963,8 +963,8 @@ static int cam_fd_mgr_util_schedule_frame_worker_task(
 	struct cam_fd_mgr_work_data *work_data;
 
 	task = cam_req_mgr_worker_get_task(hw_mgr->work);
-	if (!task) {
-		CAM_ERR(CAM_FD, "no empty task available");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_FD, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
 	}
 
@@ -1122,8 +1122,8 @@ static int cam_fd_mgr_irq_cb(void *data, enum cam_fd_hw_irq_type irq_type)
 
 	spin_lock_irqsave(&hw_mgr->hw_mgr_slock, flags);
 	task = cam_req_mgr_worker_get_task(hw_mgr->work);
-	if (!task) {
-		CAM_ERR(CAM_FD, "no empty task available");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_FD, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&hw_mgr->hw_mgr_slock, flags);
 		return -ENOMEM;
 	}

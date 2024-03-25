@@ -16936,8 +16936,8 @@ static int cam_ife_hw_mgr_do_error_recovery(
 	CAM_DBG(CAM_ISP, "Enter: error_type (%d)", recovery_data->error_type);
 
 	task = cam_req_mgr_worker_get_task(g_ife_hw_mgr.worker);
-	if (!task) {
-		CAM_ERR_RATE_LIMIT(CAM_ISP, "No empty task frame");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "No empty task = %d", PTR_ERR(task));
 		kfree(recovery_data);
 		return -ENOMEM;
 	}
