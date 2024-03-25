@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1820,6 +1820,7 @@ static int32_t cam_cci_release(struct v4l2_subdev *sd,
 	uint8_t rc = 0;
 	struct cci_device *cci_dev;
 
+	CAM_WARN(CAM_CCI, "INFO Entered cam_cci_release");
 	cci_dev = v4l2_get_subdevdata(sd);
 
 	rc = cam_cci_soc_release(cci_dev, master);
@@ -1828,6 +1829,7 @@ static int32_t cam_cci_release(struct v4l2_subdev *sd,
 			cci_dev->soc_info.index, master, rc);
 		return rc;
 	}
+	CAM_WARN(CAM_CCI, "INFO Exiting cam_cci_released successfully");
 
 	return rc;
 }

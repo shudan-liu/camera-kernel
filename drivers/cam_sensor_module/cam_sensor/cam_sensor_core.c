@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -1759,15 +1759,21 @@ free_probe_cmd:
 		break;
 
 	case AIS_SENSOR_I2C_POWER_UP: {
+		CAM_ERR(CAM_SENSOR, "INFO AIS_SENSOR_I2C_POWER_UP received");
 		rc = camera_io_init(&(s_ctrl->io_master_info));
 		if (rc < 0)
 			CAM_ERR(CAM_SENSOR, "io_init failed: rc: %d", rc);
+		else
+			CAM_ERR(CAM_SENSOR, "INFO camera_io_init done successfully");
 	}
 		break;
 	case AIS_SENSOR_I2C_POWER_DOWN: {
+		CAM_ERR(CAM_SENSOR, "INFO AIS_SENSOR_I2C_POWER_DOWN received");
 		rc = camera_io_release(&(s_ctrl->io_master_info));
 		if (rc < 0)
 			CAM_ERR(CAM_SENSOR, "io_release failed: rc: %d", rc);
+		else
+			CAM_ERR(CAM_SENSOR, "INFO camera_io_release done successfully");
 	}
 		break;
 	case AIS_SENSOR_I2C_READ:

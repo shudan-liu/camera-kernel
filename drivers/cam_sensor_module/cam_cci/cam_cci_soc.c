@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_cci_dev.h"
@@ -110,6 +111,8 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	struct cam_hw_soc_info *soc_info = NULL;
 	void __iomem *base = NULL;
 
+	CAM_WARN(CAM_CCI, "INFO Entered cam_cci_init");
+
 	cci_dev = v4l2_get_subdevdata(sd);
 	if (!cci_dev || !c_ctrl) {
 		CAM_ERR(CAM_CCI,
@@ -215,6 +218,7 @@ int cam_cci_init(struct v4l2_subdev *sd,
 	}
 
 	cci_dev->cci_state = CCI_STATE_ENABLED;
+	CAM_WARN(CAM_CCI, "INFO Exiting cam_cci_init successfully");
 
 	return 0;
 
