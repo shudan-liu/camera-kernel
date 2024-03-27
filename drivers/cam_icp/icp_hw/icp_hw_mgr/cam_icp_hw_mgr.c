@@ -1098,7 +1098,7 @@ static bool cam_icp_update_bw_v2(struct cam_icp_hw_mgr *hw_mgr,
 	struct cam_icp_clk_bw_req_internal_v2 *clk_info,
 	bool busy)
 {
-	int i, path_index;
+	uint32_t i, path_index;
 	bool update_required = true;
 
 	/*
