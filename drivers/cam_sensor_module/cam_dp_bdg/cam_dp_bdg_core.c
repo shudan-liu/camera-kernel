@@ -668,6 +668,11 @@ static int lt7911_read(struct cam_sensor_ctrl_t *s_ctrl, u8 reg,
 		return -EINVAL;
 	}
 
+	if (size > 32) {
+		CAM_ERR(CAM_SENSOR, "Invalid read size %d", size);
+		return -EINVAL;
+	}
+
 	memset(data, 0x0, size);
 	rc = camera_io_dev_read_seq(&(s_ctrl->io_master_info), reg, data,
 			CAMERA_SENSOR_I2C_TYPE_BYTE, CAMERA_SENSOR_I2C_TYPE_BYTE, size);

@@ -679,6 +679,7 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 	struct cam_cci_ctrl *c_ctrl, enum cci_i2c_queue_t queue,
 	enum cci_i2c_sync sync_en)
 {
+	bool insufficient_space = false;
 	uint16_t i = 0, j = 0, k = 0, h = 0, len = 0;
 	int32_t rc = 0, free_size = 0, en_seq_write = 0;
 	uint8_t data[12];
@@ -834,42 +835,55 @@ static int32_t cam_cci_data_queue(struct cci_device *cci_dev,
 				if (c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ)
 					reg_addr++;
 			} else {
-				if ((i + 1) <= cci_dev->payload_size) {
-					switch (i2c_msg->data_type) {
-					case CAMERA_SENSOR_I2C_TYPE_DWORD:
-						data[i++] = (i2c_cmd->reg_data &
-							0xFF000000) >> 24;
-						fallthrough;
-					case CAMERA_SENSOR_I2C_TYPE_3B:
-						data[i++] = (i2c_cmd->reg_data &
-							0x00FF0000) >> 16;
-						fallthrough;
-					case CAMERA_SENSOR_I2C_TYPE_WORD:
-						data[i++] = (i2c_cmd->reg_data &
-							0x0000FF00) >> 8;
-						fallthrough;
-					case CAMERA_SENSOR_I2C_TYPE_BYTE:
-						data[i++] = i2c_cmd->reg_data &
-							0x000000FF;
+				switch (i2c_msg->data_type) {
+				case CAMERA_SENSOR_I2C_TYPE_DWORD:
+					if ((i + 3) > cci_dev->payload_size) {
+						insufficient_space = true;
 						break;
-					default:
-						CAM_ERR(CAM_CCI,
-							"invalid data type: %d",
-							i2c_msg->data_type);
-						return -EINVAL;
 					}
-
-					if (c_ctrl->cmd ==
-						MSM_CCI_I2C_WRITE_SEQ)
-						reg_addr++;
-				} else
+					data[i++] = (i2c_cmd->reg_data &
+						0xFF000000) >> 24;
+					fallthrough;
+				case CAMERA_SENSOR_I2C_TYPE_3B:
+					if ((i + 2) > cci_dev->payload_size) {
+						insufficient_space = true;
+						break;
+					}
+					data[i++] = (i2c_cmd->reg_data &
+						0x00FF0000) >> 16;
+					fallthrough;
+				case CAMERA_SENSOR_I2C_TYPE_WORD:
+					if ((i + 1) > cci_dev->payload_size) {
+						insufficient_space = true;
+						break;
+					}
+					data[i++] = (i2c_cmd->reg_data &
+						0x0000FF00) >> 8;
+					fallthrough;
+				case CAMERA_SENSOR_I2C_TYPE_BYTE:
+					if (i > cci_dev->payload_size) {
+						insufficient_space = true;
+						break;
+					}
+					data[i++] = i2c_cmd->reg_data &
+						0x000000FF;
 					break;
+				default:
+					CAM_ERR(CAM_CCI,
+						"invalid data type: %d",
+						i2c_msg->data_type);
+					return -EINVAL;
+				}
+
+				if (c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ &&
+					insufficient_space == false)
+					reg_addr++;
 			}
 			i2c_cmd++;
 			--cmd_size;
 		} while (((c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ ||
 			c_ctrl->cmd == MSM_CCI_I2C_WRITE_BURST) || pack--) &&
-				(cmd_size > 0) && (i <= cci_dev->payload_size));
+				(cmd_size > 0) && insufficient_space == false);
 		free_size = cam_cci_get_queue_free_size(cci_dev, master,
 				queue);
 		if ((c_ctrl->cmd == MSM_CCI_I2C_WRITE_SEQ ||
@@ -1427,6 +1441,13 @@ static int32_t cam_cci_i2c_write(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 	master = c_ctrl->cci_info->cci_i2c_master;
+	if (master >= MASTER_MAX || master < 0
+		|| queue >= QUEUE_INVALID || queue < 0) {
+		CAM_ERR(CAM_CCI, "CCI%d_I2C_M%d Invalid I2C master addr or queue %d",
+			cci_dev->soc_info.index, master, queue);
+		return -EINVAL;
+	}
+
 	CAM_DBG(CAM_CCI, "set param sid 0x%x retries %d id_map %d",
 		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
 		c_ctrl->cci_info->id_map);
@@ -1490,6 +1511,12 @@ static void cam_cci_write_async_helper(struct work_struct *work)
 	cci_dev = write_async->cci_dev;
 	i2c_msg = &write_async->c_ctrl.cfg.cci_i2c_write_cfg;
 	master = write_async->c_ctrl.cci_info->cci_i2c_master;
+	if (master >= MASTER_MAX || master < 0) {
+		CAM_ERR(CAM_CCI, "CCI%d_I2C_M%d Invalid I2C master addr",
+			cci_dev->soc_info.index, master);
+		return;
+	}
+
 	cci_master_info = &cci_dev->cci_master_info[master];
 
 	mutex_lock(&cci_master_info->mutex_q[write_async->queue]);
