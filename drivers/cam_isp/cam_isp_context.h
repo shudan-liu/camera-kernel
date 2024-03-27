@@ -388,7 +388,6 @@ struct cam_isp_context_event_record {
  * @sensor_req_info:           Info regarding sensor last and previous applied requests.
  * @frame_drop:                indicates if frame drop is seen.
  * @mcu_enable:                Indicates if availability of mcu
- * @mcu_enable_valid:          Indicates if mcu_enable data is valid or not
  * @pause_apply_req:           Indicates if request can be applied or not at the given time frame.
  * @frame_drop_detected:       Indicates frame drop detected for this ctx at a given time.
  * @check_rup_status:          Indicates whether Rup is recived for proper request applied.
@@ -472,7 +471,6 @@ struct cam_isp_context {
 	int32_t                                debug_frame_drop_cnt;
 	struct cam_isp_ctx_sensor_req_info     sensor_req_info;
 	bool                                   frame_drop;
-	bool                                   mcu_enable_valid;
 	uint32_t                               mcu_enable;
 	atomic_t                               pause_apply_req;
 	bool                                   frame_drop_detected;
