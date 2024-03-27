@@ -9,6 +9,7 @@
 #include <linux/delay.h>
 #include <media/v4l2-subdev.h>
 #include <media/cam_sensor.h>
+#include <linux/i3c/device.h>
 #include "cam_sensor_io.h"
 
 /**

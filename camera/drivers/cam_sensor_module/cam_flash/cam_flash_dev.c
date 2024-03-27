@@ -748,14 +748,13 @@ const static struct component_ops cam_flash_i2c_component_ops = {
 	.unbind = cam_flash_i2c_component_unbind,
 };
 
-static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client,
-	const struct i2c_device_id *id)
+static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client)
 {
 	int rc = 0;
 
-	if (client == NULL || id == NULL) {
-		CAM_ERR(CAM_FLASH, "Invalid Args client: %pK id: %pK",
-			client, id);
+	if (client == NULL) {
+		CAM_ERR(CAM_FLASH, "Invalid Args client: %pK",
+			client);
 		return -EINVAL;
 	}
 

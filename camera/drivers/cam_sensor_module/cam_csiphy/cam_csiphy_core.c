@@ -1334,7 +1334,9 @@ static int cam_csiphy_program_secure_mode(struct csiphy_device *csiphy_dev,
 		}
 	}
 
+#ifdef CONFIG_SECURE_CAMERA
 	rc = cam_csiphy_notify_secure_mode(csiphy_dev, protect, offset, is_shutdown);
+#endif
 
 	if (csiphy_dev->domain_id_security) {
 		if (cam_cpas_enable_clks_for_domain_id(false))

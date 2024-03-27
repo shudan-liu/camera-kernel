@@ -407,8 +407,6 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 	int32_t  num_irq = 0;
 	struct task_struct  *task = NULL;
 	struct irq_desc     *desc = NULL;
-	struct sched_param param = {0};
-
 
 	rc = cam_soc_util_get_dt_properties(soc_info);
 	if (rc < 0) {
@@ -446,6 +444,10 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 			return -EINVAL;
 		}
 		disable_irq(soc_info->irq_num[i]);
+
+#if (IS_REACHABLE(CONFIG_SPARSE_IRQ) && \
+	IS_REACHABLE(CONFIG_KVM_BOOK3S_64_HV_MODULE)) || \
+	!IS_REACHABLE(CONFIG_SPARSE_IRQ)
 		desc = irq_to_desc(soc_info->irq_num[i]);
 		if (!desc) {
 			CAM_WARN(CAM_CCI,
@@ -453,16 +455,10 @@ int cam_cci_parse_dt_info(struct platform_device *pdev,
 				soc_info->irq_num[i]);
 		} else {
 			task = desc->action->thread;
-			param.sched_priority = MAX_RT_PRIO - 1;
-			if (task) {
-				rc = sched_setscheduler(task, SCHED_FIFO, &param);
-				if (rc) {
-					CAM_ERR(CAM_CCI,
-						"non-fatal: Failed to set Scheduler Priority: %d",
-						rc);
-				}
-			}
+			if (task)
+				sched_set_fifo(task);
 		}
+#endif
 	}
 
 	new_cci_dev->v4l2_dev_str.pdev = pdev;

@@ -2456,7 +2456,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 		return -EINVAL;
 	}
 
-	gpio_array_size = of_gpio_count(of_node);
+	gpio_array_size = of_count_phandle_with_args(of_node, "gpios", "#gpio-cells");
 
 	if (gpio_array_size <= 0)
 		return 0;
@@ -2470,7 +2470,7 @@ static int cam_soc_util_get_gpio_info(struct cam_hw_soc_info *soc_info)
 	}
 
 	for (i = 0; i < gpio_array_size; i++) {
-		gpio_array[i] = of_get_gpio(of_node, i);
+		gpio_array[i] = of_get_named_gpio(of_node, "gpios", i);
 		CAM_DBG(CAM_UTIL, "gpio_array[%d] = %d", i, gpio_array[i]);
 	}
 
