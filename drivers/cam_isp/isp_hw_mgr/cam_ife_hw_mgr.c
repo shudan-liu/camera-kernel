@@ -9254,7 +9254,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 	struct cam_ife_hw_mgr_ctx *ctx;
 	struct cam_isp_prepare_hw_update_data *hw_update_data;
 	unsigned long rem_jiffies = 0;
-	bool cdm_hang_detect = false;
+	bool is_genirq_required, cdm_hang_detect = false;
 
 	if (!hw_mgr_priv || !config_hw_args) {
 		CAM_ERR(CAM_ISP,
@@ -9292,6 +9292,12 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 		ctx->cdm_userdata.support_cdm_cb_reg_dump = FALSE;
 	else
 		ctx->cdm_userdata.support_cdm_cb_reg_dump = TRUE;
+
+	if (cfg->init_packet || hw_update_data->mup_en ||
+		(ctx->ctx_config & CAM_IFE_CTX_CFG_SW_SYNC_ON) || cfg->wait_for_request_apply)
+		is_genirq_required = true;
+	else
+		is_genirq_required = false;
 
 	CAM_DBG(CAM_ISP, "Ctx[%pK][%d] : Applying Req %lld, init_packet=%d",
 		ctx, ctx->ctx_index, cfg->request_id, cfg->init_packet);
@@ -9387,11 +9393,11 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 	if (cfg->num_hw_update_entries > 0) {
 		cdm_cmd = ctx->cdm_cmd;
 		cdm_cmd->type = CAM_CDM_BL_CMD_TYPE_MEM_HANDLE;
-		cdm_cmd->flag = true;
 		cdm_cmd->userdata = ctx;
 		cdm_cmd->cookie = cfg->request_id;
 		cdm_cmd->gen_irq_arb = false;
 		cdm_cmd->irq_cb_intr_ctx = cfg->wait_for_request_apply;
+		cdm_cmd->gen_irq_bl_done = is_genirq_required;
 
 		for (i = 0 ; i < cfg->num_hw_update_entries; i++) {
 			cmd = (cfg->hw_update_entries + i);
@@ -9447,7 +9453,8 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			}
 		}
 
-		reinit_completion(&ctx->config_done_complete);
+		if (is_genirq_required)
+			reinit_completion(&ctx->config_done_complete);
 		ctx->applied_req_id = cfg->request_id;
 
 		CAM_DBG(CAM_ISP, "Submit to CDM");
@@ -9460,8 +9467,7 @@ static int cam_ife_mgr_config_hw(void *hw_mgr_priv,
 			return rc;
 		}
 
-		if (cfg->init_packet || hw_update_data->mup_en ||
-			(ctx->ctx_config & CAM_IFE_CTX_CFG_SW_SYNC_ON) || cfg->wait_for_request_apply) {
+		if (is_genirq_required) {
 			rem_jiffies = cam_common_wait_for_completion_timeout(
 				&ctx->config_done_complete,
 				msecs_to_jiffies(60));
