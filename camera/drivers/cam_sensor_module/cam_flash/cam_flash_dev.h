@@ -237,6 +237,11 @@ void cam_flash_shutdown(struct cam_flash_ctrl *fctrl);
 int cam_flash_release_dev(struct cam_flash_ctrl *fctrl);
 
 /**
+ * @brief : API to remove FLASH i2c Hw from driver framework.
+ */
+void cam_flash_i2c_driver_remove_common(struct i2c_client *client);
+
+/**
  * @brief : API to register FLASH hw to platform framework.
  * @return struct platform_device pointer on on success, or ERR_PTR() on error.
  */

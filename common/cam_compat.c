@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/dma-mapping.h>
@@ -476,6 +476,21 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 		list_entry(head_2, struct cam_subdev, list));
 }
 
+#if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
+void cam_i3c_driver_remove(struct i3c_device *client)
+{
+	CAM_DBG(CAM_SENSOR, "I3C remove invoked for %s",
+		(client ? dev_name(&client->dev) : "none"));
+}
+#else
+int cam_i3c_driver_remove(struct i3c_device *client)
+{
+    CAM_DBG(CAM_SENSOR, "I3C remove invoked for %s",
+        (client ? dev_name(&client->dev) : "none"));
+    return 0;
+}
+#endif
+
 long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name)
 {
 	return 0;
@@ -587,20 +602,18 @@ static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
 #endif
 
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
-void cam_sensor_driver_i2c_remove(struct i2c_client *client)
+void cam_sensor_i2c_driver_remove(struct i2c_client *client)
 {
-	cam_sensor_driver_i2c_remove_common(client);
+	cam_sensor_i2c_driver_remove_common(client);
 
 	return;
 }
 #else
-static int cam_sensor_driver_i2c_remove(struct i2c_client *client)
+static int cam_sensor_i2c_driver_remove(struct i2c_client *client)
 {
-	int rc = 0;
+	cam_sensor_i2c_driver_remove_common(client);
 
-	rc = cam_sensor_driver_i2c_remove_common(client);
-
-	return rc;
+	return 0;
 }
 #endif
 
@@ -614,11 +627,9 @@ void cam_flash_i2c_driver_remove(struct i2c_client *client)
 #else
 static int32_t cam_flash_i2c_driver_remove(struct i2c_client *client)
 {
-	int rc = 0;
+	cam_flash_i2c_driver_remove_common(client);
 
-	rc = cam_flash_i2c_driver_remove_common(client);
-
-	return rc;
+	return 0;
 }
 #endif
 
@@ -632,11 +643,9 @@ void cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 #else
 static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 {
-	int rc = 0;
+	cam_eeprom_i2c_driver_remove_common(client);
 
-	rc = cam_eeprom_i2c_driver_remove_common(client);
-
-	return rc;
+	return 0;
 }
 #endif
 
@@ -650,11 +659,9 @@ void cam_ois_i2c_driver_remove(struct i2c_client *client)
 #else
 static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 {
-	int rc = 0;
+	cam_ois_i2c_driver_remove_common(client);
 
-	rc = cam_ois_i2c_driver_remove_common(client);
-
-	return rc;
+	return 0;
 }
 #endif
 
@@ -668,11 +675,9 @@ void cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 #else
 static int32_t cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 {
-	int rc = 0;
+	cam_eeprom_spi_driver_remove_common(sdev);
 
-	rc = cam_eeprom_spi_driver_remove_common(sdev);
-
-	return rc;
+	return 0;
 }
 #endif
 #endif

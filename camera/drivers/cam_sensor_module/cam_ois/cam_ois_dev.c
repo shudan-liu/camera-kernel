@@ -320,20 +320,6 @@ static int cam_ois_i2c_driver_probe(struct i2c_client *client)
 	return rc;
 }
 
-#if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
-void cam_ois_i2c_driver_remove(struct i2c_client *client)
-{
-	component_del(&client->dev, &cam_ois_i2c_component_ops);
-}
-#else
-static int cam_ois_i2c_driver_remove(struct i2c_client *client)
-{
-	component_del(&client->dev, &cam_ois_i2c_component_ops);
-
-	return 0;
-}
-#endif
-
 static int cam_ois_component_bind(struct device *dev,
 	struct device *master_dev, void *data)
 {
@@ -482,6 +468,11 @@ static int32_t cam_ois_platform_driver_probe(
 		CAM_ERR(CAM_OIS, "failed to add component rc: %d", rc);
 
 	return rc;
+}
+
+void cam_ois_i2c_driver_remove_common(struct i2c_client *client)
+{
+	component_del(&client->dev, &cam_ois_i2c_component_ops);
 }
 
 static int cam_ois_platform_driver_remove(struct platform_device *pdev)

@@ -10,6 +10,7 @@
 #include "cam_flash_core.h"
 #include "cam_common_util.h"
 #include "camera_main.h"
+#include "cam_compat.h"
 
 static int32_t cam_flash_driver_cmd(struct cam_flash_ctrl *fctrl,
 		void *arg, struct cam_flash_private_soc *soc_private)
@@ -748,6 +749,11 @@ const static struct component_ops cam_flash_i2c_component_ops = {
 	.unbind = cam_flash_i2c_component_unbind,
 };
 
+void cam_flash_i2c_driver_remove_common(struct i2c_client *client)
+{
+	component_del(&client->dev, &cam_flash_i2c_component_ops);
+}
+
 static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client)
 {
 	int rc = 0;
@@ -771,21 +777,6 @@ static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client)
 
 	return rc;
 }
-
-#if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
-void cam_flash_i2c_driver_remove(struct i2c_client *client)
-{
-	component_del(&client->dev, &cam_flash_i2c_component_ops);
-}
-
-#else
-static int32_t cam_flash_i2c_driver_remove(struct i2c_client *client)
-{
-	component_del(&client->dev, &cam_flash_i2c_component_ops);
-
-	return 0;
-}
-#endif
 
 MODULE_DEVICE_TABLE(of, cam_flash_dt_match);
 
