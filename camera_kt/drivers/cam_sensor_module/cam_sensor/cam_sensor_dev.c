@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_sensor_dev.h"
@@ -155,7 +155,7 @@ static int cam_sensor_init_subdev_params(struct cam_sensor_ctrl_t *s_ctrl)
 	return rc;
 }
 
-static int32_t cam_sensor_driver_i2c_probe(struct i2c_client *client)
+static int32_t cam_sensor_i2c_driver_probe(struct i2c_client *client)
 {
 	int32_t rc = 0;
 	int i = 0;
@@ -390,7 +390,7 @@ static int cam_sensor_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
-int cam_sensor_driver_i2c_remove_common(struct i2c_client *client)
+int cam_sensor_i2c_driver_remove_common(struct i2c_client *client)
 {
 
 	int i;
@@ -477,8 +477,8 @@ static const struct i2c_device_id i2c_id[] = {
 
 static struct i2c_driver cam_sensor_driver_i2c = {
 	.id_table = i2c_id,
-	.probe = cam_sensor_driver_i2c_probe,
-	.remove = cam_sensor_driver_i2c_remove,
+	.probe = cam_sensor_i2c_driver_probe,
+	.remove = cam_sensor_i2c_driver_remove,
 	.driver = {
 		.name = SENSOR_DRIVER_I2C,
 		.of_match_table = cam_sensor_driver_i2c_dt_match,

@@ -749,9 +749,11 @@ const static struct component_ops cam_flash_i2c_component_ops = {
 	.unbind = cam_flash_i2c_component_unbind,
 };
 
-void cam_flash_i2c_driver_remove_common(struct i2c_client *client)
+int cam_flash_i2c_driver_remove_common(struct i2c_client *client)
 {
 	component_del(&client->dev, &cam_flash_i2c_component_ops);
+
+	return 0;
 }
 
 static int32_t cam_flash_i2c_driver_probe(struct i2c_client *client)

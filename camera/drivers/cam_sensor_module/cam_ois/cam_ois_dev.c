@@ -470,9 +470,11 @@ static int32_t cam_ois_platform_driver_probe(
 	return rc;
 }
 
-void cam_ois_i2c_driver_remove_common(struct i2c_client *client)
+int cam_ois_i2c_driver_remove_common(struct i2c_client *client)
 {
 	component_del(&client->dev, &cam_ois_i2c_component_ops);
+
+	return 0;
 }
 
 static int cam_ois_platform_driver_remove(struct platform_device *pdev)

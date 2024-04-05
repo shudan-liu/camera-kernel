@@ -82,12 +82,12 @@ int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 void qcom_clk_dump(struct clk *clk, void *regulator,
 		   bool calltrace);
 
-void cam_actuator_driver_i2c_remove_common(struct i2c_client *client);
-void cam_eeprom_i2c_driver_remove_common(struct i2c_client *client);
-void cam_flash_i2c_driver_remove_common(struct i2c_client *client);
-void cam_ois_i2c_driver_remove_common(struct i2c_client *client);
-void cam_sensor_i2c_driver_remove_common(struct i2c_client *client);
-void cam_eeprom_spi_driver_remove_common(struct spi_device *sdev);
+int cam_actuator_i2c_driver_remove_common(struct i2c_client *client);
+int cam_eeprom_i2c_driver_remove_common(struct i2c_client *client);
+int cam_flash_i2c_driver_remove_common(struct i2c_client *client);
+int cam_ois_i2c_driver_remove_common(struct i2c_client *client);
+int cam_sensor_i2c_driver_remove_common(struct i2c_client *client);
+int cam_eeprom_spi_driver_remove_common(struct spi_device *sdev);
 
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
 void cam_i3c_driver_remove(struct i3c_device *client);
@@ -96,9 +96,9 @@ int cam_i3c_driver_remove(struct i3c_device *client);
 #endif
 
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
-void cam_actuator_driver_i2c_remove(struct i2c_client *client);
+void cam_actuator_i2c_driver_remove(struct i2c_client *client);
 #else
-static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client);
+static int32_t cam_actuator_i2c_driver_remove(struct i2c_client *client);
 #endif
 
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE

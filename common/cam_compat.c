@@ -584,18 +584,18 @@ void qcom_clk_dump(struct clk *clk, void *regulator,
 
 #if CONFIG_SPECTRA_SENSOR
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
-void cam_actuator_driver_i2c_remove(struct i2c_client *client)
+void cam_actuator_i2c_driver_remove(struct i2c_client *client)
 {
-	cam_actuator_driver_i2c_remove_common(client);
+	cam_actuator_i2c_driver_remove_common(client);
 
 	return;
 }
 #else
-static int32_t cam_actuator_driver_i2c_remove(struct i2c_client *client)
+static int32_t cam_actuator_i2c_driver_remove(struct i2c_client *client)
 {
 	int rc = 0;
 
-	rc = cam_actuator_driver_i2c_remove_common(client);
+	rc = cam_actuator_i2c_driver_remove_common(client);
 
 	return rc;
 }
@@ -611,9 +611,11 @@ void cam_sensor_i2c_driver_remove(struct i2c_client *client)
 #else
 static int cam_sensor_i2c_driver_remove(struct i2c_client *client)
 {
-	cam_sensor_i2c_driver_remove_common(client);
+	int rc = 0;
 
-	return 0;
+	rc = cam_sensor_i2c_driver_remove_common(client);
+
+	return rc;
 }
 #endif
 
@@ -627,9 +629,11 @@ void cam_flash_i2c_driver_remove(struct i2c_client *client)
 #else
 static int32_t cam_flash_i2c_driver_remove(struct i2c_client *client)
 {
-	cam_flash_i2c_driver_remove_common(client);
+	int rc = 0;
 
-	return 0;
+	rc = cam_flash_i2c_driver_remove_common(client);
+
+	return rc;
 }
 #endif
 
@@ -643,9 +647,11 @@ void cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 #else
 static int cam_eeprom_i2c_driver_remove(struct i2c_client *client)
 {
-	cam_eeprom_i2c_driver_remove_common(client);
+	int rc = 0;
 
-	return 0;
+	rc = cam_eeprom_i2c_driver_remove_common(client);
+
+	return rc;
 }
 #endif
 
@@ -659,9 +665,11 @@ void cam_ois_i2c_driver_remove(struct i2c_client *client)
 #else
 static int cam_ois_i2c_driver_remove(struct i2c_client *client)
 {
-	cam_ois_i2c_driver_remove_common(client);
+	int rc = 0;
 
-	return 0;
+	rc = cam_ois_i2c_driver_remove_common(client);
+
+	return rc;
 }
 #endif
 
@@ -675,9 +683,11 @@ void cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 #else
 static int32_t cam_eeprom_spi_driver_remove(struct spi_device *sdev)
 {
-	cam_eeprom_spi_driver_remove_common(sdev);
+	int rc = 0;
 
-	return 0;
+	rc = cam_eeprom_spi_driver_remove_common(sdev);
+
+	return rc;
 }
 #endif
 #endif

@@ -118,6 +118,12 @@ struct cam_actuator_ctrl_t {
 };
 
 /**
+ * @brief : API to remove Actuator i2c Hw from driver framework.
+ * *@return return 0 on success.
+ */
+int cam_actuator_i2c_driver_remove_common(struct i2c_client *client);
+
+/**
  * @brief : API to register Actuator hw to platform framework.
  * @return struct platform_device pointer on on success, or ERR_PTR() on error.
  */

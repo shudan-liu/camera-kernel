@@ -129,8 +129,9 @@ struct cam_ois_ctrl_t {
 
 /**
  * @brief : API to remove OIS i2c HW from driver framework.
+ * @return return 0 on success.
  */
-void cam_ois_i2c_driver_remove_common(struct i2c_client *client);
+int cam_ois_i2c_driver_remove_common(struct i2c_client *client);
 
 /**
  * @brief : API to register OIS hw to platform framework.

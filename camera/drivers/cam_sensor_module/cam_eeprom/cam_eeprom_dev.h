@@ -215,12 +215,14 @@ void cam_eeprom_driver_exit(void);
 
 /**
  * @brief : API to remove EEPROM spi driver form framework.
+ * @return : return 0 on success.
  */
-void cam_eeprom_spi_driver_remove_common(struct spi_device *sdev);
+int cam_eeprom_spi_driver_remove_common(struct spi_device *sdev);
 
 /**
  * @brief : API to remove EEPROM i2c driver form framework.
+ * @return : return 0 on success.
  */
-void cam_eeprom_i2c_driver_remove_common(struct i2c_client *client);
+int cam_eeprom_i2c_driver_remove_common(struct i2c_client *client);
 
 #endif /*_CAM_EEPROM_DEV_H_ */

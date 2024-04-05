@@ -157,8 +157,11 @@ struct cam_sensor_ctrl_t {
 };
 
 
-
-void cam_sensor_i2c_driver_remove_common(struct i2c_client *client);
+/**
+ * @brief : API to remove SENSOR i2c Hw from driver framework.
+ * @return : return 0 on success.
+ */
+int cam_sensor_i2c_driver_remove_common(struct i2c_client *client);
 
 /**
  * @brief : API to register SENSOR hw to platform framework.

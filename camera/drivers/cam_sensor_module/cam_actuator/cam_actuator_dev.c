@@ -306,7 +306,7 @@ const static struct component_ops cam_actuator_i2c_component_ops = {
 	.unbind = cam_actuator_i2c_component_unbind,
 };
 
-static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client)
+static int32_t cam_actuator_i2c_driver_probe(struct i2c_client *client)
 {
 	int rc = 0;
 
@@ -473,9 +473,11 @@ const static struct component_ops cam_actuator_platform_component_ops = {
 	.unbind = cam_actuator_platform_component_unbind,
 };
 
-void cam_actuator_driver_i2c_remove_common(struct i2c_client *client)
+int cam_actuator_i2c_driver_remove_common(struct i2c_client *client)
 {
 	component_del(&client->dev, &cam_actuator_i2c_component_ops);
+
+	return 0;
 }
 
 static int32_t cam_actuator_platform_remove(
@@ -529,8 +531,8 @@ MODULE_DEVICE_TABLE(of, cam_actuator_i2c_driver_dt_match);
 
 struct i2c_driver cam_actuator_i2c_driver = {
 	.id_table = i2c_id,
-	.probe  = cam_actuator_driver_i2c_probe,
-	.remove = cam_actuator_driver_i2c_remove,
+	.probe  = cam_actuator_i2c_driver_probe,
+	.remove = cam_actuator_i2c_driver_remove,
 	.driver = {
 		.of_match_table = cam_actuator_i2c_driver_dt_match,
 		.owner = THIS_MODULE,

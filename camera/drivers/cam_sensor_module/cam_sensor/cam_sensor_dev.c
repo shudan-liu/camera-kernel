@@ -377,9 +377,11 @@ static int cam_sensor_i2c_driver_probe(struct i2c_client *client)
 	return rc;
 }
 
-void cam_sensor_i2c_driver_remove_common(struct i2c_client *client)
+int cam_sensor_i2c_driver_remove_common(struct i2c_client *client)
 {
 	component_del(&client->dev, &cam_sensor_i2c_component_ops);
+
+	return 0;
 }
 
 static int cam_sensor_component_bind(struct device *dev,

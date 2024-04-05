@@ -13,7 +13,7 @@
 #include "cam_compat.h"
 
 
-int cam_actuator_driver_i2c_remove_common(struct i2c_client *client)
+int cam_actuator_i2c_driver_remove_common(struct i2c_client *client)
 {
 	int rc = 0;
 	struct cam_actuator_ctrl_t      *a_ctrl =
@@ -200,7 +200,7 @@ static int cam_actuator_init_subdev(struct cam_actuator_ctrl_t *a_ctrl)
 	return rc;
 }
 
-static int32_t cam_actuator_driver_i2c_probe(struct i2c_client *client)
+static int32_t cam_actuator_i2c_driver_probe(struct i2c_client *client)
 {
 	int32_t                         rc = 0;
 	int32_t                         i = 0;
@@ -469,10 +469,10 @@ static const struct i2c_device_id i2c_id[] = {
 	{ }
 };
 
-static struct i2c_driver cam_actuator_driver_i2c = {
+static struct i2c_driver cam_actuator_i2c_driver = {
 	.id_table = i2c_id,
-	.probe  = cam_actuator_driver_i2c_probe,
-	.remove = cam_actuator_driver_i2c_remove,
+	.probe  = cam_actuator_i2c_driver_probe,
+	.remove = cam_actuator_i2c_driver_remove,
 	.driver = {
 		.name = ACTUATOR_DRIVER_I2C,
 	},
@@ -488,7 +488,7 @@ int cam_actuator_driver_init(void)
 			"platform_driver_register failed rc = %d", rc);
 		return rc;
 	}
-	rc = i2c_add_driver(&cam_actuator_driver_i2c);
+	rc = i2c_add_driver(&cam_actuator_i2c_driver);
 	if (rc)
 		CAM_ERR(CAM_ACTUATOR, "i2c_add_driver failed rc = %d", rc);
 
@@ -498,7 +498,7 @@ int cam_actuator_driver_init(void)
 void cam_actuator_driver_exit(void)
 {
 	platform_driver_unregister(&cam_actuator_platform_driver);
-	i2c_del_driver(&cam_actuator_driver_i2c);
+	i2c_del_driver(&cam_actuator_i2c_driver);
 }
 
 MODULE_DESCRIPTION("cam_actuator_driver");

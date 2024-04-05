@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SENSOR_DEV_H_
@@ -115,6 +115,12 @@ struct cam_sensor_ctrl_t {
 	uint32_t last_flush_req;
 	uint16_t pipeline_delay;
 };
+
+/**
+ * @brief : API to remove SENSOR Hw from platform framework.
+ * @return: return 0 on success.
+ */
+int cam_sensor_i2c_driver_remove_common(struct i2c_client *client);
 
 /**
  * @brief : API to register SENSOR hw to platform framework.
