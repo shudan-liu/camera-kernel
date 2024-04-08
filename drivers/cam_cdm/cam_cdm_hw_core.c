@@ -1129,6 +1129,12 @@ int cam_hw_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 		if (!rc) {
 			CAM_DBG(CAM_CDM, "Commit success for GenIRQ_BL, Tag: %d",
 				core->bl_fifo[fifo_idx].bl_tag);
+			if (core->bl_fifo[fifo_idx].bl_tag ==
+				core->bl_fifo[fifo_idx].last_bl_tag_done) {
+				CAM_DBG(CAM_CDM, "Reuse bl tag for GenIRQ_BL, Tag: %d",
+					core->bl_fifo[fifo_idx].bl_tag);
+				core->bl_fifo[fifo_idx].bl_tag_reuse = true;
+			}
 			core->bl_fifo[fifo_idx].bl_tag++;
 			core->bl_fifo[fifo_idx].bl_tag %= (bl_fifo->bl_depth - 1);
 		}
@@ -1268,8 +1274,42 @@ static int cam_hw_cdm_work(void *priv, void *data)
 			return 0;
 		}
 
-		if (core->bl_fifo[fifo_idx].last_bl_tag_done !=
-			payload->irq_data) {
+		if ((core->bl_fifo[fifo_idx].last_bl_tag_done == payload->irq_data) &&
+			core->bl_fifo[fifo_idx].bl_tag_reuse) {
+			list_for_each_entry_safe(node, tnode,
+				&core->bl_fifo[fifo_idx].bl_request_list,
+				entry) {
+				if (node->bl_tag != payload->irq_data) {
+					CAM_INFO(CAM_CDM,
+					"Skip GenIRQ, tag 0x%x fifo %d",
+					payload->irq_data, payload->fifo_idx);
+					goto end;
+				}
+				core->bl_fifo[fifo_idx].bl_tag_reuse = false;
+				if (node->request_type ==
+					CAM_HW_CDM_BL_CB_CLIENT) {
+					cam_cdm_notify_clients(cdm_hw,
+					CAM_CDM_CB_STATUS_BL_SUCCESS,
+					(void *)node);
+				} else if (node->request_type ==
+					CAM_HW_CDM_BL_CB_INTERNAL) {
+					CAM_ERR(CAM_CDM,
+						"Invalid node=%pK %d",
+						node,
+						node->request_type);
+				}
+				list_del_init(&node->entry);
+				if (node->bl_tag == payload->irq_data) {
+					kfree(node);
+					node = NULL;
+					break;
+				}
+				kfree(node);
+				node = NULL;
+			}
+		}
+
+		if (core->bl_fifo[fifo_idx].last_bl_tag_done != payload->irq_data) {
 			core->bl_fifo[fifo_idx].last_bl_tag_done =
 				payload->irq_data;
 			list_for_each_entry_safe(node, tnode,
@@ -1301,6 +1341,7 @@ static int cam_hw_cdm_work(void *priv, void *data)
 				"Skip GenIRQ, tag 0x%x fifo %d",
 				payload->irq_data, payload->fifo_idx);
 		}
+end:
 		spin_unlock_irqrestore(&core->bl_fifo[fifo_idx].fifo_hw_lock, flag);
 		mutex_unlock(&core->bl_fifo[payload->fifo_idx]
 			.fifo_lock);
@@ -1516,6 +1557,43 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 					return IRQ_HANDLED;
 				}
 
+				if ((cdm_core->bl_fifo[i].last_bl_tag_done == irq_data) &&
+					cdm_core->bl_fifo[i].bl_tag_reuse) {
+					list_for_each_entry_safe(node, tnode,
+						&cdm_core->bl_fifo[i].bl_request_list, entry) {
+						if (node->irq_cb_type ==
+							CAM_HW_CDM_IRQ_CB_INTERNAL) {
+							skip_workq_execution = true;
+							if (node->bl_tag != irq_data) {
+								CAM_INFO(CAM_CDM,
+									"Skip GenIRQ, tag 0x%x fifo %d",
+									irq_data, i);
+								goto end;
+							}
+							cdm_core->bl_fifo[i].bl_tag_reuse = false;
+							if (node->request_type ==
+								CAM_HW_CDM_BL_CB_CLIENT)
+								cam_cdm_notify_clients(cdm_hw,
+								CAM_CDM_CB_STATUS_BL_SUCCESS,
+									(void *)node);
+							else if (node->request_type ==
+								CAM_HW_CDM_BL_CB_INTERNAL)
+								CAM_ERR(CAM_CDM,
+									"Invalid node=%pK %d",
+									node, node->request_type);
+
+							list_del_init(&node->entry);
+							if (node->bl_tag == irq_data) {
+								kfree(node);
+								node = NULL;
+								break;
+							}
+							kfree(node);
+							node = NULL;
+						}
+					}
+				}
+
 				if (cdm_core->bl_fifo[i].last_bl_tag_done != irq_data) {
 					list_for_each_entry_safe(node, tnode,
 						&cdm_core->bl_fifo[i].bl_request_list, entry) {
@@ -1546,6 +1624,7 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 						}
 					}
 				}
+end:
 				spin_unlock_irqrestore(&cdm_core->bl_fifo[i].fifo_hw_lock,
 					flag);
 			}
@@ -2064,6 +2143,7 @@ int cam_hw_cdm_init(void *hw_priv,
 	}
 	for (i = 0; i < cdm_core->offsets->reg_data->num_bl_fifo; i++) {
 		cdm_core->bl_fifo[i].last_bl_tag_done = -1;
+		cdm_core->bl_fifo[i].bl_tag_reuse = false;
 		atomic_set(&cdm_core->bl_fifo[i].work_record, 0);
 	}
 
