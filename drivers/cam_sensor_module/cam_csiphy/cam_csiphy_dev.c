@@ -125,7 +125,7 @@ static long cam_csiphy_subdev_ioctl(struct v4l2_subdev *sd,
 		rc = cam_csiphy_subdev_close_internal(sd, NULL);
 		break;
 	default:
-		CAM_ERR(CAM_CSIPHY, "Wrong ioctl : %d", cmd);
+		CAM_ERR_RATE_LIMIT(CAM_CSIPHY, "Wrong ioctl : %d", cmd);
 		rc = -ENOIOCTLCMD;
 		break;
 	}
