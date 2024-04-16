@@ -8,7 +8,7 @@
  * Copyright (C) 2011 Stefan Diewald (stefan.diewald@mytum.de)
  * Copyright (C) 2012 Anton Novikov (random.plant@gmail.com)
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved
- * Copyright (c) 2021-2022,2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2022,2023,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -1922,6 +1922,7 @@ static int vidioc_dqbuf(struct file *file,
 			}
 		} else {
 			mutex_unlock(&data->capbufs_mutex);
+			mutex_unlock(&dev->dev_mutex);
 
 			CAM_WARN(CAM_V4L2, "[dev %s] capture list is empty", dev->vdev->name);
 			if (file->f_flags & O_NONBLOCK)
@@ -1929,6 +1930,7 @@ static int vidioc_dqbuf(struct file *file,
 
 			wait_event_interruptible(data->read_event, can_read(data, opener));
 			rc = -EAGAIN;
+			goto exit;
 		}
 
 		break;
@@ -1967,6 +1969,7 @@ static int vidioc_dqbuf(struct file *file,
 	}
 end:
 	mutex_unlock(&dev->dev_mutex);
+exit:
 	return rc;
 }
 
