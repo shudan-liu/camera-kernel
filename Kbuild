@@ -68,6 +68,7 @@ camera-y := \
 	camera_kt/drivers/cam_cdm/cam_cdm_virtual_core.o \
 	camera_kt/drivers/cam_cdm/cam_cdm_hw_core.o \
 	camera_kt/drivers/cam_req_mgr/cam_mem_mgr.o \
+	camera_kt/drivers/cam_smmu/cam_smmu_api.o \
 	common/cam_common_util.o \
 	common/cam_compat.o \
 	common/cam_debug_util.o \
@@ -75,7 +76,6 @@ camera-y := \
 	common/cam_req_mgr_timer.o \
 	common/cam_req_mgr_util.o \
 	common/cam_req_mgr_workq.o \
-	common/cam_smmu_api.o \
 	common/cam_soc_icc.o
 
 camera-$(CONFIG_QCOM_CX_IPEAK) += camera_kt/drivers/cam_utils/cam_cx_ipeak.o
@@ -306,7 +306,6 @@ camera-y := \
 	common/cam_req_mgr_timer.o \
 	common/cam_req_mgr_util.o \
 	common/cam_req_mgr_workq.o \
-	common/cam_smmu_api.o \
 	common/cam_soc_icc.o
 
 ifeq (,$(filter $(CONFIG_CAM_PRESIL),y m))
