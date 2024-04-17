@@ -336,7 +336,7 @@ struct cam_ife_csid_hw_flags {
 };
 
 /*
- * struct am_ife_csid_cid_data: place holder for cid data
+ * struct cam_ife_csid_cid_data: place holder for cid data
  *
  * @vc_dt:        vc_dt structure
  * @cid_cnt:      count of cid acquired
@@ -345,6 +345,17 @@ struct cam_ife_csid_hw_flags {
 struct cam_ife_csid_cid_data {
 	struct cam_ife_csid_vc_dt vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_MAX];
 	uint32_t cid_cnt;
+	uint32_t num_vc_dt;
+};
+
+/*
+ * struct cam_ife_csid_path_cfg_vcdt_data: place holder for path cfg vcdt data
+ *
+ * @vc_dt:        vc_dt structure
+ * @num_vc_dt:    num of vc dt combinaton for this cid in multi vcdt case
+ */
+struct cam_ife_csid_path_cfg_vcdt_data {
+	struct cam_ife_csid_vc_dt vc_dt[CAM_IFE_CSID_MULTI_VC_DT_GRP_MAX];
 	uint32_t num_vc_dt;
 };
 
