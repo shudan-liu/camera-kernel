@@ -5,7 +5,6 @@
  */
 
 #include <linux/of_address.h>
-#include <linux/qcom_scm.h>
 #include <linux/soc/qcom/mdt_loader.h>
 
 #include "cam_cpas_api.h"
@@ -721,11 +720,13 @@ static int cam_icp_v2_boot(struct cam_hw_info *icp_v2_info,
 	}
 #endif
 
+#ifdef CONFIG_SPECTRA_SECURE_PIL
 	rc = qcom_scm_pas_auth_and_reset(soc_priv->fw_pas_id);
 	if (rc) {
 		CAM_ERR(CAM_ICP, "auth and reset failed rc=%d", rc);
 		goto err;
 	}
+#endif /* ifdef CONFIG_SPECTRA_SECURE_PIL */
 
 	core_info->use_sec_pil = true;
 	return 0;
@@ -744,8 +745,11 @@ static int cam_icp_v2_shutdown(struct cam_hw_info *icp_v2_info)
 
 	prepare_shutdown(icp_v2_info);
 
-	if (core_info->use_sec_pil)
+	if (core_info->use_sec_pil) {
+#ifdef CONFIG_SPECTRA_SECURE_PIL
 		rc = qcom_scm_pas_shutdown(soc_priv->fw_pas_id);
+#endif /* ifdef CONFIG_SPECTRA_SECURE_PIL */
+	}
 	else {
 		int32_t sys_base_idx = core_info->reg_base_idx[ICP_V2_SYS_BASE];
 		void __iomem *base;
@@ -809,6 +813,7 @@ static int cam_icp_v2_core_control(struct cam_hw_info *icp_v2_info,
 		(struct cam_icp_soc_info *)icp_v2_info->soc_info.soc_private;
 
 	if (core_info->use_sec_pil) {
+#ifdef CONFIG_SPECTRA_SECURE_PIL
 		rc = qcom_scm_set_remote_state(state, soc_priv->fw_pas_id);
 		if (rc) {
 			CAM_ERR(CAM_ICP,
@@ -816,6 +821,7 @@ static int cam_icp_v2_core_control(struct cam_hw_info *icp_v2_info,
 				(state == TZ_STATE_RESUME ? "resume" : "suspend"), rc);
 			__cam_icp_v2_core_reg_dump(icp_v2_info, CAM_ICP_DUMP_STATUS_REGISTERS);
 		}
+#endif /* ifdef CONFIG_SPECTRA_SECURE_PIL */
 	} else {
 		if (state == TZ_STATE_RESUME) {
 			rc = __cam_icp_v2_power_resume(icp_v2_info);

@@ -7,6 +7,8 @@
 #include <linux/interconnect.h>
 #include <linux/math64.h>
 
+#include <dt-bindings/interconnect/qcom,icc.h>
+
 #include "cam_soc_bus.h"
 
 #ifdef CONFIG_SPECTRA_KT

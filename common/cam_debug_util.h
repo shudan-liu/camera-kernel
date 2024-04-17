@@ -11,6 +11,10 @@
 #include <linux/platform_device.h>
 #include "cam_trace.h"
 
+#ifndef CONFIG_SPECTRA_KT
+#include "cam_presil_hw_access.h"
+#endif // !CONFIG_SPECTRA_KT
+
 extern unsigned long long debug_mdl;
 extern unsigned int debug_type;
 extern unsigned int debug_priority;

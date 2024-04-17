@@ -548,6 +548,12 @@ bool cam_secure_get_vfe_fd_port_config(void)
 #endif
 }
 
+void qcom_clk_dump(struct clk *clk, void *regulator,
+		   bool calltrace)
+{
+	return;
+}
+
 #if CONFIG_SPECTRA_SENSOR
 #if KERNEL_VERSION(6, 1, 0) <= LINUX_VERSION_CODE
 void cam_actuator_driver_i2c_remove(struct i2c_client *client)

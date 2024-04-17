@@ -73,6 +73,10 @@ int cam_ife_notify_safe_lut_scm(bool safe_trigger);
 int cam_csiphy_notify_secure_mode(struct csiphy_device *csiphy_dev,
 	bool protect, int32_t offset);
 #endif /* CONFIG_SPECTRA_SECURE */
+
+void qcom_clk_dump(struct clk *clk, void *regulator,
+		   bool calltrace);
+
 int cam_actuator_driver_i2c_remove_common(struct i2c_client *client);
 int cam_eeprom_i2c_driver_remove_common(struct i2c_client *client);
 int cam_flash_i2c_driver_remove_common(struct i2c_client *client);

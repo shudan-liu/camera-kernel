@@ -1041,10 +1041,7 @@ static int cam_cpastop_print_poweron_settings(struct cam_hw_info *cpas_hw)
 static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 {
 	int i, j;
-	struct cam_cpas_hw_errata_wa_list *errata_wa_list;
-	struct cam_cpas_hw_errata_wa *errata_wa;
 	struct cam_cpas *cpas_core = cpas_hw->core_info;
-	bool errata_enabled = false;
 
 	for (i = 0; i < cpas_core->num_valid_camnoc; i++)
 		cam_cpastop_reset_irq(0x0, cpas_hw, i);
@@ -1080,17 +1077,6 @@ static int cam_cpastop_poweron(struct cam_hw_info *cpas_hw)
 					&camnoc_info[i]->specific[j].qosgen_shaping_low);
 				cam_cpas_util_reg_update(cpas_hw, camnoc_info[i]->reg_base,
 					&camnoc_info[i]->specific[j].qosgen_shaping_high);
-			}
-		}
-
-		if (!errata_enabled) {
-			errata_wa_list = camnoc_info[i]->errata_wa_list;
-			if (errata_wa_list) {
-				errata_wa = &errata_wa_list->tcsr_camera_hf_sf_ares_glitch;
-				if (errata_wa->enable) {
-					cam_cpastop_scm_write(errata_wa);
-					errata_enabled = true;
-				}
 			}
 		}
 	}

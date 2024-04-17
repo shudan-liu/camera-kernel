@@ -549,7 +549,6 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 {
 	int rc = 0, idx;
 	uint32_t cache_dir;
-	unsigned long dmabuf_flag = 0;
 
 	if (!atomic_read(&cam_mem_mgr_state)) {
 		CAM_ERR(CAM_MEM, "failed. mem_mgr not initialized");
@@ -580,16 +579,17 @@ int cam_mem_mgr_cache_ops(struct cam_mem_cache_ops_cmd *cmd)
 		goto end;
 	}
 
+#if IS_REACHABLE(CONFIG_DMABUF_HEAPS)
+	CAM_DBG(CAM_MEM, "Calling dmap buf APIs for cache operations");
+	cache_dir = DMA_BIDIRECTIONAL;
+#else
+	unsigned long dmabuf_flag = 0;
 	rc = dma_buf_get_flags(tbl.bufq[idx].dma_buf, &dmabuf_flag);
 	if (rc) {
 		CAM_ERR(CAM_MEM, "cache get flags failed %d", rc);
 		goto end;
 	}
 
-#if IS_REACHABLE(CONFIG_DMABUF_HEAPS)
-	CAM_DBG(CAM_MEM, "Calling dmap buf APIs for cache operations");
-	cache_dir = DMA_BIDIRECTIONAL;
-#else
 	if (dmabuf_flag & ION_FLAG_CACHED) {
 		switch (cmd->mem_cache_ops) {
 		case CAM_MEM_CLEAN_CACHE:

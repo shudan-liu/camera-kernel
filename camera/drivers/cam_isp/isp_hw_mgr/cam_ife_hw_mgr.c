@@ -7715,6 +7715,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 	CAM_DBG(CAM_ISP,
 		"Stop success for ctx id:%u rc :%d", ctx->ctx_index, rc);
 
+#ifdef CONFIG_SPECTRA_SECURE
 	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
 	if (!atomic_dec_return(&g_ife_hw_mgr.active_ctx_cnt)) {
 		rc = cam_ife_notify_safe_lut_scm(CAM_IFE_SAFE_DISABLE);
@@ -7726,6 +7727,7 @@ static int cam_ife_mgr_stop_hw(void *hw_mgr_priv, void *stop_hw_args)
 		}
 	}
 	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
+#endif /* ifdef CONFIG_SPECTRA_SECURE */
 
 end:
 	ctx->flags.dump_on_error = false;
@@ -8127,6 +8129,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 
 	ctx->flags.init_done = true;
 
+#ifdef CONFIG_SPECTRA_SECURE
 	mutex_lock(&g_ife_hw_mgr.ctx_mutex);
 	if (!atomic_fetch_inc(&g_ife_hw_mgr.active_ctx_cnt)) {
 		rc = cam_ife_notify_safe_lut_scm(CAM_IFE_SAFE_ENABLE);
@@ -8140,6 +8143,7 @@ static int cam_ife_mgr_start_hw(void *hw_mgr_priv, void *start_hw_args)
 		}
 	}
 	mutex_unlock(&g_ife_hw_mgr.ctx_mutex);
+#endif /* ifdef  CONFIG_SPECTRA_SECURE */
 
 	rc = cam_cdm_stream_on(ctx->cdm_handle);
 	if (rc) {
@@ -8288,9 +8292,12 @@ err:
 cdm_streamoff:
 	cam_cdm_stream_off(ctx->cdm_handle);
 safe_disable:
+#ifdef CONFIG_SPECTRA_SECURE
 	cam_ife_notify_safe_lut_scm(CAM_IFE_SAFE_DISABLE);
 
 deinit_hw:
+#endif /* ifdef CONFIG_SPECTRA_SECURE */
+
 	cam_ife_hw_mgr_deinit_hw(ctx);
 
 tasklet_stop:

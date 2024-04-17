@@ -1733,7 +1733,7 @@ int cam_smmu_alloc_firmware(int32_t smmu_hdl,
 		firmware_start,
 		(phys_addr_t) icp_fw.fw_hdl,
 		firmware_len,
-		IOMMU_READ|IOMMU_WRITE|IOMMU_PRIV);
+		IOMMU_READ|IOMMU_WRITE|IOMMU_PRIV, GFP_KERNEL);
 
 	if (rc) {
 		CAM_ERR(CAM_SMMU, "Failed to map FW into IOMMU");
@@ -2027,7 +2027,12 @@ int cam_smmu_map_phy_mem_region(int32_t smmu_hdl,
 	 * But on chipsets which use dma-coherent - all the buffers that are
 	 * being mapped to this CB must be CACHED
 	 */
-	rc = iommu_map(domain, region_start, region_info->phy_addr, region_len, prot);
+	rc = iommu_map(domain,
+		region_start,
+		region_info->phy_addr,
+		region_len,
+		prot,
+		GFP_KERNEL);
 	if (rc) {
 		CAM_ERR(CAM_SMMU, "Failed to map region = %u into IOMMU cb = %s",
 			region_id, cb_info->name[0]);
@@ -2468,7 +2473,8 @@ int cam_smmu_reserve_buf_region(enum cam_smmu_region_id region,
 		region_info->iova_start,
 		buf_info->table->sgl,
 		buf_info->table->orig_nents,
-		prot);
+		prot,
+		GFP_KERNEL);
 	if (region_info->iova_len < size) {
 		CAM_ERR(CAM_SMMU,
 			"IOMMU mapping failed for size=%zu available iova_len=%zu",
@@ -2711,7 +2717,7 @@ static int cam_smmu_map_buffer_validate(struct dma_buf *buf,
 			prot |= IOMMU_CACHE;
 
 		size = iommu_map_sg(domain, iova, table->sgl, table->orig_nents,
-				prot);
+				prot, GFP_KERNEL);
 
 		if (size < 0) {
 			CAM_ERR(CAM_SMMU, "IOMMU mapping failed");
@@ -3288,7 +3294,7 @@ static int cam_smmu_alloc_scratch_buffer_add_to_list(int idx,
 		iova,
 		table->sgl,
 		table->nents,
-		iommu_dir) != virt_len) {
+		iommu_dir, GFP_KERNEL) != virt_len) {
 		CAM_ERR(CAM_SMMU, "iommu_map_sg() failed");
 		goto err_iommu_map;
 	}
