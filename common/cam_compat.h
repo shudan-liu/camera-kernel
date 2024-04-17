@@ -21,6 +21,8 @@
 #include <linux/qcom-dma-mapping.h>
 #include <linux/i3c/master.h>
 
+#include <linux/interconnect.h>
+
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
 MODULE_IMPORT_NS(DMA_BUF);
 #endif
@@ -66,6 +68,9 @@ int cam_cpas_start_drv_for_dev(const struct device *dev);
 int cam_cpas_stop_drv_for_dev(const struct device *dev);
 
 int cam_cpas_drv_channel_switch_for_dev(const struct device *dev);
+
+inline struct icc_path *cam_icc_get_path(struct device *dev,
+	const int src_id, const int dst_id, const char *path_name, bool use_path_name);
 
 #ifdef CONFIG_SPECTRA_SECURE
 void cam_cpastop_scm_write(struct cam_cpas_hw_errata_wa *errata_wa);

@@ -545,7 +545,20 @@ int cam_get_subpart_info(uint32_t *part_info, uint32_t max_num_cam)
 bool cam_secure_get_vfe_fd_port_config(void)
 {
 	return true;
-#endif
+}
+
+inline struct icc_path *cam_icc_get_path(struct device *dev,
+		const int src_id, const int dst_id, const char *path_name, bool use_path_name)
+{
+	CAM_DBG(CAM_UTIL, "Get icc path name: %s src_id:%d dst_id:%d use_path_name:%s", path_name,
+		src_id, dst_id, CAM_BOOL_TO_YESNO(use_path_name));
+
+	if (!use_path_name) {
+		CAM_ERR(CAM_UTIL, "Must use path names to get icc path handle");
+		return NULL;
+	}
+
+	return of_icc_get(dev, path_name);
 }
 
 void qcom_clk_dump(struct clk *clk, void *regulator,

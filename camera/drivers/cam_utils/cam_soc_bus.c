@@ -120,7 +120,7 @@ end:
 
 int cam_soc_bus_client_register(struct platform_device *pdev,
 	struct device_node *dev_node, void **client,
-	struct cam_soc_bus_client_common_data *common_data)
+	struct cam_soc_bus_client_common_data *common_data, bool use_path_name)
 {
 	struct msm_bus_scale_pdata *pdata = NULL;
 	struct cam_soc_bus_client *bus_client = NULL;

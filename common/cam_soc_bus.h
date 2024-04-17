@@ -107,16 +107,20 @@ int cam_soc_bus_client_update_request(void *client, unsigned int idx);
 int cam_soc_bus_client_update_bw(void *client, uint64_t ab,
 	uint64_t ib);
 
+int cam_soc_bus_client_register(struct platform_device *pdev,
+	struct device_node *dev_node, void **client,
+	struct cam_soc_bus_client_common_data *common_data);
+
 #else
 
 int cam_soc_bus_client_update_bw(void *client, uint64_t ab, uint64_t ib,
 	enum cam_soc_bus_path_data bus_path_data);
 
-#endif // CONFIG_SPECTRA_KT
-
 int cam_soc_bus_client_register(struct platform_device *pdev,
 	struct device_node *dev_node, void **client,
-	struct cam_soc_bus_client_common_data *common_data);
+	struct cam_soc_bus_client_common_data *common_data, bool use_path_name);
+
+#endif // CONFIG_SPECTRA_KT
 
 void cam_soc_bus_client_unregister(void **client);
 
