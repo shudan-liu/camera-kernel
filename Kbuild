@@ -9,7 +9,7 @@ $(info "CAMERA_ARCH is: $(CAMERA_ARCH)")
 ifeq ($(CAMERA_ARCH), qcm6490)
 include $(CAMERA_KERNEL_ROOT)/config/qcm6490-camera.mk
 else
-include $(CAMERA_KERNEL_ROOT)/config/pineapple.mk
+include $(CAMERA_KERNEL_ROOT)/config/qcs8550-camera.mk
 endif
 ifneq ($(KBUILD_EXTRA_CONFIGS),)
 include $(KBUILD_EXTRA_CONFIGS)
