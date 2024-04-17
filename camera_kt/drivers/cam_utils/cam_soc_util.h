@@ -750,6 +750,22 @@ int cam_soc_util_reg_dump_to_cmd_buf(void *ctx,
 	bool user_triggered_dump);
 
 /**
+ * cam_soc_util_get_applied_src_clk()
+ *
+ * @brief:              Inline function to get applied src clk rate.
+
+ * @soc_info:           Device soc struct to be populated
+ * @is_max:             Is max of all hw clients if cesta is enabled
+ *
+ * @return:             success or failure
+ */
+static inline unsigned long cam_soc_util_get_applied_src_clk(
+	struct cam_hw_soc_info *soc_info, bool is_max)
+{
+	return -EINVAL;
+}
+
+/**
  * cam_soc_util_print_clk_freq()
  *
  * @brief:              This function gets the clk rates for each clk from clk

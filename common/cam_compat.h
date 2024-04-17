@@ -10,16 +10,28 @@
 #include <linux/version.h>
 #include <linux/platform_device.h>
 #include <linux/component.h>
-#include <linux/list_sort.h>
 #include <linux/iommu.h>
+#include <linux/list_sort.h>
+#include <linux/spi/spi.h>
+
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
 #include "cam_smmu_api.h"
 
+#include <linux/qcom-dma-mapping.h>
+#include <linux/i3c/master.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
 MODULE_IMPORT_NS(DMA_BUF);
 #endif
+
+#ifdef CONFIG_DOMAIN_ID_SECURE_CAMERA
+#include <linux/IClientEnv.h>
+#include <linux/ITrustedCameraDriver.h>
+#include <linux/CTrustedCameraDriver.h>
+#endif
+
+#define IS_CSF25(x, y) ((((x) == 2) && ((y) == 5)) ? 1 : 0)
 
 struct cam_fw_alloc_info {
 	struct device *fw_dev;
@@ -46,6 +58,14 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info);
 
 long cam_dma_buf_set_name(struct dma_buf *dmabuf, const char *name);
+
+const struct device *cam_cpas_get_rsc_dev_for_drv(uint32_t index);
+
+int cam_cpas_start_drv_for_dev(const struct device *dev);
+
+int cam_cpas_stop_drv_for_dev(const struct device *dev);
+
+int cam_cpas_drv_channel_switch_for_dev(const struct device *dev);
 
 #ifdef CONFIG_SPECTRA_SECURE
 void cam_cpastop_scm_write(struct cam_cpas_hw_errata_wa *errata_wa);
@@ -96,4 +116,12 @@ void cam_eeprom_spi_driver_remove(struct spi_device *sdev);
 static int32_t cam_eeprom_spi_driver_remove(struct spi_device *sdev);
 #endif
 
+#ifndef CONFIG_SPECTRA_KT
+int cam_smmu_fetch_csf_version(struct cam_csf_version *csf_version);
+#endif /* ifndef CONFIG_SPECTRA_KT */
+
+bool cam_secure_get_vfe_fd_port_config(void);
+unsigned long cam_update_dma_map_attributes(unsigned long attr);
+size_t cam_align_dma_buf_size(size_t len);
+int cam_get_subpart_info(uint32_t *part_info, uint32_t max_num_cam);
 #endif /* _CAM_COMPAT_H_ */

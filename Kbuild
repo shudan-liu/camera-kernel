@@ -269,10 +269,7 @@ LINUXINCLUDE +=                                                       \
 
 # After creating lists, add content of 'ccflags-m' variable to 'ccflags-y' one.
 ccflags-y += ${ccflags-m}
-ccflags-y += -include
-ccflags-y += workaround.h
 camera-y := \
-	workaround.o \
 	camera/drivers/cam_req_mgr/cam_req_mgr_core.o \
 	camera/drivers/cam_req_mgr/cam_req_mgr_dev.o \
 	camera/drivers/cam_req_mgr/cam_mem_mgr.o \

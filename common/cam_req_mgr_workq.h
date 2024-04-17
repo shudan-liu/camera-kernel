@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_REQ_MGR_WORKQ_H_
@@ -13,8 +14,6 @@
 #include <linux/workqueue.h>
 #include <linux/slab.h>
 #include <linux/timer.h>
-
-#include "cam_req_mgr_core.h"
 
 /* Threshold for scheduling delay in ms */
 #define CAM_WORKQ_SCHEDULE_TIME_THRESHOLD   5
@@ -47,27 +46,29 @@ enum crm_workq_context {
 };
 
 /** struct crm_workq_task
- * @priority   : caller can assign priority to task based on type.
- * @payload    : depending of user of task this payload type will change
- * @process_cb : registered callback called by workq when task enqueued is
- *               ready for processing in workq thread context
- * @parent     : workq's parent is link which is enqqueing taks to this workq
- * @entry      : list head of this list entry is worker's empty_head
- * @cancel     : if caller has got free task from pool but wants to abort
- *               or put back without using it
- * @priv       : when task is enqueuer caller can attach priv along which
- *               it will get in process callback
- * @ret        : return value in future to use for blocking calls
+ * @priority         : caller can assign priority to task based on type.
+ * @payload          : depending of user of task this payload type will change
+ * @process_cb       : registered callback called by workq when task enqueued is
+ *                     ready for processing in workq thread context
+ * @parent           : workq's parent is link which is enqqueing taks to this workq
+ * @entry            : list head of this list entry is worker's empty_head
+ * @cancel           : if caller has got free task from pool but wants to abort
+ *                     or put back without using it
+ * @priv             : when task is enqueuer caller can attach priv along which
+ *                     it will get in process callback
+ * @ret              : return value in future to use for blocking calls
+ * @task_scheduled_ts: enqueue time of task
  */
 struct crm_workq_task {
 	int32_t                    priority;
+	int32_t                    ret;
 	void                      *payload;
 	int32_t                  (*process_cb)(void *priv, void *data);
 	void                      *parent;
 	struct list_head           entry;
 	uint8_t                    cancel;
 	void                      *priv;
-	int32_t                    ret;
+	ktime_t                    task_scheduled_ts;
 };
 
 /** struct cam_req_mgr_core_workq
@@ -75,6 +76,8 @@ struct crm_workq_task {
  * @job         : workqueue internal job struct
  * @lock_bh     : lock for task structs
  * @in_irq      : set true if workque can be used in irq context
+ * @flush       : used to track if flush has been called on workqueue
+ * @work_q_name : name of the workq
  * @workq_scheduled_ts: enqueue time of workq
  * task -
  * @lock        : Current task's lock handle
@@ -92,6 +95,8 @@ struct cam_req_mgr_core_workq {
 	spinlock_t                 lock_bh;
 	uint32_t                   in_irq;
 	ktime_t                    workq_scheduled_ts;
+	atomic_t                   flush;
+	char                       workq_name[128];
 
 	/* tasks */
 	struct {
@@ -106,6 +111,23 @@ struct cam_req_mgr_core_workq {
 	} task;
 };
 
+/**
+ * struct cam_req_mgr_core_workq_mini_dump
+ * @workq_scheduled_ts: scheduled ts
+ * task -
+ * @pending_cnt : # of tasks left in queue
+ * @free_cnt    : # of free/available tasks
+ * @num_task    : size of tasks pool
+ */
+struct cam_req_mgr_core_workq_mini_dump {
+	ktime_t                    workq_scheduled_ts;
+	/* tasks */
+	struct {
+		uint32_t               pending_cnt;
+		uint32_t               free_cnt;
+		uint32_t               num_task;
+	} task;
+};
 /**
  * cam_req_mgr_process_workq() - main loop handling
  * @w: workqueue task pointer
@@ -157,5 +179,12 @@ int cam_req_mgr_workq_enqueue_task(struct crm_workq_task *task,
  */
 struct crm_workq_task *cam_req_mgr_workq_get_task(
 	struct cam_req_mgr_core_workq *workq);
+
+/**
+ * cam_req_mgr_workq_flush()
+ * @brief: Flushes the work queue. Function will sleep until any active task is complete.
+ * @workq: pointer to worker data struct
+ */
+void cam_req_mgr_workq_flush(struct cam_req_mgr_core_workq *workq);
 
 #endif

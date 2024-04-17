@@ -7,18 +7,107 @@
 #include <linux/io.h>
 #include <linux/slab.h>
 #include <linux/module.h>
+#include <linux/debugfs.h>
 #include "cam_trace.h"
 
 #include "cam_debug_util.h"
 
-static uint debug_mdl;
-module_param(debug_mdl, uint, 0644);
+unsigned long long debug_mdl;
+module_param(debug_mdl, ullong, 0644);
 
 /* 0x0 - only logs, 0x1 - only trace, 0x2 - logs + trace */
-static uint debug_type;
+uint debug_type;
 module_param(debug_type, uint, 0644);
 
+uint debug_priority;
+module_param(debug_priority, uint, 0644);
+
+uint debug_drv;
+module_param(debug_drv, uint, 0644);
+
+uint debug_bypass_drivers;
+module_param(debug_bypass_drivers, uint, 0644);
+
 struct camera_debug_settings cam_debug;
+
+struct dentry *cam_debugfs_root;
+
+void cam_debugfs_init(void)
+{
+	struct dentry *tmp;
+
+	if (!cam_debugfs_available()) {
+		cam_debugfs_root = NULL;
+		CAM_DBG(CAM_UTIL, "debugfs not available");
+		return;
+	}
+
+	if (cam_debugfs_root) {
+		CAM_WARN(CAM_UTIL, "already created debugfs root");
+		return;
+	}
+
+	tmp = debugfs_create_dir("camera", NULL);
+	if (IS_ERR_VALUE(tmp)) {
+		CAM_ERR(CAM_UTIL, "failed to create debugfs root folder (rc=%d)", PTR_ERR(tmp));
+		return;
+	}
+
+	cam_debugfs_root = tmp;
+	CAM_DBG(CAM_UTIL, "successfully created debugfs root");
+}
+
+void cam_debugfs_deinit(void)
+{
+	if (!cam_debugfs_available())
+		return;
+
+	debugfs_remove_recursive(cam_debugfs_root);
+	cam_debugfs_root = NULL;
+}
+
+int cam_debugfs_create_subdir(const char *name, struct dentry **subdir)
+{
+	struct dentry *tmp;
+
+	if (!cam_debugfs_root) {
+		CAM_WARN(CAM_UTIL, "debugfs root not created");
+		*subdir = NULL;
+		return -ENODEV;
+	}
+
+	if (!subdir) {
+		CAM_ERR(CAM_UTIL, "invalid subdir pointer %pK", subdir);
+		return -EINVAL;
+	}
+
+	tmp = debugfs_create_dir(name, cam_debugfs_root);
+	if (IS_ERR_VALUE(tmp)) {
+		CAM_ERR(CAM_UTIL, "failed to create debugfs subdir (name=%s, rc=%d)", name,
+			PTR_ERR(tmp));
+		return PTR_ERR(tmp);
+	}
+
+	*subdir = tmp;
+	return 0;
+}
+
+int cam_debugfs_lookup_subdir(const char *name, struct dentry **subdir)
+{
+	if (!cam_debugfs_root) {
+		CAM_WARN(CAM_UTIL, "debugfs root not created");
+		*subdir = NULL;
+		return -ENODEV;
+	}
+
+	if (!subdir) {
+		CAM_ERR(CAM_UTIL, "invalid subdir pointer %pK", subdir);
+		return -EINVAL;
+	}
+
+	*subdir = debugfs_lookup(name, cam_debugfs_root);
+	return (*subdir) ? 0 : -ENOENT;
+}
 
 const struct camera_debug_settings *cam_debug_get_settings(void)
 {
@@ -49,11 +138,42 @@ static int cam_debug_parse_cpas_settings(const char *setting, u64 value)
 		cam_debug.cpas_settings.mnoc_sf_icp_ab_bw = value;
 	} else if (!strcmp(setting, "mnoc_sf_icp_ib_bw")) {
 		cam_debug.cpas_settings.mnoc_sf_icp_ib_bw = value;
+	} else if (!strcmp(setting, "cam_ife_0_drv_ab_high_bw")) {
+		cam_debug.cpas_settings.cam_ife_0_drv_ab_high_bw = value;
+	} else if (!strcmp(setting, "cam_ife_0_drv_ib_high_bw")) {
+		cam_debug.cpas_settings.cam_ife_0_drv_ib_high_bw = value;
+	} else if (!strcmp(setting, "cam_ife_1_drv_ab_high_bw")) {
+		cam_debug.cpas_settings.cam_ife_1_drv_ab_high_bw = value;
+	} else if (!strcmp(setting, "cam_ife_1_drv_ib_high_bw")) {
+		cam_debug.cpas_settings.cam_ife_1_drv_ib_high_bw = value;
+	} else if (!strcmp(setting, "cam_ife_2_drv_ab_high_bw")) {
+		cam_debug.cpas_settings.cam_ife_2_drv_ab_high_bw = value;
+	} else if (!strcmp(setting, "cam_ife_2_drv_ib_high_bw")) {
+		cam_debug.cpas_settings.cam_ife_2_drv_ib_high_bw = value;
+	} else if (!strcmp(setting, "cam_ife_0_drv_ab_low_bw")) {
+		cam_debug.cpas_settings.cam_ife_0_drv_ab_low_bw = value;
+	} else if (!strcmp(setting, "cam_ife_0_drv_ib_low_bw")) {
+		cam_debug.cpas_settings.cam_ife_0_drv_ib_low_bw = value;
+	} else if (!strcmp(setting, "cam_ife_1_drv_ab_low_bw")) {
+		cam_debug.cpas_settings.cam_ife_1_drv_ab_low_bw = value;
+	} else if (!strcmp(setting, "cam_ife_1_drv_ib_low_bw")) {
+		cam_debug.cpas_settings.cam_ife_1_drv_ib_low_bw = value;
+	} else if (!strcmp(setting, "cam_ife_2_drv_ab_low_bw")) {
+		cam_debug.cpas_settings.cam_ife_2_drv_ab_low_bw = value;
+	} else if (!strcmp(setting, "cam_ife_2_drv_ib_low_bw")) {
+		cam_debug.cpas_settings.cam_ife_2_drv_ib_low_bw = value;
+	} else if (!strcmp(setting, "cam_ife_0_drv_low_set_zero")) {
+		cam_debug.cpas_settings.cam_ife_0_drv_low_set_zero = value;
+	} else if (!strcmp(setting, "cam_ife_1_drv_low_set_zero")) {
+		cam_debug.cpas_settings.cam_ife_1_drv_low_set_zero = value;
+	} else if (!strcmp(setting, "cam_ife_2_drv_low_set_zero")) {
+		cam_debug.cpas_settings.cam_ife_2_drv_low_set_zero = value;
 	} else {
 		CAM_ERR(CAM_UTIL, "Unsupported cpas sysfs entry");
 		return -EINVAL;
 	}
 
+	cam_debug.cpas_settings.is_updated = true;
 	return 0;
 }
 
@@ -121,193 +241,58 @@ error:
 	return -EPERM;
 }
 
-const char *cam_get_module_name(unsigned int module_id)
+static inline void __cam_print_to_buffer(char *buf, const size_t buf_size, size_t *len,
+	unsigned int tag, enum cam_debug_module_id module_id, const char *fmt, va_list args)
 {
-	const char *name = NULL;
+	size_t buf_len = *len;
 
-	switch (module_id) {
-	case CAM_CDM:
-		name = "CAM-CDM";
-		break;
-	case CAM_CORE:
-		name = "CAM-CORE";
-		break;
-	case CAM_CRM:
-		name = "CAM-CRM";
-		break;
-	case CAM_CPAS:
-		name = "CAM-CPAS";
-		break;
-	case CAM_ISP:
-		name = "CAM-ISP";
-		break;
-	case CAM_SENSOR:
-		name = "CAM-SENSOR";
-		break;
-	case CAM_SMMU:
-		name = "CAM-SMMU";
-		break;
-	case CAM_SYNC:
-		name = "CAM-SYNC";
-		break;
-	case CAM_ICP:
-		name = "CAM-ICP";
-		break;
-	case CAM_JPEG:
-		name = "CAM-JPEG";
-		break;
-	case CAM_FD:
-		name = "CAM-FD";
-		break;
-	case CAM_LRME:
-		name = "CAM-LRME";
-		break;
-	case CAM_FLASH:
-		name = "CAM-FLASH";
-		break;
-	case CAM_ACTUATOR:
-		name = "CAM-ACTUATOR";
-		break;
-	case CAM_CCI:
-		name = "CAM-CCI";
-		break;
-	case CAM_CSIPHY:
-		name = "CAM-CSIPHY";
-		break;
-	case CAM_EEPROM:
-		name = "CAM-EEPROM";
-		break;
-	case CAM_UTIL:
-		name = "CAM-UTIL";
-		break;
-	case CAM_CTXT:
-		name = "CAM-CTXT";
-		break;
-	case CAM_HFI:
-		name = "CAM-HFI";
-		break;
-	case CAM_OIS:
-		name = "CAM-OIS";
-		break;
-	case CAM_IRQ_CTRL:
-		name = "CAM-IRQ-CTRL";
-		break;
-	case CAM_MEM:
-		name = "CAM-MEM";
-		break;
-	case CAM_PERF:
-		name = "CAM-PERF";
-		break;
-	case CAM_REQ:
-		name = "CAM-REQ";
-		break;
-	case CAM_CUSTOM:
-		name = "CAM-CUSTOM";
-		break;
-	case CAM_OPE:
-		name = "CAM-OPE";
-		break;
-	case CAM_PRESIL:
-		name = "CAM-PRESIL";
-		break;
-	case CAM_RES:
-		name = "CAM-RES";
-		break;
-	case CAM_IO_ACCESS:
-		name = "CAM-IO-ACCESS";
-		break;
-	case CAM_SFE:
-		name = "CAM-SFE";
-		break;
-	case CAM_IR_LED:
-		name = "CAM-IR-LED";
-		break;
-	default:
-		name = "CAM";
-		break;
-	}
-
-	return name;
+	buf_len += scnprintf(buf + buf_len, (buf_size - buf_len), "\n%-8s: %s:\t",
+			CAM_LOG_TAG_NAME(tag), CAM_DBG_MOD_NAME(module_id));
+	buf_len += vscnprintf(buf + buf_len, (buf_size - buf_len), fmt, args);
+	*len = buf_len;
 }
 
-const char *cam_get_tag_name(unsigned int tag_id)
+void cam_print_to_buffer(char *buf, const size_t buf_size, size_t *len, unsigned int tag,
+	unsigned long long module_id, const char *fmt, ...)
 {
-	const char *name = NULL;
-
-	switch (tag_id) {
-	case CAM_TYPE_TRACE:
-		name = "CAM_TRACE";
-		break;
-	case CAM_TYPE_ERR:
-		name = "CAM_ERR";
-		break;
-	case CAM_TYPE_WARN:
-		name = "CAM_WARN";
-		break;
-	case CAM_TYPE_INFO:
-		name = "CAM_INFO";
-		break;
-	case CAM_TYPE_DBG:
-		name = "CAM_DBG";
-		break;
-	default:
-		name = "CAM";
-		break;
-	}
-
-	return name;
-}
-
-void cam_debug_log(unsigned int module_id, const char *func, const int line,
-	const char *fmt, ...)
-{
-	if (debug_mdl & module_id) {
-		char str_buffer[STR_BUFFER_MAX_LENGTH];
-		va_list args;
-
-		va_start(args, fmt);
-		vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
-
-		if ((debug_type == 0) || (debug_type == 2)) {
-			pr_info("CAM_DBG: %s: %s: %d: %s\n",
-				cam_get_module_name(module_id),
-				func, line, str_buffer);
-		}
-
-		if ((debug_type == 1) || (debug_type == 2)) {
-			char trace_buffer[STR_BUFFER_MAX_LENGTH];
-
-			snprintf(trace_buffer, sizeof(trace_buffer),
-				"%s: %s: %s: %d: %s",
-				cam_get_tag_name(CAM_TYPE_DBG),
-				cam_get_module_name(module_id),
-				func, line, str_buffer);
-			trace_cam_log_debug(trace_buffer);
-		}
-
-		va_end(args);
-	}
-}
-
-void cam_debug_trace(unsigned int tag, unsigned int module_id,
-	const char *func, const int line, const char *fmt, ...)
-{
-	char str_buffer[STR_BUFFER_MAX_LENGTH];
 	va_list args;
 
-	if ((tag == CAM_TYPE_TRACE) || (debug_type == 1) || (debug_type == 2)) {
-		char trace_buffer[STR_BUFFER_MAX_LENGTH];
+	va_start(args, fmt);
+	__cam_print_to_buffer(buf, buf_size, len, tag, module_id, fmt, args);
+	va_end(args);
+}
 
-		va_start(args, fmt);
+static void __cam_print_log(int type, const char *fmt, ...)
+{
+	va_list args1, args2, args;
 
-		vsnprintf(str_buffer, STR_BUFFER_MAX_LENGTH, fmt, args);
-
-		snprintf(trace_buffer, sizeof(trace_buffer),
-			"%s: %s: %s: %d: %s",
-			cam_get_tag_name(tag), cam_get_module_name(module_id),
-			func, line, str_buffer);
-		trace_cam_log_debug(trace_buffer);
-
-		va_end(args);
+	va_start(args, fmt);
+	va_copy(args1, args);
+	va_copy(args2, args1);
+	if ((type & CAM_PRINT_LOG) && (debug_type != 1))
+		vprintk(fmt, args1);
+	if ((type & CAM_PRINT_TRACE) && (debug_type != 0)) {
+		/* skip the first character which is used by printk to identify the log level */
+		trace_cam_log_debug(fmt + sizeof(KERN_INFO) - 1, &args2);
 	}
+	va_end(args2);
+	va_end(args1);
+	va_end(args);
+}
+
+void cam_print_log(int type, int module, int tag, const char *func,
+	int line, const char *fmt, ...)
+{
+	char buf[CAM_LOG_BUF_LEN] = {0,};
+	va_list args;
+
+	if (!type)
+		return;
+
+	va_start(args, fmt);
+	vscnprintf(buf, CAM_LOG_BUF_LEN, fmt, args);
+	__cam_print_log(type, __CAM_LOG_FMT,
+		CAM_LOG_TAG_NAME(tag), CAM_DBG_MOD_NAME(module), func,
+		line, buf);
+	va_end(args);
 }

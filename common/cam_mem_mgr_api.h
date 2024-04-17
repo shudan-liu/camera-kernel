@@ -64,6 +64,8 @@ int cam_mem_mgr_request_mem(struct cam_mem_mgr_request_desc *inp,
  */
 int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp);
 
+#ifdef CONFIG_SPECTRA_KT
+
 /**
  * @brief: Returns IOVA information about buffer
  *
@@ -76,6 +78,26 @@ int cam_mem_mgr_release_mem(struct cam_mem_mgr_memory_desc *inp);
  */
 int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
 	dma_addr_t *iova_ptr, size_t *len_ptr);
+
+#else
+
+/**
+ * @brief: Returns IOVA information about buffer
+ *
+ * @buf_handle: Handle of the buffer
+ * @mmu_handle: SMMU handle where buffer is mapped
+ * @iova_ptr  : Pointer to mmu's iova
+ * @len_ptr   : Length of the buffer
+ * @flags     : Flags the buffer was allocated with
+ * @buf_tracker: List of buffers we want to keep ref counts on
+ *
+ * @return Status of operation. Negative in case of error. Zero otherwise.
+ */
+int cam_mem_get_io_buf(int32_t buf_handle, int32_t mmu_handle,
+	dma_addr_t *iova_ptr, size_t *len_ptr, uint32_t *flags,
+	struct list_head *buf_tracker);
+
+#endif // CONFIG_SPECTRA_KT
 
 /**
  * @brief: This indicates begin of CPU access.
@@ -124,5 +146,18 @@ int cam_mem_mgr_reserve_memory_region(struct cam_mem_mgr_request_desc *inp,
  * @return Status of operation. Negative in case of error. Zero otherwise.
  */
 int cam_mem_mgr_free_memory_region(struct cam_mem_mgr_memory_desc *inp);
+
+#ifndef CONFIG_SPECTRA_KT
+
+/**
+ * @brief: Translate fd into dmabuf
+ *
+ * @inp   : fd for buffer
+ *
+ * @return dmabuf .
+ */
+struct dma_buf * cam_mem_mgr_get_dma_buf(int fd);
+
+#endif // !CONFIG_SPECTRA_KT
 
 #endif /* _CAM_MEM_MGR_API_H_ */

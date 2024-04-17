@@ -10,8 +10,12 @@
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_util_priv.h"
 
+#ifdef CONFIG_SPECTRA_KT
+
 /* Interval for cam_info_rate_limit_custom() */
 #define CAM_RATE_LIMIT_INTERVAL_5SEC 5
+
+#endif
 
 /**
  * state of a handle(session/device)
@@ -86,6 +90,17 @@ struct cam_create_dev_hdl {
 	void *ops;
 	void *priv;
 };
+
+/**
+ * cam_handle_validate() - validate session/device handle
+ * @session_hdl: handle for a session
+ * @handle: handle for a session/device
+ *
+ * cam_req_mgr_core and KMD drivers use this function to
+ * validate session/device handle. Returns 0 on success,
+ * -EINVAL on failure.
+ */
+int cam_handle_validate(int32_t session_hdl, int32_t handle);
 
 /**
  * cam_create_session_hdl() - create a session handle
