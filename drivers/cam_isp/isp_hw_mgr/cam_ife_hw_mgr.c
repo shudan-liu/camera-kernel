@@ -11129,6 +11129,11 @@ static int cam_ife_hw_mgr_free_hw_ctx(
 					ife_ctx->sensor_id) {
 					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].acquired = false;
 					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].priv = NULL;
+					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].lcr_vc_dt_updated = false;
+					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].pxl_vc_dt_updated = false;
+					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].ppp_vc_dt_updated = false;
+					if (g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].rdi_vc_dt_updated > 0)
+						g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].rdi_vc_dt_updated--;
 					if (g_ife_sns_grp_cfg.grp_cfg[i].acquire_cnt > 0)
 						g_ife_sns_grp_cfg.grp_cfg[i].acquire_cnt--;
 					found = true;

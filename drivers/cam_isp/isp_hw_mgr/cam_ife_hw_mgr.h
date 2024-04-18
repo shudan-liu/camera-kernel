@@ -501,7 +501,7 @@ struct cam_ife_hw_mgr_sensor_stream_config {
 	uint32_t                                   decode_format;
 	uint32_t                                   rdi_vc_dt_updated;
 	bool                                       pxl_vc_dt_updated;
-	uint32_t                                   lcr_vc_dt_updated;
+	bool                                       lcr_vc_dt_updated;
 	bool                                       ppp_vc_dt_updated;
 	bool                                       acquired;
 	bool                                       is_streamon;
