@@ -69,7 +69,7 @@ static int cam_isp_subdev_open(struct v4l2_subdev *sd,
 	cam_req_mgr_rwsem_read_op(CAM_SUBDEV_LOCK);
 	mutex_lock(&g_isp_dev.isp_mutex);
 	if (g_isp_dev.open_cnt >= 1) {
-		CAM_ERR(CAM_ISP, "ISP subdev is already opened");
+		CAM_ERR_RATE_LIMIT(CAM_ISP, "ISP subdev is already opened");
 		rc = -EALREADY;
 		goto end;
 	}
