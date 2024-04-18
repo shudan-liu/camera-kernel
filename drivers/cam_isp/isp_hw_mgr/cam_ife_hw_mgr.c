@@ -825,15 +825,8 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 	struct cam_isp_sensor_group_config        sensor_grp_config;
 	struct cam_isp_stream_grp_config         *stream_grp_cfg;
 
-	if (atomic_read(&g_ife_hw_mgr.active_ctx_cnt)) {
-		CAM_ERR(CAM_ISP,
-			"Cannot update sensor_data as there are active ife ctx_cnt :%d",
-			atomic_read(&g_ife_hw_mgr.active_ctx_cnt));
-		goto end;
-	} else {
-		if (g_ife_sns_grp_cfg.num_grp_cfg)
-			cam_ife_mr_clear_sensor_stream_cfg();
-	}
+	if (g_ife_sns_grp_cfg.num_grp_cfg)
+		cam_ife_mr_clear_sensor_stream_cfg();
 
 	if (copy_from_user(&sensor_grp_config,
 		u64_to_user_ptr(cfg_cmd->cfg_handle),
@@ -945,7 +938,6 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 	}
 	cam_ife_mgr_dump_sensor_grp_stream_cfg();
 
-end:
 	return rc;
 err:
 	cam_ife_mr_clear_sensor_stream_cfg();
