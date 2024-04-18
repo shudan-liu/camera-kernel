@@ -199,7 +199,9 @@ inline void cam_req_mgr_kthread_destroy(struct cam_req_mgr_core_worker *worker)
 	list_for_each_entry(kthread_data, &g_cam_kthread_info.kthread_list, list) {
 		if (kthread_data->kthread_worker == kthread_worker) {
 			list_del_init(&kthread_data->list);
+			WORKER_RELEASE_LOCK(worker, flags);
 			vfree(kthread_data);
+			WORKER_ACQUIRE_LOCK(worker, flags);
 			break;
 		}
 	}
@@ -377,10 +379,6 @@ inline void cam_req_mgr_worker_destroy(struct cam_req_mgr_core_worker **crm_work
 		atomic_set(&worker->flush, 1);
 		DESTROY_WORKER(worker);
 
-		/* Destroy worker payload data */
-		kfree(worker->task.pool[0].payload);
-		vfree(worker->task.pool);
-
 		/* Leave lists in stable state after freeing pool */
 		INIT_LIST_HEAD(&worker->task.empty_head);
 		for (i = 0; i < CRM_TASK_PRIORITY_MAX; i++)
@@ -388,6 +386,10 @@ inline void cam_req_mgr_worker_destroy(struct cam_req_mgr_core_worker **crm_work
 		*crm_worker = NULL;
 		WORKER_RELEASE_LOCK(worker, flags);
 		mutex_destroy(&worker->mutex_lock);
+
+		/* Destroy worker payload data */
+		kfree(worker->task.pool[0].payload);
+		vfree(worker->task.pool);
 		vfree(worker);
 	}
 

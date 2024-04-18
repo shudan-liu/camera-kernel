@@ -4502,7 +4502,7 @@ int cam_req_mgr_link(struct cam_req_mgr_ver_info *link_info)
 		link_info->u.link_info_v1.session_hdl, link->link_hdl);
 	wq_flag = CAM_WORKER_FLAG_HIGH_PRIORITY | CAM_WORKER_FLAG_SERIAL;
 	rc = cam_req_mgr_worker_create(buf, CRM_WORKQ_NUM_TASKS,
-		&link->worker, CRM_WORKER_USAGE_NON_IRQ, wq_flag);
+		&link->worker, CRM_WORKER_USAGE_IRQ, wq_flag);
 	if (rc < 0) {
 		CAM_ERR(CAM_CRM, "FATAL: unable to create worker");
 		__cam_req_mgr_destroy_link_info(link);
@@ -4613,7 +4613,7 @@ int cam_req_mgr_link_v2(struct cam_req_mgr_ver_info *link_info)
 		link_info->u.link_info_v2.session_hdl, link->link_hdl);
 	wq_flag = CAM_WORKER_FLAG_HIGH_PRIORITY | CAM_WORKER_FLAG_SERIAL;
 	rc = cam_req_mgr_worker_create(buf, CRM_WORKQ_NUM_TASKS,
-		&link->worker, CRM_WORKER_USAGE_NON_IRQ, wq_flag);
+		&link->worker, CRM_WORKER_USAGE_IRQ, wq_flag);
 	if (rc < 0) {
 		CAM_ERR(CAM_CRM, "FATAL: unable to create worker");
 		__cam_req_mgr_destroy_link_info(link);
@@ -4735,7 +4735,7 @@ int cam_req_mgr_link_v3(struct cam_req_mgr_ver_info *link_info)
 		link_info->u.link_info_v3.session_hdl, link->link_hdl);
 	wq_flag = CAM_WORKER_FLAG_HIGH_PRIORITY | CAM_WORKER_FLAG_SERIAL;
 	rc = cam_req_mgr_worker_create(buf, CRM_WORKQ_NUM_TASKS,
-		&link->worker, CRM_WORKER_USAGE_NON_IRQ, wq_flag);
+		&link->worker, CRM_WORKER_USAGE_IRQ, wq_flag);
 	if (rc < 0) {
 		CAM_ERR(CAM_CRM, "FATAL: unable to create worker");
 		__cam_req_mgr_destroy_link_info(link);
