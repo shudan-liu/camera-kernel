@@ -5,6 +5,7 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/pinctrl/consumer.h>
 #include <clocksource/arm_arch_timer.h>
 #include "cam_sensor_util.h"
 #include "cam_mem_mgr.h"
