@@ -16465,6 +16465,7 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			break;
 		case CAM_ISP_HW_MGR_GET_HW_CTX:
 			rc = cam_ife_mgr_get_active_hw_ctx(ctx, isp_hw_cmd_args);
+			break;
 		case CAM_ISP_HW_MGR_CMD_GET_SLAVE_STATE:
 			isp_hw_cmd_args->cmd_data = &ctx->is_slave_down;
 			break;

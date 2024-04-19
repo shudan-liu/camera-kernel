@@ -2469,6 +2469,7 @@ static int cam_ife_csid_hw_ver2_config_rx(
 	case CAM_ISP_IFE_IN_RES_TPG:
 		csid_hw->rx_cfg.phy_sel = 0;
 		csid_hw->rx_cfg.tpg_mux_sel = 0;
+		break;
 	case CAM_ISP_IFE_IN_RES_CPHY_TPG_0:
 		csid_hw->rx_cfg.tpg_mux_sel = 1;
 		csid_hw->rx_cfg.tpg_num_sel = 1;
@@ -4874,6 +4875,7 @@ static int cam_ife_csid_ver2_top_cfg(
 
 	case CAM_IFE_CSID_INPUT_CORE_SFE:
 		csid_hw->top_cfg.out_ife_en = false;
+		fallthrough;
 	case CAM_IFE_CSID_INPUT_CORE_SFE_IFE:
 
 		if (top_args->core_idx == 0) {
