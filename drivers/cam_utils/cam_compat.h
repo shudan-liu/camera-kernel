@@ -84,4 +84,23 @@ struct file *cam_fcheck_files(struct files_struct *files, uint32_t fd);
 void cam_close_fd(struct files_struct *files, uint32_t fd);
 int cam_atomic_add_unless (struct file *file);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+void cam_eeprom_spi_driver_remove(struct spi_device *sdev);
+#else
+int cam_eeprom_spi_driver_remove(struct spi_device *sdev);
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+void cam_actuator_driver_i2c_remove_wrapper(struct i2c_client *client);
+void cam_eeprom_i2c_driver_remove_wrapper(struct i2c_client *client);
+void cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client);
+void cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client);
+void cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client);
+#else
+int cam_actuator_driver_i2c_remove_wrapper(struct i2c_client *client);
+int cam_eeprom_i2c_driver_remove_wrapper(struct i2c_client *client);
+int cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client);
+int cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client);
+int cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client);
+#endif
 #endif /* _CAM_COMPAT_H_ */

@@ -13,6 +13,12 @@
 #include "cam_debug_util.h"
 #include "cam_cpas_api.h"
 #include "camera_main.h"
+#include "cam_actuator_dev.h"
+#include "cam_eeprom_dev.h"
+#include "cam_eeprom_core.h"
+#include "cam_ois_dev.h"
+#include "cam_sensor_dev.h"
+#include "cam_flash_dev.h"
 #include <media/cam_isp.h>
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 4, 0)
@@ -633,5 +639,150 @@ void cam_close_fd(struct files_struct *files, uint32_t fd)
 int cam_atomic_add_unless(struct file *file)
 {
        return get_file_rcu_many(file, 1);
+}
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+void cam_eeprom_spi_driver_remove(struct spi_device *sdev)
+{
+	int                             i;
+	struct v4l2_subdev             *sd = spi_get_drvdata(sdev);
+	struct cam_eeprom_ctrl_t       *e_ctrl;
+	struct cam_eeprom_soc_private  *soc_private;
+	struct cam_hw_soc_info         *soc_info;
+
+	if (!sd) {
+		CAM_ERR(CAM_EEPROM, "Subdevice is NULL");
+		return;
+	}
+
+	e_ctrl = (struct cam_eeprom_ctrl_t *)v4l2_get_subdevdata(sd);
+	if (!e_ctrl) {
+		CAM_ERR(CAM_EEPROM, "eeprom device is NULL");
+		return;
+	}
+
+	soc_info = &e_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
+
+	mutex_lock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_shutdown(e_ctrl);
+	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
+	kfree(e_ctrl->io_master_info.spi_client);
+	e_ctrl->io_master_info.spi_client = NULL;
+	soc_private =
+		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+	if (soc_private) {
+		kfree(soc_private->power_info.gpio_num_info);
+		soc_private->power_info.gpio_num_info = NULL;
+		kfree(soc_private);
+		soc_private = NULL;
+	}
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
+	kfree(e_ctrl);
+}
+#else
+int cam_eeprom_spi_driver_remove(struct spi_device *sdev)
+{
+	int                             i;
+	struct v4l2_subdev             *sd = spi_get_drvdata(sdev);
+	struct cam_eeprom_ctrl_t       *e_ctrl;
+	struct cam_eeprom_soc_private  *soc_private;
+	struct cam_hw_soc_info         *soc_info;
+
+	if (!sd) {
+		CAM_ERR(CAM_EEPROM, "Subdevice is NULL");
+		return -EINVAL;
+	}
+
+	e_ctrl = (struct cam_eeprom_ctrl_t *)v4l2_get_subdevdata(sd);
+	if (!e_ctrl) {
+		CAM_ERR(CAM_EEPROM, "eeprom device is NULL");
+		return -EINVAL;
+	}
+
+	soc_info = &e_ctrl->soc_info;
+	for (i = 0; i < soc_info->num_clk; i++)
+		devm_clk_put(soc_info->dev, soc_info->clk[i]);
+
+	mutex_lock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_shutdown(e_ctrl);
+	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	mutex_destroy(&(e_ctrl->eeprom_mutex));
+	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
+	kfree(e_ctrl->io_master_info.spi_client);
+	e_ctrl->io_master_info.spi_client = NULL;
+	soc_private =
+		(struct cam_eeprom_soc_private *)e_ctrl->soc_info.soc_private;
+	if (soc_private) {
+		kfree(soc_private->power_info.gpio_num_info);
+		soc_private->power_info.gpio_num_info = NULL;
+		kfree(soc_private);
+		soc_private = NULL;
+	}
+	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
+	kfree(e_ctrl);
+
+	return 0;
+}
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+void cam_actuator_driver_i2c_remove_wrapper(struct i2c_client *client)
+{
+	cam_actuator_driver_i2c_remove(client);
+}
+
+void cam_eeprom_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_eeprom_i2c_driver_remove(client);
+}
+
+void cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_ois_i2c_driver_remove(client);
+}
+
+void cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_sensor_i2c_driver_remove(client);
+}
+
+void cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_flash_i2c_driver_remove(client);
+}
+#else
+int cam_actuator_driver_i2c_remove_wrapper(struct i2c_client *client)
+{
+        cam_actuator_driver_i2c_remove(client);
+        return 0;
+}
+
+int cam_eeprom_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_eeprom_i2c_driver_remove(client);
+	return 0;
+}
+
+int cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_ois_i2c_driver_remove(client);
+	return 0;
+}
+
+int cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_sensor_i2c_driver_remove(client);
+	return 0;
+}
+
+int cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client)
+{
+	cam_flash_i2c_driver_remove(client);
+	return 0;
 }
 #endif
