@@ -14,4 +14,6 @@ ccflags-y += -DCONFIG_SPECTRA_ISP=1
 ccflags-y += -DCONFIG_SPECTRA_ICP=1
 ccflags-y += -DCONFIG_SPECTRA_JPEG=1
 ccflags-y += -DCONFIG_SPECTRA_SENSOR=1
+ifneq ($(TARGET_BOARD_PLATFORM), anorak61)
 ccflags-y += -DCONFIG_SECURE_CAMERA_V3
+endif
