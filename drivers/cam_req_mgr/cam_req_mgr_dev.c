@@ -949,8 +949,7 @@ static int cam_req_mgr_component_master_bind(struct device *dev)
 			CAM_ERR(CAM_CRM,
 				"Failed to create kmem_cache for crm_timer");
 		else
-			CAM_DBG(CAM_CRM, "Name : %s",
-				g_cam_req_mgr_timer_cachep->name);
+			CAM_DBG(CAM_CRM, "Name : cam_req_mgr_timer");
 	}
 
 	CAM_DBG(CAM_CRM, "All probes done, binding slave components");
