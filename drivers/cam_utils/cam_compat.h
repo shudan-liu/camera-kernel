@@ -80,5 +80,8 @@ int cam_req_mgr_ordered_list_cmp(void *priv,
 int cam_req_mgr_ordered_list_cmp(void *priv,
 	struct list_head *head_1, struct list_head *head_2);
 #endif
+struct file *cam_fcheck_files(struct files_struct *files, uint32_t fd);
+void cam_close_fd(struct files_struct *files, uint32_t fd);
+int cam_atomic_add_unless (struct file *file);
 
 #endif /* _CAM_COMPAT_H_ */
