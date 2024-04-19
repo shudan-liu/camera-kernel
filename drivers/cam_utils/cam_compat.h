@@ -107,4 +107,5 @@ int cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client);
 int cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client);
 int cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client);
 #endif
+int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info);
 #endif /* _CAM_COMPAT_H_ */

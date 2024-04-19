@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -1278,8 +1278,7 @@ int cam_cpas_soc_init_resources(struct cam_hw_soc_info *soc_info,
 		CAM_ERR(CAM_CPAS, "failed in get_dt_properties, rc=%d", rc);
 		return rc;
 	}
-
-	if (soc_info->irq_line && !irq_handler) {
+	if ((soc_info->irq_num > 0) && !irq_handler) {
 		CAM_ERR(CAM_CPAS, "Invalid IRQ handler");
 		return -EINVAL;
 	}

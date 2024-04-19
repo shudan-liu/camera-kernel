@@ -786,3 +786,29 @@ int cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client)
 	return 0;
 }
 #endif
+
+#if KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE
+int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+	soc_info->irq_num = platform_get_irq(soc_info->pdev, 0);
+	if (soc_info->irq_num < 0) {
+		rc = soc_info->irq_num;
+	}
+    return rc;
+}
+#else
+int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+	soc_info->irq_line =
+		platform_get_resource_byname(soc_info->pdev,
+				IORESOURCE_IRQ, soc_info->irq_name);
+	if (!soc_info->irq_line) {
+		rc = -ENODEV;
+		return rc;
+	}
+	soc_info->irq_num = soc_info->irq_line->start;
+	return rc;
+}
+#endif
