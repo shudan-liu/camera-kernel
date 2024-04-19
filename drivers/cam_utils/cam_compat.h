@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2014-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_COMPAT_H_
@@ -13,7 +13,10 @@
 #include <linux/iommu.h>
 #include <linux/qcom_scm.h>
 #include <linux/list_sort.h>
+#include <linux/version.h>
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(6, 1, 0))
 #include <linux/dma-iommu.h>
+#endif
 
 #include "cam_csiphy_dev.h"
 #include "cam_cpastop_hw.h"
