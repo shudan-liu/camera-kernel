@@ -1,15 +1,18 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
+#include <linux/init.h>
 #include <linux/slab.h>
 #include <linux/platform_device.h>
 #include <linux/highmem.h>
 #include <linux/types.h>
 #include <linux/rwsem.h>
+#include <linux/version.h>
+#include <linux/kernel.h>
 
 #include <mm/slab.h>
 
@@ -935,7 +938,11 @@ static int cam_pm_restore(struct device *pdev)
 {
 	struct v4l2_event event;
 
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)) && IS_ENABLED(CONFIG_ARCH_SA6155)
+	event.id = V4L_EVENT_CAM_REQ_MGR_S2R_RESUME;
+#else
 	event.id = V4L_EVENT_CAM_REQ_MGR_HIBERNATION_RESUME;
+#endif
 	event.type = V4L_EVENT_CAM_REQ_MGR_EVENT;
 	CAM_INFO(CAM_CRM, "Queue hibernation restore event");
 	v4l2_event_queue(g_dev.video, &event);
