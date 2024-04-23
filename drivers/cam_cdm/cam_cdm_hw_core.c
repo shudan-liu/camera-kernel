@@ -1554,6 +1554,10 @@ irqreturn_t cam_hw_cdm_irq(int irq_num, void *data)
 
 			atomic_inc(&cdm_core->bl_fifo[i].work_record);
 		}
+		if (!cdm_core->bl_fifo[i].worker) {
+			CAM_ERR(CAM_CDM, "worker null for fifo %d", i);
+			continue;
+		}
 		payload[i] = kzalloc(sizeof(struct cam_cdm_work_payload), GFP_ATOMIC);
 
 		if (!payload[i]) {
@@ -2285,30 +2289,6 @@ static int cam_hw_cdm_component_bind(struct device *dev,
 
 	cdm_core->iommu_hdl.secure = -1;
 
-	for (i = 0; i < CAM_CDM_BL_FIFO_MAX; i++) {
-		INIT_LIST_HEAD(&cdm_core->bl_fifo[i].bl_request_list);
-
-		mutex_init(&cdm_core->bl_fifo[i].fifo_lock);
-		spin_lock_init(&cdm_core->bl_fifo[i].fifo_hw_lock);
-
-		init_completion(&cdm_core->bl_fifo[i].bl_complete);
-
-		len = strlcpy(work_q_name, cdm_hw->soc_info.label_name,
-				sizeof(work_q_name));
-		snprintf(work_q_name + len, sizeof(work_q_name) - len, "%d_%d", cdm_hw->soc_info.index, i);
-		cam_req_mgr_worker_create("cdm_worker", CAM_CDM_INFLIGHT_WORKS,
-			&cdm_core->bl_fifo[i].worker, CRM_WORKER_USAGE_IRQ,
-			0);
-		if (!cdm_core->bl_fifo[i].worker) {
-			CAM_ERR(CAM_CDM,
-				"Workqueue allocation failed for FIFO %d, cdm %s",
-				i, cdm_core->name);
-			goto failed_workq_create;
-		}
-
-		CAM_DBG(CAM_CDM, "wq %s", work_q_name);
-	}
-
 	rc = cam_soc_util_request_platform_resource(&cdm_hw->soc_info,
 			cam_hw_cdm_irq, cdm_hw);
 	if (rc) {
@@ -2370,6 +2350,33 @@ static int cam_hw_cdm_component_bind(struct device *dev,
 		}
 	}
 
+	for (i = 0; i < CAM_CDM_BL_FIFO_MAX; i++) {
+		INIT_LIST_HEAD(&cdm_core->bl_fifo[i].bl_request_list);
+
+		mutex_init(&cdm_core->bl_fifo[i].fifo_lock);
+		spin_lock_init(&cdm_core->bl_fifo[i].fifo_hw_lock);
+
+		init_completion(&cdm_core->bl_fifo[i].bl_complete);
+
+		if (cdm_core->bl_fifo[i].bl_depth) {
+			len = strscpy(work_q_name, cdm_hw->soc_info.label_name,
+					sizeof(work_q_name));
+			snprintf(work_q_name + len, sizeof(work_q_name) - len, "%d_%d",
+				cdm_hw->soc_info.index, i);
+			cam_req_mgr_worker_create("cdm_worker", CAM_CDM_INFLIGHT_WORKS,
+				&cdm_core->bl_fifo[i].worker, CRM_WORKER_USAGE_IRQ,
+				0);
+			if (!cdm_core->bl_fifo[i].worker) {
+				CAM_ERR(CAM_CDM,
+					"Workqueue allocation failed for FIFO %d, cdm %s",
+					i, cdm_core->name);
+				goto failed_workq_create;
+			}
+
+			CAM_DBG(CAM_CDM, "wq %s", work_q_name);
+		}
+	}
+
 	cdm_core->arbitration = cam_cdm_get_arbitration_type(
 		cdm_core->hw_version, cdm_core->id);
 
@@ -2411,6 +2418,13 @@ static int cam_hw_cdm_component_bind(struct device *dev,
 
 	return rc;
 
+failed_workq_create:
+	for (j = 0; j < i; j++) {
+		if (cdm_core->bl_fifo[i].bl_depth) {
+			cam_req_mgr_worker_flush(cdm_core->bl_fifo[j].worker);
+			cam_req_mgr_worker_destroy(&cdm_core->bl_fifo[j].worker);
+		}
+	}
 cpas_stop:
 	if (cam_cpas_stop(cdm_core->cpas_handle))
 		CAM_ERR(CAM_CDM, "CPAS stop failed");
@@ -2420,11 +2434,6 @@ cpas_unregister:
 release_platform_resource:
 	if (cam_soc_util_release_platform_resource(&cdm_hw->soc_info))
 		CAM_ERR(CAM_CDM, "Release platform resource failed");
-failed_workq_create:
-	for (j = 0; j < i; j++) {
-		cam_req_mgr_worker_flush(cdm_core->bl_fifo[j].worker);
-		cam_req_mgr_worker_destroy(&cdm_core->bl_fifo[j].worker);
-	}
 destroy_non_secure_hdl:
 	cam_smmu_set_client_page_fault_handler(cdm_core->iommu_hdl.non_secure,
 		NULL, cdm_hw);
@@ -2509,8 +2518,10 @@ static void cam_hw_cdm_component_unbind(struct device *dev,
 		CAM_ERR(CAM_CDM, "Release platform resource failed");
 
 	for (i = 0; i < CAM_CDM_BL_FIFO_MAX; i++) {
-		cam_req_mgr_worker_flush(cdm_core->bl_fifo[i].worker);
-		cam_req_mgr_worker_destroy(&cdm_core->bl_fifo[i].worker);
+		if (cdm_core->bl_fifo[i].bl_depth) {
+			cam_req_mgr_worker_flush(cdm_core->bl_fifo[i].worker);
+			cam_req_mgr_worker_destroy(&cdm_core->bl_fifo[i].worker);
+		}
 	}
 
 	cam_smmu_unset_client_page_fault_handler(
