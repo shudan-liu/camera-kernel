@@ -244,6 +244,8 @@ struct cam_isp_ctx_sensor_req_info {
  * @path_irq_mask              Bit is set if port is requested in request
  * @intermediate_irq_mask      Indicates which path irq is received at a new time for current req
  * @sensor_req_id              Indicates sensor request applied for this request
+ * @sof_timestamp_val:         Captured time stamp value at sof hw event
+ * @boot_timestamp:            Boot time stamp for a given req_id
  *
  */
 struct cam_isp_ctx_req {
@@ -266,6 +268,8 @@ struct cam_isp_ctx_req {
 	uint64_t                              path_irq_mask;
 	struct cam_isp_req_irq_mask           intermediate_irq_mask;
 	uint64_t                              sensor_req_id;
+	uint64_t                              sof_timestamp_val;
+	uint64_t                              boot_timestamp;
 };
 
 /**
