@@ -1313,8 +1313,9 @@ static int __cam_csiphy_prgm_bist_reg(struct csiphy_device *csiphy_dev, bool is_
 	return 0;
 }
 
+#ifdef CONFIG_SECURE_CAMERA
 static int cam_csiphy_program_secure_mode(struct csiphy_device *csiphy_dev,
-	bool protect, int32_t offset, bool is_shutdown)
+	bool protect, int32_t offset)
 {
 	int rc = 0;
 
@@ -1334,9 +1335,7 @@ static int cam_csiphy_program_secure_mode(struct csiphy_device *csiphy_dev,
 		}
 	}
 
-#ifdef CONFIG_SECURE_CAMERA
-	rc = cam_csiphy_notify_secure_mode(csiphy_dev, protect, offset, is_shutdown);
-#endif
+	rc = cam_csiphy_notify_secure_mode(csiphy_dev, protect, offset);
 
 	if (csiphy_dev->domain_id_security) {
 		if (cam_cpas_enable_clks_for_domain_id(false))
@@ -1348,6 +1347,7 @@ static int cam_csiphy_program_secure_mode(struct csiphy_device *csiphy_dev,
 
 	return rc;
 }
+#endif
 
 int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 	int32_t dev_handle, uint8_t datarate_variant_idx)
@@ -1520,10 +1520,11 @@ void cam_csiphy_shutdown(struct csiphy_device *csiphy_dev)
 		for (i = 0; i < csiphy_dev->acquire_count; i++) {
 			param = &csiphy_dev->csiphy_info[i];
 
+#ifdef CONFIG_SECURE_CAMERA
 			if (param->secure_mode)
 				cam_csiphy_program_secure_mode(csiphy_dev,
-					CAM_SECURE_MODE_NON_SECURE, i, true);
-
+					CAM_SECURE_MODE_NON_SECURE, i);
+#endif
 			param->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 
 			if (soc_info->is_clk_drv_en && param->use_hw_client_voting) {
@@ -2299,10 +2300,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		param = &csiphy_dev->csiphy_info[offset];
 
 		if (--csiphy_dev->start_dev_count) {
+#ifdef CONFIG_SECURE_CAMERA
 			if (param->secure_mode)
 				cam_csiphy_program_secure_mode(csiphy_dev,
-					CAM_SECURE_MODE_NON_SECURE, offset, false);
-
+					CAM_SECURE_MODE_NON_SECURE, offset);
+#endif
 			param->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 			param->csiphy_cpas_cp_reg_mask = 0;
 
@@ -2336,10 +2338,11 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+#ifdef CONFIG_SECURE_CAMERA
 		if (param->secure_mode)
 			cam_csiphy_program_secure_mode(csiphy_dev, CAM_SECURE_MODE_NON_SECURE,
-				offset, false);
-
+				offset);
+#endif
 		param->secure_mode = CAM_SECURE_MODE_NON_SECURE;
 		param->csiphy_cpas_cp_reg_mask = 0x0;
 
@@ -2405,11 +2408,12 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			goto release_mutex;
 		}
 
+#ifdef CONFIG_SECURE_CAMERA
 		if (csiphy_dev->csiphy_info[offset].secure_mode)
 			cam_csiphy_program_secure_mode(
 				csiphy_dev,
-				CAM_SECURE_MODE_NON_SECURE, offset, false);
-
+				CAM_SECURE_MODE_NON_SECURE, offset);
+#endif
 		csiphy_dev->csiphy_info[offset].secure_mode =
 			CAM_SECURE_MODE_NON_SECURE;
 
@@ -2602,6 +2606,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				}
 			}
 
+#ifdef CONFIG_SECURE_CAMERA
 			if (csiphy_dev->csiphy_info[offset].secure_mode == 1) {
 				if (!cam_cpas_is_feature_supported(
 					CAM_CPAS_SECURE_CAMERA_ENABLE,
@@ -2612,7 +2617,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				}
 
 				rc = cam_csiphy_program_secure_mode(csiphy_dev,
-					CAM_SECURE_MODE_SECURE, offset, false);
+					CAM_SECURE_MODE_SECURE, offset);
 				if (rc) {
 					csiphy_dev->csiphy_info[offset]
 						.secure_mode =
@@ -2623,6 +2628,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 					goto release_mutex;
 				}
 			}
+#endif
 
 			if (csiphy_dev->csiphy_info[offset].csiphy_3phase) {
 				rc = cam_csiphy_cphy_data_rate_config(
@@ -2671,6 +2677,7 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			}
 		}
 
+#ifdef CONFIG_SECURE_CAMERA
 		if (csiphy_dev->csiphy_info[offset].secure_mode == 1) {
 			if (!cam_cpas_is_feature_supported(
 					CAM_CPAS_SECURE_CAMERA_ENABLE,
@@ -2683,13 +2690,14 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 
 			rc = cam_csiphy_program_secure_mode(
 				csiphy_dev,
-				CAM_SECURE_MODE_SECURE, offset, false);
+				CAM_SECURE_MODE_SECURE, offset);
 			if (rc) {
 				csiphy_dev->csiphy_info[offset].secure_mode =
 					CAM_SECURE_MODE_NON_SECURE;
 				goto cpas_stop;
 			}
 		}
+#endif
 
 		rc = cam_csiphy_enable_hw(csiphy_dev, offset);
 		if (rc != 0) {
