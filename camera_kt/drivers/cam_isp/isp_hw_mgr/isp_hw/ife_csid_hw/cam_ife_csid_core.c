@@ -711,6 +711,11 @@ int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 	uint32_t res_type;
 	struct cam_csid_soc_private *soc_priv;
 
+	if (!csid_hw || !csid_hw->csid_info) {
+		CAM_ERR(CAM_ISP, "Data is NULL");
+		return -EINVAL;
+	}
+
 	CAM_DBG(CAM_ISP,
 		"CSID:%d res_sel:0x%x Lane type:%d lane_num:%d dt:%d vc:%d cust_node:%u",
 		csid_hw->hw_intf->hw_idx,
@@ -821,6 +826,8 @@ int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 			rc = -EINVAL;
 			goto end;
 		}
+		csid_hw->csid_info->phy_num_mask =
+			csid_hw->csid_info->csid_reg->csi2_reg->csi2_rx_phy_num_mask;
 		break;
 	case CAM_CPAS_TITAN_480_V100:
 	case CAM_CPAS_TITAN_580_V100:
@@ -863,6 +870,17 @@ int cam_ife_csid_cid_reserve(struct cam_ife_csid_hw *csid_hw,
 				}
 			}
 		}
+		csid_hw->csid_info->phy_num_mask =
+			csid_hw->csid_info->csid_reg->csi2_reg->csi2_rx_phy_num_mask;
+		break;
+		case CAM_CPAS_TITAN_165_V100:
+			CAM_INFO(CAM_ISP, "Hw version is 165_100");
+			/* For Unification between Full IFE and IFE Lite for
+			 * Titan 165 updating correct phy mask to support 5
+			 * CSIPHY hardware.
+			 */
+
+			csid_hw->csid_info->phy_num_mask = 0x7;
 		break;
 	default:
 		break;
@@ -1892,7 +1910,7 @@ static int cam_ife_csid_enable_csi2(
 		(csid_hw->csi2_rx_cfg.lane_cfg << 4) |
 		(csid_hw->csi2_rx_cfg.lane_type << 24);
 	val |= (csid_hw->csi2_rx_cfg.phy_sel &
-		csid_reg->csi2_reg->csi2_rx_phy_num_mask) << 20;
+		csid_hw->csid_info->phy_num_mask) << 20;
 	cam_io_w_mb(val, soc_info->reg_map[0].mem_base +
 		csid_reg->csi2_reg->csid_csi2_rx_cfg0_addr);
 
