@@ -7,6 +7,7 @@
 #include <linux/dma-mapping.h>
 #include <linux/of_address.h>
 #include <linux/slab.h>
+#include <linux/fdtable.h>
 
 #include "cam_compat.h"
 #include "cam_debug_util.h"
@@ -479,6 +480,18 @@ static int inline cam_subdev_list_cmp(struct cam_subdev *entry_1, struct cam_sub
 		return 0;
 }
 
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 13, 0))
+struct file *cam_fcheck_files(struct files_struct *files, uint32_t fd)
+{
+       return fcheck_files(files, fd);
+}
+#else
+struct file *cam_fcheck_files(struct files_struct *files, uint32_t fd)
+{
+       return files_lookup_fd_rcu(files, fd);
+}
+#endif
+
 #if (KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE)
 int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr)
 {
@@ -519,6 +532,16 @@ void cam_smmu_util_iommu_custom(struct device *dev,
 {
 	return;
 }
+
+void cam_close_fd(struct files_struct *files, uint32_t fd)
+{
+       close_fd(fd);
+}
+
+int cam_atomic_add_unless(struct file *file)
+{
+       return atomic_long_add_unless(&file->f_count, 1, 0);
+}
 #elif (KERNEL_VERSION(5, 15, 0) <= LINUX_VERSION_CODE)
 void cam_smmu_util_iommu_custom(struct device *dev,
 	dma_addr_t discard_start, size_t discard_length)
@@ -552,6 +575,16 @@ void cam_compat_util_put_dmabuf_va(struct dma_buf *dmabuf, void *vaddr)
 	struct dma_buf_map mapping = DMA_BUF_MAP_INIT_VADDR(vaddr);
 
 	dma_buf_vunmap(dmabuf, &mapping);
+}
+
+void cam_close_fd(struct files_struct *files, uint32_t fd)
+{
+       __close_fd(files, fd);
+}
+
+int cam_atomic_add_unless(struct file *file)
+{
+       return get_file_rcu_many(file, 1);
 }
 #else
 void cam_smmu_util_iommu_custom(struct device *dev,
@@ -590,5 +623,15 @@ int cam_compat_util_get_dmabuf_va(struct dma_buf *dmabuf, uintptr_t *vaddr)
 void cam_compat_util_put_dmabuf_va(struct dma_buf *dmabuf, void *vaddr)
 {
 	dma_buf_vunmap(dmabuf, vaddr);
+}
+
+void cam_close_fd(struct files_struct *files, uint32_t fd)
+{
+       __close_fd(files, fd);
+}
+
+int cam_atomic_add_unless(struct file *file)
+{
+       return get_file_rcu_many(file, 1);
 }
 #endif
