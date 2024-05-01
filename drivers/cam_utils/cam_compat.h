@@ -47,6 +47,10 @@
 #include <soc/qcom/trusted_camera_driver.h>
 #endif
 
+#if KERNEL_VERSION(5, 18, 0) <= LINUX_VERSION_CODE
+MODULE_IMPORT_NS(DMA_BUF);
+#endif
+
 struct cam_fw_alloc_info {
 	struct device *fw_dev;
 	void          *fw_kva;
@@ -84,4 +88,24 @@ struct file *cam_fcheck_files(struct files_struct *files, uint32_t fd);
 void cam_close_fd(struct files_struct *files, uint32_t fd);
 int cam_atomic_add_unless (struct file *file);
 
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 18, 0)
+void cam_eeprom_spi_driver_remove(struct spi_device *sdev);
+#else
+int cam_eeprom_spi_driver_remove(struct spi_device *sdev);
+#endif
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)
+void cam_actuator_driver_i2c_remove_wrapper(struct i2c_client *client);
+void cam_eeprom_i2c_driver_remove_wrapper(struct i2c_client *client);
+void cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client);
+void cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client);
+void cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client);
+#else
+int cam_actuator_driver_i2c_remove_wrapper(struct i2c_client *client);
+int cam_eeprom_i2c_driver_remove_wrapper(struct i2c_client *client);
+int cam_ois_i2c_driver_remove_wrapper(struct i2c_client *client);
+int cam_sensor_i2c_driver_remove_wrapper(struct i2c_client *client);
+int cam_flash_i2c_driver_remove_wrapper(struct i2c_client *client);
+#endif
+int cam_compat_util_get_irq(struct cam_hw_soc_info *soc_info);
 #endif /* _CAM_COMPAT_H_ */
