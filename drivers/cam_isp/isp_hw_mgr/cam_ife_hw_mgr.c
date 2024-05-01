@@ -822,25 +822,33 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 	struct cam_update_sensor_stream_cfg_cmd  *cfg_cmd = hw_cfg_args;
 	struct cam_ife_hw_mgr_stream_grp_config  *grp_cfg;
 	struct cam_isp_hw_mgr_res                *res_list_ife_out;
-	struct cam_isp_sensor_group_config        sensor_grp_config;
+	struct cam_isp_sensor_group_config       *sensor_grp_config = NULL;
 	struct cam_isp_stream_grp_config         *stream_grp_cfg;
 
 	if (g_ife_sns_grp_cfg.num_grp_cfg)
 		cam_ife_mr_clear_sensor_stream_cfg();
 
-	if (copy_from_user(&sensor_grp_config,
+    sensor_grp_config = kzalloc(sizeof(struct cam_isp_sensor_group_config), GFP_KERNEL);
+    if (!sensor_grp_config) {
+        CAM_ERR(CAM_ISP, "Alloc failed for sensor_grp_config");
+        return -ENOMEM;
+    }
+
+	if (copy_from_user(sensor_grp_config,
 		u64_to_user_ptr(cfg_cmd->cfg_handle),
 		sizeof(struct cam_isp_sensor_group_config))) {
 		CAM_ERR(CAM_ISP, "failed to copy sensor group config data from user");
+		kfree(sensor_grp_config);
 		return rc;
 	}
 
-	g_ife_sns_grp_cfg.num_grp_cfg = sensor_grp_config.num_grp_cfg;
+	g_ife_sns_grp_cfg.num_grp_cfg = sensor_grp_config->num_grp_cfg;
 
 	if (g_ife_sns_grp_cfg.num_grp_cfg > CAM_ISP_STREAM_GROUP_CFG_MAX ||
 		g_ife_sns_grp_cfg.num_grp_cfg == 0) {
 		CAM_ERR(CAM_ISP, "invalid num grp configs :%d",
 			g_ife_sns_grp_cfg.num_grp_cfg);
+		kfree(sensor_grp_config);
 		return rc;
 	}
 
@@ -849,6 +857,7 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 		sizeof(struct cam_ife_hw_mgr_stream_grp_config), GFP_KERNEL);
 	if (!g_ife_sns_grp_cfg.grp_cfg) {
 		CAM_ERR(CAM_ISP, "Alloc failed for grp_cfg");
+		kfree(sensor_grp_config);
 		return -ENOMEM;
 	}
 
@@ -870,7 +879,7 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 	}
 
 	for (i = 0; i < g_ife_sns_grp_cfg.num_grp_cfg; i++) {
-		stream_grp_cfg = &sensor_grp_config.stream_grp_cfg[i];
+		stream_grp_cfg = &sensor_grp_config->stream_grp_cfg[i];
 		grp_cfg = &g_ife_sns_grp_cfg.grp_cfg[i];
 
 		grp_cfg->res_type     = stream_grp_cfg->res_type;
@@ -881,7 +890,7 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 
 		for (j = 0; j < stream_grp_cfg->stream_cfg_cnt; j++) {
 			/*check if configuration is for previous sensor id */
-			rc = cam_ife_mgr_check_for_previous_sensor_cfg(&sensor_grp_config, i, j);
+			rc = cam_ife_mgr_check_for_previous_sensor_cfg(sensor_grp_config, i, j);
 			if (!rc)
 				continue;
 			if (rc == -EFAULT)
@@ -918,7 +927,7 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 		}
 
 		grp_cfg->rdi_stream_cfg_cnt =
-				cam_ife_mgr_get_rdi_stream_cfg_cnt(&sensor_grp_config, i);
+				cam_ife_mgr_get_rdi_stream_cfg_cnt(sensor_grp_config, i);
 
 		CAM_DBG(CAM_ISP, "rdi_stream_cfg_cnt : %d stream_cfg_cnt:%d",
 			grp_cfg->rdi_stream_cfg_cnt, grp_cfg->stream_cfg_cnt);
@@ -938,9 +947,11 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 	}
 	cam_ife_mgr_dump_sensor_grp_stream_cfg();
 
+	kfree(sensor_grp_config);
 	return rc;
 err:
 	cam_ife_mr_clear_sensor_stream_cfg();
+	kfree(sensor_grp_config);
 	return rc;
 }
 
@@ -15740,8 +15751,15 @@ int cam_isp_config_csid_rup_aup(
 	struct cam_isp_hw_mgr_res       *hw_mgr_res;
 	struct list_head                *res_list;
 	struct cam_isp_resource_node    *res;
-	struct cam_isp_csid_reg_update_args
-		rup_args[CAM_IFE_CSID_HW_NUM_MAX] = {0};
+	struct cam_isp_csid_reg_update_args *rup_args = NULL;
+
+        rup_args = kcalloc(CAM_IFE_CSID_HW_NUM_MAX,
+                        sizeof(struct cam_isp_csid_reg_update_args),
+                        GFP_KERNEL);
+        if (!rup_args) {
+                CAM_ERR(CAM_ISP, "Alloc failed for rup_args");
+                return -ENOMEM;
+        }
 
 	res_list = &ctx->res_list_ife_csid;
 	for (j = 0; j < ctx->num_base; j++) {
@@ -15785,14 +15803,17 @@ int cam_isp_config_csid_rup_aup(
 			res->hw_intf->hw_priv,
 			CAM_ISP_HW_CMD_GET_REG_UPDATE, &rup_args[i],
 			sizeof(struct cam_isp_csid_reg_update_args));
-		if (rc)
+		if (rc) {
+			kfree(rup_args);
 			return rc;
+		}
 
 		CAM_DBG(CAM_ISP,
 			"Reg update for CSID: %u mup: %u",
 			res->hw_intf->hw_idx, ctx->current_mup);
 	}
 
+	kfree(rup_args);
 	return rc;
 }
 
@@ -16465,6 +16486,7 @@ static int cam_ife_mgr_cmd(void *hw_mgr_priv, void *cmd_args)
 			break;
 		case CAM_ISP_HW_MGR_GET_HW_CTX:
 			rc = cam_ife_mgr_get_active_hw_ctx(ctx, isp_hw_cmd_args);
+			break;
 		case CAM_ISP_HW_MGR_CMD_GET_SLAVE_STATE:
 			isp_hw_cmd_args->cmd_data = &ctx->is_slave_down;
 			break;
