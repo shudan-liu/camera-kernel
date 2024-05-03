@@ -4471,11 +4471,6 @@ static int cam_vfe_bus_ver3_enable_irq_vfe_out(void *bus_priv, void *res_irq_mas
 				return -EFAULT;
 			}
 
-			if ((common_data->is_lite || source_group > CAM_VFE_BUS_VER3_SRC_GRP_0)
-				&& !vfe_out->rdi_only_ctx) {
-				goto end;
-			}
-
 			if ((common_data->supported_irq & CAM_VFE_HW_IRQ_CAP_RUP) &&
 				(!common_data->rup_irq_handle[source_group])) {
 				rsrc_data->stored_irq_masks[CAM_VFE_BUS_VER3_RUP_MASK]
