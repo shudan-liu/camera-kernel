@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -959,10 +959,10 @@ static int cam_fd_mgr_util_schedule_frame_worker_task(
 	struct cam_fd_hw_mgr *hw_mgr)
 {
 	int32_t rc = 0;
-	struct crm_workq_task *task;
+	struct crm_worker_task *task;
 	struct cam_fd_mgr_work_data *work_data;
 
-	task = cam_req_mgr_workq_get_task(hw_mgr->work);
+	task = cam_req_mgr_worker_get_task(hw_mgr->work);
 	if (!task) {
 		CAM_ERR(CAM_FD, "no empty task available");
 		return -ENOMEM;
@@ -972,7 +972,7 @@ static int cam_fd_mgr_util_schedule_frame_worker_task(
 	work_data->type = CAM_FD_WORK_FRAME;
 
 	task->process_cb = cam_fd_mgr_util_submit_frame;
-	rc = cam_req_mgr_workq_enqueue_task(task, hw_mgr, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_worker_enqueue_task(task, hw_mgr, CRM_TASK_PRIORITY_0);
 
 	return rc;
 }
@@ -1117,11 +1117,11 @@ static int cam_fd_mgr_irq_cb(void *data, enum cam_fd_hw_irq_type irq_type)
 	struct cam_fd_hw_mgr *hw_mgr = &g_fd_hw_mgr;
 	int rc = 0;
 	unsigned long flags;
-	struct crm_workq_task *task;
+	struct crm_worker_task *task;
 	struct cam_fd_mgr_work_data *work_data;
 
 	spin_lock_irqsave(&hw_mgr->hw_mgr_slock, flags);
-	task = cam_req_mgr_workq_get_task(hw_mgr->work);
+	task = cam_req_mgr_worker_get_task(hw_mgr->work);
 	if (!task) {
 		CAM_ERR(CAM_FD, "no empty task available");
 		spin_unlock_irqrestore(&hw_mgr->hw_mgr_slock, flags);
@@ -1133,7 +1133,7 @@ static int cam_fd_mgr_irq_cb(void *data, enum cam_fd_hw_irq_type irq_type)
 	work_data->irq_type = irq_type;
 
 	task->process_cb = cam_fd_mgr_workq_irq_cb;
-	rc = cam_req_mgr_workq_enqueue_task(task, hw_mgr, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_worker_enqueue_task(task, hw_mgr, CRM_TASK_PRIORITY_0);
 	if (rc)
 		CAM_ERR(CAM_FD, "Failed in enqueue work task, rc=%d", rc);
 
@@ -1972,7 +1972,7 @@ int cam_fd_hw_mgr_deinit(struct device_node *of_node)
 {
 	CAM_DBG(CAM_FD, "HW Mgr Deinit");
 
-	cam_req_mgr_workq_destroy(&g_fd_hw_mgr.work);
+	cam_req_mgr_worker_destroy(&g_fd_hw_mgr.work);
 
 	cam_smmu_destroy_handle(g_fd_hw_mgr.device_iommu.non_secure);
 	g_fd_hw_mgr.device_iommu.non_secure = -1;
@@ -1982,11 +1982,6 @@ int cam_fd_hw_mgr_deinit(struct device_node *of_node)
 	mutex_destroy(&g_fd_hw_mgr.hw_mgr_mutex);
 
 	return 0;
-}
-
-static void cam_req_mgr_process_workq_cam_fd_worker(struct work_struct *w)
-{
-	cam_req_mgr_process_workq(w);
 }
 
 int cam_fd_hw_mgr_init(struct device_node *of_node,
@@ -2133,9 +2128,8 @@ int cam_fd_hw_mgr_init(struct device_node *of_node,
 		list_add_tail(&frame_req->list, &g_fd_hw_mgr.frame_free_list);
 	}
 
-	rc = cam_req_mgr_workq_create("cam_fd_worker", CAM_FD_WORKQ_NUM_TASK,
-		&g_fd_hw_mgr.work, CRM_WORKQ_USAGE_IRQ, 0,
-		cam_req_mgr_process_workq_cam_fd_worker);
+	rc = cam_req_mgr_worker_create("cam_fd_worker", CAM_FD_WORKQ_NUM_TASK,
+		&g_fd_hw_mgr.work, CRM_WORKER_USAGE_IRQ, 0);
 	if (rc) {
 		CAM_ERR(CAM_FD, "Unable to create a worker, rc=%d", rc);
 		goto detach_smmu;

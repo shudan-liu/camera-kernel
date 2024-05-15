@@ -676,7 +676,7 @@ static int __cam_isp_ctx_notify_trigger_util(
 	struct cam_req_mgr_trigger_notify        notify;
 	struct cam_req_mgr_no_crm_trigger_notify sof_notify;
 	struct cam_req_mgr_no_crm_trigger_notify *sof_notify_payload;
-	struct crm_workq_task                    *task = NULL;
+	struct crm_worker_task                   *task = NULL;
 
 	/* Trigger type not supported, return */
 	if (!(ctx_isp->subscribe_event & trigger_type)) {
@@ -767,10 +767,10 @@ static int __cam_isp_ctx_notify_trigger_util(
 			return -EINVAL;
 		}
 
-		task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+		task = cam_req_mgr_worker_get_task(ctx_isp->hw_mgr_worker);
 		if (PTR_ERR(task) == -EIO) {
-			CAM_DBG(CAM_CRM, "workq %s paused, skip enqueue apply",
-					ctx_isp->hw_mgr_workq->workq_name);
+			CAM_DBG(CAM_CRM, "worker %s paused, skip enqueue apply",
+					ctx_isp->hw_mgr_worker->worker_name);
 			return -EBUSY;
 		}
 		if (!task) {
@@ -799,7 +799,7 @@ static int __cam_isp_ctx_notify_trigger_util(
 				ctx_isp->req_info.last_bufdone_req_id);
 			ctx_isp->debug_frame_drop_cnt = 0;
 		}
-		rc = cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
+		rc = cam_req_mgr_worker_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
 		if (rc) {
 			CAM_ERR(CAM_REQ, "Pending request processing failed:%d ctx:%u",
 				rc, ctx->ctx_id);
@@ -815,7 +815,7 @@ static int __cam_isp_ctx_notify_trigger_util(
 		ctx_isp->frame_id, ctx->ctx_id, ctx->link_hdl,
 		ctx_isp->req_info.last_bufdone_req_id, notify.curr_req_id);
 
-	rc = ctx->ctx_crm_intf->notify_trigger(&notify, ctx_isp->hw_mgr_workq);
+	rc = ctx->ctx_crm_intf->notify_trigger(&notify, ctx_isp->hw_mgr_worker);
 	if (rc)
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
 			"Failed to notify CRM %s on frame: %llu ctx: %u link: 0x%x last_buf_done_req: %lld rc: %d",
@@ -1047,23 +1047,23 @@ static int cam_isp_ctx_dump_req(
 
 static void cam_isp_ctx_sof_independent_timer_cb(struct timer_list *timer_data)
 {
-	struct crm_workq_task     *task = NULL;
+	struct crm_worker_task     *task = NULL;
 	struct cam_isp_context    *ctx_isp;
 	struct cam_req_mgr_timer  *timer =
 		container_of(timer_data, struct cam_req_mgr_timer, sys_timer);
 
 	ctx_isp = (struct cam_isp_context *)timer->parent;
 
-	if (!ctx_isp->hw_mgr_workq) {
+	if (!ctx_isp->hw_mgr_worker) {
 		CAM_ERR(CAM_ISP, "No worker for isp context");
 		return;
 	}
 
-	task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+	task = cam_req_mgr_worker_get_task(ctx_isp->hw_mgr_worker);
 
 	if (PTR_ERR(task) == -EIO) {
-		CAM_DBG(CAM_ISP, "workq %s paused, skip timer enqueue",
-				ctx_isp->hw_mgr_workq->workq_name);
+		CAM_DBG(CAM_ISP, "worker %s paused, skip timer enqueue",
+				ctx_isp->hw_mgr_worker->worker_name);
 		return;
 	}
 	if (!task) {
@@ -1072,7 +1072,7 @@ static void cam_isp_ctx_sof_independent_timer_cb(struct timer_list *timer_data)
 	}
 
 	task->process_cb = __cam_isp_ctx_independent_sof_timer;
-	cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
+	cam_req_mgr_worker_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
 }
 
 static int __cam_isp_ctx_enqueue_request_in_order(
@@ -2805,16 +2805,16 @@ static int __cam_isp_ctx_schedule_apply_req_offline(
 	struct cam_isp_context *ctx_isp)
 {
 	int rc = 0;
-	struct crm_workq_task *task;
+	struct crm_worker_task *task;
 
-	task = cam_req_mgr_workq_get_task(ctx_isp->workq);
+	task = cam_req_mgr_worker_get_task(ctx_isp->worker);
 	if (!task) {
 		CAM_ERR(CAM_ISP, "No task for worker");
 		return -ENOMEM;
 	}
 
 	task->process_cb = __cam_isp_ctx_apply_req_offline;
-	rc = cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
+	rc = cam_req_mgr_worker_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
 	if (rc)
 		CAM_ERR(CAM_ISP, "Failed to schedule task rc:%d", rc);
 
@@ -6317,7 +6317,7 @@ static int __cam_isp_send_pause_resume_cmd_impacted_ife_ctx(
 	struct cam_isp_hw_active_hw_ctx   active_hw_ctx;
 	struct cam_context               *ctx = ctx_isp->base;
 	struct cam_ctx_request           *req;
-	struct crm_workq_task            *task = NULL;
+	struct crm_worker_task            *task = NULL;
 	struct cam_isp_ctx_pause_resume_event_info *pause_payload = NULL;
 	struct cam_isp_ctx_pause_resume_event_info *resume_payload = NULL;
 	int active_hw_ctx_cnt;
@@ -6371,7 +6371,7 @@ static int __cam_isp_send_pause_resume_cmd_impacted_ife_ctx(
 			}
 			break;
 		case CAM_ISP_CTX_PAUSE_CMD:
-			task = cam_req_mgr_workq_get_task(active_ctx_isp->hw_mgr_workq);
+			task = cam_req_mgr_worker_get_task(active_ctx_isp->hw_mgr_worker);
 			if (!task) {
 				CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task");
 				return -EBUSY;
@@ -6390,7 +6390,7 @@ static int __cam_isp_send_pause_resume_cmd_impacted_ife_ctx(
 			task->process_cb = __cam_isp_send_pause_resume_cmd_to_sensor;
 			task->payload = pause_payload;
 
-			rc = cam_req_mgr_workq_enqueue_task(task, active_ctx_isp,
+			rc = cam_req_mgr_worker_enqueue_task(task, active_ctx_isp,
 					CRM_TASK_PRIORITY_0);
 			if (rc) {
 				CAM_ERR(CAM_REQ, "Pending request processing failed:%d ctx:%u",
@@ -6399,7 +6399,7 @@ static int __cam_isp_send_pause_resume_cmd_impacted_ife_ctx(
 			}
 			break;
 		case CAM_ISP_CTX_RESUME_CMD:
-			task = cam_req_mgr_workq_get_task(active_ctx_isp->hw_mgr_workq);
+			task = cam_req_mgr_worker_get_task(active_ctx_isp->hw_mgr_worker);
 			if (!task) {
 				CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task ctx:%u",
 					active_ctx->ctx_id);
@@ -6427,7 +6427,7 @@ static int __cam_isp_send_pause_resume_cmd_impacted_ife_ctx(
 			task->process_cb = cam_isp_ctx_frame_drop_resume_operation;
 			task->payload = resume_payload;
 
-			rc = cam_req_mgr_workq_enqueue_task(task, active_ctx_isp,
+			rc = cam_req_mgr_worker_enqueue_task(task, active_ctx_isp,
 				CRM_TASK_PRIORITY_0);
 			if (rc) {
 				CAM_ERR(CAM_REQ, "Pending request processing failed:%d ctx:%u",
@@ -7320,8 +7320,8 @@ static int __cam_isp_ctx_flush_dev_in_top_state(struct cam_context *ctx,
 		rc = -EINVAL;
 	}
 
-	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL && ctx_isp->workq)
-		cam_req_mgr_workq_flush(ctx_isp->workq);
+	if (cmd->flush_type == CAM_FLUSH_TYPE_ALL && ctx_isp->worker)
+		cam_req_mgr_worker_flush(ctx_isp->worker);
 
 	if (ctx_isp->independent_crm_en) {
 		crm_timer_exit(&ctx_isp->independent_crm_sof_timer);
@@ -7433,7 +7433,7 @@ static int __cam_isp_ctx_release_hw_in_top_state(struct cam_context *ctx,
 	rc = __cam_isp_ctx_flush_req(ctx, &ctx->pending_req_list, &flush_req);
 	mutex_unlock(&ctx_isp->isp_mutex);
 	__cam_isp_ctx_free_mem_hw_entries(ctx);
-	cam_req_mgr_workq_destroy(&ctx_isp->workq);
+	cam_req_mgr_worker_destroy(&ctx_isp->worker);
 	ctx->state = CAM_CTX_ACQUIRED;
 
 	trace_cam_context_state("ISP", ctx);
@@ -7448,7 +7448,7 @@ static int __cam_isp_ctx_get_async_task(struct cam_context *ctx,
 	struct cam_isp_context *ctx_isp =
 		(struct cam_isp_context *) ctx->ctx_priv;
 
-	cmd->workq = ctx_isp->hw_mgr_workq;
+	cmd->worker = ctx_isp->hw_mgr_worker;
 
 	return 0;
 }
@@ -7655,7 +7655,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 		(struct cam_isp_context *) ctx->ctx_priv;
 	struct cam_hw_cmd_args            hw_cmd_args;
 	struct cam_isp_hw_cmd_args        isp_hw_cmd_args;
-	struct crm_workq_task            *task = NULL;
+	struct crm_worker_task            *task = NULL;
 	uint32_t                          packet_opcode = 0;
 	uint32_t                          shndl;
 	uint32_t                         *slave_pkt, *pkt_offset;
@@ -7734,7 +7734,7 @@ static int __cam_isp_ctx_config_dev_in_top_state(
 	}
 
 	if (packet_opcode == CAM_ISP_PACKET_INIT_DEV)
-		cam_req_mgr_workq_resume(ctx_isp->hw_mgr_workq);
+		cam_req_mgr_worker_resume(ctx_isp->hw_mgr_worker);
 
 	cfg.packet = packet;
 	cfg.remain_len = remain_len;
@@ -7997,10 +7997,10 @@ done:
 		if (ctx->state == CAM_CTX_ACTIVATED && ctx_isp->rdi_only_context) {
 			CAM_DBG(CAM_ISP,
 				"independent CRM apply from config_dev ctx:%u", ctx->ctx_id);
-			task = cam_req_mgr_workq_get_task(ctx_isp->hw_mgr_workq);
+			task = cam_req_mgr_worker_get_task(ctx_isp->hw_mgr_worker);
 			if (PTR_ERR(task) == -EIO) {
-				CAM_DBG(CAM_CRM, "workq %s is paused, skip apply ctx:%u",
-						ctx_isp->hw_mgr_workq->workq_name, ctx->ctx_id);
+				CAM_DBG(CAM_CRM, "worker %s is paused, skip apply ctx:%u",
+						ctx_isp->hw_mgr_worker->worker_name, ctx->ctx_id);
 				rc = -EBUSY;
 				goto end;
 			}
@@ -8012,7 +8012,7 @@ done:
 			task->process_cb = __cam_isp_ctx_no_crm_apply_trigger_util;
 			task->payload = NULL;
 
-			rc = cam_req_mgr_workq_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
+			rc = cam_req_mgr_worker_enqueue_task(task, ctx_isp, CRM_TASK_PRIORITY_0);
 			if (rc)
 				CAM_ERR(CAM_REQ,
 					"Pending request processing failed:%d ctx:%u",
@@ -8492,11 +8492,6 @@ end:
 	return rc;
 }
 
-static void cam_req_mgr_process_workq_offline_ife_worker(struct work_struct *w)
-{
-	cam_req_mgr_process_workq(w);
-}
-
 static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 	void *args)
 {
@@ -8645,12 +8640,11 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 		ctx_isp->substate_machine = NULL;
 		ctx_isp->offline_context = true;
 
-		rc = cam_req_mgr_workq_create("offline_ife", 20,
-			&ctx_isp->workq, CRM_WORKQ_USAGE_IRQ, 0,
-			cam_req_mgr_process_workq_offline_ife_worker);
+		rc = cam_req_mgr_worker_create("offline_ife", 20,
+			&ctx_isp->worker, CRM_WORKER_USAGE_IRQ, 0);
 		if (rc)
 			CAM_ERR(CAM_ISP,
-				"Failed to create workq for offline IFE rc:%d",
+				"Failed to create worker for offline IFE rc:%d",
 				rc);
 	} else if (isp_hw_cmd_args.u.ctx_type == CAM_ISP_CTX_RDI_AND_STATS) {
 		CAM_DBG(CAM_ISP, "RDI plus stats only session Context");
@@ -8674,7 +8668,7 @@ static int __cam_isp_ctx_acquire_hw_v2(struct cam_context *ctx,
 	rc = ctx->hw_mgr_intf->hw_cmd(ctx->hw_mgr_intf->hw_mgr_priv,
 				&hw_cmd_args);
 
-	ctx_isp->hw_mgr_workq = (struct cam_req_mgr_core_workq *)isp_hw_cmd_args.cmd_data;
+	ctx_isp->hw_mgr_worker = (struct cam_req_mgr_core_worker *)isp_hw_cmd_args.cmd_data;
 	if (ctx_isp->independent_crm_en) {
 		ctx_isp->base->state_machine = __cam_isp_return_no_crm_state_machine();
 		CAM_INFO(CAM_ISP, "NO CRM session,top state machine assigned for no crm ctx %d",

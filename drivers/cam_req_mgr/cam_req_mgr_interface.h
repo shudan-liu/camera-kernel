@@ -11,7 +11,7 @@
 #include <media/cam_req_mgr.h>
 #include "cam_req_mgr_core_defs.h"
 #include "cam_req_mgr_util.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 
 struct cam_req_mgr_trigger_notify;
 struct cam_req_mgr_error_notify;
@@ -46,7 +46,7 @@ struct cam_req_mgr_no_crm_resume_evt_data;
  * @cam_req_mgr_no_crm_notify_resume : for device which generates trigger for no-crm resume
  */
 typedef int (*cam_req_mgr_notify_trigger)(struct cam_req_mgr_trigger_notify *,
-	struct cam_req_mgr_core_workq *);
+	struct cam_req_mgr_core_worker *);
 typedef int (*cam_req_mgr_no_crm_trigger)(int, struct cam_req_mgr_no_crm_apply_request *);
 typedef int (*cam_req_mgr_notify_err)(struct cam_req_mgr_error_notify *);
 typedef int (*cam_req_mgr_add_req)(struct cam_req_mgr_add_request *);

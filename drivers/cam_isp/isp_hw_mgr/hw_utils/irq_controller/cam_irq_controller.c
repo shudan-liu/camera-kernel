@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -13,7 +13,7 @@
 #include "cam_irq_controller.h"
 #include "cam_debug_util.h"
 #include "cam_common_util.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 
 /**
  * struct cam_irq_evt_handler:
@@ -729,7 +729,7 @@ static void __cam_irq_controller_th_processing(
 	bool                            is_irq_match;
 	int                             rc = -EINVAL;
 	int                             i;
-	struct crm_workq_task          *bh_cmd = NULL;
+	struct crm_worker_task          *bh_cmd = NULL;
 	struct cam_irq_bh_api          *irq_bh_api = NULL;
 
 	CAM_DBG(CAM_IRQ_CTRL, "Enter");

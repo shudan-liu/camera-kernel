@@ -549,7 +549,7 @@ struct cam_ife_csid_token_info {
  * @path_evt_payload               Payload for path events
  * @rx_free_payload_list:     Free Payload list for rx events
  * @free_payload_list:        Free Payload list for rx events
- * @lock_state :              spin lock
+ * @lock_state :              mutex lock
  * @payload_lock:             spin lock for path payload
  * @rx_payload_lock:          spin lock for rx payload
  * @csid_irq_controller:      common csid irq controller
@@ -563,7 +563,7 @@ struct cam_ife_csid_token_info {
  * @clk_rate:                 clk rate for csid hw
  * @res_type:                 cur res type for active hw
  * @dual_core_idx:            core idx in case of dual csid
- * @workq:                    Workq for irq events
+ * @worker:                   Worker for irq events
  * @reset_irq_handle:         Reset irq handle
  * @buf_done_irq_handle:      Buf done irq handle
  * @sync_mode:                Master/Slave modes
@@ -590,7 +590,7 @@ struct cam_ife_csid_ver2_hw {
 						CAM_IFE_CSID_VER2_PAYLOAD_MAX];
 	struct list_head                       rx_free_payload_list;
 	struct list_head                       path_free_payload_list;
-	spinlock_t                             lock_state;
+	struct mutex                           lock_state;
 	spinlock_t                             path_payload_lock;
 	spinlock_t                             rx_payload_lock;
 	void                                  *csid_irq_controller;
@@ -605,7 +605,7 @@ struct cam_ife_csid_ver2_hw {
 	uint64_t                               clk_rate;
 	uint32_t                               res_type;
 	uint32_t                               dual_core_idx;
-	void                                  *workq;
+	void                                  *worker;
 	int                                    reset_irq_handle;
 	int                                    buf_done_irq_handle;
 	int                                    top_err_irq_handle;
