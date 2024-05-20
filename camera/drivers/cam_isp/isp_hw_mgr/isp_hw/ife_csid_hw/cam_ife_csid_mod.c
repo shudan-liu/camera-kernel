@@ -18,6 +18,7 @@
 #include "cam_ife_csid570.h"
 #include "cam_ife_csid580.h"
 #include "cam_ife_csid680.h"
+#include "cam_ife_csid690.h"
 #include "cam_ife_csid680_110.h"
 #include "cam_ife_csid780.h"
 #include "cam_ife_csid860.h"
@@ -96,6 +97,11 @@ static struct cam_ife_csid_core_info cam_ife_csid980_hw_info = {
 	.sw_version = CAM_IFE_CSID_VER_2_0,
 };
 
+static struct cam_ife_csid_core_info cam_ife_csid690_hw_info = {
+	.csid_reg = &cam_ife_csid_690_reg_info,
+	.sw_version = CAM_IFE_CSID_VER_2_0,
+};
+
 static const struct of_device_id cam_ife_csid_dt_match[] = {
 
 	{
@@ -153,6 +159,10 @@ static const struct of_device_id cam_ife_csid_dt_match[] = {
 	{
 		.compatible = "qcom,csid980",
 		.data = &cam_ife_csid980_hw_info,
+	},
+	{
+		.compatible = "qcom,csid690",
+		.data = &cam_ife_csid690_hw_info,
 	},
 	{},
 };
