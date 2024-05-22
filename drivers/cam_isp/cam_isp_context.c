@@ -5102,7 +5102,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		ctx_isp->last_applied_req_id = apply->request_id;
 		if (req_isp->cdm_reset_before_apply &&
 			req_isp->num_deferred_acks &&
-			ctx_isp->rdi_only_context) {
+			(ctx_isp->rdi_only_context || ctx_isp->rdi_stats_context)) {
 			req_isp->num_deferred_acks = 0;
 			CAM_WARN(CAM_ISP,
 				"ctx %d req %llu CDM callback not happen but received buf done",
@@ -5132,7 +5132,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		CAM_DBG(CAM_REQ,
 			"move request %lld to active list(cnt = %d), ctx %u",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
-		if (ctx_isp->rdi_only_context &&
+		if ((ctx_isp->rdi_only_context || ctx_isp->rdi_stats_context) &&
 			(req_isp->num_deferred_acks == req_isp->num_fence_map_out)) {
 			CAM_WARN(CAM_ISP,
 				"ctx %d req %llu before CDM callback happen received buf done %d",
