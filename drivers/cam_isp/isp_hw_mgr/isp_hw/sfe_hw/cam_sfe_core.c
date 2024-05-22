@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -10,7 +10,7 @@
 #include "cam_sfe_soc.h"
 #include "cam_sfe_core.h"
 #include "cam_debug_util.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 
 static const char drv_name[] = "sfe";
 
@@ -228,7 +228,7 @@ int cam_sfe_start(void *hw_priv, void *start_args, uint32_t arg_size)
 	soc_info = &sfe_hw->soc_info;
 	core_info = (struct cam_sfe_hw_core_info *)sfe_hw->core_info;
 	sfe_res = (struct cam_isp_resource_node  *)start_args;
-	core_info->workq_info = sfe_res->workq_info;
+	core_info->worker_info = sfe_res->worker_info;
 
 	mutex_lock(&sfe_hw->hw_mutex);
 	if (sfe_res->res_type == CAM_ISP_RESOURCE_SFE_IN) {
@@ -361,6 +361,7 @@ int cam_sfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 		core_info->sfe_top->hw_ops.process_cmd(
 			core_info->sfe_top->top_priv, cmd_type,
 			cmd_args, arg_size);
+		break;
 	case CAM_ISP_HW_CMD_GET_RES_FOR_MID:
 		/* propagate to SFE bus wr */
 		core_info->sfe_bus_wr->hw_ops.process_cmd(

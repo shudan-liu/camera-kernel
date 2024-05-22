@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -15,7 +15,7 @@
 #include "cam_compat.h"
 #include "cam_sync_api.h"
 #include "cam_smmu_api.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 #include "cam_custom_hw_mgr.h"
 #include "cam_packet_util.h"
 #include "cam_debug_util.h"

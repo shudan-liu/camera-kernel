@@ -27,7 +27,7 @@
 #include "cam_common_util.h"
 #include "cam_compat.h"
 #include "cam_rpmsg.h"
-#include "cam_req_mgr_workq.h"
+#include "cam_req_mgr_worker_wrapper.h"
 
 static const char drv_name[] = "vfe_bus";
 
@@ -78,7 +78,7 @@ struct cam_vfe_bus_ver3_priv {
 	int                                 bus_irq_handle;
 	int                                 rup_irq_handle;
 	int                                 error_irq_handle;
-	void                               *workq_info;
+	void                               *worker_info;
 	uint32_t                            max_out_res;
 	uint32_t                            num_cons_err;
 	struct cam_vfe_constraint_error_info      *constraint_error_list;
@@ -411,55 +411,75 @@ static int cam_vfe_bus_ver3_get_comp_vfe_out_res_id_list(
 static enum cam_vfe_bus_ver3_packer_format
 	cam_vfe_bus_ver3_get_packer_fmt(uint32_t out_fmt, int wm_index)
 {
+	enum cam_vfe_bus_ver3_packer_format packer_fmt = PACKER_FMT_VER3_MAX;
 	switch (out_fmt) {
 	case CAM_FORMAT_MIPI_RAW_6:
 	case CAM_FORMAT_MIPI_RAW_16:
 	case CAM_FORMAT_PLAIN16_8:
 	case CAM_FORMAT_PLAIN128:
 	case CAM_FORMAT_PD8:
-		return PACKER_FMT_VER3_PLAIN_128;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_128;
+		break;
 	case CAM_FORMAT_MIPI_RAW_8:
 	case CAM_FORMAT_PLAIN8:
-		return PACKER_FMT_VER3_PLAIN_8;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_8;
+		break;
 	case CAM_FORMAT_MIPI_RAW_10:
-		return PACKER_FMT_VER3_MIPI10;
+		packer_fmt = PACKER_FMT_VER3_MIPI10;
+		break;
 	case CAM_FORMAT_MIPI_RAW_12:
-		return PACKER_FMT_VER3_MIPI12;
+		packer_fmt = PACKER_FMT_VER3_MIPI12;
+		break;
 	case CAM_FORMAT_MIPI_RAW_14:
-		return PACKER_FMT_VER3_MIPI14;
+		packer_fmt = PACKER_FMT_VER3_MIPI14;
+		break;
 	case CAM_FORMAT_MIPI_RAW_20:
-		return PACKER_FMT_VER3_MIPI20;
+		packer_fmt = PACKER_FMT_VER3_MIPI20;
+		break;
 	case CAM_FORMAT_NV21:
 		if ((wm_index == 1) || (wm_index == 3) || (wm_index == 5) || (wm_index == 9))
-			return PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN;
+			packer_fmt = PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10_ODD_EVEN;
+		else
+			packer_fmt = PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10;
+		break;
 	case CAM_FORMAT_NV12:
 	case CAM_FORMAT_UBWC_NV12:
 	case CAM_FORMAT_UBWC_NV12_4R:
 	case CAM_FORMAT_Y_ONLY:
-		return PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_8_LSB_MSB_10;
+		break;
 	case CAM_FORMAT_PLAIN16_10:
-		return PACKER_FMT_VER3_PLAIN_16_10BPP;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_16_10BPP;
+		break;
 	case CAM_FORMAT_PLAIN16_12:
-		return PACKER_FMT_VER3_PLAIN_16_12BPP;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_16_12BPP;
+		break;
 	case CAM_FORMAT_PLAIN16_14:
-		return PACKER_FMT_VER3_PLAIN_16_14BPP;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_16_14BPP;
+		break;
 	case CAM_FORMAT_PLAIN16_16:
-		return PACKER_FMT_VER3_PLAIN_16_16BPP;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_16_16BPP;
+		break;
 	case CAM_FORMAT_PLAIN32:
 	case CAM_FORMAT_ARGB:
-		return PACKER_FMT_VER3_PLAIN_32;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_32;
+		break;
 	case CAM_FORMAT_PLAIN32_20:
-		return PACKER_FMT_VER3_PLAIN32_20BPP;
+		packer_fmt = PACKER_FMT_VER3_PLAIN32_20BPP;
+		break;
 	case CAM_FORMAT_PLAIN64:
 	case CAM_FORMAT_ARGB_16:
 	case CAM_FORMAT_PD10:
-		return PACKER_FMT_VER3_PLAIN_64;
+		packer_fmt = PACKER_FMT_VER3_PLAIN_64;
+		break;
 	case CAM_FORMAT_UBWC_TP10:
 	case CAM_FORMAT_TP10:
-		return PACKER_FMT_VER3_TP_10;
+		packer_fmt = PACKER_FMT_VER3_TP_10;
+		break;
 	default:
-		return PACKER_FMT_VER3_MAX;
+		packer_fmt = PACKER_FMT_VER3_MAX;
 	}
+	return packer_fmt;
 }
 
 static int cam_vfe_bus_ver3_handle_rup_top_half(uint32_t evt_id,
@@ -914,6 +934,7 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 		case CAM_FORMAT_UBWC_NV12:
 			rsrc_data->en_ubwc = 1;
 			/* Fall through for NV12 */
+			fallthrough;
 		case CAM_FORMAT_NV21:
 		case CAM_FORMAT_NV12:
 		case CAM_FORMAT_Y_ONLY:
@@ -1224,7 +1245,7 @@ static int cam_vfe_bus_ver3_res_update_config_wm(
 static int cam_vfe_bus_ver3_acquire_wm(
 	struct cam_vfe_bus_ver3_priv           *ver3_bus_priv,
 	struct cam_vfe_hw_vfe_out_acquire_args *out_acq_args,
-	void                                   *workq,
+	void                                   *worker,
 	enum cam_vfe_bus_ver3_vfe_out_type      vfe_out_res_id,
 	enum cam_vfe_bus_plane_type             plane,
 	struct cam_isp_resource_node           *wm_res,
@@ -1274,7 +1295,7 @@ static int cam_vfe_bus_ver3_acquire_wm(
 		return rc;
 
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
-	wm_res->workq_info = workq;
+	wm_res->worker_info = worker;
 
 	CAM_DBG(CAM_ISP,
 		"VFE:%d WM:%d %s processed width:%d height:%d stride:%d format:0x%X en_ubwc:%d %s",
@@ -1320,7 +1341,7 @@ static int cam_vfe_bus_ver3_release_wm(void   *bus_priv,
 	rsrc_data->ubwc_lossy_threshold_1 = 0;
 	rsrc_data->ubwc_offset_lossy_variance = 0;
 	rsrc_data->ubwc_bandwidth_limit = 0;
-	wm_res->workq_info = NULL;
+	wm_res->worker_info = NULL;
 	wm_res->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
 	CAM_DBG(CAM_ISP, "VFE:%d Release WM:%d %s",
@@ -1549,7 +1570,7 @@ static bool cam_vfe_bus_ver3_match_comp_grp(
 
 static int cam_vfe_bus_ver3_acquire_comp_grp(
 	struct cam_vfe_bus_ver3_priv         *ver3_bus_priv,
-	void                                *workq,
+	void                                *worker,
 	uint32_t                             is_dual,
 	uint32_t                             is_master,
 	struct cam_isp_resource_node       **comp_grp,
@@ -1575,7 +1596,7 @@ static int cam_vfe_bus_ver3_acquire_comp_grp(
 
 	if (!previously_acquired) {
 		rsrc_data->intra_client_mask = 0x1;
-		comp_grp_local->workq_info = workq;
+		comp_grp_local->worker_info = worker;
 		comp_grp_local->res_state = CAM_ISP_RESOURCE_STATE_RESERVED;
 
 		rsrc_data->is_master = is_master;
@@ -1662,7 +1683,7 @@ static int cam_vfe_bus_ver3_release_comp_grp(
 		in_rsrc_data->addr_sync_mode = 0;
 		in_rsrc_data->composite_mask = 0;
 
-		comp_grp->workq_info = NULL;
+		comp_grp->worker_info = NULL;
 		comp_grp->res_state = CAM_ISP_RESOURCE_STATE_AVAILABLE;
 
 		list_add_tail(&comp_grp->list, &ver3_bus_priv->free_comp_grp);
@@ -1984,10 +2005,10 @@ static int cam_vfe_bus_ver3_acquire_vfe_out(void *bus_priv, void *acquire_args,
 		rsrc_data->common_data->buf_done_controller =
 			acq_args->buf_done_controller;
 
-	ver3_bus_priv->workq_info = acq_args->workq;
+	ver3_bus_priv->worker_info = acq_args->worker;
 	rsrc_node->rdi_only_ctx = 0;
 	rsrc_node->res_id = out_acquire_args->out_port_info->acquired_res_type;
-	rsrc_node->workq_info = acq_args->workq;
+	rsrc_node->worker_info = acq_args->worker;
 	rsrc_node->cdm_ops = out_acquire_args->cdm_ops;
 	rsrc_data->cdm_util_ops = out_acquire_args->cdm_ops;
 	rsrc_data->format = out_acquire_args->out_port_info->format;
@@ -2000,7 +2021,7 @@ static int cam_vfe_bus_ver3_acquire_vfe_out(void *bus_priv, void *acquire_args,
 	for (i = 0; i < rsrc_data->num_wm; i++) {
 		rc = cam_vfe_bus_ver3_acquire_wm(ver3_bus_priv,
 			out_acquire_args,
-			acq_args->workq,
+			acq_args->worker,
 			vfe_out_res_id,
 			i,
 			&rsrc_data->wm_res[i],
@@ -2018,7 +2039,7 @@ static int cam_vfe_bus_ver3_acquire_vfe_out(void *bus_priv, void *acquire_args,
 
 	/* Acquire composite group using COMP GRP ID */
 	rc = cam_vfe_bus_ver3_acquire_comp_grp(ver3_bus_priv,
-		acq_args->workq,
+		acq_args->worker,
 		out_acquire_args->is_dual,
 		out_acquire_args->is_master,
 		&rsrc_data->comp_grp,
@@ -2088,7 +2109,7 @@ static int cam_vfe_bus_ver3_release_vfe_out(void *bus_priv, void *release_args,
 			rsrc_data->comp_grp);
 	rsrc_data->comp_grp = NULL;
 
-	vfe_out->workq_info = NULL;
+	vfe_out->worker_info = NULL;
 	vfe_out->cdm_ops = NULL;
 	rsrc_data->cdm_util_ops = NULL;
 
@@ -2156,8 +2177,8 @@ static int cam_vfe_bus_ver3_start_vfe_out(
 		vfe_out,
 		vfe_out->top_half_handler,
 		vfe_out->bottom_half_handler,
-		vfe_out->workq_info,
-		&workq_bh_api,
+		vfe_out->worker_info,
+		&worker_bh_api,
 		CAM_IRQ_EVT_GROUP_0);
 
 	if (vfe_out->irq_handle < 1) {
@@ -2190,8 +2211,8 @@ static int cam_vfe_bus_ver3_start_vfe_out(
 				vfe_out,
 				cam_vfe_bus_ver3_handle_rup_top_half,
 				cam_vfe_bus_ver3_handle_rup_bottom_half,
-				vfe_out->workq_info,
-				&workq_bh_api,
+				vfe_out->worker_info,
+				&worker_bh_api,
 				CAM_IRQ_EVT_GROUP_1);
 
 		if (common_data->rup_irq_handle[source_group] < 1) {
@@ -3015,7 +3036,7 @@ static int cam_vfe_bus_ver3_subscribe_init_irq(
 	}
 
 
-	if (bus_priv->workq_info != NULL) {
+	if (bus_priv->worker_info != NULL) {
 		bus_priv->error_irq_handle = cam_irq_controller_subscribe_irq(
 			bus_priv->common_data.bus_irq_controller,
 			CAM_IRQ_PRIORITY_0,
@@ -3023,8 +3044,8 @@ static int cam_vfe_bus_ver3_subscribe_init_irq(
 			bus_priv,
 			cam_vfe_bus_ver3_err_irq_top_half,
 			cam_vfe_bus_ver3_err_irq_bottom_half,
-			bus_priv->workq_info,
-			&workq_bh_api,
+			bus_priv->worker_info,
+			&worker_bh_api,
 			CAM_IRQ_EVT_GROUP_0);
 
 		if (bus_priv->error_irq_handle < 1) {
@@ -4134,7 +4155,7 @@ end:
 static int cam_vfe_bus_ver3_update_res_wm(
 	struct cam_vfe_bus_ver3_priv           *ver3_bus_priv,
 	struct cam_vfe_hw_vfe_out_acquire_args *out_acq_args,
-	void                                   *workq,
+	void                                   *worker,
 	enum cam_vfe_bus_ver3_vfe_out_type      vfe_out_res_id,
 	enum cam_vfe_bus_plane_type             plane,
 	struct cam_isp_resource_node           *wm_res,
@@ -4184,7 +4205,7 @@ static int cam_vfe_bus_ver3_update_res_wm(
 	if (rc)
 		return rc;
 
-	wm_res->workq_info = workq;
+	wm_res->worker_info = worker;
 	CAM_DBG(CAM_ISP,
 		"VFE:%d WM:%d %s processed width:%d height:%d stride:%d format:0x%X en_ubwc:%d %s",
 		rsrc_data->common_data->core_index, rsrc_data->index,
@@ -4196,7 +4217,7 @@ static int cam_vfe_bus_ver3_update_res_wm(
 
 static int cam_vfe_bus_ver3_update_res_comp_grp(
 	struct cam_vfe_bus_ver3_priv         *ver3_bus_priv,
-	void                                *workq,
+	void                                *worker,
 	uint32_t                             is_dual,
 	uint32_t                             is_master,
 	struct cam_isp_resource_node       **comp_grp,
@@ -4344,15 +4365,15 @@ static int cam_vfe_bus_ver3_update_res_vfe_out(void *bus_priv, void *acquire_arg
 		rsrc_data->common_data->buf_done_controller =
 			acq_args->buf_done_controller;
 
-	ver3_bus_priv->workq_info = acq_args->workq;
+	ver3_bus_priv->worker_info = acq_args->worker;
 	rsrc_node->rdi_only_ctx = 0;
 	rsrc_node->res_id = out_acquire_args->out_port_info->acquired_res_type;
-	rsrc_node->workq_info = acq_args->workq;
+	rsrc_node->worker_info = acq_args->worker;
 	rsrc_node->cdm_ops = out_acquire_args->cdm_ops;
 	rsrc_data->cdm_util_ops = out_acquire_args->cdm_ops;
 	rsrc_data->common_data->event_cb = acq_args->event_cb;
 
-	rsrc_node->workq_info = acq_args->workq;
+	rsrc_node->worker_info = acq_args->worker;
 	rsrc_data->format = out_acquire_args->out_port_info->format;
 
 	if ((rsrc_data->out_type == CAM_VFE_BUS_VER3_VFE_OUT_FD) &&
@@ -4363,7 +4384,7 @@ static int cam_vfe_bus_ver3_update_res_vfe_out(void *bus_priv, void *acquire_arg
 	for (i = 0; i < rsrc_data->num_wm; i++) {
 		rc = cam_vfe_bus_ver3_update_res_wm(ver3_bus_priv,
 			out_acquire_args,
-			acq_args->workq,
+			acq_args->worker,
 			vfe_out_res_id,
 			i,
 			&rsrc_data->wm_res[i],
@@ -4380,7 +4401,7 @@ static int cam_vfe_bus_ver3_update_res_vfe_out(void *bus_priv, void *acquire_arg
 
 	/* Update composite group data using COMP GRP ID */
 	rc = cam_vfe_bus_ver3_update_res_comp_grp(ver3_bus_priv,
-		acq_args->workq,
+		acq_args->worker,
 		out_acquire_args->is_dual,
 		out_acquire_args->is_master,
 		&rsrc_data->comp_grp,
@@ -4432,7 +4453,7 @@ static int cam_vfe_bus_ver3_enable_irq_vfe_out(void *bus_priv, void *res_irq_mas
 		if (rsrc_data->is_dual && !rsrc_data->is_master)
 			goto end;
 
-		if (!vfe_out->irq_handle && !vfe_out->is_per_port_start) {
+		if (!vfe_out->irq_handle && !vfe_out->is_per_port_start && irq_args->enable_irq) {
 			vfe_out->irq_handle = cam_irq_controller_subscribe_irq(
 				common_data->buf_done_controller,
 				CAM_IRQ_PRIORITY_1,
@@ -4440,8 +4461,8 @@ static int cam_vfe_bus_ver3_enable_irq_vfe_out(void *bus_priv, void *res_irq_mas
 				vfe_out,
 				vfe_out->top_half_handler,
 				vfe_out->bottom_half_handler,
-				vfe_out->workq_info,
-				&workq_bh_api,
+				vfe_out->worker_info,
+				&worker_bh_api,
 				CAM_IRQ_EVT_GROUP_0);
 			if (vfe_out->irq_handle < 1) {
 				CAM_ERR(CAM_ISP, "Subscribe IRQ failed for VFE out_res %d",
@@ -4474,8 +4495,8 @@ static int cam_vfe_bus_ver3_enable_irq_vfe_out(void *bus_priv, void *res_irq_mas
 						vfe_out,
 						cam_vfe_bus_ver3_handle_rup_top_half,
 						cam_vfe_bus_ver3_handle_rup_bottom_half,
-						vfe_out->workq_info,
-						&workq_bh_api,
+						vfe_out->worker_info,
+						&worker_bh_api,
 						CAM_IRQ_EVT_GROUP_1);
 
 				if (common_data->rup_irq_handle[source_group] < 1) {

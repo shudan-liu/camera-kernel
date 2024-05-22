@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_COMMON_UTIL_H_
@@ -162,8 +163,8 @@ int cam_common_modify_timer(struct timer_list *timer, int32_t timeout_val);
  *
  * @brief                  Detect if there is any scheduling delay
  *
- * @token:                 String identifier to print workq name or tasklet
- * @scheduled_time:        Time when workq or tasklet was scheduled
+ * @token:                 String identifier to print worker name or tasklet
+ * @scheduled_time:        Time when worker or tasklet was scheduled
  * @threshold:             Threshold time
  *
  */
