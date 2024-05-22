@@ -464,6 +464,9 @@ inline void cam_req_mgr_worker_flush(struct cam_req_mgr_core_worker *worker)
 	WORKER_ACQUIRE_LOCK(worker, flags);
 	INIT_LIST_HEAD(&worker->task.empty_head);
 
+	for (i = CRM_TASK_PRIORITY_0; i < CRM_TASK_PRIORITY_MAX; i++)
+		INIT_LIST_HEAD(&worker->task.process_head[i]);
+
 	for (i = 0; i < worker->task.num_task; i++) {
 		task = &worker->task.pool[i];
 		task->parent = (void *)worker;
