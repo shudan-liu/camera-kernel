@@ -1235,7 +1235,7 @@ static int cam_icp_v2_setup_register_base_indexes(
 		return -EINVAL;
 	}
 
-	if (hw_version == CAM_ICP_V2_VERSION) {
+	if (hw_version == CAM_ICP_V2_VERSION || hw_version == CAM_ICP_V3_0_VERSION) {
 		rc = cam_common_util_get_string_index(soc_info->mem_block_name,
 			soc_info->num_mem_block, "icp_cirq", &index);
 		if ((rc == 0) && (index < num_reg_map)) {
@@ -1299,6 +1299,7 @@ int cam_icp_v2_core_init(
 			core_info->reg_base_idx[ICP_V2_CSR_BASE];
 		break;
 	case CAM_ICP_V2_VERSION:
+	case CAM_ICP_V3_0_VERSION:
 		core_info->irq_regbase_idx =
 			core_info->reg_base_idx[ICP_V2_CIRQ_BASE];
 		break;
