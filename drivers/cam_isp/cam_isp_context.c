@@ -5734,6 +5734,8 @@ static int cam_isp_ctx_flush_all_affected_ctx_stream_grp(
 		switch (cmd_type) {
 		case CAM_ISP_CTX_FLUSH_AFFECTED_CTX_SET_FLUSH_IN_PROGRESS:
 			atomic_set(&ctx_isp->flush_in_progress, 1);
+			cam_req_mgr_worker_pause(ctx_isp->hw_mgr_worker);
+			cam_req_mgr_worker_flush(ctx_isp->hw_mgr_worker);
 			break;
 		case CAM_ISP_CTX_FLUSH_AFFECTED_CTX_REQ_LIST:
 			rc = cam_isp_ctx_flush_affected_ctx_req_list(active_ctx, flush_req);
