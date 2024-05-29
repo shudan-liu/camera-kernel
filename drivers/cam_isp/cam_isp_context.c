@@ -9900,8 +9900,11 @@ static int __cam_isp_ctx_apply_default_settings(
 		return 0;
 
 	mutex_lock(&ctx_isp->isp_mutex);
-	if ((ctx_isp->aeb_enabled) && (atomic_read(&ctx_isp->internal_recovery_set)))
-		return __cam_isp_ctx_reset_and_recover(false, ctx);
+	if ((ctx_isp->aeb_enabled) && (atomic_read(&ctx_isp->internal_recovery_set))) {
+		rc = __cam_isp_ctx_reset_and_recover(false, ctx);
+		mutex_unlock(&ctx_isp->isp_mutex);
+		return rc;
+	}
 	mutex_unlock(&ctx_isp->isp_mutex);
 
 	CAM_DBG(CAM_ISP,
