@@ -12,6 +12,8 @@
 #include <linux/pm_domain.h>
 #include <linux/pm_runtime.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/pm_opp.h>
+
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_cx_ipeak.h"
@@ -1537,6 +1539,16 @@ int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info, int cesta_cl
 			apply_level);
 	}
 
+	rc = dev_pm_opp_set_rate(soc_info->dev,
+			  soc_info->clk_rate[apply_level][soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Unable to set operating point for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx],
+			rc);
+		return rc;
+	}
+
 	if (soc_info->is_clk_drv_en && CAM_IS_VALID_CESTA_IDX(cesta_client_idx)) {
 		rc = cam_soc_util_set_cesta_clk_rate(soc_info, cesta_client_idx, clk_rate_high,
 			clk_rate_low,
@@ -1961,6 +1973,16 @@ int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_update_vote_cx_ipeak(soc_info, apply_level);
 
+	rc = dev_pm_opp_set_rate(soc_info->dev,
+			soc_info->clk_rate[apply_level][soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Unable to set operating point for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx],
+			rc);
+		return rc;
+	}
+
 	CAM_DBG(CAM_UTIL, "Dev[%s] : cesta client %d, request level %s, apply level %s",
 		soc_info->dev_name, cesta_client_idx,
 		cam_soc_util_get_string_from_level(clk_level),
@@ -2016,6 +2038,9 @@ void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info,
 
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_unvote_cx_ipeak(soc_info);
+
+	dev_pm_opp_set_rate(soc_info->dev, 0);
+
 	for (i = soc_info->num_clk - 1; i >= 0; i--)
 		cam_soc_util_clk_disable(soc_info, cesta_client_idx, false, i);
 }
@@ -2318,6 +2343,16 @@ int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
 
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_update_vote_cx_ipeak(soc_info, apply_level_high);
+
+	rc = dev_pm_opp_set_rate(soc_info->dev,
+			  soc_info->clk_rate[apply_level_high][soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Unable to set operating point for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx],
+			rc);
+		return rc;
+	}
 
 	for (i = 0; i < soc_info->num_clk; i++) {
 		if (do_not_set_src_clk && (i == soc_info->src_clk_idx)) {
@@ -3419,6 +3454,27 @@ end:
 	return ret;
 }
 
+int cam_soc_util_configure_opp(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+
+	rc = devm_pm_opp_set_clkname(soc_info->dev, soc_info->clk_name[soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"OPP set_clkname failed for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx], rc);
+		return rc;
+	}
+
+	rc = devm_pm_opp_of_add_table(soc_info->dev);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"OPP add_table failed for dev %s rc %d",
+			soc_info->dev_name, rc);
+	}
+	return rc;
+}
+
 int cam_soc_util_request_platform_resource(
 	struct cam_hw_soc_info *soc_info,
 	irq_handler_t handler, void **irq_data)
@@ -3554,6 +3610,12 @@ int cam_soc_util_request_platform_resource(
 				goto put_clk;
 			}
 		}
+	}
+
+	rc = cam_soc_util_configure_opp(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_UTIL, "Failed to configure OPP");
+		goto put_clk;
 	}
 
 	rc = cam_soc_util_request_pinctrl(soc_info);
