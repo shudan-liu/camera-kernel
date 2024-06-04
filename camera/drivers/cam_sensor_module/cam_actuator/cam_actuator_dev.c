@@ -293,6 +293,8 @@ static void cam_actuator_i2c_component_unbind(struct device *dev,
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 
+	cam_actuator_release_power_domain(a_ctrl);
+
 	/*Free Allocated Mem */
 	kfree(a_ctrl->i2c_data.per_frame);
 	a_ctrl->i2c_data.per_frame = NULL;
@@ -455,6 +457,8 @@ static void cam_actuator_platform_component_unbind(struct device *dev,
 	cam_actuator_shutdown(a_ctrl);
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+
+	cam_actuator_release_power_domain(a_ctrl);
 
 	kfree(a_ctrl->io_master_info.cci_client);
 	a_ctrl->io_master_info.cci_client = NULL;

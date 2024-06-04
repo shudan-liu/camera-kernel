@@ -408,5 +408,14 @@ int cam_eeprom_parse_dt(struct cam_eeprom_ctrl_t *e_ctrl)
 			soc_info->rgltr_name[i]);
 	}
 
+	rc = cam_sensor_util_request_power_domain(soc_info);
+
 	return rc;
+}
+
+void cam_eeprom_release_power_domain(struct cam_eeprom_ctrl_t *e_ctrl)
+{
+	struct cam_hw_soc_info *soc_info = &e_ctrl->soc_info;
+
+	cam_sensor_util_release_power_domain(soc_info);
 }
