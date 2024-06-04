@@ -22,7 +22,7 @@ def _define_module(target, variant):
             "drivers/cam_req_mgr/cam_req_mgr_dev.c",
             "drivers/cam_req_mgr/cam_req_mgr_util.c",
             "drivers/cam_req_mgr/cam_mem_mgr.c",
-            "drivers/cam_req_mgr/cam_req_mgr_workq.c",
+            "drivers/cam_req_mgr/cam_req_mgr_worker_wrapper.c",
             "drivers/cam_req_mgr/cam_req_mgr_timer.c",
             "drivers/cam_req_mgr/cam_req_mgr_debug.c",
             "drivers/cam_utils/cam_soc_util.c",
