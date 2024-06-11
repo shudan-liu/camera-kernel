@@ -353,14 +353,14 @@ struct cam_csiphy_info {
  * @combo_mode                 : Indicates the device mode of operation
  * @cphy_dphy_combo_mode       : Info regarding cphy_dphy_combo mode
  * @csiphy_3phase              : Details whether 3Phase / 2Phase operation
- * @reserve
+ * @mux_mode                   : Indication for Mux mode operation
  *
  */
 struct cam_csiphy_acquire_dev_info {
 	__u32    combo_mode;
 	__u16    cphy_dphy_combo_mode;
 	__u8     csiphy_3phase;
-	__u8     reserve;
+	__u8     mux_mode;
 } __attribute__((packed));
 
 /**

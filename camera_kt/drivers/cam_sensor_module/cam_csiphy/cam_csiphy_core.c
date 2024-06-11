@@ -1149,6 +1149,8 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		csiphy_acq_params.combo_mode = 0;
+		csiphy_acq_params.cphy_dphy_combo_mode = 0;
+		csiphy_acq_params.mux_mode = 0;
 
 		if (copy_from_user(&csiphy_acq_params,
 			u64_to_user_ptr(csiphy_acq_dev.info_handle),
@@ -1177,6 +1179,18 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 					CSIPHY_MAX_INSTANCES_PER_PHY - 1;
 		}
 
+		if (csiphy_acq_params.mux_mode == 1) {
+			CAM_DBG(CAM_CSIPHY, "Mux Mode stream detected");
+			csiphy_dev->mux_mode = 1;
+			/* Currently Mux mode support Dual GSML only.
+			 * This can be done with architecture specific with
+			 * introducing MACRO for max support device.
+			 */
+			csiphy_dev->session_max_device_support =
+				CSIPHY_MAX_INSTANCES_PER_PHY - 1;
+
+		}
+
 		if (csiphy_acq_params.cphy_dphy_combo_mode == 1) {
 			CAM_DBG(CAM_CSIPHY,
 				"cphy_dphy_combo_mode stream detected");
@@ -1186,8 +1200,9 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 		}
 
 		if (!csiphy_acq_params.combo_mode &&
+			!csiphy_acq_params.mux_mode &&
 			!csiphy_acq_params.cphy_dphy_combo_mode) {
-			CAM_DBG(CAM_CSIPHY, "Non Combo Mode stream");
+			CAM_DBG(CAM_CSIPHY, "Non Combo/Mux Mode stream");
 			csiphy_dev->session_max_device_support = 1;
 		}
 
@@ -1292,9 +1307,22 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->csiphy_info[offset].csiphy_cpas_cp_reg_mask
 				= 0;
 
-			cam_csiphy_update_lane(csiphy_dev, offset, false);
+			/* MuxMode uses same data lanes for the csiphy.
+			 * this condition is to prevent disabling datalanes
+			 * for streaming sensor in MuxMode.
+			 */
+			if (!csiphy_dev->mux_mode)
+				cam_csiphy_update_lane(csiphy_dev, offset, false);
+
 			goto release_mutex;
 		}
+
+		/* Below condition is explicitly disabling all data lanes
+		 * when all sensors are requested for stop.
+		 */
+		if (csiphy_dev->mux_mode && !csiphy_dev->start_dev_count)
+			cam_csiphy_update_lane(csiphy_dev, offset, false);
+
 #ifdef CONFIG_SECURE_CAMERA
 		if (csiphy_dev->csiphy_info[offset].secure_mode)
 			cam_csiphy_notify_secure_mode(
@@ -1501,6 +1529,13 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 				}
 			}
 
+			/* For Mux mode we can bypass this as well, but leave it
+			 * intentionally with the expectation in case of both
+			 * sensors may use differnt data lanes. In case of all
+			 * datalane enabled by first sensor, and redo the same
+			 * operation when sencond sensor request for start will not
+			 * have any impact on csiphy operation.
+			 */
 			rc = cam_csiphy_update_lane(csiphy_dev, offset, true);
 			if (csiphy_dump == 1)
 				cam_csiphy_mem_dmp(&csiphy_dev->soc_info);
