@@ -277,6 +277,38 @@ struct cam_context {
 };
 
 /**
+ * struct cam_context_stream_dump - camera context stream information
+ *
+ * @hw_mgr_ctx_id:         Hw Mgr context id returned from hw mgr
+ * @dev_id:                ID of device associated
+ * @dev_hdl:               Device handle
+ * @link_hdl:              Link handle
+ * @sessoin_hdl:           Session handle
+ * @refcount:              Context object refcount
+ * @last_flush_req:        Last request to flush
+ * @state:                 Current state for top level state machine
+ */
+struct cam_context_stream_dump {
+	uint32_t                       hw_mgr_ctx_id;
+	uint32_t                       dev_id;
+	uint32_t                       dev_hdl;
+	uint32_t                       link_hdl;
+	uint32_t                       session_hdl;
+	uint32_t                       refcount;
+	uint32_t                       last_flush_req;
+	enum cam_context_state         state;
+};
+
+/**
+ * struct cam_context_each_req_info - camera each request information
+ *
+ * @request_id:         request id
+ */
+struct cam_context_each_req_info {
+	uint64_t              request_id;
+};
+
+/**
  * struct cam_context_dump_header -  Function for context dump header
  *
  * @tag         :    Tag for context dump header
