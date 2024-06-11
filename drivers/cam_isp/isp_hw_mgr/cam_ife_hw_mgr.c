@@ -9803,11 +9803,14 @@ static int cam_ife_hw_mgr_res_stream_on_off_grp_cfg(
 		struct cam_isp_stop_args   *stop_isp = hw_args;
 		*skip_hw_deinit = true;
 
+		if (!grp_cfg->stream_cfg[j].is_streamon)
+			rc = 0;
+
 		if (stop_isp->stop_only) {
 			rc =
 			cam_ife_mgr_update_irq_mask_affected_ctx_stream_grp(
 				ctx, i, false, false);
-		} else {
+		} else if (grp_cfg->stream_cfg[j].is_streamon) {
 			rc = cam_ife_mgr_disable_irq(ctx);
 			if (rc) {
 				CAM_WARN(CAM_ISP,
@@ -9821,8 +9824,7 @@ static int cam_ife_hw_mgr_res_stream_on_off_grp_cfg(
 				grp_cfg->stream_on_cnt--;
 		}
 
-		if ((grp_cfg->stream_on_cnt == 0)
-			|| stop_isp->stop_only) {
+		if (grp_cfg->stream_on_cnt == 0) {
 			if (!stop_isp->stop_only)
 				*skip_hw_deinit = false;
 			cam_ife_mgr_stop_hw_res_stream_grp(ctx, i,
@@ -10568,6 +10570,9 @@ static int cam_ife_mgr_update_irq_mask_affected_ctx_stream_grp(
 			ife_ctx =
 				g_ife_sns_grp_cfg.grp_cfg[index].stream_cfg[i].priv;
 
+			if (ctx->ctx_index != ife_ctx->ctx_index)
+				continue;
+
 			if (enable_irq) {
 				rc = cam_ife_mgr_enable_irq(ife_ctx, is_internal_start);
 				if (rc) {
@@ -10589,7 +10594,8 @@ static int cam_ife_mgr_update_irq_mask_affected_ctx_stream_grp(
 				}
 				g_ife_sns_grp_cfg.grp_cfg[index].stream_cfg[i].is_streamon =
 					false;
-				g_ife_sns_grp_cfg.grp_cfg[index].stream_on_cnt--;
+				if (g_ife_sns_grp_cfg.grp_cfg[index].stream_on_cnt > 0)
+					g_ife_sns_grp_cfg.grp_cfg[index].stream_on_cnt--;
 			}
 		}
 	}
