@@ -1122,9 +1122,10 @@ int32_t cam_csiphy_core_cfg(void *phy_dev,
 			csiphy_dev->combo_mode);
 		if ((csiphy_dev->csiphy_state == CAM_CSIPHY_START) &&
 			(csiphy_dev->combo_mode == 0) &&
+			(csiphy_dev->mux_mode == 0) &&
 			(csiphy_dev->acquire_count > 0)) {
 			CAM_ERR(CAM_CSIPHY,
-				"NonComboMode does not support multiple acquire: Acquire_count: %d",
+				"NonComboMode or mux mode do not support multiple acquire: Acquire_count: %d",
 				csiphy_dev->acquire_count);
 			rc = -EINVAL;
 			goto release_mutex;
