@@ -512,22 +512,28 @@ int cam_sfe_core_init(
 		goto deinit_controller;
 	}
 
-	rc = cam_sfe_bus_init(sfe_hw_info->bus_wr_version, BUS_TYPE_SFE_WR,
-		soc_info, hw_intf, sfe_hw_info->bus_wr_hw_info,
-		core_info->sfe_irq_controller,
-		&core_info->sfe_bus_wr);
-	if (rc) {
-		CAM_ERR(CAM_SFE, "SFE bus wr init failed rc: %d", rc);
-		goto deinit_top;
+	/* Probe write engine only if it exists - 0x0 is not a valid version */
+	if (sfe_hw_info->bus_wr_version) {
+		rc = cam_sfe_bus_init(sfe_hw_info->bus_wr_version, BUS_TYPE_SFE_WR,
+			soc_info, hw_intf, sfe_hw_info->bus_wr_hw_info,
+			core_info->sfe_irq_controller,
+			&core_info->sfe_bus_wr);
+		if (rc) {
+			CAM_ERR(CAM_SFE, "SFE bus wr init failed rc: %d", rc);
+			goto deinit_top;
+		}
 	}
 
-	rc = cam_sfe_bus_init(sfe_hw_info->bus_rd_version, BUS_TYPE_SFE_RD,
-		soc_info, hw_intf, sfe_hw_info->bus_rd_hw_info,
-		core_info->sfe_irq_controller,
-		&core_info->sfe_bus_rd);
-	if (rc) {
-		CAM_ERR(CAM_SFE, "SFE bus rd init failed rc: %d", rc);
-		goto deinit_bus_wr;
+	/* Probe fetch engine only if it exists - 0x0 is not a valid version */
+	if (sfe_hw_info->bus_rd_version) {
+		rc = cam_sfe_bus_init(sfe_hw_info->bus_rd_version, BUS_TYPE_SFE_RD,
+			soc_info, hw_intf, sfe_hw_info->bus_rd_hw_info,
+			core_info->sfe_irq_controller,
+			&core_info->sfe_bus_rd);
+		if (rc) {
+			CAM_ERR(CAM_SFE, "SFE bus rd init failed rc: %d", rc);
+			goto deinit_bus_wr;
+		}
 	}
 
 	spin_lock_init(&core_info->spin_lock);
@@ -536,8 +542,9 @@ int cam_sfe_core_init(
 	return rc;
 
 deinit_bus_wr:
-	cam_sfe_bus_deinit(sfe_hw_info->bus_wr_version,
-		BUS_TYPE_SFE_WR, &core_info->sfe_bus_wr);
+	if (sfe_hw_info->bus_wr_version)
+		cam_sfe_bus_deinit(sfe_hw_info->bus_wr_version,
+			BUS_TYPE_SFE_WR, &core_info->sfe_bus_wr);
 deinit_top:
 	cam_sfe_top_deinit(sfe_hw_info->top_version,
 		&core_info->sfe_top);
@@ -558,17 +565,21 @@ int cam_sfe_core_deinit(
 
 	spin_lock_irqsave(&core_info->spin_lock, flags);
 
-	rc = cam_sfe_bus_deinit(sfe_hw_info->bus_rd_version,
-		BUS_TYPE_SFE_RD, &core_info->sfe_bus_rd);
-	if (rc)
-		CAM_ERR(CAM_SFE,
-			"SFE bus rd deinit failed rc: %d", rc);
+	if (sfe_hw_info->bus_rd_version) {
+		rc = cam_sfe_bus_deinit(sfe_hw_info->bus_rd_version,
+				BUS_TYPE_SFE_RD, &core_info->sfe_bus_rd);
+		if (rc)
+			CAM_ERR(CAM_SFE,
+				"SFE bus rd deinit failed rc: %d", rc);
+	}
 
-	rc = cam_sfe_bus_deinit(sfe_hw_info->bus_wr_version,
-			BUS_TYPE_SFE_WR, &core_info->sfe_bus_wr);
-	if (rc)
-		CAM_ERR(CAM_SFE,
-			"SFE bus wr deinit failed rc: %d", rc);
+	if (sfe_hw_info->bus_wr_version) {
+		rc = cam_sfe_bus_deinit(sfe_hw_info->bus_wr_version,
+				BUS_TYPE_SFE_WR, &core_info->sfe_bus_wr);
+		if (rc)
+			CAM_ERR(CAM_SFE,
+				"SFE bus wr deinit failed rc: %d", rc);
+	}
 
 	rc = cam_sfe_top_deinit(sfe_hw_info->top_version,
 		&core_info->sfe_top);

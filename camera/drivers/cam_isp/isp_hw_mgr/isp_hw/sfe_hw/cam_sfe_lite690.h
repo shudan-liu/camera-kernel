@@ -190,6 +190,9 @@ static struct cam_irq_controller_reg_info sfe_lite_690_top_irq_reg_info = {
 struct cam_sfe_hw_info cam_sfe_lite_690_hw_info = {
 	.irq_reg_info                  = &sfe_lite_690_top_irq_reg_info,
 
+	/*SFE lite does not have support of bus write engine*/
+	.bus_wr_version                = 0x0,
+
 	.bus_rd_version                = CAM_SFE_BUS_RD_VER_1_0,
 	.bus_rd_hw_info                = &sfe_lite_690_bus_rd_hw_info,
 
