@@ -513,6 +513,7 @@ struct cam_cdm_bl_fifo {
 	uint32_t bl_depth;
 	uint8_t last_bl_tag_done;
 	atomic_t work_record;
+	bool bl_tag_reuse;
 };
 
 /**

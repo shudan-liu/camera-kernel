@@ -1781,8 +1781,16 @@ static int __cam_isp_ctx_handle_buf_done_for_req_list(
 		if (buf_done_req_id <= ctx->last_flush_req) {
 			for (i = 0; i < req_isp->num_fence_map_out; i++) {
 				memset(&ev_timestamp, 0, sizeof(ev_timestamp));
-				ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
-				ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
+				if (req_isp->sof_timestamp_val && req_isp->boot_timestamp) {
+					ev_timestamp.sof_timestamp = req_isp->sof_timestamp_val;
+					ev_timestamp.boot_timestamp = req_isp->boot_timestamp;
+				} else {
+					CAM_WARN(CAM_ISP,
+						"There is not sof coming before current buf done req %lld ctx %u sof_timestamp x%llx boot_timestamp 0x%llx",
+						buf_done_req_id, ctx->ctx_id,
+						req_isp->sof_timestamp_val,
+						req_isp->boot_timestamp);
+				}
 				kernel_buf_ptr = req_isp->fence_map_out[i].kernel_map_buf_addr[0];
 				kernel_buf_handle = req_isp->fence_map_out[i].buf_handle[0];
 
@@ -1987,8 +1995,16 @@ static int __cam_isp_ctx_handle_buf_done_for_request(
 				ctx->ctx_id);
 
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
-			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
-			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
+			if (req_isp->sof_timestamp_val && req_isp->boot_timestamp) {
+				ev_timestamp.sof_timestamp = req_isp->sof_timestamp_val;
+				ev_timestamp.boot_timestamp = req_isp->boot_timestamp;
+			} else {
+				CAM_WARN(CAM_ISP,
+					"There is not sof coming before current buf done req %lld ctx %u sof_timestamp x%llx boot_timestamp 0x%llx",
+					req->request_id, ctx->ctx_id,
+					req_isp->sof_timestamp_val,
+					req_isp->boot_timestamp);
+			}
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
@@ -2111,8 +2127,16 @@ static int __cam_isp_handle_deferred_buf_done(
 				ctx->ctx_id, req->request_id, status,
 				req_isp->fence_map_out[j].resource_handle);
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
-			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
-			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
+			if (req_isp->sof_timestamp_val && req_isp->boot_timestamp) {
+				ev_timestamp.sof_timestamp = req_isp->sof_timestamp_val;
+				ev_timestamp.boot_timestamp = req_isp->boot_timestamp;
+			} else {
+				CAM_WARN(CAM_ISP,
+					"There is not sof coming before current buf done req %lld ctx %u sof_timestamp x%llx boot_timestamp 0x%llx",
+					req->request_id, ctx->ctx_id,
+					req_isp->sof_timestamp_val,
+					req_isp->boot_timestamp);
+			}
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
@@ -2312,8 +2336,16 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 				ctx->ctx_id, ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp);
 
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
-			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
-			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
+			if (req_isp->sof_timestamp_val && req_isp->boot_timestamp) {
+				ev_timestamp.sof_timestamp = req_isp->sof_timestamp_val;
+				ev_timestamp.boot_timestamp = req_isp->boot_timestamp;
+			} else {
+				CAM_WARN(CAM_ISP,
+					"There is not sof coming before current buf done req %lld ctx %u sof_timestamp x%llx boot_timestamp 0x%llx",
+					req->request_id, ctx->ctx_id,
+					req_isp->sof_timestamp_val,
+					req_isp->boot_timestamp);
+			}
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
@@ -2356,8 +2388,16 @@ static int __cam_isp_ctx_handle_buf_done_for_request_verify_addr(
 				ctx->ctx_id);
 
 			memset(&ev_timestamp, 0, sizeof(ev_timestamp));
-			ev_timestamp.sof_timestamp = ctx_isp->sof_timestamp_val;
-			ev_timestamp.boot_timestamp = ctx_isp->boot_timestamp;
+			if (req_isp->sof_timestamp_val && req_isp->boot_timestamp) {
+				ev_timestamp.sof_timestamp = req_isp->sof_timestamp_val;
+				ev_timestamp.boot_timestamp = req_isp->boot_timestamp;
+			} else {
+				CAM_WARN(CAM_ISP,
+					"There is not sof coming before current buf done req %lld ctx %u sof_timestamp x%llx boot_timestamp 0x%llx",
+					req->request_id, ctx->ctx_id,
+					req_isp->sof_timestamp_val,
+					req_isp->boot_timestamp);
+			}
 			kernel_buf_ptr = req_isp->fence_map_out[j].kernel_map_buf_addr[0];
 			kernel_buf_handle = req_isp->fence_map_out[j].buf_handle[0];
 
@@ -2826,6 +2866,7 @@ static int __cam_isp_ctx_offline_epoch_in_activated_state(
 {
 	struct cam_context *ctx = ctx_isp->base;
 	struct cam_ctx_request *req, *req_temp;
+	struct cam_isp_ctx_req *req_isp;
 	uint64_t request_id = 0;
 
 	atomic_set(&ctx_isp->rxd_epoch, 1);
@@ -2844,6 +2885,7 @@ static int __cam_isp_ctx_offline_epoch_in_activated_state(
 		list_for_each_entry_safe(req, req_temp, &ctx->active_req_list, list) {
 			if (req->request_id > ctx_isp->reported_req_id) {
 				request_id = req->request_id;
+				req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 				break;
 			}
 		}
@@ -2857,6 +2899,15 @@ static int __cam_isp_ctx_offline_epoch_in_activated_state(
 	if (request_id)
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+	if (request_id > 0) {
+		req_isp->sof_timestamp_val = ctx_isp->sof_timestamp_val;
+		req_isp->boot_timestamp = ctx_isp->boot_timestamp;
+		CAM_DBG(CAM_ISP,
+			"ctx:%u request id:%lld frame number:%lld SOF time stamp:0x%llx boot time stamp:0x%llx",
+			ctx->ctx_id, request_id, ctx_isp->frame_id,
+			ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp);
+	}
 
 	__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 		CAM_ISP_STATE_CHANGE_TRIGGER_EPOCH,
@@ -3243,6 +3294,15 @@ notify_only:
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
 
+		if (request_id > 0) {
+			req_isp->sof_timestamp_val = ctx_isp->sof_timestamp_val;
+			req_isp->boot_timestamp = ctx_isp->boot_timestamp;
+			CAM_DBG(CAM_ISP,
+				"ctx:%u request id:%lld frame number:%lld SOF time stamp:0x%llx boot time stamp:0x%llx",
+				ctx->ctx_id, request_id, ctx_isp->frame_id,
+				ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp);
+		}
+
 		__cam_isp_ctx_update_state_monitor_array(ctx_isp,
 			CAM_ISP_STATE_CHANGE_TRIGGER_EPOCH,
 			request_id);
@@ -3509,6 +3569,15 @@ static int __cam_isp_ctx_epoch_in_applied(struct cam_isp_context *ctx_isp,
 
 	__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 		sof_event_status);
+
+	if ((request_id > 0) && (sof_event_status == CAM_REQ_MGR_SOF_EVENT_SUCCESS)) {
+		req_isp->sof_timestamp_val = ctx_isp->sof_timestamp_val;
+		req_isp->boot_timestamp = ctx_isp->boot_timestamp;
+		CAM_DBG(CAM_ISP,
+			"ctx:%u request id:%lld frame number:%lld SOF time stamp:0x%llx boot time stamp:0x%llx",
+			ctx->ctx_id, request_id, ctx_isp->frame_id, ctx_isp->sof_timestamp_val,
+			ctx_isp->boot_timestamp);
+	}
 
 	cam_req_mgr_debug_delay_detect();
 	trace_cam_delay_detect("ISP",
@@ -5092,6 +5161,8 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 	cfg.reapply_type = req_isp->reapply_type;
 	cfg.cdm_reset_before_apply = req_isp->cdm_reset_before_apply;
 	cfg.wait_for_request_apply = apply->wait_for_request_apply;
+	req_isp->boot_timestamp = 0;
+	req_isp->sof_timestamp_val = 0;
 
 	atomic_set(&ctx_isp->apply_in_progress, 1);
 
@@ -5102,7 +5173,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		ctx_isp->last_applied_req_id = apply->request_id;
 		if (req_isp->cdm_reset_before_apply &&
 			req_isp->num_deferred_acks &&
-			ctx_isp->rdi_only_context) {
+			(ctx_isp->rdi_only_context || ctx_isp->rdi_stats_context)) {
 			req_isp->num_deferred_acks = 0;
 			CAM_WARN(CAM_ISP,
 				"ctx %d req %llu CDM callback not happen but received buf done",
@@ -5132,7 +5203,7 @@ static int __cam_isp_ctx_apply_req_in_activated_state(
 		CAM_DBG(CAM_REQ,
 			"move request %lld to active list(cnt = %d), ctx %u",
 			req->request_id, ctx_isp->active_req_cnt, ctx->ctx_id);
-		if (ctx_isp->rdi_only_context &&
+		if ((ctx_isp->rdi_only_context || ctx_isp->rdi_stats_context) &&
 			(req_isp->num_deferred_acks == req_isp->num_fence_map_out)) {
 			CAM_WARN(CAM_ISP,
 				"ctx %d req %llu before CDM callback happen received buf done %d",
@@ -5663,6 +5734,8 @@ static int cam_isp_ctx_flush_all_affected_ctx_stream_grp(
 		switch (cmd_type) {
 		case CAM_ISP_CTX_FLUSH_AFFECTED_CTX_SET_FLUSH_IN_PROGRESS:
 			atomic_set(&ctx_isp->flush_in_progress, 1);
+			cam_req_mgr_worker_pause(ctx_isp->hw_mgr_worker);
+			cam_req_mgr_worker_flush(ctx_isp->hw_mgr_worker);
 			break;
 		case CAM_ISP_CTX_FLUSH_AFFECTED_CTX_REQ_LIST:
 			rc = cam_isp_ctx_flush_affected_ctx_req_list(active_ctx, flush_req);
@@ -6008,6 +6081,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 	struct cam_context                    *ctx = ctx_isp->base;
 	struct cam_isp_hw_sof_event_data      *sof_event_data = evt_data;
 	uint64_t                               request_id  = 0;
+	struct cam_isp_ctx_req                *req_isp;
 
 	if (!evt_data) {
 		CAM_ERR(CAM_ISP, "in valid sof event data");
@@ -6050,6 +6124,7 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 
 			req = list_first_entry(&ctx->active_req_list,
 				struct cam_ctx_request, list);
+			req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 			if (req->request_id > ctx_isp->reported_req_id)
 				request_id = req->request_id;
 		}
@@ -6058,6 +6133,16 @@ static int __cam_isp_ctx_rdi_only_sof_in_top_state(
 
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+		if (request_id > 0) {
+			req_isp->sof_timestamp_val = ctx_isp->sof_timestamp_val;
+			req_isp->boot_timestamp = ctx_isp->boot_timestamp;
+			CAM_DBG(CAM_ISP,
+				"ctx:%u request id:%lld frame number:%lld SOF time stamp:0x%llx boot time stamp:0x%llx",
+				ctx->ctx_id, request_id, ctx_isp->frame_id,
+				ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp);
+		}
+
 	} else {
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Can not notify SOF to CRM ctx:%d",
 			ctx->ctx_id);
@@ -7073,8 +7158,18 @@ apply:
 			rup_event_data->res_id, rup_event_data->timestamp);
 
 		req = list_first_entry(&ctx->active_req_list, struct cam_ctx_request, list);
+		req_isp = (struct cam_isp_ctx_req *) req->req_priv;
 		__cam_isp_ctx_send_sof_timestamp(ctx_isp, req->request_id,
 			CAM_REQ_MGR_SOF_EVENT_SUCCESS);
+
+		if (req->request_id > 0) {
+			req_isp->sof_timestamp_val = ctx_isp->sof_timestamp_val;
+			req_isp->boot_timestamp = ctx_isp->boot_timestamp;
+			CAM_DBG(CAM_ISP,
+				"ctx:%u request id:%lld frame number:%lld SOF time stamp:0x%llx boot time stamp:0x%llx",
+				ctx->ctx_id, req->request_id, ctx_isp->frame_id,
+				ctx_isp->sof_timestamp_val, ctx_isp->boot_timestamp);
+		}
 	}
 
 	CAM_DBG(CAM_ISP, "next Substate[%s]",
@@ -9805,8 +9900,11 @@ static int __cam_isp_ctx_apply_default_settings(
 		return 0;
 
 	mutex_lock(&ctx_isp->isp_mutex);
-	if ((ctx_isp->aeb_enabled) && (atomic_read(&ctx_isp->internal_recovery_set)))
-		return __cam_isp_ctx_reset_and_recover(false, ctx);
+	if ((ctx_isp->aeb_enabled) && (atomic_read(&ctx_isp->internal_recovery_set))) {
+		rc = __cam_isp_ctx_reset_and_recover(false, ctx);
+		mutex_unlock(&ctx_isp->isp_mutex);
+		return rc;
+	}
 	mutex_unlock(&ctx_isp->isp_mutex);
 
 	CAM_DBG(CAM_ISP,

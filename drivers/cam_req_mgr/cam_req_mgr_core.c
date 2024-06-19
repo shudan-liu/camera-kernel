@@ -881,8 +881,8 @@ static int __cam_req_mgr_check_next_req_slot(
 	 */
 	if (slot->status == CRM_SLOT_STATUS_REQ_APPLIED) {
 		CAM_WARN(CAM_CRM,
-			"slot[%d] wasn't reset, reset it now",
-			idx);
+			"slot [idx: %d req: %lld last_applied_idx: %d] was not reset, reset it now",
+			idx, in_q->slot[idx].req_id, in_q->last_applied_idx);
 		if (in_q->last_applied_idx == idx) {
 			CAM_WARN(CAM_CRM,
 				"last_applied_idx: %d",
@@ -905,7 +905,8 @@ static int __cam_req_mgr_check_next_req_slot(
 		if (in_q->wr_idx != idx)
 			CAM_WARN(CAM_CRM,
 				"CHECK here wr %d, rd %d", in_q->wr_idx, idx);
-		__cam_req_mgr_inc_idx(&in_q->wr_idx, 1, in_q->num_slots);
+		else
+			__cam_req_mgr_inc_idx(&in_q->wr_idx, 1, in_q->num_slots);
 	}
 
 	return rc;
@@ -2105,8 +2106,7 @@ static int __cam_req_mgr_process_req(struct cam_req_mgr_core_link *link,
 				}
 			}
 
-			if (slot->req_id > 0)
-				in_q->last_applied_idx = idx;
+			in_q->last_applied_idx = idx;
 
 			__cam_req_mgr_dec_idx(
 				&idx, reset_step + 1,
@@ -3127,6 +3127,7 @@ void __cam_req_mgr_apply_on_bubble(
 int cam_req_mgr_process_error(void *priv, void *data)
 {
 	int                                  rc = 0, idx = -1;
+	int                                  i, slot_diff;
 	struct cam_req_mgr_error_notify     *err_info = NULL;
 	struct cam_req_mgr_core_link        *link = NULL;
 	struct cam_req_mgr_req_queue        *in_q = NULL;
@@ -3168,8 +3169,8 @@ int cam_req_mgr_process_error(void *priv, void *data)
 				"req_id %lld not found in input queue",
 				err_info->req_id);
 		} else {
-			CAM_DBG(CAM_CRM, "req_id %lld found at idx %d",
-				err_info->req_id, idx);
+			CAM_DBG(CAM_CRM, "req_id %lld found at idx %d last_applied %d",
+				err_info->req_id, idx, in_q->last_applied_idx);
 			slot = &in_q->slot[idx];
 			if (!slot->recover) {
 				CAM_WARN(CAM_CRM,
@@ -3196,13 +3197,30 @@ int cam_req_mgr_process_error(void *priv, void *data)
 				in_q->slot[idx].sync_mode = 0;
 			}
 
-			/* The next req may also be applied */
+			/*
+			 * Reset till last applied, even if there are scheduling delays
+			 * we start fresh from the request on which bubble has
+			 * been reported
+			 */
 			idx = in_q->rd_idx;
-			__cam_req_mgr_inc_idx(&idx, 1,
-				link->req.l_tbl->num_slots);
+			if (in_q->last_applied_idx >= 0) {
+				slot_diff = in_q->last_applied_idx - idx;
+				if (slot_diff < 0)
+					slot_diff += link->req.l_tbl->num_slots;
+			} else {
+				/* Next req at the minimum may be applied */
+				slot_diff = 1;
+			}
 
-			if (in_q->slot[idx].status == CRM_SLOT_STATUS_REQ_APPLIED)
-				in_q->slot[idx].status = CRM_SLOT_STATUS_REQ_ADDED;
+			for (i = 0; i < slot_diff; i++) {
+				__cam_req_mgr_inc_idx(&idx, 1, link->req.l_tbl->num_slots);
+
+				CAM_DBG(CAM_CRM,
+					"Recovery on idx: %d reset slot [idx: %d status: %d]",
+					in_q->rd_idx, idx, in_q->slot[idx].status);
+				if (in_q->slot[idx].status == CRM_SLOT_STATUS_REQ_APPLIED)
+					in_q->slot[idx].status = CRM_SLOT_STATUS_REQ_ADDED;
+			}
 
 			mutex_lock(&link->link_state_mutex_lock);
 			link->state = CAM_CRM_LINK_STATE_ERR;
@@ -4052,6 +4070,7 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 	mutex_init(&link->req.lock);
 	CAM_DBG(CAM_CRM, "LOCK_DBG in_q lock %pK", &link->req.lock);
 	link->req.num_tbl = 0;
+	memset(&handshake, 0, sizeof(struct cam_req_mgr_no_crm_handshake_data));
 
 	rc = __cam_req_mgr_setup_in_q(&link->req);
 	if (rc < 0)
@@ -4210,13 +4229,18 @@ static int __cam_req_mgr_setup_link_info(struct cam_req_mgr_core_link *link,
 	}
 
 	/* Get anchor pipeline delay and frame_skip callback */
-	handshake.link_hdl = link->link_hdl;
 	if (dev) {
+		handshake.link_hdl = link->link_hdl;
 		handshake.dev_hdl = dev->dev_hdl;
 		if (i != num_devices && dev->no_crm_ops && dev->no_crm_ops->handshake)
 			dev->no_crm_ops->handshake(&handshake);
-		handshake.anchor_pd = handshake.pipeline_delay;
+	} else {
+		CAM_ERR(CAM_CRM, "link hdl:0x%x ISP device not present in the link",
+			link->link_hdl);
+		goto error;
 	}
+
+	handshake.anchor_pd = handshake.pipeline_delay;
 
 	for (i = 0; i < num_devices; i++) {
 		dev = &link->l_dev[i];
