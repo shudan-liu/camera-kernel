@@ -461,6 +461,8 @@ struct cam_ife_csid_ver2_path_reg_info {
 	uint32_t path_frame_id;
 	uint32_t cfg2_addr;
 	uint32_t debug_sim_monitor;
+	uint32_t frame_freeze_crc_cfg0;
+	uint32_t debug_frame_freeze_crc;
 
 	/*Shift Bit Configurations*/
 	uint32_t start_mode_master;
