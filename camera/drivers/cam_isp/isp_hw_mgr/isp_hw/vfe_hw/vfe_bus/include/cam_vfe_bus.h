@@ -29,6 +29,7 @@
 enum cam_vfe_bus_plane_type {
 	PLANE_Y,
 	PLANE_C,
+	PLANE_C2,
 	PLANE_MAX,
 };
 
