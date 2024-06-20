@@ -1250,6 +1250,8 @@ static char *__cam_isp_ife_sfe_resource_handle_id_to_type(
 	case CAM_ISP_IFE_OUT_RES_RDI_1:                 return "IFE_RDI_1";
 	case CAM_ISP_IFE_OUT_RES_RDI_2:                 return "IFE_RDI_2";
 	case CAM_ISP_IFE_OUT_RES_RDI_3:                 return "IFE_RDI_3";
+	case CAM_ISP_IFE_OUT_RES_RDI_4:                 return "IFE_RDI_4";
+	case CAM_ISP_IFE_OUT_RES_RDI_5:                 return "IFE_RDI_5";
 	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BE:          return "IFE_STATS_HDR_BE";
 	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BHIST:       return "IFE_STATS_HDR_BHIST";
 	case CAM_ISP_IFE_OUT_RES_STATS_TL_BG:           return "IFE_STATS_TL_BG";
@@ -1276,6 +1278,8 @@ static char *__cam_isp_ife_sfe_resource_handle_id_to_type(
 	case CAM_ISP_IFE_OUT_RES_STATS_BAYER_RS:        return "IFE_STATS_BAYER_RS";
 	case CAM_ISP_IFE_OUT_RES_PDAF_PARSED_DATA:      return "IFE_PDAF_PARSED_DATA";
 	case CAM_ISP_IFE_OUT_RES_STATS_ALSC:            return "IFE_STATS_ALSC";
+	case CAM_ISP_IFE_OUT_RES_AI_OUT_1:              return "IFE_AI_OUT_1";
+	case CAM_ISP_IFE_OUT_RES_AI_OUT_2:              return "IFE_AI_OUT_2";
 	/* SFE output ports */
 	case CAM_ISP_SFE_OUT_RES_RDI_0:                 return "SFE_RDI_0";
 	case CAM_ISP_SFE_OUT_RES_RDI_1:                 return "SFE_RDI_1";
