@@ -260,7 +260,7 @@ static const struct cam_ife_csid_irq_desc cam_ife_csid_690_path_irq_desc[] = {
 	},
 };
 
-static struct cam_irq_register_set cam_ife_csid_690_irq_reg_set[9] = {
+static struct cam_irq_register_set cam_ife_csid_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_MAX] = {
 	/* Top */
 	{
 		.mask_reg_offset   = 0x00000080,
@@ -294,6 +294,12 @@ static struct cam_irq_register_set cam_ife_csid_690_irq_reg_set[9] = {
 		.clear_reg_offset  = 0x00000114,
 		.status_reg_offset = 0x0000010C,
 	},
+	/* RDI3 */
+	{0},
+	/* RDI4 */
+	{0},
+	/* RDI5 */
+	{0},
 	/* IPP */
 	{
 		.mask_reg_offset   = 0x000000E0,
@@ -321,7 +327,8 @@ static struct cam_irq_controller_reg_info cam_ife_csid_690_rx_irq_reg_info[] = {
 	},
 };
 
-static struct cam_irq_controller_reg_info cam_ife_csid_690_path_irq_reg_info[4] = {
+static struct cam_irq_controller_reg_info
+		cam_ife_csid_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_MAX] = {
 	{
 		.num_registers = 1,
 		.irq_reg_set = &cam_ife_csid_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_RDI_0],
@@ -337,9 +344,15 @@ static struct cam_irq_controller_reg_info cam_ife_csid_690_path_irq_reg_info[4] 
 		.irq_reg_set = &cam_ife_csid_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_RDI_2],
 		.global_irq_cmd_offset = 0, /* intentionally set to zero */
 	},
+	/* No RDI3 */
+	{0},
+	/* No RDI4 */
+	{0},
+	/* No RDI5 */
+	{0},
 	{
 		.num_registers = 1,
-		.irq_reg_set = &cam_ife_csid_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_RDI_3],
+		.irq_reg_set = &cam_ife_csid_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_IPP],
 		.global_irq_cmd_offset = 0, /* intentionally set to zero */
 	},
 };
@@ -978,6 +991,9 @@ static struct cam_ife_csid_ver2_reg_info cam_ife_csid_690_reg_info = {
 		&cam_ife_csid_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_0],
 		&cam_ife_csid_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_1],
 		&cam_ife_csid_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_2],
+		NULL,
+		NULL,
+		NULL,
 		&cam_ife_csid_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_IPP],
 	},
 	.buf_done_irq_reg_info = &cam_ife_csid_690_buf_done_irq_reg_info,
