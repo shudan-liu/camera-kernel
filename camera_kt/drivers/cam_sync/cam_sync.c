@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/init.h>
@@ -945,7 +945,7 @@ static struct v4l2_subscribed_event_ops cam_sync_v4l2_ops = {
 	.merge = cam_sync_event_queue_notify_error,
 };
 
-int cam_sync_subscribe_event(struct v4l2_fh *fh,
+static int cam_sync_subscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
 	if (!((sub->type == CAM_SYNC_V4L_EVENT) ||
@@ -960,7 +960,7 @@ int cam_sync_subscribe_event(struct v4l2_fh *fh,
 		&cam_sync_v4l2_ops);
 }
 
-int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
+static int cam_sync_unsubscribe_event(struct v4l2_fh *fh,
 		const struct v4l2_event_subscription *sub)
 {
 	if (!((sub->type == CAM_SYNC_V4L_EVENT) ||

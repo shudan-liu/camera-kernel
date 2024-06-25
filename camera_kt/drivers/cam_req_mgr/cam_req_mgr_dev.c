@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -734,7 +734,7 @@ int cam_req_mgr_notify_message(struct cam_req_mgr_message *msg,
 }
 EXPORT_SYMBOL(cam_req_mgr_notify_message);
 
-void cam_video_device_cleanup(void)
+static void cam_video_device_cleanup(void)
 {
 	media_entity_cleanup(&g_dev.video->entity);
 	video_unregister_device(g_dev.video);

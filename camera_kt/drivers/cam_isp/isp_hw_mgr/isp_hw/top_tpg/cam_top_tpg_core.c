@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/iopoll.h>
@@ -246,7 +247,7 @@ static int cam_top_tpg_set_phy_clock(
 	return 0;
 }
 
-irqreturn_t cam_top_tpg_irq(int irq_num, void *data)
+static irqreturn_t cam_top_tpg_irq(int irq_num, void *data)
 {
 	struct cam_top_tpg_hw                        *tpg_hw;
 	struct cam_hw_soc_info                       *soc_info;

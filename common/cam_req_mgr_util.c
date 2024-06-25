@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -10,11 +10,14 @@
 #include <linux/mutex.h>
 #include <linux/spinlock.h>
 #include <linux/random.h>
+
 #include <media/cam_req_mgr.h>
+
 #include "cam_req_mgr_util.h"
 #include "cam_debug_util.h"
 #include "cam_context.h"
 #include "cam_subdev.h"
+#include "cam_node.h"
 
 static struct cam_req_mgr_util_hdl_tbl *hdl_tbl;
 static DEFINE_SPINLOCK(hdl_tbl_lock);
@@ -271,7 +274,7 @@ int32_t cam_get_dev_handle_info(uint64_t handle,
 	return CAM_REQ_MGR_MAX_HANDLES_V2;
 }
 
-uint64_t cam_get_dev_handle_status(void)
+static uint64_t cam_get_dev_handle_status(void)
 {
 	int32_t idx;
 	uint64_t active_dev_hdls = 0;
@@ -319,7 +322,7 @@ int32_t cam_create_link_hdl(struct cam_create_dev_hdl *hdl_data)
 	return handle;
 }
 
-void *cam_get_priv(int32_t dev_hdl, int handle_type)
+static void *cam_get_priv(int32_t dev_hdl, int handle_type)
 {
 	int idx;
 	int type;

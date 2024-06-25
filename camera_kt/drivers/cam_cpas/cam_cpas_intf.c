@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/of.h>
@@ -603,7 +603,7 @@ int cam_cpas_register_client(
 }
 EXPORT_SYMBOL(cam_cpas_register_client);
 
-int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
+static int cam_cpas_subdev_cmd(struct cam_cpas_intf *cpas_intf,
 	struct cam_control *cmd)
 {
 	int rc = 0;

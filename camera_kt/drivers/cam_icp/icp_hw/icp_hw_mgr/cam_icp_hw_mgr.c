@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/uaccess.h>
@@ -2657,7 +2657,7 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 	return rc;
 }
 
-int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
+static int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 {
 	int32_t rc = 0;
 	unsigned long flags;
@@ -6103,7 +6103,7 @@ cmd_work_failed:
 	return rc;
 }
 
-void cam_icp_mgr_destroy_wq(void)
+static void cam_icp_mgr_destroy_wq(void)
 {
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.timer_work);
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.msg_work);
