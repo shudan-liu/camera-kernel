@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
- * Copyright (c) 2021-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2021-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 #include <linux/module.h>
 #include <linux/firmware.h>
@@ -17,12 +17,12 @@ static struct cam_sensor_ctrl_t *cam_dp_bdg_cam_ctrl = NULL;
 
 enum lt7911_fw_status lt7911_fw_status;
 
-int lt7911_get_fw_state(void)
+static int lt7911_get_fw_state(void)
 {
 	return lt7911_fw_status;
 }
 
-void lt7911_set_fw_state(int fw_status)
+static void lt7911_set_fw_state(int fw_status)
 {
 	lt7911_fw_status = fw_status;
 }
@@ -764,7 +764,7 @@ static int lt7911_fw_read_back(struct cam_sensor_ctrl_t *s_ctrl, u8 *buff, int s
 	return rc;
 }
 
-int lt7911_firmware_upgrade(struct cam_sensor_ctrl_t *s_ctrl,
+static int lt7911_firmware_upgrade(struct cam_sensor_ctrl_t *s_ctrl,
 			const struct firmware *cfg)
 {
 	int i = 0;

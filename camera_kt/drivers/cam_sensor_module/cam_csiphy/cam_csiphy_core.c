@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -50,7 +50,7 @@ struct g_csiphy_data {
 static struct g_csiphy_data g_phy_data[MAX_CSIPHY] = {{0, 0}};
 static int active_csiphy_hw_cnt;
 
-int32_t cam_csiphy_get_instance_offset(
+static int32_t cam_csiphy_get_instance_offset(
 	struct csiphy_device *csiphy_dev,
 	int32_t dev_handle)
 {
@@ -88,7 +88,7 @@ static void cam_csiphy_reset_phyconfig_param(struct csiphy_device *csiphy_dev,
 	csiphy_dev->csiphy_info[index].hdl_data.device_hdl = -1;
 }
 
-void cam_csiphy_query_cap(struct csiphy_device *csiphy_dev,
+static void cam_csiphy_query_cap(struct csiphy_device *csiphy_dev,
 	struct cam_csiphy_query_cap *csiphy_cap)
 {
 	struct cam_hw_soc_info *soc_info = &csiphy_dev->soc_info;
@@ -344,7 +344,7 @@ static int cam_csiphy_sanitize_lane_cnt(
 	return 0;
 }
 
-int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
+static int32_t cam_cmd_buf_parser(struct csiphy_device *csiphy_dev,
 	struct cam_config_dev_cmd *cfg_dev)
 {
 	int                      rc = 0;
@@ -527,7 +527,7 @@ void cam_csiphy_cphy_irq_config(struct csiphy_device *csiphy_dev)
 			csiphy_dev->ctrl_reg->csiphy_irq_reg[i].reg_addr);
 }
 
-void cam_csiphy_cphy_irq_disable(struct csiphy_device *csiphy_dev)
+static void cam_csiphy_cphy_irq_disable(struct csiphy_device *csiphy_dev)
 {
 	int32_t i;
 	void __iomem *csiphybase =
@@ -721,7 +721,7 @@ static int cam_csiphy_cphy_data_rate_config(
 	return 0;
 }
 
-int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
+static int32_t cam_csiphy_config_dev(struct csiphy_device *csiphy_dev,
 	int32_t dev_handle)
 {
 	int32_t      rc = 0;
