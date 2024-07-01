@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_eeprom_dev.h"
@@ -292,9 +292,9 @@ int cam_eeprom_i2c_driver_remove_common(struct i2c_client *client)
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	cam_eeprom_shutdown(e_ctrl);
 	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_release_power_domain(e_ctrl);
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	rc = cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
-
 	if (rc)
 		CAM_ERR(CAM_EEPROM, "unregistering eeprom subdev is not sucessful");
 
@@ -429,9 +429,9 @@ int cam_eeprom_spi_driver_remove_common(struct spi_device *sdev)
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	cam_eeprom_shutdown(e_ctrl);
 	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_release_power_domain(e_ctrl);
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	rc = cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
-
 	if (rc)
 		CAM_ERR(CAM_EEPROM, "unregistering eeprom spi subdevis unsucessful");
 
@@ -445,6 +445,7 @@ int cam_eeprom_spi_driver_remove_common(struct spi_device *sdev)
 		kfree(soc_private);
 		soc_private = NULL;
 	}
+
 	v4l2_set_subdevdata(&e_ctrl->v4l2_dev_str.sd, NULL);
 	kfree(e_ctrl);
 	return rc;

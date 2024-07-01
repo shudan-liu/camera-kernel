@@ -408,6 +408,7 @@ int cam_sensor_i2c_driver_remove_common(struct i2c_client *client)
 	mutex_lock(&(s_ctrl->cam_sensor_mutex));
 	cam_sensor_shutdown(s_ctrl);
 	mutex_unlock(&(s_ctrl->cam_sensor_mutex));
+	cam_sensor_release_power_domain(s_ctrl);
 	rc = cam_unregister_subdev(&(s_ctrl->v4l2_dev_str));
 
 	if (rc)

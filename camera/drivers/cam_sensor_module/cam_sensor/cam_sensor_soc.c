@@ -343,5 +343,14 @@ int32_t cam_sensor_parse_dt(struct cam_sensor_ctrl_t *s_ctrl)
 			soc_info->rgltr_name[i]);
 	}
 
+	rc = cam_sensor_util_request_power_domain(soc_info);
+
 	return rc;
+}
+
+void cam_sensor_release_power_domain(struct cam_sensor_ctrl_t *s_ctrl)
+{
+	struct cam_hw_soc_info *soc_info = &s_ctrl->soc_info;
+
+	cam_sensor_util_release_power_domain(soc_info);
 }

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_actuator_dev.h"
@@ -32,9 +32,10 @@ int cam_actuator_i2c_driver_remove_common(struct i2c_client *client)
 	cam_actuator_shutdown(a_ctrl);
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	rc = cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
-
 	if (rc)
 		CAM_ERR(CAM_ACTUATOR, "unregistering actuator subdev is unsucessful");
+
+	cam_actuator_release_power_domain(a_ctrl);
 
 	soc_private =
 		(struct cam_actuator_soc_private *)a_ctrl->soc_info.soc_private;
