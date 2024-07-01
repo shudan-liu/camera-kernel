@@ -4781,6 +4781,14 @@ static int cam_vfe_bus_ver3_process_cmd(
 	case CAM_ISP_HW_CMD_CHECK_RUP_FOR_APPLIED_REQ:
 		rc = cam_vfe_bus_ver3_check_rup_applied_req(priv, cmd_args, arg_size);
 		break;
+	case CAM_ISP_HW_CMD_GET_NUM_OUT_RES: {
+		uint32_t *max_num_out_res;
+
+		max_num_out_res = (uint32_t *) cmd_args;
+		bus_priv = (struct cam_vfe_bus_ver3_priv  *) priv;
+		*max_num_out_res = bus_priv->num_out;
+		break;
+	}
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",
 			cmd_type);

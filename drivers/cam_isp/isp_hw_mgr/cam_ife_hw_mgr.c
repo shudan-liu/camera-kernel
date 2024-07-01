@@ -8082,7 +8082,9 @@ static int cam_ife_mgr_acquire_get_unified_structure_v3(
 			for (j = 0; j < g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg_cnt; j++) {
 				if (in_port->sensor_id ==
 					g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg[j].sensor_id) {
-					num_out_res = g_ife_sns_grp_cfg.grp_cfg[i].stream_cfg_cnt;
+					num_out_res = max_t(uint32_t,
+						g_ife_hw_mgr.max_ife_lite_out_res,
+						in->num_out_res);
 					break;
 				}
 			}
@@ -18220,6 +18222,15 @@ static int cam_ife_hw_mgr_sort_dev_with_caps(
 				ife_hw_mgr->ife_devices[i]->hw_intf->hw_priv,
 				&ife_hw_mgr->ife_dev_caps[i],
 				sizeof(ife_hw_mgr->ife_dev_caps[i]));
+		}
+		if (ife_hw_mgr->ife_dev_caps[i].is_lite && !ife_hw_mgr->max_ife_lite_out_res) {
+			if (ife_hw_mgr->ife_devices[i]->hw_intf->hw_ops.process_cmd) {
+				ife_hw_mgr->ife_devices[i]->hw_intf->hw_ops.process_cmd(
+					ife_hw_mgr->ife_devices[i]->hw_intf->hw_priv,
+					CAM_ISP_HW_CMD_GET_NUM_OUT_RES,
+					&ife_hw_mgr->max_ife_lite_out_res,
+					sizeof(uint32_t));
+			}
 		}
 	}
 
