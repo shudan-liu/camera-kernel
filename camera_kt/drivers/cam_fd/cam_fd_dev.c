@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/device.h>
@@ -158,10 +159,11 @@ static int cam_fd_dev_component_bind(struct device *dev,
 
 	node->sd_handler = cam_fd_dev_close_internal;
 	mutex_init(&g_fd_dev.lock);
+	rc = cam_subdev_register(&g_fd_dev.sd, pdev);
 	g_fd_dev.probe_done = true;
 	CAM_DBG(CAM_FD, "Component bound successfully");
 
-	return 0;
+	return rc;
 
 deinit_ctx:
 	for (--i; i >= 0; i--) {
@@ -192,9 +194,13 @@ static void cam_fd_dev_component_unbind(struct device *dev,
 	if (rc)
 		CAM_ERR(CAM_FD, "Failed in hw mgr deinit, rc=%d", rc);
 
-	rc = cam_subdev_remove(&g_fd_dev.sd);
+	rc = cam_unregister_subdev(&g_fd_dev.sd);
 	if (rc)
 		CAM_ERR(CAM_FD, "Unregister failed, rc=%d", rc);
+
+	rc = cam_subdev_remove(&g_fd_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_FD, "Subdev remove failed, rc=%d", rc);
 
 	mutex_destroy(&g_fd_dev.lock);
 	g_fd_dev.probe_done = false;

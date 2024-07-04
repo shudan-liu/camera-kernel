@@ -1,6 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SUBDEV_H_
@@ -102,6 +103,17 @@ void cam_subdev_notify_message(u32 subdev_type,
  */
 int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	char *name, uint32_t dev_type);
+
+/**
+ * cam_subdev_register()
+ *
+ * @brief:      Camera Subdevice node probe function for v4l2 setup
+ *
+ * @sd:                    Camera subdevice object
+ * @pdev:                  Pointer to the platform device
+ *
+ */
+int cam_subdev_register(struct cam_subdev *sd, struct platform_device *pdev);
 
 /**
  * cam_subdev_remove()

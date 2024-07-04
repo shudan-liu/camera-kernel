@@ -223,6 +223,7 @@ static int cam_icp_component_bind(struct device *dev,
 	g_icp_dev.open_cnt = 0;
 	mutex_init(&g_icp_dev.icp_lock);
 
+	rc = cam_subdev_register(&g_icp_dev.sd, pdev);
 	CAM_DBG(CAM_ICP, "Component bound successfully");
 
 	return rc;
@@ -261,6 +262,7 @@ static void cam_icp_component_unbind(struct device *dev,
 
 	cam_icp_hw_mgr_deinit();
 	cam_node_deinit(g_icp_dev.node);
+	cam_unregister_subdev(&g_icp_dev.sd);
 	cam_subdev_remove(&g_icp_dev.sd);
 	mutex_destroy(&g_icp_dev.icp_lock);
 }

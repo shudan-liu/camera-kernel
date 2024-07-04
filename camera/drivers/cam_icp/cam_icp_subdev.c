@@ -363,6 +363,7 @@ static int cam_icp_component_bind(struct device *dev,
 		cam_icp_dev_iommu_fault_handler, node);
 
 	icp_dev->open_cnt = 0;
+	rc = cam_subdev_register(&icp_dev->sd, pdev);
 
 	CAM_DBG(CAM_ICP, "device[%s] id: %u component bound successfully",
 		subdev_name, device_idx);
@@ -419,6 +420,7 @@ static void cam_icp_component_unbind(struct device *dev,
 
 	cam_icp_hw_mgr_deinit(device_idx);
 	cam_node_deinit(icp_dev->node);
+	cam_unregister_subdev(&icp_dev->sd);
 	cam_subdev_remove(&icp_dev->sd);
 	mutex_destroy(&icp_dev->icp_lock);
 	cam_icp_subdev_clean_up(device_idx);
