@@ -243,6 +243,8 @@ camera-$(CONFIG_SPECTRA_TFE) += \
 
 camera-y += camera_kt/drivers/camera_main.o
 
+ccflags-y += -Wmissing-prototypes
+
 obj-m += camera.o
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/camera.ko
 else
