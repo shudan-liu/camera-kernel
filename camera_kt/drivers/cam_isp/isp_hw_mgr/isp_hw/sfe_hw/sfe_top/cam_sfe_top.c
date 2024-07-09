@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/slab.h>
@@ -127,7 +128,7 @@ static struct cam_axi_vote *cam_sfe_top_delay_bw_reduction(
 	return &top_priv->last_vote[vote_idx];
 }
 
-int cam_sfe_top_set_axi_bw_vote(struct cam_sfe_soc_private *soc_private,
+static int cam_sfe_top_set_axi_bw_vote(struct cam_sfe_soc_private *soc_private,
 	struct cam_sfe_top_priv *top_priv, bool start_stop)
 {
 	struct cam_axi_vote agg_vote = {0};
@@ -263,7 +264,7 @@ int cam_sfe_top_set_axi_bw_vote(struct cam_sfe_soc_private *soc_private,
 	return rc;
 }
 
-int cam_sfe_top_bw_update(struct cam_sfe_soc_private *soc_private,
+static int cam_sfe_top_bw_update(struct cam_sfe_soc_private *soc_private,
 	struct cam_sfe_top_priv *top_priv, void *cmd_args,
 	uint32_t arg_size)
 {
@@ -313,7 +314,7 @@ int cam_sfe_top_bw_update(struct cam_sfe_soc_private *soc_private,
 	return rc;
 }
 
-int cam_sfe_top_bw_control(struct cam_sfe_soc_private *soc_private,
+static int cam_sfe_top_bw_control(struct cam_sfe_soc_private *soc_private,
 	struct cam_sfe_top_priv *top_priv, void *cmd_args,
 	uint32_t arg_size)
 {
@@ -563,7 +564,7 @@ static int cam_sfe_set_top_debug(
 	return 0;
 }
 
-int cam_sfe_top_process_cmd(void *priv, uint32_t cmd_type,
+static int cam_sfe_top_process_cmd(void *priv, uint32_t cmd_type,
 	void *cmd_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -616,7 +617,7 @@ int cam_sfe_top_process_cmd(void *priv, uint32_t cmd_type,
 	return rc;
 }
 
-int cam_sfe_top_reserve(void *device_priv,
+static int cam_sfe_top_reserve(void *device_priv,
 	void *reserve_args, uint32_t arg_size)
 {
 	struct cam_sfe_top_priv                 *top_priv;
@@ -666,7 +667,7 @@ int cam_sfe_top_reserve(void *device_priv,
 	return rc;
 }
 
-int cam_sfe_top_release(void *device_priv,
+static int cam_sfe_top_release(void *device_priv,
 	void *release_args, uint32_t arg_size)
 {
 	struct cam_sfe_top_priv            *top_priv;
@@ -935,7 +936,7 @@ static int cam_sfe_top_handle_irq_bottom_half(
 	return ret;
 }
 
-int cam_sfe_top_start(
+static int cam_sfe_top_start(
 	void *priv, void *start_args, uint32_t arg_size)
 {
 	int                                   rc = -EINVAL;
@@ -1032,7 +1033,7 @@ int cam_sfe_top_start(
 	return 0;
 }
 
-int cam_sfe_top_stop(
+static int cam_sfe_top_stop(
 	void *priv, void *stop_args, uint32_t arg_size)
 {
 	int i;

@@ -3051,7 +3051,7 @@ err:
 	return rc;
 }
 
-void cam_ife_cam_cdm_callback(uint32_t handle, void *userdata,
+static void cam_ife_cam_cdm_callback(uint32_t handle, void *userdata,
 	enum cam_cdm_cb_status status, uint64_t cookie)
 {
 	struct cam_isp_prepare_hw_update_data   *hw_update_data = NULL;
@@ -3526,7 +3526,7 @@ err:
 	return rc;
 }
 
-void cam_ife_mgr_acquire_get_unified_dev_str(struct cam_isp_in_port_info *in,
+static void cam_ife_mgr_acquire_get_unified_dev_str(struct cam_isp_in_port_info *in,
 	struct cam_isp_in_port_generic_info *gen_port_info)
 {
 	int i;

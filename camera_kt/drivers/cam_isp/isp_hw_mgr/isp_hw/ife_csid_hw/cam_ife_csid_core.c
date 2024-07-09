@@ -1071,7 +1071,7 @@ end:
 	return rc;
 }
 
-bool cam_ife_csid_is_resolution_supported_by_fuse(uint32_t width)
+static bool cam_ife_csid_is_resolution_supported_by_fuse(uint32_t width)
 {
 	bool supported = true;
 	uint32_t hw_version, fuse_val = UINT_MAX;
@@ -1130,7 +1130,7 @@ bool cam_ife_csid_is_resolution_supported_by_fuse(uint32_t width)
 	return supported;
 }
 
-bool cam_ife_csid_is_resolution_supported_by_dt(struct cam_ife_csid_hw *csid_hw,
+static bool cam_ife_csid_is_resolution_supported_by_dt(struct cam_ife_csid_hw *csid_hw,
 	uint32_t width)
 {
 	bool supported = true;
@@ -1165,7 +1165,7 @@ end:
 	return supported;
 }
 
-bool cam_ife_csid_is_resolution_supported(struct cam_ife_csid_hw *csid_hw,
+static bool cam_ife_csid_is_resolution_supported(struct cam_ife_csid_hw *csid_hw,
 	uint32_t width)
 {
 	bool supported = false;
@@ -3589,7 +3589,7 @@ static int cam_ife_csid_set_csid_debug(struct cam_ife_csid_hw   *csid_hw,
 	return 0;
 }
 
-int cam_ife_csid_get_hw_caps(void *hw_priv,
+static int cam_ife_csid_get_hw_caps(void *hw_priv,
 	void *get_hw_cap_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -3638,7 +3638,7 @@ int cam_ife_csid_get_hw_caps(void *hw_priv,
 	return rc;
 }
 
-int cam_ife_csid_reset(void *hw_priv,
+static int cam_ife_csid_reset(void *hw_priv,
 	void *reset_args, uint32_t arg_size)
 {
 	struct cam_ife_csid_hw          *csid_hw;
@@ -3675,7 +3675,7 @@ int cam_ife_csid_reset(void *hw_priv,
 	return rc;
 }
 
-int cam_ife_csid_reserve(void *hw_priv,
+static int cam_ife_csid_reserve(void *hw_priv,
 	void *reserve_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -3714,7 +3714,7 @@ int cam_ife_csid_reserve(void *hw_priv,
 	return rc;
 }
 
-int cam_ife_csid_release(void *hw_priv,
+static int cam_ife_csid_release(void *hw_priv,
 	void *release_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -3892,7 +3892,7 @@ end:
 	return rc;
 }
 
-int cam_ife_csid_init_hw(void *hw_priv,
+static int cam_ife_csid_init_hw(void *hw_priv,
 	void *init_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -3985,7 +3985,7 @@ end:
 	return rc;
 }
 
-int cam_ife_csid_deinit_hw(void *hw_priv,
+static int cam_ife_csid_deinit_hw(void *hw_priv,
 	void *deinit_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -4055,7 +4055,7 @@ end:
 	return rc;
 }
 
-int cam_ife_csid_start(void *hw_priv, void *start_args,
+static int cam_ife_csid_start(void *hw_priv, void *start_args,
 			uint32_t arg_size)
 {
 	int rc = 0;
@@ -4136,7 +4136,7 @@ end:
 	return rc;
 }
 
-int cam_ife_csid_halt(struct cam_ife_csid_hw *csid_hw,
+static int cam_ife_csid_halt(struct cam_ife_csid_hw *csid_hw,
 		void *halt_args)
 {
 	struct cam_isp_resource_node         *res;
@@ -4177,7 +4177,7 @@ int cam_ife_csid_halt(struct cam_ife_csid_hw *csid_hw,
 	return rc;
 }
 
-int cam_ife_csid_stop(void *hw_priv,
+static int cam_ife_csid_stop(void *hw_priv,
 	void *stop_args, uint32_t arg_size)
 {
 	int rc = 0;
@@ -4271,7 +4271,7 @@ int cam_ife_csid_stop(void *hw_priv,
 
 }
 
-int cam_ife_csid_read(void *hw_priv,
+static int cam_ife_csid_read(void *hw_priv,
 	void *read_args, uint32_t arg_size)
 {
 	CAM_ERR(CAM_ISP, "CSID: un supported");
@@ -4279,7 +4279,7 @@ int cam_ife_csid_read(void *hw_priv,
 	return -EINVAL;
 }
 
-int cam_ife_csid_write(void *hw_priv,
+static int cam_ife_csid_write(void *hw_priv,
 	void *write_args, uint32_t arg_size)
 {
 	CAM_ERR(CAM_ISP, "CSID: un supported");
@@ -4887,7 +4887,7 @@ static int cam_csid_handle_hw_err_irq(
 	return rc;
 }
 
-irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
+static irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 {
 	struct cam_ife_csid_hw                         *csid_hw;
 	struct cam_hw_soc_info                         *soc_info;

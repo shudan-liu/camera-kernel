@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -62,7 +63,7 @@ static bool cam_bps_cpas_cb(uint32_t client_handle, void *userdata,
 	return error_handled;
 }
 
-int cam_bps_register_cpas(struct cam_hw_soc_info *soc_info,
+static int cam_bps_register_cpas(struct cam_hw_soc_info *soc_info,
 			struct cam_bps_device_core_info *core_info,
 			uint32_t hw_idx)
 {
@@ -199,7 +200,7 @@ const static struct component_ops cam_bps_component_ops = {
 	.unbind = cam_bps_component_unbind,
 };
 
-int cam_bps_probe(struct platform_device *pdev)
+static int cam_bps_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 

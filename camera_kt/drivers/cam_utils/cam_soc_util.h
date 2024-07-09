@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0-only */
 /*
  * Copyright (c) 2015-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #ifndef _CAM_SOC_UTIL_H_
@@ -606,6 +606,16 @@ int cam_soc_util_power_domain_enable_default(
 void cam_soc_util_power_domain_disable_default(
 	struct cam_hw_soc_info *soc_info);
 
+/**
+ * cam_soc_util_configure_opp()
+ *
+ * @brief:              Configure OPP (operating performance points)
+ *
+ * @soc_info:           Device soc information
+ *
+ * @return:             Success or failure
+ */
+int cam_soc_util_configure_opp(struct cam_hw_soc_info *soc_info);
 
 /**
  * cam_soc_util_w()
