@@ -5784,6 +5784,11 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 
 	switch (blob_type) {
 	case CAM_ICP_CMD_GENERIC_BLOB_CLK:
+		if (index < 0) {
+			CAM_ERR(CAM_ICP, "Invalid index %d", index);
+			return -EINVAL;
+		}
+
 		CAM_WARN_RATE_LIMIT_CUSTOM(CAM_PERF, 300, 1,
 			"Using deprecated blob type GENERIC_BLOB_CLK");
 		if (blob_size != sizeof(struct cam_icp_clk_bw_request)) {
@@ -5815,6 +5820,11 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 		break;
 
 	case CAM_ICP_CMD_GENERIC_BLOB_CLK_V2:
+		if (index < 0) {
+			CAM_ERR(CAM_ICP, "Invalid index %d", index);
+			return -EINVAL;
+		}
+
 		if (blob_size < sizeof(struct cam_icp_clk_bw_request_v2)) {
 			CAM_ERR(CAM_ICP, "%s: Mismatch blob size %d expected %lu",
 				ctx_data->ctx_id_string,
@@ -5962,6 +5972,11 @@ static int cam_icp_packet_generic_blob_handler(void *user_data,
 		break;
 
 	case CAM_ICP_CMD_GENERIC_BLOB_PRESIL_HANGDUMP:
+		if (index < 0) {
+			CAM_ERR(CAM_ICP, "Invalid index %d", index);
+			return -EINVAL;
+		}
+
 		if (cam_presil_mode_enabled()) {
 			cmd_mem_regions = (struct cam_cmd_mem_regions *)blob_data;
 			if (cmd_mem_regions->num_regions <= 0) {
