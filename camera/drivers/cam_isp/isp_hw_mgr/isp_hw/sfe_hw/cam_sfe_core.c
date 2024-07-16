@@ -422,9 +422,11 @@ int cam_sfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_SFE_SYS_CACHE_RM_CONFIG:
 	case CAM_ISP_HW_CMD_RM_ENABLE_DISABLE:
 	case CAM_ISP_HW_CMD_GET_RM_SECURE_MODE:
-		rc = core_info->sfe_bus_rd->hw_ops.process_cmd(
-			core_info->sfe_bus_rd->bus_priv, cmd_type,
-			cmd_args, arg_size);
+		if (core_info->sfe_hw_info->bus_wr_version) {
+			rc = core_info->sfe_bus_rd->hw_ops.process_cmd(
+				core_info->sfe_bus_rd->bus_priv, cmd_type,
+				cmd_args, arg_size);
+		}
 		break;
 	case  CAM_ISP_HW_CMD_UNMASK_BUS_WR_IRQ:
 		/* Not supported */
@@ -440,10 +442,11 @@ int cam_sfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_IRQ_INJECTION:
 	case CAM_ISP_HW_CMD_DUMP_IRQ_DESCRIPTION:
 		/* propagate to SFE bus wr */
-		core_info->sfe_bus_wr->hw_ops.process_cmd(
-			core_info->sfe_bus_wr->bus_priv, cmd_type,
-			cmd_args, arg_size);
-
+		if (core_info->sfe_hw_info->bus_wr_version) {
+			core_info->sfe_bus_wr->hw_ops.process_cmd(
+				core_info->sfe_bus_wr->bus_priv, cmd_type,
+				cmd_args, arg_size);
+		}
 		/* propagate to SFE bus rd */
 		core_info->sfe_bus_rd->hw_ops.process_cmd(
 			core_info->sfe_bus_rd->bus_priv, cmd_type,
@@ -456,9 +459,11 @@ int cam_sfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 			cmd_args, arg_size);
 
 		/* propagate to SFE bus wr */
-		core_info->sfe_bus_wr->hw_ops.process_cmd(
-			core_info->sfe_bus_wr->bus_priv, cmd_type,
-			cmd_args, arg_size);
+		if (core_info->sfe_hw_info->bus_wr_version) {
+			core_info->sfe_bus_wr->hw_ops.process_cmd(
+				core_info->sfe_bus_wr->bus_priv, cmd_type,
+				cmd_args, arg_size);
+		}
 		break;
 	case CAM_ISP_HW_CMD_QUERY_REGSPACE_DATA:
 		*((struct cam_hw_soc_info **)cmd_args) = soc_info;

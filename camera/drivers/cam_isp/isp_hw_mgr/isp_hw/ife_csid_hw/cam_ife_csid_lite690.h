@@ -302,24 +302,6 @@ static struct cam_irq_register_set cam_ife_csid_lite_690_irq_reg_set[CAM_IFE_CSI
 		.clear_reg_offset  = 0x00000134,
 		.status_reg_offset = 0x0000012C,
 	},
-	/* IPP */
-	{0},
-	/* PPP */
-	{0},
-	/* UDI_0 */
-	{0},
-	/* UDI_1 */
-	{0},
-	/* UDI_2 */
-	{0},
-	/* Top_2 */
-	{0},
-	/* RX_2 */
-	{0},
-	/* IPP_1 */
-	{0},
-	/* IPP_2 */
-	{0},
 	/* RDI5 */
 	{
 		.mask_reg_offset   = 0x00000140,
@@ -370,20 +352,6 @@ static struct cam_irq_controller_reg_info
 		.irq_reg_set = &cam_ife_csid_lite_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_RDI_4],
 		.global_irq_cmd_offset = 0,
 	},
-	/* IPP */
-	{0},
-	/* IPP */
-	{0},
-	/* UDI_0 */
-	{0},
-	/* UDI_1 */
-	{0},
-	/* UDI_2 */
-	{0},
-	/* IPP_1 */
-	{0},
-	/* IPP_2 */
-	{0},
 	{
 		.num_registers = 1,
 		.irq_reg_set = &cam_ife_csid_lite_690_irq_reg_set[CAM_IFE_CSID_IRQ_REG_RDI_5],
@@ -1151,13 +1119,6 @@ static struct cam_ife_csid_ver2_reg_info cam_ife_csid_lite_690_reg_info = {
 		&cam_ife_csid_lite_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_2],
 		&cam_ife_csid_lite_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_3],
 		&cam_ife_csid_lite_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_4],
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
-		NULL,
 		&cam_ife_csid_lite_690_path_irq_reg_info[CAM_IFE_PIX_PATH_RES_RDI_5],
 		},
 	.buf_done_irq_reg_info = &cam_ife_csid_lite_690_buf_done_irq_reg_info,
