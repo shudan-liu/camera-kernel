@@ -801,6 +801,11 @@ static struct cam_ife_hw_mgr_stream_grp_config *cam_ife_mgr_get_free_grp_cfg(uin
 		break;
 	}
 
+	if (i == CAM_ISP_STREAM_GROUP_CFG_MAX) {
+		CAM_ERR(CAM_ISP, "No uninitialized g_ife_sns_grp_cfg.grp_cfg found");
+		return ERR_PTR(-ENOENT);
+	}
+
 	*grp_idx = i;
 	return g_ife_sns_grp_cfg.grp_cfg[i];
 }
@@ -915,7 +920,8 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 	}
 
 	if (g_ife_sns_grp_cfg.num_grp_cfg > CAM_ISP_STREAM_GROUP_CFG_MAX ||
-		sensor_grp_config->num_grp_cfg == 0) {
+		sensor_grp_config->num_grp_cfg == 0 ||
+		sensor_grp_config->num_grp_cfg >= CAM_ISP_STREAM_GROUP_CFG_MAX) {
 		CAM_ERR(CAM_ISP,
 			"invalid g_ife_sns_grp_cfg.num_grp_cfg:%d or sensor_grp_config->num_grp_cfg:%d",
 			g_ife_sns_grp_cfg.num_grp_cfg, sensor_grp_config->num_grp_cfg);
@@ -925,6 +931,13 @@ static int cam_ife_mgr_update_sensor_grp_stream_cfg(void *hw_mgr_priv,
 
 	for (i = 0; i < sensor_grp_config->num_grp_cfg; i++) {
 		stream_grp_cfg = &sensor_grp_config->stream_grp_cfg[i];
+		if (stream_grp_cfg->stream_cfg_cnt >= CAM_ISP_STREAM_CFG_MAX) {
+			CAM_ERR(CAM_ISP,
+				"stream config count %d exceed max supported value %d for stream_grp_cfg idx:%d",
+				stream_grp_cfg->stream_cfg_cnt, CAM_ISP_STREAM_CFG_MAX, i);
+			return -EINVAL;
+		}
+
 		grp_found = cam_ife_hw_mgr_check_grp_cfg(stream_grp_cfg);
 		if (grp_found) {
 			rc = cam_ife_hw_mgr_check_for_duplicate_grp_info(stream_grp_cfg);
