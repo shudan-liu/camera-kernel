@@ -427,6 +427,7 @@ struct cam_isp_sys_cache_info {
  * @hw_pid_support         hw pid support for this target
  * @csid_rup_en            Reg update at CSID side
  * @csid_global_reset_en   CSID global reset enable
+ * @max_ife_lite_out_res   Maximum IFE_LITE OUT Res
  */
 struct cam_ife_hw_mgr {
 	struct cam_isp_hw_mgr          mgr_common;
@@ -458,6 +459,7 @@ struct cam_ife_hw_mgr {
 	bool                             hw_pid_support;
 	bool                             csid_rup_en;
 	bool                             csid_global_reset_en;
+	uint32_t                         max_ife_lite_out_res;
 };
 
 /**
