@@ -747,8 +747,8 @@ static void cam_icp_ctx_timer_cb(struct timer_list *timer_data)
 
 	spin_lock_irqsave(&icp_hw_mgr.hw_mgr_lock, flags);
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.timer_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&icp_hw_mgr.hw_mgr_lock, flags);
 		return;
 	}
@@ -772,8 +772,8 @@ static void cam_icp_device_timer_cb(struct timer_list *timer_data)
 
 	spin_lock_irqsave(&icp_hw_mgr.hw_mgr_lock, flags);
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.timer_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&icp_hw_mgr.hw_mgr_lock, flags);
 		return;
 	}
@@ -2712,8 +2712,8 @@ static int32_t cam_icp_hw_mgr_cb(void *data, bool recover)
 
 	spin_lock_irqsave(&hw_mgr->hw_mgr_lock, flags);
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.msg_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&hw_mgr->hw_mgr_lock, flags);
 		return -ENOMEM;
 	}
@@ -4255,8 +4255,8 @@ static int cam_icp_mgr_enqueue_config(struct cam_icp_hw_mgr *hw_mgr,
 	CAM_DBG(CAM_ICP, "req_id = %lld %pK", request_id, config_args->priv);
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
 	}
 
@@ -4284,10 +4284,10 @@ static int cam_icp_mgr_send_config_io(struct cam_icp_hw_ctx_data *ctx_data,
 	uint32_t size_in_words;
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
+	if (IS_ERR_OR_NULL(task)) {
 		CAM_ERR_RATE_LIMIT(CAM_ICP,
-			"No free task ctx id:%d dev hdl:0x%x session hdl:0x%x dev_type:%d",
-			ctx_data->ctx_id, ctx_data->acquire_dev_cmd.dev_handle,
+			"No free task %d ctx id:%d dev hdl:0x%x session hdl:0x%x dev_type:%d",
+			PTR_ERR(task), ctx_data->ctx_id, ctx_data->acquire_dev_cmd.dev_handle,
 			ctx_data->acquire_dev_cmd.session_handle,
 			ctx_data->icp_dev_acquire_info->dev_type);
 		return -ENOMEM;
@@ -4352,8 +4352,10 @@ static int cam_icp_mgr_send_recfg_io(struct cam_icp_hw_ctx_data *ctx_data,
 	struct crm_worker_task *task;
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task)
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
+	}
 
 	task_data = (struct hfi_cmd_work_data *)task->payload;
 	task_data->data = (void *)ioconfig_cmd;
@@ -5409,8 +5411,8 @@ static int cam_icp_mgr_delete_sync_obj(struct cam_icp_hw_ctx_data *ctx_data)
 	struct hfi_cmd_work_data *task_data;
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
 	}
 
@@ -5515,8 +5517,8 @@ static int cam_icp_mgr_enqueue_abort(
 	struct crm_worker_task *task;
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
 	}
 
@@ -5804,8 +5806,10 @@ static int cam_icp_mgr_create_handle(uint32_t dev_type,
 	int rc = 0;
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task)
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "no empty task = %d", PTR_ERR(task));
 		return -ENOMEM;
+	}
 
 	create_handle.size = sizeof(struct hfi_cmd_create_handle);
 	create_handle.pkt_type = HFI_CMD_IPEBPS_CREATE_HANDLE;
@@ -5850,8 +5854,8 @@ static int cam_icp_mgr_send_ping(struct cam_icp_hw_ctx_data *ctx_data)
 	int rc = 0;
 
 	task = cam_req_mgr_worker_get_task(icp_hw_mgr.cmd_work);
-	if (!task) {
-		CAM_ERR(CAM_ICP, "No free task to send ping command");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_ICP, "No free task %d to send ping command", PTR_ERR(task));
 		return -ENOMEM;
 	}
 

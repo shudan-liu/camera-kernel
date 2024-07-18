@@ -160,8 +160,8 @@ static int cam_rpmsg_system_recv_irq_cb(void *cookie, void *data, int len)
 	memcpy(payload, data, len);
 
 	task = cam_req_mgr_worker_get_task(system_data.worker);
-	if (!task) {
-		CAM_ERR(CAM_RPMSG, "Failed to dequeue task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_RPMSG, "Failed to dequeue task = %d", PTR_ERR(task));
 		return -EINVAL;
 	}
 	task->payload = payload;

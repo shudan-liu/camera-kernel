@@ -1664,9 +1664,18 @@ end:
 			cam_hw_util_hw_unlock_irqrestore(cdm_hw, flags);
 			return IRQ_HANDLED;
 		}
-		task->payload = payload[i];
-		task->process_cb = cam_hw_cdm_work;
-		cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+
+		if (IS_ERR_OR_NULL(task)) {
+			CAM_ERR(CAM_CDM, "Failed to get task for fifo %d task = %d",
+				i, PTR_ERR(task));
+			kfree(payload[i]);
+			cam_hw_util_hw_unlock_irqrestore(cdm_hw, flags);
+			return IRQ_HANDLED;
+		} else {
+			task->payload = payload[i];
+			task->process_cb = cam_hw_cdm_work;
+			cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+		}
 	}
 	cam_hw_util_hw_unlock_irqrestore(cdm_hw, flags);
 

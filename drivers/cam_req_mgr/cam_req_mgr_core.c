@@ -2390,8 +2390,8 @@ static void __cam_req_mgr_sof_freeze(struct timer_list *timer_data)
 	link = (struct cam_req_mgr_core_link *)timer->parent;
 
 	task = cam_req_mgr_worker_get_task(link->worker);
-	if (!task) {
-		CAM_ERR(CAM_CRM, "No empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRM, "No empty task = %d", PTR_ERR(task));
 		return;
 	}
 
@@ -3506,9 +3506,9 @@ static int cam_req_mgr_cb_add_req(struct cam_req_mgr_add_request *add_req)
 	}
 
 	task = cam_req_mgr_worker_get_task(link->worker);
-	if (!task) {
-		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task dev %x req %lld",
-			add_req->dev_hdl, add_req->req_id);
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task = %d dev %x req %lld",
+			PTR_ERR(task), add_req->dev_hdl, add_req->req_id);
 		rc = -EBUSY;
 		goto end;
 	}
@@ -3580,8 +3580,9 @@ static int cam_req_mgr_cb_notify_err(
 	mutex_unlock(&link->link_state_mutex_lock);
 
 	task = cam_req_mgr_worker_get_task(link->worker);
-	if (!task) {
-		CAM_ERR(CAM_CRM, "no empty task req_id %lld", err_info->req_id);
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRM, "no empty task = %d req_id %lld", PTR_ERR(task),
+			err_info->req_id);
 		rc = -EBUSY;
 		goto end;
 	}
@@ -3737,8 +3738,8 @@ static int cam_req_mgr_cb_notify_stop(
 	mutex_unlock(&link->link_state_mutex_lock);
 
 	task = cam_req_mgr_worker_get_task(link->worker);
-	if (!task) {
-		CAM_ERR(CAM_CRM, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRM, "no empty task = %d", PTR_ERR(task));
 		rc = -EBUSY;
 		goto end;
 	}
@@ -3975,15 +3976,14 @@ static int cam_req_mgr_cb_notify_trigger(
 
 	task = cam_req_mgr_worker_get_task(worker);
 	if (PTR_ERR(task) == -EIO) {
-		CAM_DBG(CAM_CRM, "worker %s is paused, skip notify trigger",
-				worker->worker_name);
+		CAM_INFO_RATE_LIMIT(CAM_CRM, "worker %s is paused, skip notify trigger",
+			worker->worker_name);
 		rc = -EBUSY;
 		goto end;
 	}
-	if (!task) {
-		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task frame %lld",
-			trigger_data->frame_id);
-
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR_RATE_LIMIT(CAM_CRM, "no empty task = %d frame %lld",
+			PTR_ERR(task), trigger_data->frame_id);
 		rc = -EBUSY;
 		goto end;
 	}
@@ -5159,7 +5159,8 @@ int cam_req_mgr_flush_requests(
 	}
 
 	task = cam_req_mgr_worker_get_task(link->worker);
-	if (!task) {
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CRM, "Can not get task = %d", PTR_ERR(task));
 		rc = -ENOMEM;
 		goto end;
 	}

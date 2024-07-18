@@ -742,9 +742,13 @@ static irqreturn_t cam_cpastop_handle_irq(int irq_num, void *data)
 	cam_cpastop_reset_irq(cpas_hw);
 
 	task = cam_req_mgr_worker_get_task(cpas_core->worker);
-	task->payload = payload;
-	task->process_cb = cam_cpastop_work;
-	cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_CPAS, "Failed to get task = %d", PTR_ERR(task));
+	} else {
+		task->payload = payload;
+		task->process_cb = cam_cpastop_work;
+		cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+	}
 
 done:
 	atomic_dec(&cpas_core->irq_count);

@@ -516,9 +516,14 @@ void cam_sync_util_dispatch_signaled_cb(struct cam_sync_signal_param *param,
 		sync_cb->status = param->status;
 		list_del_init(&sync_cb->list);
 		task = cam_req_mgr_worker_get_task(sync_dev->worker);
-		task->payload = sync_cb;
-		task->process_cb = cam_sync_util_cb_dispatch;
-		cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+		if (IS_ERR_OR_NULL(task)) {
+			CAM_ERR(CAM_SYNC, "Failed to get task = %d", PTR_ERR(task));
+			kfree(sync_cb);
+		} else {
+			task->payload = sync_cb;
+			task->process_cb = cam_sync_util_cb_dispatch;
+			cam_req_mgr_worker_enqueue_task(task, NULL, CRM_TASK_PRIORITY_0);
+		}
 	}
 
 	/* Dispatch user payloads if any were registered earlier */

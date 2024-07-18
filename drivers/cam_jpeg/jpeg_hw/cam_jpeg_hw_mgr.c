@@ -528,8 +528,8 @@ exit:
 	g_jpeg_hw_mgr.dev_hw_cfg_args[dev_type][0] = NULL;
 
 	task = cam_req_mgr_worker_get_task(g_jpeg_hw_mgr.work_process_frame);
-	if (!task) {
-		CAM_ERR(CAM_JPEG, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_JPEG, "no empty task = %d", PTR_ERR(task));
 		rc = -EINVAL;
 		goto err;
 	}
@@ -567,8 +567,8 @@ static int cam_jpeg_hw_mgr_sched_bottom_half(uint32_t irq_status, int32_t irq_da
 
 	spin_lock_irqsave(&g_jpeg_hw_mgr.hw_mgr_lock, flags);
 	task = cam_req_mgr_worker_get_task(g_jpeg_hw_mgr.work_process_irq_cb);
-	if (!task) {
-		CAM_ERR(CAM_JPEG, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_JPEG, "no empty task = %d", PTR_ERR(task));
 		spin_unlock_irqrestore(&g_jpeg_hw_mgr.hw_mgr_lock, flags);
 		return -ENOMEM;
 	}
@@ -899,8 +899,8 @@ static int cam_jpeg_mgr_config_hw(void *hw_mgr_priv, void *config_hw_args)
 	CAM_DBG(CAM_JPEG, "req_id: %u, dev_type: %d",
 		p_cfg_req->req_id, ctx_data->jpeg_dev_acquire_info.dev_type);
 	task = cam_req_mgr_worker_get_task(g_jpeg_hw_mgr.work_process_frame);
-	if (!task) {
-		CAM_ERR(CAM_JPEG, "no empty task");
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_JPEG, "no empty task = %d", PTR_ERR(task));
 		mutex_unlock(&hw_mgr->hw_mgr_mutex);
 		rc = -ENOMEM;
 		goto err_after_dq_free_list;
