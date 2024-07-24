@@ -1,10 +1,11 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2019, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/kernel.h>
+#include <linux/init.h>
 #include <linux/module.h>
 #include <linux/version.h>
 #include "cam_sensor_dev.h"
@@ -450,16 +451,31 @@ static int cam_pm_sensor_hibernation_suspend(struct device *pdev)
 	int rc = 0;
 
 	CAM_INFO(CAM_SENSOR, "Call AIS_SENSOR_POWER_DOWN");
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)) && IS_ENABLED(CONFIG_ARCH_SA6155)
+	cam_cmd.op_code     = AIS_SENSOR_POWER_DOWN;
+#else
 	cam_cmd.op_code     = AIS_SENSOR_I2C_POWER_DOWN;
+#endif
 	cam_cmd.handle_type = CAM_HANDLE_USER_POINTER;
 	cam_cmd.size        = 0;
 	s_ctrl = dev_get_drvdata(pdev);
 	rc = cam_sensor_driver_cmd(s_ctrl, &cam_cmd);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(6, 1, 0)) && IS_ENABLED(CONFIG_ARCH_SA6155)
+	if (rc == -EINVAL || rc == -ENODEV) {
+		s_ctrl->no_lpm_mode_enabled = true;
+		rc = 0;
+	}
+	else {
+		s_ctrl->no_lpm_mode_enabled = false;
+	}
+#else
 	/* will return success if its already powered down or device is not connected */
 	if (rc == -EINVAL || rc == -ENODEV)
 		rc = 0;
+#endif
 	if (rc < 0)
 		CAM_ERR(CAM_SENSOR, "Failed to I2C_POWER_DOWN sensor");
+
 	return rc;
 }
 
