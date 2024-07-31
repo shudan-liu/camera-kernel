@@ -547,6 +547,7 @@ int cam_vfe_process_cmd(void *hw_priv, uint32_t cmd_type,
 	case CAM_ISP_HW_CMD_UPDATE_VFE_OUT_RES_DATA:
 	case CAM_ISP_HW_CMD_UPDATE_VFE_OUT_RES_IRQ_MASK:
 	case CAM_ISP_HW_CMD_CHECK_RUP_FOR_APPLIED_REQ:
+	case CAM_ISP_HW_CMD_GET_NUM_OUT_RES:
 		rc = core_info->vfe_bus->hw_ops.process_cmd(
 			core_info->vfe_bus->bus_priv, cmd_type, cmd_args,
 			arg_size);

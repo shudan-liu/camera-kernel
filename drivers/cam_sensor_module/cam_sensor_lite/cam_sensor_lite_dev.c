@@ -444,7 +444,8 @@ static int sensor_lite_recv_irq_cb(void *cookie, void *data, int len)
 	memcpy(payload, data, len);
 
 	task = cam_req_mgr_worker_get_task(sensor_lite_rpmsg_workq);
-	if (task == NULL) {
+	if (IS_ERR_OR_NULL(task)) {
+		CAM_ERR(CAM_RPMSG, "Can not get task = %d", PTR_ERR(task));
 		rc = -EINVAL;
 		goto err_exit1;
 	}

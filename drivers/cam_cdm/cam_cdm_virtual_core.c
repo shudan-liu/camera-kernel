@@ -185,10 +185,18 @@ int cam_virtual_cdm_submit_bl(struct cam_hw_info *cdm_hw,
 					payload->irq_data = core->bl_tag;
 					payload->hw = cdm_hw;
 					task = cam_req_mgr_worker_get_task(core->worker);
-					task->payload = payload;
-					task->process_cb = cam_virtual_cdm_work;
-					cam_req_mgr_worker_enqueue_task(task, NULL,
-						CRM_TASK_PRIORITY_0);
+					if (IS_ERR_OR_NULL(task)) {
+						CAM_ERR(CAM_CDM, "no empty task = %d",
+							PTR_ERR(task));
+						kfree(payload);
+						rc = -ENOMEM;
+						goto end;
+					} else {
+						task->payload = payload;
+						task->process_cb = cam_virtual_cdm_work;
+						cam_req_mgr_worker_enqueue_task(task, NULL,
+							CRM_TASK_PRIORITY_0);
+					}
 				}
 			}
 			core->bl_tag++;

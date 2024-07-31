@@ -4502,12 +4502,12 @@ static irqreturn_t cam_ife_csid_irq(int irq_num, void *data)
 
 	bh_cmd = cam_req_mgr_worker_get_task(csid_hw->worker);
 
-	if (!bh_cmd) {
+	if (IS_ERR_OR_NULL(bh_cmd)) {
 		cam_ife_csid_ver1_put_evt_payload(csid_hw, &evt_payload,
 			&csid_hw->free_payload_list);
 		CAM_ERR_RATE_LIMIT(CAM_ISP,
-			"CSID[%d] Can not get cmd for worker, status %x",
-			csid_hw->hw_intf->hw_idx,
+			"CSID[%d] Can not get cmd %d for worker, status %x",
+			csid_hw->hw_intf->hw_idx, PTR_ERR(bh_cmd),
 			status[CAM_IFE_CSID_IRQ_REG_TOP]);
 		return IRQ_HANDLED;
 	}

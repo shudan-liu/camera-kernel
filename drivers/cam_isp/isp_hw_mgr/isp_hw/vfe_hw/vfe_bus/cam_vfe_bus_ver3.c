@@ -4471,11 +4471,6 @@ static int cam_vfe_bus_ver3_enable_irq_vfe_out(void *bus_priv, void *res_irq_mas
 				return -EFAULT;
 			}
 
-			if ((common_data->is_lite || source_group > CAM_VFE_BUS_VER3_SRC_GRP_0)
-				&& !vfe_out->rdi_only_ctx) {
-				goto end;
-			}
-
 			if ((common_data->supported_irq & CAM_VFE_HW_IRQ_CAP_RUP) &&
 				(!common_data->rup_irq_handle[source_group])) {
 				rsrc_data->stored_irq_masks[CAM_VFE_BUS_VER3_RUP_MASK]
@@ -4781,6 +4776,14 @@ static int cam_vfe_bus_ver3_process_cmd(
 	case CAM_ISP_HW_CMD_CHECK_RUP_FOR_APPLIED_REQ:
 		rc = cam_vfe_bus_ver3_check_rup_applied_req(priv, cmd_args, arg_size);
 		break;
+	case CAM_ISP_HW_CMD_GET_NUM_OUT_RES: {
+		uint32_t *max_num_out_res;
+
+		max_num_out_res = (uint32_t *) cmd_args;
+		bus_priv = (struct cam_vfe_bus_ver3_priv  *) priv;
+		*max_num_out_res = bus_priv->num_out;
+		break;
+	}
 	default:
 		CAM_ERR_RATE_LIMIT(CAM_ISP, "Invalid camif process command:%d",
 			cmd_type);
