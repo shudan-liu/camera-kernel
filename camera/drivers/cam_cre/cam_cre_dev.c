@@ -183,6 +183,7 @@ static int cam_cre_subdev_component_bind(struct device *dev,
 	g_cre_dev.open_cnt = 0;
 	mutex_init(&g_cre_dev.cre_lock);
 
+	rc = cam_subdev_register(&g_cre_dev.sd, pdev);
 	CAM_DBG(CAM_CRE, "Component bound successfully");
 
 	return rc;
@@ -209,6 +210,7 @@ static void cam_cre_subdev_component_unbind(struct device *dev,
 		cam_cre_context_deinit(&g_cre_dev.ctx_cre[i]);
 
 	cam_node_deinit(g_cre_dev.node);
+	cam_unregister_subdev(&g_cre_dev.sd);
 	cam_subdev_remove(&g_cre_dev.sd);
 	mutex_destroy(&g_cre_dev.cre_lock);
 }

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -158,9 +159,10 @@ static int cam_custom_component_bind(struct device *dev,
 
 	mutex_init(&g_custom_dev.custom_dev_mutex);
 
+	rc = cam_subdev_register(&g_custom_dev.sd, pdev);
 	CAM_DBG(CAM_CUSTOM, "%s component bound successfully", pdev->name);
 
-	return 0;
+	return rc;
 unregister:
 	rc = cam_subdev_remove(&g_custom_dev.sd);
 err:
@@ -181,9 +183,13 @@ static void cam_custom_component_unbind(struct device *dev,
 				"Custom context %d deinit failed", i);
 	}
 
-	rc = cam_subdev_remove(&g_custom_dev.sd);
+	rc = cam_unregister_subdev(&g_custom_dev.sd);
 	if (rc)
 		CAM_ERR(CAM_CUSTOM, "Unregister failed");
+
+	rc = cam_subdev_remove(&g_custom_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_CUSTOM, "Subdev remove failed");
 
 	memset(&g_custom_dev, 0, sizeof(g_custom_dev));
 }

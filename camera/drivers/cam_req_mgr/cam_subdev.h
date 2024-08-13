@@ -167,6 +167,16 @@ void cam_subdev_notify_message(u32 subdev_type,
  */
 int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	char *name, uint32_t dev_type);
+/**
+ * cam_subdev_register()
+ *
+ * @brief:      Camera Subdevice node probe function for v4l2 setup
+ *
+ * @sd:                    Camera subdevice object
+ * @pdev:                  Pointer to the platform device
+ *
+ */
+int cam_subdev_register(struct cam_subdev *sd, struct platform_device *pdev);
 
 /**
  * cam_subdev_remove()

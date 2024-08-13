@@ -208,6 +208,7 @@ static int cam_jpeg_dev_component_bind(struct device *dev,
 
 	mutex_init(&g_jpeg_dev.jpeg_mutex);
 
+	rc = cam_subdev_register(&g_jpeg_dev.sd, pdev);
 	CAM_DBG(CAM_JPEG, "Component bound successfully");
 
 	return rc;
@@ -236,9 +237,13 @@ static void cam_jpeg_dev_component_unbind(struct device *dev,
 				i, rc);
 	}
 
-	rc = cam_subdev_remove(&g_jpeg_dev.sd);
+	rc = cam_unregister_subdev(&g_jpeg_dev.sd);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "Unregister failed %d", rc);
+
+	rc = cam_subdev_remove(&g_jpeg_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_JPEG, "Subdev remove failed %d", rc);
 }
 
 const static struct component_ops cam_jpeg_dev_component_ops = {
