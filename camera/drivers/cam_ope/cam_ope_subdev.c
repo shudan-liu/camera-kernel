@@ -235,6 +235,7 @@ static int cam_ope_subdev_component_bind(struct device *dev,
 	mutex_init(&g_ope_dev.ope_lock);
 
 	node->sd_handler = cam_ope_subdev_close_internal;
+	rc = cam_subdev_register(&g_ope_dev.sd, pdev);
 	CAM_DBG(CAM_OPE, "Subdev component bound successfully");
 
 	return rc;
@@ -278,6 +279,7 @@ static void cam_ope_subdev_component_unbind(struct device *dev,
 		cam_ope_context_deinit(&g_ope_dev.ctx_ope[i]);
 
 	cam_node_deinit(g_ope_dev.node);
+	cam_unregister_subdev(&g_ope_dev.sd);
 	cam_subdev_remove(&g_ope_dev.sd);
 	mutex_destroy(&g_ope_dev.ope_lock);
 }

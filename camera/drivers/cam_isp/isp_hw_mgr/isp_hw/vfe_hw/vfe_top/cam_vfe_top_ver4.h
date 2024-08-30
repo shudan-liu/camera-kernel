@@ -54,6 +54,8 @@ struct cam_vfe_top_ver4_reg_offset_common {
 	uint32_t reg_update_cmd;
 	uint32_t trigger_cdm_events;
 	uint32_t ipp_violation_status;
+	uint32_t ipp_violation_status_0;
+	uint32_t ipp_violation_status_1;
 	uint32_t bayer_violation_status;
 	uint32_t pdaf_violation_status;
 	uint32_t custom_frame_idx;

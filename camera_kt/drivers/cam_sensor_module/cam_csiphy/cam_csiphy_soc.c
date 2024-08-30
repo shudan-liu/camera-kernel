@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include "cam_csiphy_soc.h"
@@ -126,14 +127,14 @@ int32_t cam_csiphy_status_dmp(struct csiphy_device *csiphy_dev)
 	return rc;
 }
 
-enum cam_vote_level get_clk_vote_default(struct csiphy_device *csiphy_dev,
+static enum cam_vote_level get_clk_vote_default(struct csiphy_device *csiphy_dev,
 	int32_t index)
 {
 	CAM_DBG(CAM_CSIPHY, "voting for SVS");
 	return CAM_SVS_VOTE;
 }
 
-enum cam_vote_level get_clk_voting_dynamic(
+static enum cam_vote_level get_clk_voting_dynamic(
 	struct csiphy_device *csiphy_dev, int32_t index)
 {
 	uint32_t cam_vote_level = 0;

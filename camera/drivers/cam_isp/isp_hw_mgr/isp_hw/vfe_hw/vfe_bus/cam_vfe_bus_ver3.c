@@ -335,6 +335,10 @@ static bool cam_vfe_bus_ver3_can_be_secure(uint32_t out_type)
 	case CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_2PD:
 	case CAM_VFE_BUS_VER3_VFE_OUT_PDAF_PARSED:
 	case CAM_VFE_BUS_VER3_VFE_OUT_PREPROCESS_RAW:
+	case CAM_VFE_BUS_VER3_VFE_OUT_RDI4:
+	case CAM_VFE_BUS_VER3_VFE_OUT_RDI5:
+	case CAM_VFE_BUS_VER3_VFE_OUT_AI_OUT_1:
+	case CAM_VFE_BUS_VER3_VFE_OUT_AI_OUT_2:
 		return true;
 
 	case CAM_VFE_BUS_VER3_VFE_OUT_FD:
@@ -474,6 +478,18 @@ static enum cam_vfe_bus_ver3_vfe_out_type
 		break;
 	case CAM_ISP_IFE_OUT_RES_STATS_ALSC:
 		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_STATS_ALSC;
+		break;
+	case CAM_ISP_IFE_OUT_RES_RDI_4:
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_RDI4;
+		break;
+	case CAM_ISP_IFE_OUT_RES_RDI_5:
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_RDI5;
+		break;
+	case CAM_ISP_IFE_OUT_RES_AI_OUT_1:
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_AI_OUT_1;
+		break;
+	case CAM_ISP_IFE_OUT_RES_AI_OUT_2:
+		vfe_out_type = CAM_VFE_BUS_VER3_VFE_OUT_AI_OUT_2;
 		break;
 	default:
 		CAM_WARN(CAM_ISP, "VFE:%u Invalid isp res id: %d , assigning max",
@@ -947,8 +963,9 @@ static int cam_vfe_bus_ver3_acquire_wm(
 		wm_res->hw_intf->hw_idx, rsrc_data->index,
 		rsrc_data->width, rsrc_data->height);
 
-	if ((vfe_out_res_id >= CAM_VFE_BUS_VER3_VFE_OUT_RDI0) &&
-		(vfe_out_res_id <= CAM_VFE_BUS_VER3_VFE_OUT_RDI3)) {
+	if (((vfe_out_res_id >= CAM_VFE_BUS_VER3_VFE_OUT_RDI0) &&
+		(vfe_out_res_id <= CAM_VFE_BUS_VER3_VFE_OUT_RDI4)) ||
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_RDI5)) {
 		if (rsrc_data->default_line_based)
 			rsrc_data->wm_mode = CAM_VFE_WM_LINE_BASED_MODE;
 		else
@@ -966,6 +983,8 @@ static int cam_vfe_bus_ver3_acquire_wm(
 				ver3_bus_priv->common_data.pack_align_shift);
 
 	} else if ((vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_FULL) ||
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_AI_OUT_1) ||
+		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_AI_OUT_2) ||
 		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_FD) ||
 		(vfe_out_res_id == CAM_VFE_BUS_VER3_VFE_OUT_FULL_DISP)) {
 

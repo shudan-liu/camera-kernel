@@ -286,9 +286,8 @@ static int __cam_isp_ctx_dump_event_record(
 			return -ENOSPC;
 		}
 
-		min_len = sizeof(struct cam_isp_context_dump_header) +
-			((num_entries * CAM_ISP_CTX_DUMP_EVENT_NUM_WORDS) *
-				sizeof(uint64_t));
+		min_len = (sizeof(struct cam_isp_context_dump_header) +
+			(CAM_ISP_CTX_DUMP_EVENT_NUM_WORDS * sizeof(uint64_t))) * num_entries;
 		remain_len = dump_args->buf_len - dump_args->offset;
 
 		if (remain_len < min_len) {
@@ -1250,6 +1249,8 @@ static char *__cam_isp_ife_sfe_resource_handle_id_to_type(
 	case CAM_ISP_IFE_OUT_RES_RDI_1:                 return "IFE_RDI_1";
 	case CAM_ISP_IFE_OUT_RES_RDI_2:                 return "IFE_RDI_2";
 	case CAM_ISP_IFE_OUT_RES_RDI_3:                 return "IFE_RDI_3";
+	case CAM_ISP_IFE_OUT_RES_RDI_4:                 return "IFE_RDI_4";
+	case CAM_ISP_IFE_OUT_RES_RDI_5:                 return "IFE_RDI_5";
 	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BE:          return "IFE_STATS_HDR_BE";
 	case CAM_ISP_IFE_OUT_RES_STATS_HDR_BHIST:       return "IFE_STATS_HDR_BHIST";
 	case CAM_ISP_IFE_OUT_RES_STATS_TL_BG:           return "IFE_STATS_TL_BG";
@@ -1276,6 +1277,8 @@ static char *__cam_isp_ife_sfe_resource_handle_id_to_type(
 	case CAM_ISP_IFE_OUT_RES_STATS_BAYER_RS:        return "IFE_STATS_BAYER_RS";
 	case CAM_ISP_IFE_OUT_RES_PDAF_PARSED_DATA:      return "IFE_PDAF_PARSED_DATA";
 	case CAM_ISP_IFE_OUT_RES_STATS_ALSC:            return "IFE_STATS_ALSC";
+	case CAM_ISP_IFE_OUT_RES_AI_OUT_1:              return "IFE_AI_OUT_1";
+	case CAM_ISP_IFE_OUT_RES_AI_OUT_2:              return "IFE_AI_OUT_2";
 	/* SFE output ports */
 	case CAM_ISP_SFE_OUT_RES_RDI_0:                 return "SFE_RDI_0";
 	case CAM_ISP_SFE_OUT_RES_RDI_1:                 return "SFE_RDI_1";
@@ -5598,10 +5601,10 @@ hw_dump:
 		(CAM_ISP_CTX_DUMP_NUM_WORDS * sizeof(uint64_t));
 
 	if (remain_len < min_len) {
-		spin_unlock_bh(&ctx->lock);
 		CAM_WARN(CAM_ISP,
 		    "Dump buffer exhaust remain %zu min %u, ctx_idx: %u, link: 0x%x",
 		    remain_len, min_len, ctx->ctx_id, ctx->link_hdl);
+		spin_unlock_bh(&ctx->lock);
 		cam_mem_put_cpu_buf(dump_info->buf_handle);
 		return -ENOSPC;
 	}
@@ -5635,6 +5638,18 @@ hw_dump:
 	}
 	dump_info->offset = dump_args.offset;
 
+	min_len = sizeof(struct cam_isp_context_dump_header) +
+		(CAM_ISP_CTX_DUMP_NUM_WORDS * sizeof(int32_t));
+	remain_len = buf_len - dump_info->offset;
+	if (remain_len < min_len) {
+		CAM_WARN(CAM_ISP,
+		    "Dump buffer exhaust remain %zu min %u, ctx_idx: %u, link: 0x%x",
+		    remain_len, min_len, ctx->ctx_id, ctx->link_hdl);
+		spin_unlock_bh(&ctx->lock);
+		cam_mem_put_cpu_buf(dump_info->buf_handle);
+		return -ENOSPC;
+	}
+
 	/* Dump stream info */
 	ctx->ctxt_to_hw_map = ctx_isp->hw_ctx;
 	if (ctx->hw_mgr_intf->hw_dump) {
@@ -5647,6 +5662,17 @@ hw_dump:
 			    "ISP CTX stream info dump fail %lld, rc: %d, ctx: %u, link: 0x%x",
 			    req->request_id, rc, ctx->ctx_id, ctx->link_hdl);
 			goto end;
+		}
+
+		dump_info->offset = dump_args.offset;
+		remain_len = buf_len - dump_info->offset;
+		if (remain_len < min_len) {
+			CAM_WARN(CAM_ISP,
+				"Dump buffer exhaust remain %zu min %u, ctx_idx: %u, link: 0x%x",
+				remain_len, min_len, ctx->ctx_id, ctx->link_hdl);
+			spin_unlock_bh(&ctx->lock);
+			cam_mem_put_cpu_buf(dump_info->buf_handle);
+			return -ENOSPC;
 		}
 
 		/* Dump second part of stream info from ife hw manager */

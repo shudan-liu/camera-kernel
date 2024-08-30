@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -20,6 +21,8 @@
 #include <media/cam_req_mgr.h>
 #include <media/cam_defs.h>
 #include <media/cam_icp.h>
+
+#include "cam_icp_subdev.h"
 #include "cam_req_mgr_dev.h"
 #include "cam_subdev.h"
 #include "cam_node.h"
@@ -220,6 +223,7 @@ static int cam_icp_component_bind(struct device *dev,
 	g_icp_dev.open_cnt = 0;
 	mutex_init(&g_icp_dev.icp_lock);
 
+	rc = cam_subdev_register(&g_icp_dev.sd, pdev);
 	CAM_DBG(CAM_ICP, "Component bound successfully");
 
 	return rc;
@@ -258,6 +262,7 @@ static void cam_icp_component_unbind(struct device *dev,
 
 	cam_icp_hw_mgr_deinit();
 	cam_node_deinit(g_icp_dev.node);
+	cam_unregister_subdev(&g_icp_dev.sd);
 	cam_subdev_remove(&g_icp_dev.sd);
 	mutex_destroy(&g_icp_dev.icp_lock);
 }

@@ -9,7 +9,11 @@
 #include <linux/slab.h>
 #include <linux/gpio.h>
 #include <linux/of_gpio.h>
+#include <linux/pm_domain.h>
+#include <linux/pm_runtime.h>
 #include <linux/pinctrl/consumer.h>
+#include <linux/pm_opp.h>
+
 #include "cam_soc_util.h"
 #include "cam_debug_util.h"
 #include "cam_cx_ipeak.h"
@@ -1535,6 +1539,16 @@ int cam_soc_util_set_src_clk_rate(struct cam_hw_soc_info *soc_info, int cesta_cl
 			apply_level);
 	}
 
+	rc = dev_pm_opp_set_rate(soc_info->dev,
+			  soc_info->clk_rate[apply_level][soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Unable to set operating point for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx],
+			rc);
+		return rc;
+	}
+
 	if (soc_info->is_clk_drv_en && CAM_IS_VALID_CESTA_IDX(cesta_client_idx)) {
 		rc = cam_soc_util_set_cesta_clk_rate(soc_info, cesta_client_idx, clk_rate_high,
 			clk_rate_low,
@@ -1890,6 +1904,39 @@ int cam_soc_util_clk_disable(struct cam_hw_soc_info *soc_info, int cesta_client_
 	return 0;
 }
 
+void cam_soc_util_power_domain_disable_default(
+	struct cam_hw_soc_info *soc_info)
+{
+	int i, ret = 0, num_pds = soc_info->num_genpd;
+
+	if (num_pds < 1) {
+		CAM_DBG(CAM_UTIL,
+			"power-domains not defined for dev %s num_pds = %d",
+			num_pds, soc_info->dev_name);
+		return;
+	}
+
+	if (num_pds == 1) {
+		dev_pm_genpd_set_performance_state(soc_info->dev, 0);
+		ret = pm_runtime_put_sync(soc_info->dev);
+		CAM_DBG(CAM_UTIL,
+			"power-domain disabled for dev %s ret %d",
+			soc_info->dev_name, ret);
+		return;
+	}
+
+	for (i = num_pds - 1; i >= 0; i--) {
+		if (!soc_info->genpd)
+			continue;
+
+		if (!soc_info->genpd[i])
+			continue;
+
+		dev_pm_genpd_set_performance_state(soc_info->genpd[i], 0);
+		pm_runtime_put(soc_info->genpd[i]);
+	}
+}
+
 /**
  * cam_soc_util_clk_enable_default()
  *
@@ -1925,6 +1972,16 @@ int cam_soc_util_clk_enable_default(struct cam_hw_soc_info *soc_info,
 
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_update_vote_cx_ipeak(soc_info, apply_level);
+
+	rc = dev_pm_opp_set_rate(soc_info->dev,
+			soc_info->clk_rate[apply_level][soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Unable to set operating point for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx],
+			rc);
+		return rc;
+	}
 
 	CAM_DBG(CAM_UTIL, "Dev[%s] : cesta client %d, request level %s, apply level %s",
 		soc_info->dev_name, cesta_client_idx,
@@ -1981,6 +2038,9 @@ void cam_soc_util_clk_disable_default(struct cam_hw_soc_info *soc_info,
 
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_unvote_cx_ipeak(soc_info);
+
+	dev_pm_opp_set_rate(soc_info->dev, 0);
+
 	for (i = soc_info->num_clk - 1; i >= 0; i--)
 		cam_soc_util_clk_disable(soc_info, cesta_client_idx, false, i);
 }
@@ -2283,6 +2343,16 @@ int cam_soc_util_set_clk_rate_level(struct cam_hw_soc_info *soc_info,
 
 	if (soc_info->cam_cx_ipeak_enable)
 		cam_cx_ipeak_update_vote_cx_ipeak(soc_info, apply_level_high);
+
+	rc = dev_pm_opp_set_rate(soc_info->dev,
+			  soc_info->clk_rate[apply_level_high][soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"Unable to set operating point for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx],
+			rc);
+		return rc;
+	}
 
 	for (i = 0; i < soc_info->num_clk; i++) {
 		if (do_not_set_src_clk && (i == soc_info->src_clk_idx)) {
@@ -3266,6 +3336,145 @@ int cam_soc_util_request_irq(struct device *dev,
 }
 #endif
 
+int cam_soc_util_power_domain_enable_default(
+	struct cam_hw_soc_info *soc_info)
+{
+	int i = 0, ret = 0;
+	int32_t num_pds = soc_info->num_genpd;
+
+	if (num_pds < 1) {
+		CAM_DBG(CAM_UTIL,
+			"power-domains not defined for dev %s num_pds = %d",
+			num_pds, soc_info->dev_name);
+		goto end;
+	}
+
+	if (num_pds == 1) {
+		dev_pm_genpd_set_performance_state(soc_info->dev, INT_MAX);
+		ret = pm_runtime_get_sync(soc_info->dev);
+		CAM_DBG(CAM_UTIL,
+			"power-domain enabled for dev %s ret %d",
+			soc_info->dev_name, ret);
+
+		if (ret < 0) {
+			CAM_ERR(CAM_UTIL,
+				"power-domain enable failed for dev %s ret %d",
+				soc_info->dev_name, ret);
+			pm_runtime_put(soc_info->dev);
+			dev_pm_genpd_set_performance_state(soc_info->dev, 0);
+		}
+
+		goto end;
+	}
+
+	for (i = 0; i < num_pds; i++) {
+		if (!soc_info->genpd)
+			continue;
+
+		if (!soc_info->genpd[i])
+			continue;
+
+		dev_pm_genpd_set_performance_state(soc_info->genpd[i], INT_MAX);
+		ret = pm_runtime_get_sync(soc_info->genpd[i]);
+		if (ret < 0) {
+			CAM_ERR(CAM_UTIL,
+				"power-domain enable failed for dev %s ret %d i %d",
+				soc_info->dev_name, ret, i);
+			goto disable_pds;
+		}
+	}
+
+	goto end;
+
+disable_pds:
+	for (i--; i >= 0; i--) {
+		if (!soc_info->genpd[i])
+			continue;
+
+		dev_pm_genpd_set_performance_state(soc_info->genpd[i], 0);
+		pm_runtime_put(soc_info->genpd[i]);
+	}
+end:
+	return ret;
+}
+
+int cam_soc_util_configure_pd(struct cam_hw_soc_info *soc_info)
+{
+	int i, ret = 0;
+
+	soc_info->num_genpd = of_count_phandle_with_args(soc_info->dev->of_node,
+							"power-domains",
+							"#power-domain-cells");
+	if (soc_info->num_genpd < 1) {
+		CAM_WARN(CAM_UTIL,
+			"DBG: power-domains not defined for %s",
+			soc_info->dev_name);
+		soc_info->num_genpd = 0;
+		goto end;
+	}
+
+	CAM_DBG(CAM_UTIL,
+		"num_genpd defined for dev %s: %d",
+		soc_info->dev_name, soc_info->num_genpd);
+	/*
+	 * With only one power domain defined there is no need to have
+	 * references of genpd devices as the genpd attach will happen
+	 * during probe with dev_pm_domain_attach().
+	 */
+	if (soc_info->num_genpd == 1) {
+		goto end;
+	}
+
+	soc_info->genpd = devm_kmalloc_array(soc_info->dev, soc_info->num_genpd,
+					     sizeof(struct device), GFP_KERNEL);
+	if (!soc_info->genpd) {
+		CAM_ERR(CAM_UTIL,
+			"devm_kmalloc_array failed for dev %s, num_genpd %d",
+			soc_info->dev_name, soc_info->num_genpd);
+		ret = -ENOMEM;
+		goto end;
+	}
+
+	for (i = 0; i < soc_info->num_genpd; i++) {
+		soc_info->genpd[i] = dev_pm_domain_attach_by_id(soc_info->dev, i);
+		if (IS_ERR(soc_info->genpd[i])) {
+			CAM_ERR(CAM_UTIL,
+				"Error in pm_domain_attach");
+			ret = PTR_ERR(soc_info->genpd[i]);
+			goto fail_pm;
+		}
+	}
+
+	goto end;
+
+fail_pm:
+	for (--i ; i >= 0; i--)
+		dev_pm_domain_detach(soc_info->genpd[i], true);
+end:
+	return ret;
+}
+
+int cam_soc_util_configure_opp(struct cam_hw_soc_info *soc_info)
+{
+	int rc = 0;
+
+	rc = devm_pm_opp_set_clkname(soc_info->dev, soc_info->clk_name[soc_info->src_clk_idx]);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"OPP set_clkname failed for dev %s clk_name %s rc %d",
+			soc_info->dev_name, soc_info->clk_name[soc_info->src_clk_idx], rc);
+		return rc;
+	}
+
+	rc = devm_pm_opp_of_add_table(soc_info->dev);
+	if (rc) {
+		CAM_ERR(CAM_UTIL,
+			"OPP add_table failed for dev %s rc %d",
+			soc_info->dev_name, rc);
+	}
+	return rc;
+}
+
 int cam_soc_util_request_platform_resource(
 	struct cam_hw_soc_info *soc_info,
 	irq_handler_t handler, void **irq_data)
@@ -3317,6 +3526,21 @@ int cam_soc_util_request_platform_resource(
 		if (rc)
 			goto put_regulator;
 	}
+
+	rc = cam_soc_util_configure_pd(soc_info);
+	if (rc)
+		goto put_regulator;
+
+	pm_runtime_enable(soc_info->dev);
+
+	/*
+	 * Doing a pm_runtime_get_sync() and pm_runtime_put_sync() after pm_runtime_enable
+	 * makes sure that the GDSC is off and only enabled later by the usecase when there
+	 * is such a requirement.
+	 */
+	cam_soc_util_power_domain_enable_default(soc_info);
+	cam_soc_util_power_domain_disable_default(soc_info);
+
 
 	for (i = 0; i < soc_info->irq_count; i++) {
 		rc = cam_soc_util_request_irq(soc_info->dev, soc_info->irq_num[i],
@@ -3386,6 +3610,12 @@ int cam_soc_util_request_platform_resource(
 				goto put_clk;
 			}
 		}
+	}
+
+	rc = cam_soc_util_configure_opp(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_UTIL, "Failed to configure OPP");
+		goto put_clk;
 	}
 
 	rc = cam_soc_util_request_pinctrl(soc_info);
@@ -3492,6 +3722,10 @@ int cam_soc_util_release_platform_resource(struct cam_hw_soc_info *soc_info)
 		}
 	}
 
+	pm_runtime_disable(soc_info->dev);
+	for (i = 0; i < soc_info->num_genpd; i++)
+		dev_pm_domain_detach(soc_info->genpd[i], true);
+
 	for (i = soc_info->num_reg_map - 1; i >= 0; i--) {
 		iounmap(soc_info->reg_map[i].mem_base);
 		soc_info->reg_map[i].mem_base = NULL;
@@ -3541,10 +3775,16 @@ int cam_soc_util_enable_platform_resource(struct cam_hw_soc_info *soc_info,
 		return rc;
 	}
 
+	rc = cam_soc_util_power_domain_enable_default(soc_info);
+	if (rc < 0) {
+		CAM_ERR(CAM_UTIL, "Power domains enable failed");
+		goto disable_regulator;
+	}
+
 	if (enable_clocks) {
 		rc = cam_soc_util_clk_enable_default(soc_info, cesta_client_idx, clk_level);
 		if (rc)
-			goto disable_regulator;
+			goto disable_power_domain;
 	}
 
 	if (irq_enable) {
@@ -3571,6 +3811,9 @@ disable_irq:
 	if (enable_clocks)
 		cam_soc_util_clk_disable_default(soc_info, cesta_client_idx);
 
+disable_power_domain:
+	cam_soc_util_power_domain_disable_default(soc_info);
+
 disable_regulator:
 	cam_soc_util_regulator_disable_default(soc_info);
 
@@ -3590,6 +3833,8 @@ int cam_soc_util_disable_platform_resource(struct cam_hw_soc_info *soc_info,
 
 	if (disable_clocks)
 		cam_soc_util_clk_disable_default(soc_info, cesta_client_idx);
+
+	cam_soc_util_power_domain_disable_default(soc_info);
 
 	cam_soc_util_regulator_disable_default(soc_info);
 

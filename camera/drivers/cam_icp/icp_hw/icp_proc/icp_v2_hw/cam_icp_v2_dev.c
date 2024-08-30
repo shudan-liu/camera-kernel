@@ -42,6 +42,18 @@ struct cam_icp_v2_hw_info cam_icp_v2_1_hw_info[] = {
 	},
 };
 
+struct cam_icp_v2_hw_info cam_icp_v3_0_hw_info[] = {
+	{
+		.ob_irq_status = 0xC,
+		.ob_irq_mask   = 0x0,
+		.ob_irq_clear  = 0x4,
+		.ob_irq_set    = 0x8,
+		.ob_irq_cmd    = 0x10,
+		.host2icpint   = 0x124,
+		.pfault_info   = 0x144,
+	},
+};
+
 uint32_t cam_icp_v2_get_device_num(void)
 {
 	return max_icp_v2_hw_idx + 1;
@@ -201,6 +213,10 @@ static const struct of_device_id cam_icp_v2_match[] = {
 	{
 		.compatible = "qcom,cam-icp_v2_1",
 		.data = &cam_icp_v2_1_hw_info,
+	},
+	{
+		.compatible = "qcom,cam-icp_v3_0",
+		.data = &cam_icp_v3_0_hw_info,
 	},
 	{}
 };

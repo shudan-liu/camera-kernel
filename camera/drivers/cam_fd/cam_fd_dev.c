@@ -159,6 +159,7 @@ static int cam_fd_dev_component_bind(struct device *dev,
 
 	node->sd_handler = cam_fd_dev_close_internal;
 	mutex_init(&g_fd_dev.lock);
+	cam_subdev_probe(&g_fd_dev.sd, pdev);
 	g_fd_dev.probe_done = true;
 	CAM_DBG(CAM_FD, "Component bound successfully");
 
@@ -193,9 +194,13 @@ static void cam_fd_dev_component_unbind(struct device *dev,
 	if (rc)
 		CAM_ERR(CAM_FD, "Failed in hw mgr deinit, rc=%d", rc);
 
-	rc = cam_subdev_remove(&g_fd_dev.sd);
+	rc = cam_unregister_subdev(&g_fd_dev.sd);
 	if (rc)
 		CAM_ERR(CAM_FD, "Unregister failed, rc=%d", rc);
+
+	rc = cam_subdev_remove(&g_fd_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_FD, "Subdev remove failed, rc=%d", rc);
 
 	mutex_destroy(&g_fd_dev.lock);
 	g_fd_dev.probe_done = false;

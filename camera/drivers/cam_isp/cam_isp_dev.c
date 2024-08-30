@@ -263,9 +263,10 @@ static int cam_isp_dev_component_bind(struct device *dev,
 
 	mutex_init(&g_isp_dev.isp_mutex);
 
+	rc = cam_subdev_register(&g_isp_dev.sd, pdev);
 	CAM_DBG(CAM_ISP, "Component bound successfully");
 
-	return 0;
+	return rc;
 
 free_mem:
 	kfree(g_isp_dev.ctx);
@@ -304,9 +305,13 @@ static void cam_isp_dev_component_unbind(struct device *dev,
 	kfree(g_isp_dev.ctx_isp);
 	g_isp_dev.ctx_isp = NULL;
 
-	rc = cam_subdev_remove(&g_isp_dev.sd);
+	rc = cam_unregister_subdev(&g_isp_dev.sd);
 	if (rc)
 		CAM_ERR(CAM_ISP, "Unregister failed rc: %d", rc);
+
+	rc = cam_subdev_remove(&g_isp_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_ISP, "Subdev remove rc: %d", rc);
 
 	memset(&g_isp_dev, 0, sizeof(g_isp_dev));
 }

@@ -320,6 +320,7 @@ static void cam_eeprom_i2c_component_unbind(struct device *dev,
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	cam_eeprom_shutdown(e_ctrl);
 	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_release_power_domain(e_ctrl);
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
 	kfree(soc_private);
@@ -478,6 +479,7 @@ int cam_eeprom_spi_driver_remove_common(struct spi_device *sdev)
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	cam_eeprom_shutdown(e_ctrl);
 	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_release_power_domain(e_ctrl);
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
 	kfree(e_ctrl->io_master_info.spi_client);
@@ -613,6 +615,7 @@ static void cam_eeprom_component_unbind(struct device *dev,
 	mutex_lock(&(e_ctrl->eeprom_mutex));
 	cam_eeprom_shutdown(e_ctrl);
 	mutex_unlock(&(e_ctrl->eeprom_mutex));
+	cam_eeprom_release_power_domain(e_ctrl);
 	mutex_destroy(&(e_ctrl->eeprom_mutex));
 	cam_unregister_subdev(&(e_ctrl->v4l2_dev_str));
 	kfree(soc_info->soc_private);
@@ -782,7 +785,7 @@ int cam_eeprom_driver_init(void)
 
 	memset(eeprom_i3c_id, 0, sizeof(struct i3c_device_id) * (MAX_I3C_DEVICE_ID_ENTRIES + 1));
 
-	dev = of_find_node_by_path(I3C_SENSOR_DEV_ID_DT_PATH);
+	dev = of_find_node_by_name(NULL, I3C_SENSOR_DEV_ID_DT_NODE);
 	if (!dev) {
 		CAM_DBG(CAM_EEPROM, "Couldnt Find the i3c-id-table dev node");
 		return 0;
@@ -823,7 +826,7 @@ void cam_eeprom_driver_exit(void)
 	spi_unregister_driver(&cam_eeprom_spi_driver);
 	i2c_del_driver(&cam_eeprom_i2c_driver);
 
-	dev = of_find_node_by_path(I3C_SENSOR_DEV_ID_DT_PATH);
+	dev = of_find_node_by_name(NULL, I3C_SENSOR_DEV_ID_DT_NODE);
 	if (!dev) {
 		CAM_DBG(CAM_EEPROM, "Couldnt Find the i3c-id-table dev node");
 		return;

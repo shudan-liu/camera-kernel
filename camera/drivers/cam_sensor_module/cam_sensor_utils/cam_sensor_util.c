@@ -7,6 +7,8 @@
 #include <linux/kernel.h>
 #include <linux/pinctrl/consumer.h>
 #include <clocksource/arm_arch_timer.h>
+#include <linux/pm_domain.h>
+#include <linux/pm_runtime.h>
 #include "cam_sensor_util.h"
 #include "cam_mem_mgr.h"
 #include "cam_res_mgr_api.h"
@@ -278,10 +280,11 @@ int32_t cam_sensor_handle_random_write(
 	struct list_head **list)
 {
 	struct i2c_settings_list  *i2c_list;
-	int32_t rc = 0, cnt;
+	int32_t rc = 0, cnt, payload_count;
 
+	payload_count = cam_cmd_i2c_random_wr->header.count;
 	i2c_list = cam_sensor_get_i2c_ptr(i2c_reg_settings,
-		cam_cmd_i2c_random_wr->header.count);
+						payload_count);
 	if (i2c_list == NULL ||
 		i2c_list->i2c_settings.reg_setting == NULL) {
 		CAM_ERR(CAM_SENSOR_UTIL, "Failed in allocating i2c_list");
@@ -290,15 +293,14 @@ int32_t cam_sensor_handle_random_write(
 
 	*cmd_length_in_bytes = (sizeof(struct i2c_rdwr_header) +
 		sizeof(struct i2c_random_wr_payload) *
-		(cam_cmd_i2c_random_wr->header.count));
+		payload_count);
 	i2c_list->op_code = CAM_SENSOR_I2C_WRITE_RANDOM;
 	i2c_list->i2c_settings.addr_type =
 		cam_cmd_i2c_random_wr->header.addr_type;
 	i2c_list->i2c_settings.data_type =
 		cam_cmd_i2c_random_wr->header.data_type;
 
-	for (cnt = 0; cnt < (cam_cmd_i2c_random_wr->header.count);
-		cnt++) {
+	for (cnt = 0; cnt < payload_count; cnt++) {
 		i2c_list->i2c_settings.reg_setting[cnt].reg_addr =
 			cam_cmd_i2c_random_wr->random_wr_payload[cnt].reg_addr;
 		i2c_list->i2c_settings.reg_setting[cnt].reg_data =
@@ -318,10 +320,11 @@ int32_t cam_sensor_handle_continuous_write(
 	struct list_head **list)
 {
 	struct i2c_settings_list *i2c_list;
-	int32_t rc = 0, cnt;
+	int32_t rc = 0, cnt, payload_count;
 
+	payload_count = cam_cmd_i2c_continuous_wr->header.count;
 	i2c_list = cam_sensor_get_i2c_ptr(i2c_reg_settings,
-		cam_cmd_i2c_continuous_wr->header.count);
+						payload_count);
 	if (i2c_list == NULL ||
 		i2c_list->i2c_settings.reg_setting == NULL) {
 		CAM_ERR(CAM_SENSOR_UTIL, "Failed in allocating i2c_list");
@@ -331,7 +334,7 @@ int32_t cam_sensor_handle_continuous_write(
 	*cmd_length_in_bytes = (sizeof(struct i2c_rdwr_header) +
 		sizeof(cam_cmd_i2c_continuous_wr->reg_addr) +
 		sizeof(struct cam_cmd_read) *
-		(cam_cmd_i2c_continuous_wr->header.count));
+		(payload_count));
 	if (cam_cmd_i2c_continuous_wr->header.op_code ==
 		CAMERA_SENSOR_I2C_OP_CONT_WR_BRST)
 		i2c_list->op_code = CAM_SENSOR_I2C_WRITE_BURST;
@@ -348,8 +351,7 @@ int32_t cam_sensor_handle_continuous_write(
 	i2c_list->i2c_settings.size =
 		cam_cmd_i2c_continuous_wr->header.count;
 
-	for (cnt = 0; cnt < (cam_cmd_i2c_continuous_wr->header.count);
-		cnt++) {
+	for (cnt = 0; cnt < payload_count; cnt++) {
 		i2c_list->i2c_settings.reg_setting[cnt].reg_addr =
 			cam_cmd_i2c_continuous_wr->reg_addr;
 		i2c_list->i2c_settings.reg_setting[cnt].reg_data =
@@ -2096,6 +2098,39 @@ static int cam_config_mclk_reg(struct cam_sensor_power_ctrl_t *ctrl,
 	return rc;
 }
 
+int cam_sensor_util_request_power_domain(struct cam_hw_soc_info *soc_info)
+{
+	int i, rc = 0;
+
+	rc = cam_soc_util_configure_pd(soc_info);
+	if (rc) {
+		CAM_ERR(CAM_SENSOR, "Failed to configure Genpd");
+		return rc;
+	}
+
+	pm_runtime_enable(soc_info->dev);
+
+	/*
+	 * Doing a pm_runtime_get_sync() and pm_runtime_put_sync() after pm_runtime_enable
+	 * makes sure that the GDSC is off and only enabled later by the usecase when there
+	 * is such a requirement.
+	 */
+	cam_soc_util_power_domain_enable_default(soc_info);
+	cam_soc_util_power_domain_disable_default(soc_info);
+
+	return rc;
+}
+
+void cam_sensor_util_release_power_domain(struct cam_hw_soc_info *soc_info)
+{
+	int i;
+
+	pm_runtime_disable(soc_info->dev);
+
+	for (i = 0; i < soc_info->num_genpd; i++)
+		dev_pm_domain_detach(soc_info->genpd[i], true);
+}
+
 int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 		struct cam_hw_soc_info *soc_info, struct completion *i3c_probe_status)
 {
@@ -2305,6 +2340,13 @@ int cam_sensor_core_power_up(struct cam_sensor_power_ctrl_t *ctrl,
 					power_setting->seq_val, num_vreg);
 			}
 
+			rc = cam_soc_util_power_domain_enable_default(soc_info);
+			if (rc < 0) {
+				CAM_ERR(CAM_SENSOR_UTIL,
+					"Power domain enable failed with rc = %d", rc);
+				goto power_up_failed;
+			}
+
 			rc = msm_cam_sensor_handle_reg_gpio(
 				power_setting->seq_type,
 				gpio_num_info, 1);
@@ -2408,6 +2450,8 @@ power_up_failed:
 				CAM_ERR(CAM_SENSOR_UTIL, "seq_val:%d > num_vreg: %d",
 					power_setting->seq_val, num_vreg);
 			}
+
+			cam_soc_util_power_domain_disable_default(soc_info);
 
 			msm_cam_sensor_handle_reg_gpio(power_setting->seq_type,
 				gpio_num_info, GPIOF_OUT_INIT_LOW);
@@ -2575,6 +2619,8 @@ int cam_sensor_util_power_down(struct cam_sensor_power_ctrl_t *ctrl,
 			} else
 				CAM_ERR(CAM_SENSOR_UTIL,
 					"error in power up/down seq");
+
+			cam_soc_util_power_domain_disable_default(soc_info);
 
 			ret = msm_cam_sensor_handle_reg_gpio(pd->seq_type,
 				gpio_num_info, GPIOF_OUT_INIT_LOW);

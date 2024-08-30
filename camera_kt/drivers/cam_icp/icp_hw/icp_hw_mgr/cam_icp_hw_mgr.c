@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/uaccess.h>
@@ -2657,7 +2657,7 @@ static int32_t cam_icp_mgr_process_msg(void *priv, void *data)
 	return rc;
 }
 
-int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
+static int32_t cam_icp_hw_mgr_cb(uint32_t irq_status, void *data)
 {
 	int32_t rc = 0;
 	unsigned long flags;
@@ -4159,7 +4159,8 @@ static bool cam_icp_mgr_is_valid_outconfig(struct cam_packet *packet)
 					packet->io_configs_offset/4);
 
 	for (i = 0 ; i < packet->num_io_configs; i++)
-		if (io_cfg_ptr[i].direction == CAM_BUF_OUTPUT)
+	    if ((io_cfg_ptr[i].direction == CAM_BUF_OUTPUT) ||
+		(io_cfg_ptr[i].direction == CAM_BUF_IN_OUT))
 			num_out_map_entries++;
 
 	if (num_out_map_entries <= CAM_MAX_OUT_RES) {
@@ -4310,10 +4311,17 @@ static int cam_icp_mgr_process_io_cfg(struct cam_icp_hw_mgr *hw_mgr,
 		if (io_cfg_ptr[i].direction == CAM_BUF_INPUT) {
 			sync_in_obj[j++] = io_cfg_ptr[i].fence;
 			prepare_args->num_in_map_entries++;
-		} else {
+		} else if ((io_cfg_ptr[i].direction == CAM_BUF_OUTPUT) ||
+		    (io_cfg_ptr[i].direction == CAM_BUF_IN_OUT)) {
 			prepare_args->out_map_entries[k++].sync_id =
 				io_cfg_ptr[i].fence;
 			prepare_args->num_out_map_entries++;
+		} else {
+		    CAM_ERR(CAM_ICP, "dir: %d, max_out:%u, out %u",
+			io_cfg_ptr[i].direction,
+			prepare_args->max_out_map_entries,
+			prepare_args->num_out_map_entries);
+		return -EINVAL;
 		}
 		CAM_DBG(CAM_REQ,
 			"ctx_id: %u req_id: %llu dir[%d]: %u, fence: %u resource_type = %u memh %x",
@@ -6103,7 +6111,7 @@ cmd_work_failed:
 	return rc;
 }
 
-void cam_icp_mgr_destroy_wq(void)
+static void cam_icp_mgr_destroy_wq(void)
 {
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.timer_work);
 	cam_req_mgr_workq_destroy(&icp_hw_mgr.msg_work);

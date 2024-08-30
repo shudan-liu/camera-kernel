@@ -6,11 +6,12 @@ $(info "MACHINE is: $(MACHINE)")
 $(info "CAMERA_ARCH is: $(CAMERA_ARCH)")
 
 # Include Architecture configurations
-ifeq ($(CAMERA_ARCH), qcm6490)
-include $(CAMERA_KERNEL_ROOT)/config/qcm6490-camera.mk
+ifdef MACHINE
+include $(CAMERA_KERNEL_ROOT)/config/$(MACHINE)-camera.mk
 else
-include $(CAMERA_KERNEL_ROOT)/config/qcs8550-camera.mk
+$(info "MACHINE not defined.")
 endif
+
 ifneq ($(KBUILD_EXTRA_CONFIGS),)
 include $(KBUILD_EXTRA_CONFIGS)
 endif
@@ -241,6 +242,8 @@ camera-$(CONFIG_SPECTRA_TFE) += \
 	camera_kt/drivers/cam_isp/isp_hw_mgr/cam_tfe_hw_mgr.o
 
 camera-y += camera_kt/drivers/camera_main.o
+
+ccflags-y += -Wmissing-prototypes
 
 obj-m += camera.o
 BOARD_VENDOR_KERNEL_MODULES += $(KERNEL_MODULES_OUT)/camera.ko

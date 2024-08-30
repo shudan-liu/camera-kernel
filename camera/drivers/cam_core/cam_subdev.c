@@ -135,7 +135,6 @@ int cam_subdev_remove(struct cam_subdev *sd)
 	if (!sd)
 		return -EINVAL;
 
-	cam_unregister_subdev(sd);
 	cam_node_deinit((struct cam_node *)sd->token);
 	kfree(sd->token);
 	memset(sd, 0, sizeof(struct cam_subdev));
@@ -146,15 +145,19 @@ int cam_subdev_remove(struct cam_subdev *sd)
 int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	char *name, uint32_t dev_type)
 {
-	int rc;
+	int rc = 0;
 	struct cam_node *node = NULL;
 
-	if (!sd || !pdev || !name)
-		return -EINVAL;
+	if (!sd || !pdev || !name) {
+		rc = -EINVAL;
+		goto end;
+	}
 
 	node = kzalloc(sizeof(*node), GFP_KERNEL);
-	if (!node)
-		return -ENOMEM;
+	if (!node) {
+		rc = -ENOMEM;
+		goto end;
+	}
 
 	/* Setup camera v4l2 subdevice */
 	sd->pdev = pdev;
@@ -164,16 +167,24 @@ int cam_subdev_probe(struct cam_subdev *sd, struct platform_device *pdev,
 	sd->sd_flags =
 		V4L2_SUBDEV_FL_HAS_DEVNODE | V4L2_SUBDEV_FL_HAS_EVENTS;
 	sd->ent_function = dev_type;
+end:
+	return rc;
+}
+
+int cam_subdev_register(struct cam_subdev *sd, struct platform_device *pdev)
+{
+	int rc;
+
+	if (!sd || !pdev)
+		return -EINVAL;
 
 	rc = cam_register_subdev(sd);
 	if (rc) {
 		CAM_ERR(CAM_CORE, "cam_register_subdev() failed for dev: %s",
 			sd->name);
-		goto err;
+		goto end;
 	}
 	platform_set_drvdata(sd->pdev, sd);
-	return rc;
-err:
-	kfree(node);
+end:
 	return rc;
 }

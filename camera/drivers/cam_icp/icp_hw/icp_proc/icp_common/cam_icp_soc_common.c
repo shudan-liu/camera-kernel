@@ -151,6 +151,7 @@ static int cam_icp_soc_get_hw_version(struct device_node *np,
 	case CAM_ICP_V1_VERSION:
 	case CAM_ICP_V2_VERSION:
 	case CAM_ICP_V2_1_VERSION:
+	case CAM_ICP_V3_0_VERSION:
 		icp_soc_info->hw_version = version;
 		break;
 	default:

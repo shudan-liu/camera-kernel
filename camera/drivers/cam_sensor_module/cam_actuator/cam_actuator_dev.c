@@ -293,6 +293,8 @@ static void cam_actuator_i2c_component_unbind(struct device *dev,
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
 
+	cam_actuator_release_power_domain(a_ctrl);
+
 	/*Free Allocated Mem */
 	kfree(a_ctrl->i2c_data.per_frame);
 	a_ctrl->i2c_data.per_frame = NULL;
@@ -455,6 +457,8 @@ static void cam_actuator_platform_component_unbind(struct device *dev,
 	cam_actuator_shutdown(a_ctrl);
 	mutex_unlock(&(a_ctrl->actuator_mutex));
 	cam_unregister_subdev(&(a_ctrl->v4l2_dev_str));
+
+	cam_actuator_release_power_domain(a_ctrl);
 
 	kfree(a_ctrl->io_master_info.cci_client);
 	a_ctrl->io_master_info.cci_client = NULL;
@@ -619,7 +623,7 @@ int cam_actuator_driver_init(void)
 
 	memset(actuator_i3c_id, 0, sizeof(struct i3c_device_id) * (MAX_I3C_DEVICE_ID_ENTRIES + 1));
 
-	dev = of_find_node_by_path(I3C_SENSOR_DEV_ID_DT_PATH);
+	dev = of_find_node_by_name(NULL, I3C_SENSOR_DEV_ID_DT_NODE);
 	if (!dev) {
 		CAM_DBG(CAM_ACTUATOR, "Couldnt Find the i3c-id-table dev node");
 		return 0;
@@ -658,7 +662,7 @@ void cam_actuator_driver_exit(void)
 	platform_driver_unregister(&cam_actuator_platform_driver);
 	i2c_del_driver(&cam_actuator_i2c_driver);
 
-	dev = of_find_node_by_path(I3C_SENSOR_DEV_ID_DT_PATH);
+	dev = of_find_node_by_name(NULL, I3C_SENSOR_DEV_ID_DT_NODE);
 	if (!dev) {
 		CAM_DBG(CAM_ACTUATOR, "Couldnt Find the i3c-id-table dev node");
 		return;

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024, Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -156,6 +157,7 @@ static int cam_jpeg_dev_component_bind(struct device *dev,
 		cam_jpeg_dev_iommu_fault_handler, node);
 
 	mutex_init(&g_jpeg_dev.jpeg_mutex);
+	rc = cam_subdev_register(&g_jpeg_dev.sd, pdev);
 
 	CAM_DBG(CAM_JPEG, "Component bound successfully");
 
@@ -185,9 +187,13 @@ static void cam_jpeg_dev_component_unbind(struct device *dev,
 				i, rc);
 	}
 
-	rc = cam_subdev_remove(&g_jpeg_dev.sd);
+	rc = cam_unregister_subdev(&g_jpeg_dev.sd);
 	if (rc)
 		CAM_ERR(CAM_JPEG, "Unregister failed %d", rc);
+
+	rc = cam_subdev_remove(&g_jpeg_dev.sd);
+	if (rc)
+		CAM_ERR(CAM_JPEG, "Subdev remove failed %d", rc);
 }
 
 const static struct component_ops cam_jpeg_dev_component_ops = {

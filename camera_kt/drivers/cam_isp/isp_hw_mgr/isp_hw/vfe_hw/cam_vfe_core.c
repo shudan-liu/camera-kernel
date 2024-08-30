@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/delay.h>
@@ -63,7 +63,7 @@ int cam_vfe_get_hw_caps(void *hw_priv, void *get_hw_cap_args, uint32_t arg_size)
 	return rc;
 }
 
-int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
+static int cam_vfe_reset_irq_top_half(uint32_t    evt_id,
 	struct cam_irq_th_payload         *th_payload)
 {
 	int32_t                            rc = -EINVAL;

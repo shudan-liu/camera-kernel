@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
  * Copyright (c) 2017-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  */
 
 #include <linux/module.h>
@@ -36,7 +37,7 @@ static struct cam_ipe_device_hw_info cam_ipe_hw_info[] = {
 
 static char ipe_dev_name[8];
 
-int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
+static int cam_ipe_register_cpas(struct cam_hw_soc_info *soc_info,
 	struct cam_ipe_device_core_info *core_info,
 	uint32_t hw_idx)
 {
@@ -197,7 +198,7 @@ const static struct component_ops cam_ipe_component_ops = {
 	.unbind = cam_ipe_component_unbind,
 };
 
-int cam_ipe_probe(struct platform_device *pdev)
+static int cam_ipe_probe(struct platform_device *pdev)
 {
 	int rc = 0;
 
