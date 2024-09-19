@@ -1616,6 +1616,12 @@ static int32_t cam_cci_i2c_write(struct v4l2_subdev *sd,
 		return -EINVAL;
 	}
 	master = c_ctrl->cci_info->cci_i2c_master;
+        if (master >= MASTER_MAX)
+	{
+		CAM_ERR(CAM_CCI, "invalid master value");
+		return -EINVAL;
+	}
+
 	CAM_DBG(CAM_CCI, "set param sid 0x%x retries %d id_map %d",
 		c_ctrl->cci_info->sid, c_ctrl->cci_info->retries,
 		c_ctrl->cci_info->id_map);
